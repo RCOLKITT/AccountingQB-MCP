@@ -3783,6 +3783,1154 @@ async def qb_delete_journal_entry(journal_entry_id: str, confirm: bool = False) 
 
 
 # ===================================================================
+# NEW: 1099 Contractor Reporting
+# ===================================================================
+
+@mcp.tool()
+async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 600.0) -> str:
+    """Generate 1099-NEC contractor reporting data for a tax year.
+    Lists all vendors paid >= threshold (default $600) via non-employee compensation.
+    Shows vendor name, total paid, TIN status, and address.
+    Useful for year-end tax filing prep and 1099-NEC generation.
+    tax_year: YYYY format. threshold: minimum payment amount to include (IRS default $600)."""
+    start = f"{tax_year}-01-01"
+    end = f"{tax_year}-12-31"
+    threshold = _validate_amount(threshold, "threshold")
+
+    # Get all vendors
+    vendor_result = await qb_query("SELECT * FROM Vendor MAXRESULTS 500")
+    vendors = vendor_result.get("QueryResponse", {}).get("Vendor", [])
+    if not vendors:
+        return "No vendors found."
+
+    # Get all purchases for the year
+    purchase_result = await qb_query(
+        f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
+    )
+    purchases = purchase_result.get("QueryResponse", {}).get("Purchase", [])
+
+    # Get all bill payments for the year
+    billpay_result = await qb_query(
+        f"SELECT * FROM BillPayment WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
+    )
+    bill_payments = billpay_result.get("QueryResponse", {}).get("BillPayment", [])
+
+    # Get all bills for the year (for bill-based payments)
+    bill_result = await qb_query(
+        f"SELECT * FROM Bill WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
+    )
+    bills = bill_result.get("QueryResponse", {}).get("Bill", [])
+
+    # Build vendor lookup
+    vendor_map = {}
+    for v in vendors:
+        vid = v.get("Id", "")
+        vendor_map[vid] = {
+            "name": v.get("DisplayName", "?"),
+            "company": v.get("CompanyName", ""),
+            "tin": v.get("TaxIdentifier", ""),
+            "vendor1099": v.get("Vendor1099", False),
+            "email": v.get("PrimaryEmailAddr", {}).get("Address", ""),
+            "address": "",
+            "total_paid": 0.0,
+            "payment_count": 0,
+        }
+        addr = v.get("BillAddr", {})
+        if addr:
+            parts = [addr.get("Line1", ""), addr.get("City", ""),
+                     addr.get("CountrySubDivisionCode", ""), addr.get("PostalCode", "")]
+            vendor_map[vid]["address"] = ", ".join(p for p in parts if p)
+
+    # Tally from purchases (direct payments)
+    for p in purchases:
+        entity_ref = p.get("EntityRef", {})
+        vid = entity_ref.get("value", "")
+        if vid in vendor_map:
+            amount = float(p.get("TotalAmt", 0))
+            vendor_map[vid]["total_paid"] += amount
+            vendor_map[vid]["payment_count"] += 1
+
+    # Tally from bills
+    for b in bills:
+        entity_ref = b.get("VendorRef", {})
+        vid = entity_ref.get("value", "")
+        if vid in vendor_map:
+            amount = float(b.get("TotalAmt", 0))
+            vendor_map[vid]["total_paid"] += amount
+            vendor_map[vid]["payment_count"] += 1
+
+    # Filter vendors above threshold
+    reportable = []
+    for vid, info in vendor_map.items():
+        if info["total_paid"] >= threshold:
+            reportable.append(info)
+
+    reportable.sort(key=lambda x: x["total_paid"], reverse=True)
+
+    lines = [
+        f"## 1099-NEC Contractor Report — {tax_year}",
+        f"**Threshold:** {fmt(threshold)}",
+        f"**Reportable Vendors:** {len(reportable)}\n",
+    ]
+
+    grand_total = 0.0
+    missing_tin = 0
+    missing_addr = 0
+
+    for i, v in enumerate(reportable, 1):
+        grand_total += v["total_paid"]
+        tin_status = "✅ On file" if v["tin"] else "⚠️ MISSING"
+        flag_1099 = "Yes" if v["vendor1099"] else "No"
+
+        if not v["tin"]:
+            missing_tin += 1
+        if not v["address"]:
+            missing_addr += 1
+
+        lines.append(f"### {i}. {v['name']}")
+        lines.append(f"  **Total Paid:** {fmt(v['total_paid'])} ({v['payment_count']} payments)")
+        lines.append(f"  **1099 Vendor Flag:** {flag_1099}")
+        lines.append(f"  **TIN Status:** {tin_status}")
+        if v["company"]:
+            lines.append(f"  **Company:** {v['company']}")
+        if v["address"]:
+            lines.append(f"  **Address:** {v['address']}")
+        else:
+            lines.append(f"  **Address:** ⚠️ MISSING — needed for 1099-NEC filing")
+        if v["email"]:
+            lines.append(f"  **Email:** {v['email']}")
+        lines.append("")
+
+    lines.extend([
+        f"---",
+        f"### Summary",
+        f"  Total reportable payments: {fmt(grand_total)}",
+        f"  Vendors requiring 1099-NEC: {len(reportable)}",
+        f"  Missing TIN: {missing_tin}",
+        f"  Missing address: {missing_addr}",
+        "",
+    ])
+
+    if missing_tin > 0 or missing_addr > 0:
+        lines.append("### ⚠️ Action Items")
+        if missing_tin > 0:
+            lines.append(f"  - Collect W-9 from {missing_tin} vendor(s) to get TIN")
+        if missing_addr > 0:
+            lines.append(f"  - Collect mailing address from {missing_addr} vendor(s)")
+        lines.append(f"  - 1099-NEC filing deadline: January 31, {int(tax_year)+1}")
+        lines.append(f"  - Use IRS FIRE system or approved e-file provider")
+
+    _audit_log("1099_REPORT", f"year={tax_year} vendors={len(reportable)} total={fmt(grand_total)}")
+    return "\n".join(lines)
+
+
+# ===================================================================
+# NEW: Anomaly Detection
+# ===================================================================
+
+@mcp.tool()
+async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str = "medium") -> str:
+    """Analyze transactions for anomalies and unusual patterns.
+    Detects: unusually large transactions, duplicate payments, weekend/holiday activity,
+    round-number payments, vendor concentration risk, and statistical outliers.
+    sensitivity: low (flag only extreme), medium (balanced), high (flag more).
+    start_date/end_date in YYYY-MM-DD format."""
+    start_date = _validate_date(start_date, "start_date")
+    end_date = _validate_date(end_date, "end_date")
+    sensitivity = _sanitize_input(sensitivity, "sensitivity")
+
+    if sensitivity not in ("low", "medium", "high"):
+        sensitivity = "medium"
+
+    # Set z-score thresholds based on sensitivity
+    z_thresholds = {"low": 3.0, "medium": 2.0, "high": 1.5}
+    z_limit = z_thresholds[sensitivity]
+
+    # Fetch all purchases
+    purchase_result = await qb_query(
+        f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 1000"
+    )
+    purchases = purchase_result.get("QueryResponse", {}).get("Purchase", [])
+
+    # Fetch bills
+    bill_result = await qb_query(
+        f"SELECT * FROM Bill WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 1000"
+    )
+    bills = bill_result.get("QueryResponse", {}).get("Bill", [])
+
+    # Combine into unified transaction list
+    all_txns = []
+    for p in purchases:
+        all_txns.append({
+            "type": "Purchase",
+            "id": p.get("Id", "?"),
+            "date": p.get("TxnDate", "?"),
+            "amount": float(p.get("TotalAmt", 0)),
+            "vendor": p.get("EntityRef", {}).get("name", "Unknown"),
+            "memo": p.get("PrivateNote", ""),
+            "account": p.get("AccountRef", {}).get("name", "?"),
+        })
+    for b in bills:
+        all_txns.append({
+            "type": "Bill",
+            "id": b.get("Id", "?"),
+            "date": b.get("TxnDate", "?"),
+            "amount": float(b.get("TotalAmt", 0)),
+            "vendor": b.get("VendorRef", {}).get("name", "Unknown"),
+            "memo": b.get("PrivateNote", ""),
+            "account": "",
+        })
+
+    if not all_txns:
+        return "No transactions found in the date range."
+
+    amounts = [t["amount"] for t in all_txns if t["amount"] > 0]
+    if not amounts:
+        return "No non-zero transactions found."
+
+    # Statistical analysis
+    import statistics
+    mean_amt = statistics.mean(amounts)
+    stdev_amt = statistics.stdev(amounts) if len(amounts) > 1 else 0
+    median_amt = statistics.median(amounts)
+
+    anomalies = []
+
+    # 1. Statistical outliers (z-score)
+    for t in all_txns:
+        if stdev_amt > 0 and t["amount"] > 0:
+            z = (t["amount"] - mean_amt) / stdev_amt
+            if z > z_limit:
+                anomalies.append({
+                    "category": "Statistical Outlier",
+                    "severity": "HIGH" if z > 3 else "MEDIUM",
+                    "detail": f"{t['type']} #{t['id']} on {t['date']}: {fmt(t['amount'])} to {t['vendor']} (z-score: {z:.1f})",
+                    "txn": t,
+                })
+
+    # 2. Duplicate detection (same vendor + similar amount within 3 days)
+    from datetime import timedelta
+    sorted_txns = sorted(all_txns, key=lambda x: (x["vendor"], x["date"]))
+    for i in range(len(sorted_txns) - 1):
+        a = sorted_txns[i]
+        b = sorted_txns[i + 1]
+        if a["vendor"] == b["vendor"] and a["vendor"] != "Unknown":
+            try:
+                date_a = datetime.strptime(a["date"], "%Y-%m-%d")
+                date_b = datetime.strptime(b["date"], "%Y-%m-%d")
+                day_diff = abs((date_b - date_a).days)
+                amt_diff = abs(a["amount"] - b["amount"])
+                if day_diff <= 3 and amt_diff < 0.01 and a["amount"] > 0:
+                    anomalies.append({
+                        "category": "Potential Duplicate",
+                        "severity": "HIGH",
+                        "detail": f"{a['vendor']}: {fmt(a['amount'])} on {a['date']} & {b['date']} ({a['type']} #{a['id']} & #{b['id']})",
+                        "txn": a,
+                    })
+            except ValueError:
+                pass
+
+    # 3. Round-number payments (possible estimates, not actual invoices)
+    for t in all_txns:
+        if t["amount"] >= 1000 and t["amount"] == round(t["amount"], -2):
+            anomalies.append({
+                "category": "Round Number",
+                "severity": "LOW",
+                "detail": f"{t['type']} #{t['id']}: {fmt(t['amount'])} to {t['vendor']} on {t['date']}",
+                "txn": t,
+            })
+
+    # 4. Weekend transactions
+    for t in all_txns:
+        try:
+            d = datetime.strptime(t["date"], "%Y-%m-%d")
+            if d.weekday() >= 5:  # Saturday=5, Sunday=6
+                day_name = "Saturday" if d.weekday() == 5 else "Sunday"
+                anomalies.append({
+                    "category": "Weekend Transaction",
+                    "severity": "LOW",
+                    "detail": f"{t['type']} #{t['id']}: {fmt(t['amount'])} to {t['vendor']} on {t['date']} ({day_name})",
+                    "txn": t,
+                })
+        except ValueError:
+            pass
+
+    # 5. Vendor concentration risk (single vendor > 30% of total spend)
+    vendor_totals = {}
+    total_spend = sum(amounts)
+    for t in all_txns:
+        v = t["vendor"]
+        vendor_totals[v] = vendor_totals.get(v, 0) + t["amount"]
+    for v, total in vendor_totals.items():
+        pct = (total / total_spend * 100) if total_spend > 0 else 0
+        if pct > 30 and v != "Unknown":
+            anomalies.append({
+                "category": "Vendor Concentration",
+                "severity": "MEDIUM",
+                "detail": f"{v}: {fmt(total)} = {pct:.1f}% of total spend",
+                "txn": None,
+            })
+
+    # Deduplicate
+    seen = set()
+    unique_anomalies = []
+    for a in anomalies:
+        key = a["detail"]
+        if key not in seen:
+            seen.add(key)
+            unique_anomalies.append(a)
+
+    # Sort by severity
+    sev_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+    unique_anomalies.sort(key=lambda x: sev_order.get(x["severity"], 3))
+
+    lines = [
+        f"## Transaction Anomaly Report",
+        f"**Period:** {start_date} to {end_date}",
+        f"**Transactions Analyzed:** {len(all_txns)}",
+        f"**Sensitivity:** {sensitivity} (z-score threshold: {z_limit})",
+        f"**Anomalies Found:** {len(unique_anomalies)}\n",
+        f"### Statistics",
+        f"  Mean transaction: {fmt(mean_amt)}",
+        f"  Median transaction: {fmt(median_amt)}",
+        f"  Std deviation: {fmt(stdev_amt)}",
+        f"  Total spend: {fmt(total_spend)}\n",
+    ]
+
+    if not unique_anomalies:
+        lines.append("✅ No anomalies detected at this sensitivity level.")
+    else:
+        # Group by category
+        from collections import defaultdict
+        by_cat = defaultdict(list)
+        for a in unique_anomalies:
+            by_cat[a["category"]].append(a)
+
+        for cat, items in by_cat.items():
+            lines.append(f"### {cat} ({len(items)})")
+            for a in items:
+                icon = "🔴" if a["severity"] == "HIGH" else "🟡" if a["severity"] == "MEDIUM" else "🟢"
+                lines.append(f"  {icon} [{a['severity']}] {a['detail']}")
+            lines.append("")
+
+    _audit_log("ANOMALY_DETECTION", f"period={start_date}/{end_date} txns={len(all_txns)} anomalies={len(unique_anomalies)}")
+    return "\n".join(lines)
+
+
+# ===================================================================
+# NEW: Credit Memo Management
+# ===================================================================
+
+@mcp.tool()
+async def qb_list_credit_memos(start_date: str, end_date: str, customer_name: str = "", max_results: int = 100) -> str:
+    """List credit memos (customer credits/refunds) within a date range.
+    Credit memos reduce what a customer owes. Optionally filter by customer_name.
+    start_date/end_date in YYYY-MM-DD format."""
+    start_date = _validate_date(start_date, "start_date")
+    end_date = _validate_date(end_date, "end_date")
+
+    query = f"SELECT * FROM CreditMemo WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
+    if customer_name:
+        customer_name = _sanitize_input(customer_name, "customer_name")
+        # Look up customer first
+        cust_result = await qb_query(f"SELECT * FROM Customer WHERE DisplayName LIKE '%{customer_name}%' MAXRESULTS 5")
+        customers = cust_result.get("QueryResponse", {}).get("Customer", [])
+        if customers:
+            cust_id = customers[0]["Id"]
+            query += f" AND CustomerRef = '{cust_id}'"
+    query += f" MAXRESULTS {max_results}"
+
+    result = await qb_query(query)
+    memos = result.get("QueryResponse", {}).get("CreditMemo", [])
+
+    if not memos:
+        return "No credit memos found in the date range."
+
+    total = 0.0
+    lines = [f"## Credit Memos ({start_date} to {end_date})\n"]
+    for cm in memos:
+        cm_id = cm.get("Id", "?")
+        date = cm.get("TxnDate", "?")
+        cust = cm.get("CustomerRef", {}).get("name", "?")
+        amount = float(cm.get("TotalAmt", 0))
+        balance = float(cm.get("RemainingCredit", 0))
+        memo = cm.get("PrivateNote", "")
+        doc_num = cm.get("DocNumber", "")
+        total += amount
+
+        lines.append(f"**#{doc_num or cm_id}** | {date} | {cust}")
+        lines.append(f"  Amount: {fmt(amount)} | Remaining: {fmt(balance)}")
+        if memo:
+            lines.append(f"  Memo: {memo[:80]}")
+        lines.append("")
+
+    lines.append(f"---\n**Total Credit Memos:** {fmt(total)} ({len(memos)} memos)")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+async def qb_create_credit_memo(customer_name: str, line_items: str, date: str = "", memo: str = "") -> str:
+    """Create a credit memo for a customer. Reduces what the customer owes.
+    customer_name: customer to credit. line_items: JSON string array
+    [{\"description\": \"Returned item\", \"amount\": 50.00}].
+    date: YYYY-MM-DD (defaults to today). memo: internal note."""
+    customer_name = _sanitize_input(customer_name, "customer_name")
+    import json as _json
+
+    # Find customer
+    cust_result = await qb_query(f"SELECT * FROM Customer WHERE DisplayName LIKE '%{customer_name}%' MAXRESULTS 5")
+    customers = cust_result.get("QueryResponse", {}).get("Customer", [])
+    if not customers:
+        return f"Customer '{customer_name}' not found."
+    if len(customers) > 1:
+        names = ", ".join(f"{c['DisplayName']} (ID:{c['Id']})" for c in customers)
+        return f"Multiple customers match: {names}. Be more specific."
+    customer = customers[0]
+
+    try:
+        items = _json.loads(line_items)
+    except _json.JSONDecodeError:
+        return "Invalid line_items JSON. Use format: [{\"description\": \"...\", \"amount\": 100}]"
+
+    cm_lines = []
+    for item in items:
+        amt = _validate_amount(float(item.get("amount", 0)), "line amount")
+        cm_lines.append({
+            "Amount": amt,
+            "Description": item.get("description", ""),
+            "DetailType": "SalesItemLineDetail",
+            "SalesItemLineDetail": {
+                "ItemRef": {"value": "1", "name": "Services"},
+            },
+        })
+
+    body = {
+        "CustomerRef": {"value": customer["Id"]},
+        "Line": cm_lines,
+    }
+    if date:
+        body["TxnDate"] = _validate_date(date, "date")
+    if memo:
+        body["PrivateNote"] = memo
+
+    result = await qb_request("POST", "creditmemo", json_body=body)
+    cm = result.get("CreditMemo", {})
+
+    _audit_log("CREATE_CREDIT_MEMO", f"customer={customer['DisplayName']} amount={fmt(float(cm.get('TotalAmt', 0)))}")
+    return (
+        f"✅ Credit memo created\n"
+        f"  ID: {cm.get('Id')}\n"
+        f"  Customer: {customer['DisplayName']}\n"
+        f"  Amount: {fmt(float(cm.get('TotalAmt', 0)))}\n"
+        f"  Date: {cm.get('TxnDate', 'today')}"
+    )
+
+
+# ===================================================================
+# NEW: Vendor Credit Management
+# ===================================================================
+
+@mcp.tool()
+async def qb_list_vendor_credits(start_date: str, end_date: str, vendor_name: str = "", max_results: int = 100) -> str:
+    """List vendor credits within a date range. Vendor credits reduce what you owe a vendor.
+    Optionally filter by vendor_name. start_date/end_date in YYYY-MM-DD format."""
+    start_date = _validate_date(start_date, "start_date")
+    end_date = _validate_date(end_date, "end_date")
+
+    query = f"SELECT * FROM VendorCredit WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
+    if vendor_name:
+        vendor_name = _sanitize_input(vendor_name, "vendor_name")
+        vend_result = await qb_query(f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 5")
+        vendors = vend_result.get("QueryResponse", {}).get("Vendor", [])
+        if vendors:
+            vend_id = vendors[0]["Id"]
+            query += f" AND VendorRef = '{vend_id}'"
+    query += f" MAXRESULTS {max_results}"
+
+    result = await qb_query(query)
+    credits = result.get("QueryResponse", {}).get("VendorCredit", [])
+
+    if not credits:
+        return "No vendor credits found in the date range."
+
+    total = 0.0
+    lines = [f"## Vendor Credits ({start_date} to {end_date})\n"]
+    for vc in credits:
+        vc_id = vc.get("Id", "?")
+        date = vc.get("TxnDate", "?")
+        vend = vc.get("VendorRef", {}).get("name", "?")
+        amount = float(vc.get("TotalAmt", 0))
+        memo = vc.get("PrivateNote", "")
+        total += amount
+
+        lines.append(f"**#{vc_id}** | {date} | {vend} | {fmt(amount)}")
+        if memo:
+            lines.append(f"  Memo: {memo[:80]}")
+
+        for line in vc.get("Line", []):
+            acct = line.get("AccountBasedExpenseLineDetail", {}).get("AccountRef", {}).get("name", "")
+            if acct:
+                lines.append(f"  - {acct}: {fmt(float(line.get('Amount', 0)))}")
+        lines.append("")
+
+    lines.append(f"---\n**Total Vendor Credits:** {fmt(total)} ({len(credits)} credits)")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+async def qb_create_vendor_credit(vendor_name: str, amount: float, account_name: str, date: str = "", description: str = "") -> str:
+    """Create a vendor credit. Reduces what you owe a vendor (e.g., refund, return, pricing adjustment).
+    vendor_name: vendor issuing the credit. amount: credit amount.
+    account_name: expense account to reduce. date: YYYY-MM-DD (defaults to today)."""
+    vendor_name = _sanitize_input(vendor_name, "vendor_name")
+    account_name = _sanitize_input(account_name, "account_name")
+    amount = _validate_amount(amount, "amount")
+
+    # Find vendor
+    vend_result = await qb_query(f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 5")
+    vendors = vend_result.get("QueryResponse", {}).get("Vendor", [])
+    if not vendors:
+        return f"Vendor '{vendor_name}' not found."
+    if len(vendors) > 1:
+        names = ", ".join(f"{v['DisplayName']} (ID:{v['Id']})" for v in vendors)
+        return f"Multiple vendors match: {names}. Be more specific."
+    vendor = vendors[0]
+
+    # Find account
+    acct_result = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 5")
+    accounts = acct_result.get("QueryResponse", {}).get("Account", [])
+    if not accounts:
+        return f"Account '{account_name}' not found."
+    account = accounts[0]
+
+    body = {
+        "VendorRef": {"value": vendor["Id"]},
+        "Line": [{
+            "Amount": amount,
+            "Description": description,
+            "DetailType": "AccountBasedExpenseLineDetail",
+            "AccountBasedExpenseLineDetail": {
+                "AccountRef": {"value": account["Id"], "name": account["Name"]},
+            },
+        }],
+    }
+    if date:
+        body["TxnDate"] = _validate_date(date, "date")
+
+    result = await qb_request("POST", "vendorcredit", json_body=body)
+    vc = result.get("VendorCredit", {})
+
+    _audit_log("CREATE_VENDOR_CREDIT", f"vendor={vendor['DisplayName']} amount={fmt(amount)}")
+    return (
+        f"✅ Vendor credit created\n"
+        f"  ID: {vc.get('Id')}\n"
+        f"  Vendor: {vendor['DisplayName']}\n"
+        f"  Amount: {fmt(amount)}\n"
+        f"  Account: {account['Name']}\n"
+        f"  Date: {vc.get('TxnDate', 'today')}"
+    )
+
+
+# ===================================================================
+# NEW: Sales Tax Summary
+# ===================================================================
+
+@mcp.tool()
+async def qb_sales_tax_summary(start_date: str, end_date: str) -> str:
+    """Generate a sales tax summary report for a date range.
+    Shows taxable sales, tax collected, tax rates, and liability by jurisdiction.
+    Useful for state/local sales tax filing. start_date/end_date in YYYY-MM-DD."""
+    start_date = _validate_date(start_date, "start_date")
+    end_date = _validate_date(end_date, "end_date")
+
+    # Get invoices and sales receipts with tax
+    inv_result = await qb_query(
+        f"SELECT * FROM Invoice WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
+    )
+    invoices = inv_result.get("QueryResponse", {}).get("Invoice", [])
+
+    sr_result = await qb_query(
+        f"SELECT * FROM SalesReceipt WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
+    )
+    sales_receipts = sr_result.get("QueryResponse", {}).get("SalesReceipt", [])
+
+    # Try to get the TaxAgency / TaxCode info
+    tax_code_result = await qb_query("SELECT * FROM TaxCode MAXRESULTS 50")
+    tax_codes = tax_code_result.get("QueryResponse", {}).get("TaxCode", [])
+
+    tax_rate_result = await qb_query("SELECT * FROM TaxRate MAXRESULTS 50")
+    tax_rates = tax_rate_result.get("QueryResponse", {}).get("TaxRate", [])
+
+    # Build tax rate lookup
+    rate_map = {}
+    for tr in tax_rates:
+        rate_map[tr.get("Id", "")] = {
+            "name": tr.get("Name", "?"),
+            "rate": float(tr.get("RateValue", 0)),
+            "agency": tr.get("AgencyRef", {}).get("name", "?"),
+        }
+
+    total_taxable = 0.0
+    total_tax = 0.0
+    total_exempt = 0.0
+    total_gross = 0.0
+    tax_by_rate = {}
+
+    for txn_list in [invoices, sales_receipts]:
+        for txn in txn_list:
+            total_amt = float(txn.get("TotalAmt", 0))
+            tax_amt = float(txn.get("TxnTaxDetail", {}).get("TotalTax", 0))
+            total_gross += total_amt
+            total_tax += tax_amt
+
+            if tax_amt > 0:
+                total_taxable += (total_amt - tax_amt)
+            else:
+                total_exempt += total_amt
+
+            # Parse tax detail lines
+            tax_lines = txn.get("TxnTaxDetail", {}).get("TaxLine", [])
+            for tl in tax_lines:
+                detail = tl.get("TaxLineDetail", {})
+                rate_id = detail.get("TaxRateRef", {}).get("value", "")
+                tax_on = float(detail.get("NetAmountTaxable", 0))
+                tax_charged = float(tl.get("Amount", 0))
+                rate_info = rate_map.get(rate_id, {"name": f"Rate#{rate_id}", "rate": 0, "agency": "?"})
+
+                key = rate_info["name"]
+                if key not in tax_by_rate:
+                    tax_by_rate[key] = {
+                        "rate": rate_info["rate"],
+                        "agency": rate_info["agency"],
+                        "taxable_amount": 0.0,
+                        "tax_collected": 0.0,
+                    }
+                tax_by_rate[key]["taxable_amount"] += tax_on
+                tax_by_rate[key]["tax_collected"] += tax_charged
+
+    lines = [
+        f"## Sales Tax Summary",
+        f"**Period:** {start_date} to {end_date}",
+        f"**Invoices:** {len(invoices)} | **Sales Receipts:** {len(sales_receipts)}\n",
+        f"### Totals",
+        f"  Gross Sales: {fmt(total_gross)}",
+        f"  Taxable Sales: {fmt(total_taxable)}",
+        f"  Tax-Exempt Sales: {fmt(total_exempt)}",
+        f"  **Total Tax Collected: {fmt(total_tax)}**\n",
+    ]
+
+    if tax_by_rate:
+        lines.append(f"### Tax Breakdown by Rate")
+        for name, info in sorted(tax_by_rate.items()):
+            lines.append(f"  **{name}** ({info['rate']}%) — Agency: {info['agency']}")
+            lines.append(f"    Taxable: {fmt(info['taxable_amount'])} | Tax: {fmt(info['tax_collected'])}")
+            lines.append("")
+
+    if tax_codes:
+        lines.append(f"### Active Tax Codes ({len(tax_codes)})")
+        for tc in tax_codes:
+            active = "Active" if tc.get("Active") else "Inactive"
+            taxable = "Taxable" if tc.get("Taxable") else "Non-Taxable"
+            lines.append(f"  - {tc.get('Name', '?')} ({active}, {taxable})")
+
+    lines.extend([
+        f"\n---",
+        f"*Note: Verify totals against QB Sales Tax Liability report before filing.*",
+        f"*File frequency depends on your state registration.*",
+    ])
+
+    _audit_log("SALES_TAX_SUMMARY", f"period={start_date}/{end_date} tax_collected={fmt(total_tax)}")
+    return "\n".join(lines)
+
+
+# ===================================================================
+# NEW: Multi-Period Cash Flow Forecast
+# ===================================================================
+
+@mcp.tool()
+async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -> str:
+    """Forecast future cash flow based on historical patterns.
+    Analyzes the last base_months of income/expenses and projects months_forward.
+    Shows projected monthly cash balance, burn rate trends, and runway.
+    months_forward: how many months to project (1-24).
+    base_months: historical months to base projections on (3-12)."""
+    months_forward = max(1, min(24, months_forward))
+    base_months = max(3, min(12, base_months))
+
+    from datetime import timedelta
+    from collections import defaultdict
+
+    today = datetime.now()
+    start = (today - timedelta(days=base_months * 30)).strftime("%Y-%m-%d")
+    end = today.strftime("%Y-%m-%d")
+
+    # Get P&L by month for base period
+    params = {"start_date": start, "end_date": end, "summarize_by": "Month"}
+    result = await qb_request("GET", "reports/ProfitAndLoss", params=params)
+
+    # Parse the report
+    rows = result.get("Rows", {}).get("Row", [])
+    columns = result.get("Columns", {}).get("Column", [])
+    month_labels = [c.get("ColTitle", "") for c in columns if c.get("ColTitle", "") != ""]
+
+    # Extract income and expense totals per month
+    monthly_income = []
+    monthly_expenses = []
+
+    for row in rows:
+        row_data = row.get("Summary", {}).get("ColData", []) or row.get("ColData", [])
+        header = row.get("Header", {})
+        group = header.get("ColData", [{}])[0].get("value", "") if header.get("ColData") else row_data[0].get("value", "") if row_data else ""
+
+        if "income" in group.lower() and row.get("type") == "Section":
+            summary = row.get("Summary", {}).get("ColData", [])
+            for i, col in enumerate(summary):
+                val = col.get("value", "0").replace(",", "")
+                try:
+                    monthly_income.append(float(val))
+                except ValueError:
+                    pass
+        elif "expense" in group.lower() and row.get("type") == "Section":
+            summary = row.get("Summary", {}).get("ColData", [])
+            for i, col in enumerate(summary):
+                val = col.get("value", "0").replace(",", "")
+                try:
+                    monthly_expenses.append(float(val))
+                except ValueError:
+                    pass
+
+    # Fallback: use P&L total approach
+    if not monthly_income and not monthly_expenses:
+        pl_params = {"start_date": start, "end_date": end, "summarize_by": "Total"}
+        pl_result = await qb_request("GET", "reports/ProfitAndLoss", params=pl_params)
+        pl_rows = pl_result.get("Rows", {}).get("Row", [])
+        total_income = 0.0
+        total_expenses = 0.0
+        for row in pl_rows:
+            row_data = row.get("Summary", {}).get("ColData", [])
+            if row_data:
+                label = row.get("Header", {}).get("ColData", [{}])[0].get("value", "")
+                val_str = row_data[-1].get("value", "0").replace(",", "") if row_data else "0"
+                try:
+                    val = float(val_str)
+                except ValueError:
+                    val = 0
+                if "income" in label.lower():
+                    total_income = val
+                elif "expense" in label.lower():
+                    total_expenses = abs(val)
+        avg_income = total_income / base_months
+        avg_expenses = total_expenses / base_months
+    else:
+        import statistics
+        avg_income = statistics.mean(monthly_income) if monthly_income else 0
+        avg_expenses = statistics.mean(monthly_expenses) if monthly_expenses else 0
+
+    # Get current cash position
+    accts_result = await qb_query("SELECT * FROM Account WHERE AccountType = 'Bank' MAXRESULTS 20")
+    bank_accounts = accts_result.get("QueryResponse", {}).get("Account", [])
+    current_cash = sum(float(a.get("CurrentBalance", 0)) for a in bank_accounts)
+
+    # Project forward
+    lines = [
+        f"## Cash Flow Forecast",
+        f"**Based on:** Last {base_months} months of data",
+        f"**Projecting:** {months_forward} months forward\n",
+        f"### Current Position",
+        f"  Cash on hand: {fmt(current_cash)}",
+        f"  Avg monthly income: {fmt(avg_income)}",
+        f"  Avg monthly expenses: {fmt(avg_expenses)}",
+        f"  Net monthly: {fmt(avg_income - avg_expenses)}\n",
+        f"### Monthly Projections",
+        f"{'Month':<15} {'Income':>12} {'Expenses':>12} {'Net':>12} {'Balance':>14}",
+        f"{'-'*65}",
+    ]
+
+    balance = current_cash
+    months_to_zero = None
+
+    for m in range(1, months_forward + 1):
+        future_date = today + timedelta(days=m * 30)
+        month_label = future_date.strftime("%b %Y")
+        net = avg_income - avg_expenses
+        balance += net
+
+        lines.append(
+            f"{month_label:<15} {fmt(avg_income):>12} {fmt(avg_expenses):>12} {fmt(net):>12} {fmt(balance):>14}"
+        )
+        if balance <= 0 and months_to_zero is None:
+            months_to_zero = m
+
+    lines.extend([
+        "",
+        f"### Runway Analysis",
+    ])
+
+    if avg_expenses > avg_income and avg_expenses > 0:
+        runway_months = current_cash / (avg_expenses - avg_income)
+        lines.append(f"  ⚠️ **Burn rate:** {fmt(avg_expenses - avg_income)}/month")
+        lines.append(f"  **Runway:** {runway_months:.1f} months")
+        if runway_months < 6:
+            lines.append(f"  🔴 **CRITICAL:** Less than 6 months of runway")
+        elif runway_months < 12:
+            lines.append(f"  🟡 **CAUTION:** Less than 12 months of runway")
+    elif avg_income > avg_expenses:
+        lines.append(f"  ✅ **Positive cash flow:** {fmt(avg_income - avg_expenses)}/month")
+        lines.append(f"  Cash position growing — no runway concerns")
+    else:
+        lines.append(f"  Break-even: income ≈ expenses")
+
+    lines.append(f"\n*Forecast assumes constant rates. Actual results will vary.*")
+
+    _audit_log("CASH_FLOW_FORECAST", f"months={months_forward} cash={fmt(current_cash)} net={fmt(avg_income - avg_expenses)}")
+    return "\n".join(lines)
+
+
+# ===================================================================
+# NEW: Profit Margin by Customer/Item
+# ===================================================================
+
+@mcp.tool()
+async def qb_profit_margin_analysis(start_date: str, end_date: str, group_by: str = "customer") -> str:
+    """Analyze profit margins by customer or item/product.
+    Shows revenue, COGS (if tracked), and margin for each customer or item.
+    group_by: 'customer' or 'item'. start_date/end_date in YYYY-MM-DD."""
+    start_date = _validate_date(start_date, "start_date")
+    end_date = _validate_date(end_date, "end_date")
+    group_by = _sanitize_input(group_by, "group_by").lower()
+
+    if group_by not in ("customer", "item"):
+        return "group_by must be 'customer' or 'item'."
+
+    # Get invoices and sales receipts
+    inv_result = await qb_query(
+        f"SELECT * FROM Invoice WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
+    )
+    invoices = inv_result.get("QueryResponse", {}).get("Invoice", [])
+
+    sr_result = await qb_query(
+        f"SELECT * FROM SalesReceipt WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
+    )
+    sales_receipts = sr_result.get("QueryResponse", {}).get("SalesReceipt", [])
+
+    from collections import defaultdict
+    groups = defaultdict(lambda: {"revenue": 0.0, "cogs": 0.0, "count": 0})
+
+    for txn_list in [invoices, sales_receipts]:
+        for txn in txn_list:
+            if group_by == "customer":
+                key = txn.get("CustomerRef", {}).get("name", "Unknown")
+                groups[key]["revenue"] += float(txn.get("TotalAmt", 0))
+                groups[key]["count"] += 1
+            else:
+                for line in txn.get("Line", []):
+                    detail = line.get("SalesItemLineDetail", {})
+                    item_name = detail.get("ItemRef", {}).get("name", "")
+                    if item_name:
+                        amt = float(line.get("Amount", 0))
+                        groups[item_name]["revenue"] += amt
+                        groups[item_name]["count"] += 1
+
+    # Try to get COGS from P&L
+    params = {"start_date": start_date, "end_date": end_date, "summarize_by": "Total"}
+    pl_result = await qb_request("GET", "reports/ProfitAndLoss", params=params)
+    pl_rows = pl_result.get("Rows", {}).get("Row", [])
+
+    total_cogs = 0.0
+    total_revenue = 0.0
+    for row in pl_rows:
+        header = row.get("Header", {}).get("ColData", [{}])[0].get("value", "")
+        summary = row.get("Summary", {}).get("ColData", [])
+        if summary:
+            val_str = summary[-1].get("value", "0").replace(",", "")
+            try:
+                val = float(val_str)
+            except ValueError:
+                val = 0
+            if "cost of goods" in header.lower():
+                total_cogs = abs(val)
+            elif "income" in header.lower() and "other" not in header.lower():
+                total_revenue = val
+
+    # Distribute COGS proportionally if we have it
+    if total_cogs > 0 and total_revenue > 0:
+        for key, data in groups.items():
+            proportion = data["revenue"] / total_revenue if total_revenue > 0 else 0
+            data["cogs"] = total_cogs * proportion
+
+    # Sort by revenue
+    sorted_groups = sorted(groups.items(), key=lambda x: x[1]["revenue"], reverse=True)
+
+    lines = [
+        f"## Profit Margin Analysis by {group_by.title()}",
+        f"**Period:** {start_date} to {end_date}",
+        f"**{group_by.title()}s:** {len(sorted_groups)}\n",
+    ]
+
+    if total_cogs > 0:
+        lines.append(f"*COGS distributed proportionally to revenue (total COGS: {fmt(total_cogs)})*\n")
+    else:
+        lines.append(f"*No COGS tracked — margins show gross revenue only*\n")
+
+    lines.append(f"{'Name':<30} {'Revenue':>12} {'COGS':>12} {'Margin':>12} {'%':>8} {'Txns':>6}")
+    lines.append(f"{'-'*80}")
+
+    grand_revenue = 0.0
+    grand_cogs = 0.0
+    for name, data in sorted_groups:
+        rev = data["revenue"]
+        cogs = data["cogs"]
+        margin = rev - cogs
+        pct = (margin / rev * 100) if rev > 0 else 0
+        grand_revenue += rev
+        grand_cogs += cogs
+
+        display_name = name[:28] if len(name) > 28 else name
+        lines.append(f"{display_name:<30} {fmt(rev):>12} {fmt(cogs):>12} {fmt(margin):>12} {pct:>7.1f}% {data['count']:>6}")
+
+    grand_margin = grand_revenue - grand_cogs
+    grand_pct = (grand_margin / grand_revenue * 100) if grand_revenue > 0 else 0
+    lines.extend([
+        f"{'-'*80}",
+        f"{'TOTAL':<30} {fmt(grand_revenue):>12} {fmt(grand_cogs):>12} {fmt(grand_margin):>12} {grand_pct:>7.1f}%",
+    ])
+
+    _audit_log("PROFIT_MARGIN", f"group={group_by} period={start_date}/{end_date} revenue={fmt(grand_revenue)}")
+    return "\n".join(lines)
+
+
+# ===================================================================
+# NEW: Budget vs Actual
+# ===================================================================
+
+@mcp.tool()
+async def qb_budget_vs_actual(fiscal_year: str = "2025") -> str:
+    """Compare budgeted amounts vs actual spending for a fiscal year.
+    Requires budgets to be set up in QuickBooks. Shows variance by account
+    and highlights over/under-budget items. fiscal_year in YYYY format."""
+    start = f"{fiscal_year}-01-01"
+    end = f"{fiscal_year}-12-31"
+
+    # Try to get budgets
+    budget_result = await qb_query("SELECT * FROM Budget MAXRESULTS 10")
+    budgets = budget_result.get("QueryResponse", {}).get("Budget", [])
+
+    if not budgets:
+        return (
+            f"No budgets found in QuickBooks.\n\n"
+            f"To use this tool, create a budget in QuickBooks:\n"
+            f"  1. Go to Settings > Budgeting\n"
+            f"  2. Create a budget for fiscal year {fiscal_year}\n"
+            f"  3. Enter budget amounts by account/month\n"
+            f"  4. Run this tool again"
+        )
+
+    # Get actual P&L
+    params = {"start_date": start, "end_date": end, "summarize_by": "Total"}
+    pl_result = await qb_request("GET", "reports/ProfitAndLoss", params=params)
+
+    # Get Budget Summary report
+    budget_params = {"start_date": start, "end_date": end, "summarize_by": "Total"}
+    try:
+        bva_result = await qb_request("GET", "reports/BudgetVsActual", params=budget_params)
+    except Exception:
+        # Fall back to manual comparison
+        bva_result = None
+
+    if bva_result and bva_result.get("Rows"):
+        # Parse the QB Budget vs Actual report
+        rows = bva_result.get("Rows", {}).get("Row", [])
+        lines = [
+            f"## Budget vs Actual — {fiscal_year}",
+            f"**Period:** {start} to {end}\n",
+        ]
+        _parse_report_rows(rows, lines)
+        _audit_log("BUDGET_VS_ACTUAL", f"year={fiscal_year}")
+        return "\n".join(lines)
+
+    # Manual fallback: compare budget entity to P&L
+    budget = budgets[0]
+    budget_lines_data = budget.get("BudgetDetail", [])
+
+    from collections import defaultdict
+    budget_by_acct = defaultdict(float)
+    for bd in budget_lines_data:
+        acct_name = bd.get("AccountRef", {}).get("name", "?")
+        amount = float(bd.get("Amount", 0))
+        budget_by_acct[acct_name] += amount
+
+    # Get actual account balances
+    actual_by_acct = {}
+    accts_result = await qb_query("SELECT * FROM Account MAXRESULTS 200")
+    for a in accts_result.get("QueryResponse", {}).get("Account", []):
+        actual_by_acct[a["Name"]] = float(a.get("CurrentBalance", 0))
+
+    lines = [
+        f"## Budget vs Actual — {fiscal_year}",
+        f"**Budget:** {budget.get('Name', 'Default')}",
+        f"**Period:** {start} to {end}\n",
+        f"{'Account':<35} {'Budget':>12} {'Actual':>12} {'Variance':>12} {'%':>8}",
+        f"{'-'*80}",
+    ]
+
+    total_budget = 0.0
+    total_actual = 0.0
+    over_budget = []
+
+    for acct, budg_amt in sorted(budget_by_acct.items()):
+        act_amt = abs(actual_by_acct.get(acct, 0))
+        variance = budg_amt - act_amt
+        pct = (act_amt / budg_amt * 100) if budg_amt > 0 else 0
+        total_budget += budg_amt
+        total_actual += act_amt
+
+        flag = " ⚠️" if act_amt > budg_amt * 1.1 else ""
+        if act_amt > budg_amt * 1.1:
+            over_budget.append((acct, budg_amt, act_amt, variance))
+
+        display_name = acct[:33] if len(acct) > 33 else acct
+        lines.append(f"{display_name:<35} {fmt(budg_amt):>12} {fmt(act_amt):>12} {fmt(variance):>12} {pct:>7.1f}%{flag}")
+
+    total_variance = total_budget - total_actual
+    lines.extend([
+        f"{'-'*80}",
+        f"{'TOTAL':<35} {fmt(total_budget):>12} {fmt(total_actual):>12} {fmt(total_variance):>12}",
+    ])
+
+    if over_budget:
+        lines.append(f"\n### ⚠️ Over Budget ({len(over_budget)} accounts)")
+        for acct, b, a, v in over_budget:
+            lines.append(f"  - {acct}: {fmt(a)} actual vs {fmt(b)} budget ({fmt(abs(v))} over)")
+
+    _audit_log("BUDGET_VS_ACTUAL", f"year={fiscal_year} budget={fmt(total_budget)} actual={fmt(total_actual)}")
+    return "\n".join(lines)
+
+
+# ===================================================================
+# NEW: Estimate to Invoice Conversion
+# ===================================================================
+
+@mcp.tool()
+async def qb_list_estimates(start_date: str = "", end_date: str = "", customer_name: str = "", status: str = "", max_results: int = 50) -> str:
+    """List estimates/quotes. Optionally filter by date range, customer, or status.
+    status: Pending, Accepted, Closed, Rejected (leave empty for all).
+    start_date/end_date in YYYY-MM-DD format."""
+    query = "SELECT * FROM Estimate"
+    conditions = []
+
+    if start_date:
+        start_date = _validate_date(start_date, "start_date")
+        conditions.append(f"TxnDate >= '{start_date}'")
+    if end_date:
+        end_date = _validate_date(end_date, "end_date")
+        conditions.append(f"TxnDate <= '{end_date}'")
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    query += f" MAXRESULTS {max_results}"
+
+    result = await qb_query(query)
+    estimates = result.get("QueryResponse", {}).get("Estimate", [])
+
+    if not estimates:
+        return "No estimates found."
+
+    # Filter by customer and status in-memory (QB query limitations)
+    if customer_name:
+        customer_name = _sanitize_input(customer_name, "customer_name").lower()
+        estimates = [e for e in estimates if customer_name in e.get("CustomerRef", {}).get("name", "").lower()]
+    if status:
+        status = _sanitize_input(status, "status")
+        estimates = [e for e in estimates if e.get("TxnStatus", "").lower() == status.lower()]
+
+    lines = [f"## Estimates ({len(estimates)} found)\n"]
+    total = 0.0
+    for est in estimates:
+        est_id = est.get("Id", "?")
+        date = est.get("TxnDate", "?")
+        cust = est.get("CustomerRef", {}).get("name", "?")
+        amount = float(est.get("TotalAmt", 0))
+        est_status = est.get("TxnStatus", "?")
+        doc_num = est.get("DocNumber", "")
+        expiry = est.get("ExpirationDate", "")
+        total += amount
+
+        lines.append(f"**#{doc_num or est_id}** | {date} | {cust} | {fmt(amount)} | {est_status}")
+        if expiry:
+            lines.append(f"  Expires: {expiry}")
+        line_count = len([l for l in est.get("Line", []) if l.get("DetailType") != "SubTotalLineDetail"])
+        lines.append(f"  Line items: {line_count}")
+        lines.append("")
+
+    lines.append(f"---\n**Total:** {fmt(total)}")
+    lines.append(f"\nUse qb_convert_estimate_to_invoice to convert an accepted estimate.")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+async def qb_convert_estimate_to_invoice(estimate_id: str) -> str:
+    """Convert an estimate/quote into an invoice. Copies all line items, customer,
+    and details from the estimate. estimate_id: the estimate's ID."""
+    estimate_id = _sanitize_input(estimate_id, "estimate_id")
+
+    # Read the estimate
+    est_data = await qb_read("Estimate", estimate_id)
+    estimate = est_data.get("Estimate", {})
+    if not estimate:
+        return f"Estimate #{estimate_id} not found."
+
+    customer_ref = estimate.get("CustomerRef", {})
+    if not customer_ref:
+        return "Estimate has no customer reference."
+
+    # Build invoice from estimate lines
+    invoice_lines = []
+    for line in estimate.get("Line", []):
+        detail_type = line.get("DetailType", "")
+        if detail_type == "SubTotalLineDetail":
+            continue
+        invoice_lines.append({
+            "Amount": line.get("Amount", 0),
+            "Description": line.get("Description", ""),
+            "DetailType": detail_type,
+        })
+        # Copy the detail object
+        if detail_type == "SalesItemLineDetail":
+            invoice_lines[-1]["SalesItemLineDetail"] = line.get("SalesItemLineDetail", {})
+        elif detail_type == "GroupLineDetail":
+            invoice_lines[-1]["GroupLineDetail"] = line.get("GroupLineDetail", {})
+
+    body = {
+        "CustomerRef": customer_ref,
+        "Line": invoice_lines,
+        "PrivateNote": f"Converted from Estimate #{estimate.get('DocNumber', estimate_id)}",
+    }
+
+    # Copy optional fields
+    if estimate.get("BillEmail"):
+        body["BillEmail"] = estimate["BillEmail"]
+    if estimate.get("ShipAddr"):
+        body["ShipAddr"] = estimate["ShipAddr"]
+    if estimate.get("BillAddr"):
+        body["BillAddr"] = estimate["BillAddr"]
+
+    result = await qb_request("POST", "invoice", json_body=body)
+    invoice = result.get("Invoice", {})
+
+    _audit_log("ESTIMATE_TO_INVOICE", f"estimate={estimate_id} invoice={invoice.get('Id')}")
+
+    return (
+        f"✅ Invoice created from Estimate #{estimate.get('DocNumber', estimate_id)}\n"
+        f"  Invoice ID: {invoice.get('Id')}\n"
+        f"  Invoice #: {invoice.get('DocNumber', 'auto')}\n"
+        f"  Customer: {customer_ref.get('name', '?')}\n"
+        f"  Amount: {fmt(float(invoice.get('TotalAmt', 0)))}\n"
+        f"  Date: {invoice.get('TxnDate', 'today')}\n\n"
+        f"*The original estimate remains unchanged. Update its status manually if needed.*"
+    )
+
+
+# ===================================================================
 # ENTRY POINT
 # ===================================================================
 

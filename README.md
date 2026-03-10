@@ -2,7 +2,7 @@
 
 The most comprehensive QuickBooks Online MCP server for Claude. Built for sole proprietors and small businesses who want to manage their books, run reports, and prep taxes through natural conversation.
 
-**58 tools** covering transactions, reports, tax prep, reconciliation, and smart bookkeeping — all from Claude Desktop.
+**80 tools** covering transactions, reports, tax prep, reconciliation, smart bookkeeping, 1099 reporting, anomaly detection, credit memos, vendor credits, cash flow forecasting, and profit margin analysis — all from Claude Desktop.
 
 > Built by [Vaspera Capital](https://vasperacapital.com) — because QuickBooks deserved a real MCP server.
 
@@ -76,7 +76,7 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 
 ---
 
-## Tools (58)
+## Tools (80)
 
 ### Company & Entities
 
@@ -90,6 +90,7 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 | `qb_create_vendor` | Create a new vendor |
 | `qb_create_customer` | Create a new customer |
 | `qb_create_account` | Add an account to chart of accounts |
+| `qb_create_sub_account` | Create a sub-account under a parent |
 | `qb_inactivate_account` | Hide unused accounts |
 
 ### Transactions
@@ -100,13 +101,19 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 | `qb_list_deposits` | Income and owner investments |
 | `qb_list_transfers` | Account-to-account transfers |
 | `qb_list_journal_entries` | Adjustments and reclassifications |
+| `qb_list_journal_entries_by_memo` | Search JEs by memo text |
 | `qb_list_bills` | Accounts payable |
 | `qb_list_bill_payments` | Bill payments |
 | `qb_list_sales_receipts` | Direct sales |
 | `qb_list_payments` | Customer payments received |
 | `qb_list_invoices` | Invoices with status filter |
+| `qb_list_credit_memos` | Customer credit memos/refunds |
+| `qb_list_vendor_credits` | Vendor credits received |
+| `qb_list_estimates` | Estimates/quotes with status filter |
 | `qb_search_transactions` | Search across ALL transaction types |
 | `qb_list_recurring_transactions` | Recurring templates and schedules |
+| `qb_transaction_detail` | Full detail for any single transaction |
+| `qb_account_transactions` | All transactions hitting a specific account |
 
 ### Create & Modify
 
@@ -118,12 +125,18 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 | `qb_create_journal_entry` | Record adjustments |
 | `qb_create_deposit` | Record a bank deposit |
 | `qb_create_transfer` | Transfer between accounts |
+| `qb_create_credit_memo` | Issue a customer credit memo |
+| `qb_create_vendor_credit` | Record a vendor credit |
+| `qb_convert_estimate_to_invoice` | Convert an estimate into an invoice |
 | `qb_update_transaction` | Update any transaction |
 | `qb_void_transaction` | Void a transaction |
+| `qb_delete_journal_entry` | Permanently delete a JE |
+| `qb_reclassify_transaction` | Move a transaction to a different account |
 | `qb_batch_create_expenses` | Bulk expense import |
 | `qb_batch_create_bills` | Bulk bill import |
+| `qb_batch_create_journal_entries` | Bulk JE import |
 
-### Reports
+### Reports & Analysis
 
 | Tool | Description |
 |------|-------------|
@@ -131,14 +144,19 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 | `qb_profit_loss_by_class` | P&L by department/class |
 | `qb_balance_sheet` | Balance sheet as of any date |
 | `qb_cash_flow` | Statement of cash flows |
+| `qb_cash_flow_forecast` | Multi-period cash flow projections |
 | `qb_general_ledger` | All transactions by account |
 | `qb_trial_balance` | Verify books are balanced |
 | `qb_ar_aging` | What customers owe you |
 | `qb_ap_aging` | What you owe vendors |
 | `qb_expense_summary` | Expenses by category |
 | `qb_income_summary` | Income by source |
+| `qb_sales_tax_summary` | Sales tax collected by jurisdiction |
 | `qb_compare_periods` | Side-by-side period comparison |
 | `qb_vendor_summary` | Top vendors by spend |
+| `qb_profit_margin_analysis` | Profit margins by customer or item |
+| `qb_budget_vs_actual` | Compare budget to actual spending |
+| `qb_anomaly_detection` | Statistical anomaly and fraud detection |
 
 ### Tax Preparation
 
@@ -146,9 +164,13 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 |------|-------------|
 | `qb_tax_summary` | Expenses mapped to Schedule C lines |
 | `qb_schedule_c` | Full IRS Schedule C line-by-line |
+| `qb_schedule_c_detailed` | Granular Schedule C with QB account detail |
 | `qb_estimate_quarterly_tax` | Federal + state estimated taxes |
 | `qb_deduction_finder` | Find commonly missed deductions |
 | `qb_depreciation_schedule` | Section 179 and MACRS schedules |
+| `qb_1099_contractor_report` | 1099-NEC contractor reporting with TIN/address validation |
+| `qb_home_office_calculator` | Form 8829 home office deduction calculator |
+| `qb_vehicle_depreciation_calculator` | Vehicle depreciation with business use % |
 
 ### Smart Features
 
@@ -177,16 +199,22 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 
 Once connected, just ask Claude naturally:
 
-- *"What's my P&L for 2024?"*
+- *"What's my P&L for 2025?"*
 - *"Show me all expenses over $500 from last month"*
 - *"Create an expense for $49.99 to GitHub for software subscriptions"*
-- *"Run my Schedule C for tax year 2024"*
+- *"Run my Schedule C for tax year 2025"*
 - *"Find any uncategorized transactions"*
 - *"What's my monthly burn rate?"*
 - *"How much runway do I have?"*
 - *"Compare Q1 vs Q2 profit and loss"*
 - *"Find potential duplicate transactions"*
 - *"What deductions am I missing?"*
+- *"Generate my 1099 contractor report"*
+- *"Run anomaly detection on last quarter's transactions"*
+- *"Show my profit margins by customer"*
+- *"Forecast my cash flow for the next 6 months"*
+- *"Create a vendor credit for $200 to Amazon"*
+- *"Convert estimate #1042 to an invoice"*
 
 ---
 
