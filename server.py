@@ -2999,6 +2999,790 @@ async def qb_list_recurring_transactions(max_results: int = 50) -> str:
 
 
 # ===================================================================
+# SECURITY & AUDIT LOGGING
+# ===================================================================
+
+import logging
+import re
+from functools import wraps
+
+# Configure audit logger — writes to file for compliance trail
+_audit_logger = logging.getLogger("qb_audit")
+_audit_logger.setLevel(logging.INFO)
+_audit_handler = logging.StreamHandler()
+_audit_handler.setFormatter(logging.Formatter(
+    "%(asctime)s | %(levelname)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+))
+_audit_logger.addHandler(_audit_handler)
+
+# Try to add file handler for persistent audit trail
+try:
+    _file_handler = logging.FileHandler(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "audit.log"),
+        encoding="utf-8"
+    )
+    _file_handler.setFormatter(logging.Formatter(
+        "%(asctime)s | %(levelname)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    ))
+    _audit_logger.addHandler(_file_handler)
+except Exception:
+    pass  # File logging optional — stderr still captures audit events
+
+
+def _sanitize_input(value: str, field_name: str = "input") -> str:
+    """Sanitize string inputs to prevent SQL injection in QB queries.
+    QuickBooks uses its own query language, but we still validate inputs."""
+    if not isinstance(value, str):
+        return str(value)
+    # Block common injection patterns
+    dangerous_patterns = [
+        r";\s*(DROP|DELETE|UPDATE|INSERT|ALTER|CREATE|EXEC)",
+        r"--\s*$",
+        r"/\*.*\*/",
+        r"'\s*(OR|AND)\s+'",
+    ]
+    for pattern in dangerous_patterns:
+        if re.search(pattern, value, re.IGNORECASE):
+            raise ValueError(f"Invalid characters in {field_name}: potential injection detected")
+    # Strip control characters
+    value = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', value)
+    return value
+
+
+def _validate_date(date_str: str, field_name: str = "date") -> str:
+    """Validate date format is YYYY-MM-DD."""
+    if not re.match(r'^\d{4}-\d{2}-\d{2}$', date_str):
+        raise ValueError(f"Invalid {field_name} format: '{date_str}'. Use YYYY-MM-DD.")
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        raise ValueError(f"Invalid {field_name}: '{date_str}' is not a real date.")
+    return date_str
+
+
+def _validate_amount(amount: float, field_name: str = "amount") -> float:
+    """Validate monetary amounts are reasonable."""
+    if amount < 0:
+        raise ValueError(f"{field_name} cannot be negative: {amount}")
+    if amount > 10_000_000:
+        raise ValueError(f"{field_name} exceeds safety limit ($10M): {amount}")
+    return round(amount, 2)
+
+
+def _audit_log(action: str, details: str):
+    """Log an auditable action for compliance."""
+    _audit_logger.info(f"ACTION={action} | {details}")
+
+
+# ===================================================================
+# NEW TOOL 1: Reclassify Transaction
+# ===================================================================
+
+@mcp.tool()
+async def qb_reclassify_transaction(entity_type: str, entity_id: str, new_account_name: str, memo: str = "") -> str:
+    """Reclassify a transaction to a different expense/income account. Simpler than manual update.
+    entity_type: Purchase, Deposit, Bill, etc. entity_id: the transaction ID.
+    new_account_name: name of the account to reclassify to."""
+    entity_type = _sanitize_input(entity_type, "entity_type")
+    entity_id = _sanitize_input(entity_id, "entity_id")
+    new_account_name = _sanitize_input(new_account_name, "new_account_name")
+
+    _audit_log("RECLASSIFY_START", f"type={entity_type} id={entity_id} new_acct={new_account_name}")
+
+    # Find the new account
+    acct_result = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{new_account_name}%' MAXRESULTS 5")
+    accounts = acct_result.get("QueryResponse", {}).get("Account", [])
+    if not accounts:
+        return f"Account '{new_account_name}' not found. Use qb_list_accounts to see available accounts."
+    if len(accounts) > 1:
+        names = ", ".join(a["Name"] for a in accounts)
+        return f"Multiple accounts match '{new_account_name}': {names}. Please be more specific."
+    target_acct = accounts[0]
+
+    # Read the existing transaction
+    txn = await qb_read(entity_type, entity_id)
+    entity_data = txn.get(entity_type, {})
+    if not entity_data:
+        return f"{entity_type} #{entity_id} not found."
+
+    old_lines_info = []
+    # Update all AccountBasedExpenseLineDetail lines
+    for line in entity_data.get("Line", []):
+        if line.get("DetailType") == "AccountBasedExpenseLineDetail":
+            old_acct = line.get("AccountBasedExpenseLineDetail", {}).get("AccountRef", {}).get("name", "?")
+            old_lines_info.append(f"{old_acct}: {fmt(line.get('Amount'))}")
+            line["AccountBasedExpenseLineDetail"]["AccountRef"] = {
+                "value": target_acct["Id"],
+                "name": target_acct["Name"]
+            }
+
+    if memo:
+        entity_data["PrivateNote"] = memo
+
+    # Sparse update — include SyncToken
+    result = await qb_request("POST", entity_type.lower(), json_body=entity_data)
+    updated = result.get(entity_type, {})
+
+    _audit_log("RECLASSIFY_DONE", f"type={entity_type} id={entity_id} new_acct={target_acct['Name']} (ID:{target_acct['Id']})")
+
+    return (
+        f"✅ Reclassified {entity_type} #{entity_id}\n"
+        f"  From: {'; '.join(old_lines_info)}\n"
+        f"  To: {target_acct['Name']}\n"
+        f"  SyncToken: {updated.get('SyncToken', '?')}"
+    )
+
+
+# ===================================================================
+# NEW TOOL 2: Batch Create Journal Entries
+# ===================================================================
+
+@mcp.tool()
+async def qb_batch_create_journal_entries(entries_json: str) -> str:
+    """Create multiple journal entries in one call. entries_json is a JSON array:
+    [{"date": "YYYY-MM-DD", "memo": "...", "lines": [{"account_name": "...", "amount": 100.00, "type": "Debit"}, ...]}].
+    Each entry must have balanced debits and credits. Returns summary of created JEs."""
+    entries = json.loads(entries_json) if isinstance(entries_json, str) else entries_json
+
+    if not isinstance(entries, list) or len(entries) == 0:
+        return "Error: entries_json must be a non-empty JSON array of journal entries."
+    if len(entries) > 25:
+        return "Error: Maximum 25 journal entries per batch. Split into multiple calls."
+
+    _audit_log("BATCH_JE_START", f"count={len(entries)}")
+
+    results = []
+    errors = []
+
+    for i, entry in enumerate(entries):
+        try:
+            date = _validate_date(entry.get("date", ""), f"entry[{i}].date")
+            memo = entry.get("memo", "")
+            lines = entry.get("lines", [])
+
+            if not lines or len(lines) < 2:
+                errors.append(f"Entry {i+1}: Must have at least 2 lines (debit + credit)")
+                continue
+
+            je_lines = []
+            total_debit = 0.0
+            total_credit = 0.0
+
+            for line in lines:
+                acct_name = _sanitize_input(line.get("account_name", ""), "account_name")
+                amount = _validate_amount(float(line.get("amount", 0)), "amount")
+                posting_type = line.get("type", "Debit")
+
+                if posting_type not in ("Debit", "Credit"):
+                    errors.append(f"Entry {i+1}: Invalid posting type '{posting_type}'. Use 'Debit' or 'Credit'.")
+                    break
+
+                acct_result = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{acct_name}%' MAXRESULTS 1")
+                acct_list = acct_result.get("QueryResponse", {}).get("Account", [])
+                if not acct_list:
+                    errors.append(f"Entry {i+1}: Account '{acct_name}' not found.")
+                    break
+                acct = acct_list[0]
+
+                if posting_type == "Debit":
+                    total_debit += amount
+                else:
+                    total_credit += amount
+
+                je_lines.append({
+                    "DetailType": "JournalEntryLineDetail",
+                    "Amount": amount,
+                    "Description": line.get("description", ""),
+                    "JournalEntryLineDetail": {
+                        "PostingType": posting_type,
+                        "AccountRef": {"value": acct["Id"], "name": acct["Name"]},
+                    }
+                })
+
+            if len(je_lines) != len(lines):
+                continue  # An error was recorded above
+
+            if abs(total_debit - total_credit) > 0.01:
+                errors.append(f"Entry {i+1}: Does not balance. Debits={fmt(total_debit)}, Credits={fmt(total_credit)}")
+                continue
+
+            je_body = {"TxnDate": date, "Line": je_lines}
+            if memo:
+                je_body["PrivateNote"] = memo
+
+            result = await qb_request("POST", "journalentry", json_body=je_body)
+            je = result.get("JournalEntry", {})
+            results.append(f"  ✅ JE #{je.get('Id')} | {date} | {fmt(je.get('TotalAmt'))} | {memo[:50]}")
+
+            _audit_log("BATCH_JE_CREATED", f"id={je.get('Id')} date={date} amount={fmt(je.get('TotalAmt'))}")
+
+        except Exception as e:
+            errors.append(f"Entry {i+1}: {str(e)}")
+
+    output = [f"## Batch Journal Entry Results\n"]
+    if results:
+        output.append(f"**Created: {len(results)} journal entries**")
+        output.extend(results)
+    if errors:
+        output.append(f"\n**Errors: {len(errors)}**")
+        output.extend(f"  ❌ {e}" for e in errors)
+
+    _audit_log("BATCH_JE_DONE", f"created={len(results)} errors={len(errors)}")
+    return "\n".join(output)
+
+
+# ===================================================================
+# NEW TOOL 3: Home Office Calculator (Form 8829)
+# ===================================================================
+
+@mcp.tool()
+async def qb_home_office_calculator(
+    home_sqft: float,
+    office_sqft: float,
+    home_value: float,
+    land_value: float = 0,
+    annual_mortgage_interest: float = 0,
+    annual_property_tax: float = 0,
+    annual_insurance: float = 0,
+    annual_utilities: float = 0,
+    annual_repairs: float = 0,
+    depreciation_years: float = 39,
+    tax_year: str = "2025"
+) -> str:
+    """Calculate home office deduction using the regular method (Form 8829).
+    Returns deduction breakdown by category with IRS line mappings.
+    home_sqft: total home square footage. office_sqft: dedicated office square footage.
+    home_value: fair market value or purchase price. land_value: land portion (not depreciable).
+    All annual amounts are the full household totals — business % is calculated automatically."""
+    home_sqft = _validate_amount(home_sqft, "home_sqft")
+    office_sqft = _validate_amount(office_sqft, "office_sqft")
+    if office_sqft > home_sqft:
+        return "Error: Office square footage cannot exceed home square footage."
+
+    biz_pct = round(office_sqft / home_sqft, 4)
+    biz_pct_display = f"{biz_pct * 100:.2f}%"
+
+    building_value = home_value - land_value
+    annual_depreciation = building_value / depreciation_years
+
+    deductions = {
+        "Mortgage interest": annual_mortgage_interest * biz_pct,
+        "Property taxes": annual_property_tax * biz_pct,
+        "Homeowner insurance": annual_insurance * biz_pct,
+        "Utilities": annual_utilities * biz_pct,
+        "Repairs & maintenance": annual_repairs * biz_pct,
+        "Depreciation": annual_depreciation * biz_pct,
+    }
+
+    total = sum(deductions.values())
+
+    lines = [
+        f"## Home Office Deduction — {tax_year} (Form 8829)\n",
+        f"**Business Use Percentage:** {office_sqft:.0f} sq ft / {home_sqft:.0f} sq ft = **{biz_pct_display}**\n",
+        f"### Deduction Breakdown",
+    ]
+    for category, amount in deductions.items():
+        if amount > 0:
+            lines.append(f"  {category}: **{fmt(amount)}**")
+
+    lines.extend([
+        f"\n### **TOTAL HOME OFFICE DEDUCTION: {fmt(total)}**",
+        f"\n### Calculation Details",
+        f"  Building value: {fmt(building_value)} (home {fmt(home_value)} - land {fmt(land_value)})",
+        f"  Annual depreciation: {fmt(annual_depreciation)} ({fmt(building_value)} / {depreciation_years:.0f} years)",
+        f"  Business %: {biz_pct_display}",
+        f"\n### Schedule C Mapping",
+        f"  Line 18 (Office expense): $0 — using Form 8829 instead",
+        f"  Line 30 (Business use of home): **{fmt(total)}** — attach Form 8829",
+        f"\n*Note: Regular method used. Simplified method ($5/sqft, max 300 sqft = $1,500) available as alternative.*",
+    ])
+
+    _audit_log("HOME_OFFICE_CALC", f"year={tax_year} biz_pct={biz_pct_display} total={fmt(total)}")
+    return "\n".join(lines)
+
+
+# ===================================================================
+# NEW TOOL 4: Vehicle Depreciation Calculator
+# ===================================================================
+
+@mcp.tool()
+async def qb_vehicle_depreciation_calculator(
+    purchase_price: float,
+    purchase_date: str,
+    business_use_pct: float,
+    vehicle_weight_lbs: float = 6001,
+    is_new: bool = True,
+    tax_year: str = "2025"
+) -> str:
+    """Calculate vehicle depreciation deduction using Section 179, bonus depreciation, and MACRS.
+    purchase_price: total vehicle cost. purchase_date: YYYY-MM-DD.
+    business_use_pct: decimal (0.50 = 50%). vehicle_weight_lbs: GVWR for SUV classification.
+    is_new: whether vehicle is new (affects bonus depreciation eligibility).
+    Returns first-year and multi-year depreciation schedule."""
+    purchase_price = _validate_amount(purchase_price, "purchase_price")
+    _validate_date(purchase_date, "purchase_date")
+
+    if business_use_pct <= 0 or business_use_pct > 1:
+        return "Error: business_use_pct must be between 0.01 and 1.00 (e.g., 0.50 for 50%)."
+
+    biz_basis = purchase_price * business_use_pct
+    is_heavy_suv = vehicle_weight_lbs > 6000
+
+    lines = [
+        f"## Vehicle Depreciation — {tax_year}\n",
+        f"**Purchase Price:** {fmt(purchase_price)}",
+        f"**Purchase Date:** {purchase_date}",
+        f"**Business Use:** {business_use_pct*100:.0f}%",
+        f"**Business Basis:** {fmt(biz_basis)}",
+        f"**GVWR:** {vehicle_weight_lbs:,.0f} lbs ({'Heavy SUV > 6,000 lbs' if is_heavy_suv else 'Standard vehicle'})",
+        f"**New/Used:** {'New' if is_new else 'Used'}",
+    ]
+
+    if is_heavy_suv:
+        # Heavy SUV: Section 179 up to $30,500 (2025), then bonus depreciation, then MACRS
+        sec179_limit = 30500  # 2025 limit for heavy SUVs
+        sec179 = min(biz_basis, sec179_limit)
+        remaining_after_179 = biz_basis - sec179
+
+        # Bonus depreciation (40% for 2025 under phase-down)
+        bonus_rate = 0.40 if is_new else 0.0
+        bonus = remaining_after_179 * bonus_rate
+        remaining_after_bonus = remaining_after_179 - bonus
+
+        # MACRS 5-year, first year rate = 20%
+        macrs_yr1 = remaining_after_bonus * 0.20
+        total_yr1 = sec179 + bonus + macrs_yr1
+
+        lines.extend([
+            f"\n### First-Year Deduction Breakdown",
+            f"  Section 179: **{fmt(sec179)}** (heavy SUV limit: {fmt(sec179_limit)})",
+            f"  Bonus depreciation ({bonus_rate*100:.0f}%): **{fmt(bonus)}**",
+            f"  MACRS Year 1 (20%): **{fmt(macrs_yr1)}**",
+            f"  **TOTAL FIRST-YEAR DEDUCTION: {fmt(total_yr1)}**",
+            f"\n### Remaining MACRS Schedule (5-year property)",
+        ])
+
+        # MACRS 5-year rates: 20%, 32%, 19.2%, 11.52%, 11.52%, 5.76%
+        macrs_rates = [0.20, 0.32, 0.192, 0.1152, 0.1152, 0.0576]
+        remaining_macrs = remaining_after_bonus
+        for yr, rate in enumerate(macrs_rates):
+            yr_deduction = remaining_macrs * rate
+            year_num = int(tax_year) + yr
+            marker = " ← (included above)" if yr == 0 else ""
+            lines.append(f"  Year {yr+1} ({year_num}): {fmt(yr_deduction)} ({rate*100:.1f}%){marker}")
+
+    else:
+        # Standard vehicle: IRS annual limits apply
+        # 2025 limits (estimated)
+        limits = {1: 20200, 2: 19500, 3: 11700, 4: 6960}
+        yr1_deduction = min(biz_basis, limits[1])
+
+        lines.extend([
+            f"\n### Standard Vehicle (≤ 6,000 lbs GVWR)",
+            f"  Year 1 limit: **{fmt(yr1_deduction)}** (IRS max: {fmt(limits[1])})",
+            f"  Year 2 limit: {fmt(limits[2])}",
+            f"  Year 3 limit: {fmt(limits[3])}",
+            f"  Year 4+: {fmt(limits[4])}/year until fully depreciated",
+        ])
+
+    lines.extend([
+        f"\n### Schedule C Mapping",
+        f"  Line 13 (Depreciation / Form 4562): report vehicle depreciation",
+        f"\n*⚠️ CPA should verify: bonus depreciation rate, Section 179 limits, and business use substantiation.*",
+        f"*Mileage log required to support business use percentage.*",
+    ])
+
+    _audit_log("VEHICLE_DEPR_CALC", f"year={tax_year} price={fmt(purchase_price)} biz_pct={business_use_pct}")
+    return "\n".join(lines)
+
+
+# ===================================================================
+# NEW TOOL 5: List Journal Entries by Memo
+# ===================================================================
+
+@mcp.tool()
+async def qb_list_journal_entries_by_memo(search_text: str, max_results: int = 50) -> str:
+    """Search journal entries by memo/private note text. Useful for finding specific
+    JEs by description (e.g., 'home office', 'depreciation', 'reclassify').
+    search_text: text to search for in memo field (case-insensitive partial match)."""
+    search_text = _sanitize_input(search_text, "search_text")
+
+    # QB query doesn't support LIKE on PrivateNote, so we fetch all and filter
+    result = await qb_query(f"SELECT * FROM JournalEntry MAXRESULTS 500")
+    all_jes = result.get("QueryResponse", {}).get("JournalEntry", [])
+
+    if not all_jes:
+        return "No journal entries found."
+
+    matches = []
+    for je in all_jes:
+        memo = je.get("PrivateNote", "")
+        if search_text.lower() in memo.lower():
+            matches.append(je)
+
+    if not matches:
+        return f"No journal entries found matching '{search_text}'."
+
+    matches = matches[:max_results]
+
+    lines = [f"## Journal Entries matching '{search_text}' ({len(matches)} found)\n"]
+    for je in matches:
+        je_id = je.get("Id", "?")
+        date = je.get("TxnDate", "?")
+        memo = je.get("PrivateNote", "")
+        total = je.get("TotalAmt", 0)
+
+        lines.append(f"**{date}** | ID: {je_id} | {fmt(float(total))}")
+        if memo:
+            lines.append(f"  Memo: {memo[:100]}{'...' if len(memo) > 100 else ''}")
+
+        for line in je.get("Line", []):
+            detail = line.get("JournalEntryLineDetail", {})
+            acct = detail.get("AccountRef", {}).get("name", "?")
+            posting = detail.get("PostingType", "?")
+            amt = line.get("Amount", 0)
+            lines.append(f"  - {posting} {acct}: {fmt(float(amt))}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+# ===================================================================
+# NEW TOOL 6: Account Transactions
+# ===================================================================
+
+@mcp.tool()
+async def qb_account_transactions(account_name: str, start_date: str, end_date: str, max_results: int = 100) -> str:
+    """Get all transactions for a specific account within a date range.
+    Shows every debit and credit hitting the account. Useful for account reconciliation
+    and verifying balances. account_name: exact or partial account name."""
+    account_name = _sanitize_input(account_name, "account_name")
+    start_date = _validate_date(start_date, "start_date")
+    end_date = _validate_date(end_date, "end_date")
+
+    # Find the account
+    acct_result = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 5")
+    accounts = acct_result.get("QueryResponse", {}).get("Account", [])
+    if not accounts:
+        return f"Account '{account_name}' not found."
+    if len(accounts) > 1:
+        names = ", ".join(f"{a['Name']} (ID:{a['Id']})" for a in accounts)
+        return f"Multiple accounts match: {names}. Please be more specific."
+    acct = accounts[0]
+
+    # Use the General Ledger report filtered by account
+    params = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "account": acct["Id"],
+    }
+    result = await qb_request("GET", "reports/GeneralLedger", params=params)
+
+    report = result
+    rows = report.get("Rows", {}).get("Row", [])
+
+    lines = [
+        f"## Account Transactions: {acct['Name']} (ID: {acct['Id']})",
+        f"**Period:** {start_date} to {end_date}",
+        f"**Type:** {acct.get('AccountType', '?')} / {acct.get('AccountSubType', '')}",
+        f"**Current Balance:** {fmt(float(acct.get('CurrentBalance', 0)))}",
+        "",
+    ]
+
+    _parse_report_rows(rows, lines)
+
+    if len(lines) <= 5:
+        lines.append("No transactions found for this account in the date range.")
+
+    return "\n".join(lines)
+
+
+# ===================================================================
+# NEW TOOL 7: Schedule C Detailed
+# ===================================================================
+
+@mcp.tool()
+async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
+    """Generate a detailed Schedule C (Profit or Loss from Business) mapping with
+    QuickBooks account-level detail for each line. More granular than qb_schedule_c —
+    shows which QB accounts feed each Schedule C line. tax_year in YYYY format."""
+    start = f"{tax_year}-01-01"
+    end = f"{tax_year}-12-31"
+
+    # Get P&L for the year
+    params = {"start_date": start, "end_date": end, "summarize_by": "Total"}
+    result = await qb_request("GET", "reports/ProfitAndLoss", params=params)
+
+    # Get all accounts for mapping
+    accts_result = await qb_query("SELECT * FROM Account MAXRESULTS 200")
+    all_accounts = accts_result.get("QueryResponse", {}).get("Account", [])
+
+    # Build account balance lookup
+    acct_balances = {}
+    for a in all_accounts:
+        name = a.get("Name", "")
+        bal = float(a.get("CurrentBalance", 0))
+        acct_type = a.get("AccountType", "")
+        acct_balances[name] = {"balance": bal, "type": acct_type, "id": a.get("Id", "")}
+
+    # Schedule C line mapping
+    line_map = {
+        "Line 1 - Gross receipts": ["Sales of Product Income", "Service/Fee Income", "Other Income"],
+        "Line 6 - Other income": ["Other income", "Interest income"],
+        "Line 8 - Advertising": ["Advertising", "Marketing"],
+        "Line 9 - Car/truck expenses": ["Business Vehicles", "Auto", "Car", "Vehicle"],
+        "Line 10 - Commissions": ["Commissions"],
+        "Line 11 - Contract labor": ["Contract labor", "Contractors", "Subcontractors"],
+        "Line 13 - Depreciation": ["Depreciation"],
+        "Line 15 - Insurance": ["Insurance", "Homeowner & rental insurance"],
+        "Line 16a - Mortgage interest": ["Mortgage interest"],
+        "Line 17 - Legal/professional": ["Legal", "Professional", "Accounting", "Tax"],
+        "Line 18 - Office expense": ["Office", "Supplies", "Stationery"],
+        "Line 20a - Rent (vehicles)": [],
+        "Line 20b - Rent (other)": ["Rent"],
+        "Line 21 - Repairs": ["Repairs & maintenance"],
+        "Line 22 - Supplies": ["Supplies"],
+        "Line 23 - Taxes/licenses": ["Property taxes", "Taxes", "Licenses"],
+        "Line 24a - Travel": ["Travel"],
+        "Line 24b - Meals": ["Meals"],
+        "Line 25 - Utilities": ["Utilities", "Home utilities", "Electric", "Gas", "Water", "Internet", "Cell phone", "Communications"],
+        "Line 27a - Other expenses": ["Subscriptions", "Software", "Training", "Education", "Bank charges", "Fees"],
+        "Line 30 - Business use of home": [],
+    }
+
+    lines = [
+        f"## Schedule C Detail — {tax_year}\n",
+        f"**Vaspera Capital LLC / NutriFitAI LLC**",
+        f"**EIN:** Check QB Company Info",
+        f"**Period:** {start} to {end}\n",
+    ]
+
+    total_income = 0.0
+    total_expenses = 0.0
+
+    for sched_line, keywords in line_map.items():
+        matching_accounts = []
+        line_total = 0.0
+
+        for acct_name, info in acct_balances.items():
+            for kw in keywords:
+                if kw.lower() in acct_name.lower():
+                    bal = abs(info["balance"])
+                    if bal > 0:
+                        matching_accounts.append((acct_name, bal, info["id"]))
+                        line_total += bal
+                    break
+
+        if matching_accounts or "Line 1" in sched_line or "Line 30" in sched_line:
+            lines.append(f"### {sched_line}: **{fmt(line_total)}**")
+            for name, bal, aid in matching_accounts:
+                lines.append(f"  - {name} (#{aid}): {fmt(bal)}")
+            if not matching_accounts:
+                lines.append(f"  - (no matching accounts)")
+            lines.append("")
+
+            if "Line 1" in sched_line or "Line 6" in sched_line:
+                total_income += line_total
+            else:
+                total_expenses += line_total
+
+    net = total_income - total_expenses
+    lines.extend([
+        f"\n---",
+        f"### **Summary**",
+        f"  Total Income (Lines 1-6): {fmt(total_income)}",
+        f"  Total Expenses (Lines 8-27): {fmt(total_expenses)}",
+        f"  **Net Profit/Loss (Line 31): {fmt(net)}**",
+        f"\n*Note: Line 30 (Business use of home) calculated separately via Form 8829.*",
+        f"*CPA should verify account-to-line mappings match actual filing.*",
+    ])
+
+    _audit_log("SCHEDULE_C_DETAIL", f"year={tax_year} income={fmt(total_income)} expenses={fmt(total_expenses)}")
+    return "\n".join(lines)
+
+
+# ===================================================================
+# NEW TOOL 8: Create Sub-Account
+# ===================================================================
+
+@mcp.tool()
+async def qb_create_sub_account(name: str, parent_account_name: str, account_type: str = "", account_sub_type: str = "", description: str = "") -> str:
+    """Create a sub-account under an existing parent account. Simpler than qb_create_account
+    for building account hierarchies. name: new sub-account name.
+    parent_account_name: name of existing parent account.
+    account_type/account_sub_type: inherited from parent if not specified."""
+    name = _sanitize_input(name, "name")
+    parent_account_name = _sanitize_input(parent_account_name, "parent_account_name")
+
+    # Find parent account
+    parent_result = await qb_query(f"SELECT * FROM Account WHERE Name = '{parent_account_name}' MAXRESULTS 5")
+    parents = parent_result.get("QueryResponse", {}).get("Account", [])
+    if not parents:
+        # Try partial match
+        parent_result = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{parent_account_name}%' MAXRESULTS 5")
+        parents = parent_result.get("QueryResponse", {}).get("Account", [])
+    if not parents:
+        return f"Parent account '{parent_account_name}' not found."
+    if len(parents) > 1:
+        names = ", ".join(f"{a['Name']} (ID:{a['Id']})" for a in parents)
+        return f"Multiple accounts match: {names}. Please be more specific."
+    parent = parents[0]
+
+    body = {
+        "Name": name,
+        "SubAccount": True,
+        "ParentRef": {"value": parent["Id"], "name": parent["Name"]},
+        "AccountType": account_type or parent.get("AccountType", "Expense"),
+        "AccountSubType": account_sub_type or parent.get("AccountSubType", ""),
+    }
+    if description:
+        body["Description"] = description
+
+    result = await qb_request("POST", "account", json_body=body)
+    new_acct = result.get("Account", {})
+
+    _audit_log("CREATE_SUB_ACCOUNT", f"name={name} parent={parent['Name']} id={new_acct.get('Id')}")
+
+    return (
+        f"✅ Created sub-account '{new_acct.get('FullyQualifiedName', name)}' (ID: {new_acct.get('Id')})\n"
+        f"  Parent: {parent['Name']} (ID: {parent['Id']})\n"
+        f"  Type: {new_acct.get('AccountType', '?')} / {new_acct.get('AccountSubType', '')}"
+    )
+
+
+# ===================================================================
+# NEW TOOL 9: Transaction Detail
+# ===================================================================
+
+@mcp.tool()
+async def qb_transaction_detail(entity_type: str, entity_id: str) -> str:
+    """Get complete details for a single transaction. entity_type: Purchase, Deposit,
+    Transfer, JournalEntry, Bill, Invoice, Payment, SalesReceipt, BillPayment, etc.
+    entity_id: the transaction ID. Returns all fields including line items, memo, metadata."""
+    entity_type = _sanitize_input(entity_type, "entity_type")
+    entity_id = _sanitize_input(entity_id, "entity_id")
+
+    valid_types = [
+        "Purchase", "Deposit", "Transfer", "JournalEntry", "Bill",
+        "Invoice", "Payment", "SalesReceipt", "BillPayment", "Estimate",
+        "CreditMemo", "RefundReceipt", "VendorCredit"
+    ]
+    if entity_type not in valid_types:
+        return f"Invalid entity_type '{entity_type}'. Valid types: {', '.join(valid_types)}"
+
+    txn = await qb_read(entity_type, entity_id)
+    entity_data = txn.get(entity_type, {})
+    if not entity_data:
+        return f"{entity_type} #{entity_id} not found."
+
+    lines = [f"## {entity_type} #{entity_id} — Full Detail\n"]
+
+    # Common fields
+    for field, label in [
+        ("TxnDate", "Date"), ("TotalAmt", "Total"), ("PrivateNote", "Memo"),
+        ("DocNumber", "Doc Number"), ("TxnStatus", "Status"),
+    ]:
+        val = entity_data.get(field)
+        if val is not None:
+            if field == "TotalAmt":
+                lines.append(f"**{label}:** {fmt(float(val))}")
+            else:
+                lines.append(f"**{label}:** {val}")
+
+    # Entity references
+    for ref_field, label in [
+        ("EntityRef", "Vendor/Customer"), ("AccountRef", "Account"),
+        ("DepositToAccountRef", "Deposit To"), ("FromAccountRef", "From Account"),
+        ("ToAccountRef", "To Account"),
+    ]:
+        ref = entity_data.get(ref_field, {})
+        if ref:
+            lines.append(f"**{label}:** {ref.get('name', '?')} (ID: {ref.get('value', '?')})")
+
+    # Line items
+    txn_lines = entity_data.get("Line", [])
+    if txn_lines:
+        lines.append(f"\n### Line Items ({len(txn_lines)})")
+        for i, line in enumerate(txn_lines, 1):
+            detail_type = line.get("DetailType", "?")
+            amount = line.get("Amount", 0)
+            desc = line.get("Description", "")
+
+            lines.append(f"\n**Line {i}:** {fmt(float(amount))} ({detail_type})")
+            if desc:
+                lines.append(f"  Description: {desc}")
+
+            # Parse detail based on type
+            if detail_type == "AccountBasedExpenseLineDetail":
+                detail = line.get("AccountBasedExpenseLineDetail", {})
+                lines.append(f"  Account: {detail.get('AccountRef', {}).get('name', '?')}")
+            elif detail_type == "JournalEntryLineDetail":
+                detail = line.get("JournalEntryLineDetail", {})
+                lines.append(f"  Account: {detail.get('AccountRef', {}).get('name', '?')}")
+                lines.append(f"  Posting: {detail.get('PostingType', '?')}")
+            elif detail_type == "ItemBasedExpenseLineDetail":
+                detail = line.get("ItemBasedExpenseLineDetail", {})
+                lines.append(f"  Item: {detail.get('ItemRef', {}).get('name', '?')}")
+
+    # Metadata
+    meta = entity_data.get("MetaData", {})
+    if meta:
+        lines.append(f"\n### Metadata")
+        lines.append(f"  Created: {meta.get('CreateTime', '?')}")
+        lines.append(f"  Updated: {meta.get('LastUpdatedTime', '?')}")
+    lines.append(f"  SyncToken: {entity_data.get('SyncToken', '?')}")
+
+    return "\n".join(lines)
+
+
+# ===================================================================
+# NEW TOOL 10: Delete Journal Entry
+# ===================================================================
+
+@mcp.tool()
+async def qb_delete_journal_entry(journal_entry_id: str, confirm: bool = False) -> str:
+    """Delete a journal entry. Use for removing draft, duplicate, or test JEs.
+    journal_entry_id: the JE ID to delete. confirm: must be True to execute deletion.
+    ⚠️ This is PERMANENT. Use qb_void_transaction to void instead of delete when possible."""
+    journal_entry_id = _sanitize_input(journal_entry_id, "journal_entry_id")
+
+    if not confirm:
+        # Read the JE first to show what would be deleted
+        txn = await qb_read("JournalEntry", journal_entry_id)
+        je = txn.get("JournalEntry", {})
+        if not je:
+            return f"Journal entry #{journal_entry_id} not found."
+
+        memo = je.get("PrivateNote", "(no memo)")
+        date = je.get("TxnDate", "?")
+        total = je.get("TotalAmt", 0)
+
+        return (
+            f"⚠️ **Confirm Deletion**\n"
+            f"  JE #{journal_entry_id} | {date} | {fmt(float(total))}\n"
+            f"  Memo: {memo[:100]}\n\n"
+            f"To delete, call again with confirm=True.\n"
+            f"Consider using qb_void_transaction instead (keeps audit trail)."
+        )
+
+    _audit_log("DELETE_JE_START", f"id={journal_entry_id}")
+
+    # Read to get SyncToken
+    txn = await qb_read("JournalEntry", journal_entry_id)
+    je = txn.get("JournalEntry", {})
+    if not je:
+        return f"Journal entry #{journal_entry_id} not found."
+
+    # QB delete: POST with ?operation=delete
+    delete_body = {"Id": journal_entry_id, "SyncToken": je["SyncToken"]}
+    result = await qb_request("POST", "journalentry?operation=delete", json_body=delete_body)
+
+    _audit_log("DELETE_JE_DONE", f"id={journal_entry_id} memo={je.get('PrivateNote', '')[:50]}")
+
+    return f"✅ Journal entry #{journal_entry_id} permanently deleted."
+
+
+# ===================================================================
 # ENTRY POINT
 # ===================================================================
 
