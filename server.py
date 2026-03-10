@@ -3958,19 +3958,57 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
     )
     bills = bill_result.get("QueryResponse", {}).get("Bill", [])
 
+    # Equity/owner account keywords — these are personal transfers (CC payments,
+    # owner draws, personal expenses), NOT vendor payments. We exclude them from
+    # round-number, outlier, and weekend checks to reduce false positives.
+    EQUITY_KEYWORDS = {
+        "owner investment", "owner draw", "personal expense", "personal healthcare",
+        "opening balance equity", "federal estimated tax", "state tax",
+        "owner retirement", "health insurance premium", "hsa contribution",
+    }
+
+    def _is_equity_txn(txn):
+        """Check if a transaction is an owner/equity transfer (not a real vendor payment)."""
+        acct = txn.get("account_category", "").lower()
+        memo = txn.get("memo", "").lower()
+        for kw in EQUITY_KEYWORDS:
+            if kw in acct or kw in memo:
+                return True
+        # Also catch common CC payment memos from bank imports
+        if "mobile payment" in memo and "thank you" in memo:
+            return True
+        if "online transfer" in memo and ("payment" in memo or "debit" in memo):
+            return True
+        return False
+
     # Combine into unified transaction list
     all_txns = []
     for p in purchases:
+        # Extract expense category from line items for equity detection
+        line_categories = []
+        for line in p.get("Line", []):
+            detail = line.get("AccountBasedExpenseLineDetail", {})
+            acct_name = detail.get("AccountRef", {}).get("name", "")
+            if acct_name:
+                line_categories.append(acct_name)
         all_txns.append({
             "type": "Purchase",
             "id": p.get("Id", "?"),
             "date": p.get("TxnDate", "?"),
             "amount": float(p.get("TotalAmt", 0)),
             "vendor": p.get("EntityRef", {}).get("name", "Unknown"),
-            "memo": p.get("PrivateNote", ""),
+            "memo": p.get("PrivateNote", p.get("Memo", "")),
             "account": p.get("AccountRef", {}).get("name", "?"),
+            "account_category": ", ".join(line_categories),
+            "is_equity": False,  # set below
         })
     for b in bills:
+        line_categories = []
+        for line in b.get("Line", []):
+            detail = line.get("AccountBasedExpenseLineDetail", {})
+            acct_name = detail.get("AccountRef", {}).get("name", "")
+            if acct_name:
+                line_categories.append(acct_name)
         all_txns.append({
             "type": "Bill",
             "id": b.get("Id", "?"),
@@ -3979,12 +4017,21 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
             "vendor": b.get("VendorRef", {}).get("name", "Unknown"),
             "memo": b.get("PrivateNote", ""),
             "account": "",
+            "account_category": ", ".join(line_categories),
+            "is_equity": False,
         })
+
+    # Tag equity transactions
+    for t in all_txns:
+        t["is_equity"] = _is_equity_txn(t)
 
     if not all_txns:
         return "No transactions found in the date range."
 
-    amounts = [t["amount"] for t in all_txns if t["amount"] > 0]
+    # Use only non-equity, business transactions for statistical baseline
+    biz_txns = [t for t in all_txns if not t["is_equity"]]
+    amounts = [t["amount"] for t in biz_txns if t["amount"] > 0]
+    equity_count = sum(1 for t in all_txns if t["is_equity"])
     if not amounts:
         return "No non-zero transactions found."
 
@@ -3996,8 +4043,8 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
 
     anomalies = []
 
-    # 1. Statistical outliers (z-score)
-    for t in all_txns:
+    # 1. Statistical outliers (z-score) — skip equity/owner transfers
+    for t in biz_txns:
         if stdev_amt > 0 and t["amount"] > 0:
             z = (t["amount"] - mean_amt) / stdev_amt
             if z > z_limit:
@@ -4009,8 +4056,11 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
                 })
 
     # 2. Duplicate detection (same vendor + similar amount within 3 days)
+    # Skip equity transactions — CC payment on credit card + bank debit are two
+    # legs of the same transfer, not duplicates.
     from datetime import timedelta
-    sorted_txns = sorted(all_txns, key=lambda x: (x["vendor"], x["date"]))
+    non_equity_txns = [t for t in all_txns if not t["is_equity"]]
+    sorted_txns = sorted(non_equity_txns, key=lambda x: (x["vendor"], x["date"]))
     for i in range(len(sorted_txns) - 1):
         a = sorted_txns[i]
         b = sorted_txns[i + 1]
@@ -4030,8 +4080,8 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
             except ValueError:
                 pass
 
-    # 3. Round-number payments (possible estimates, not actual invoices)
-    for t in all_txns:
+    # 3. Round-number payments — skip equity (CC payments are naturally round)
+    for t in biz_txns:
         if t["amount"] >= 1000 and t["amount"] == round(t["amount"], -2):
             anomalies.append({
                 "category": "Round Number",
@@ -4040,8 +4090,8 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
                 "txn": t,
             })
 
-    # 4. Weekend transactions
-    for t in all_txns:
+    # 4. Weekend transactions — skip equity (people pay CC bills on weekends)
+    for t in biz_txns:
         try:
             d = datetime.strptime(t["date"], "%Y-%m-%d")
             if d.weekday() >= 5:  # Saturday=5, Sunday=6
@@ -4055,10 +4105,10 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
         except ValueError:
             pass
 
-    # 5. Vendor concentration risk (single vendor > 30% of total spend)
+    # 5. Vendor concentration risk — use business txns only for accurate %
     vendor_totals = {}
-    total_spend = sum(amounts)
-    for t in all_txns:
+    total_spend = sum(amounts) if amounts else 0
+    for t in biz_txns:
         v = t["vendor"]
         vendor_totals[v] = vendor_totals.get(v, 0) + t["amount"]
     for v, total in vendor_totals.items():
@@ -4087,14 +4137,15 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
     lines = [
         f"## Transaction Anomaly Report",
         f"**Period:** {start_date} to {end_date}",
-        f"**Transactions Analyzed:** {len(all_txns)}",
+        f"**Total Transactions:** {len(all_txns)} ({equity_count} owner/equity transfers excluded from checks)",
+        f"**Business Transactions Analyzed:** {len(biz_txns)}",
         f"**Sensitivity:** {sensitivity} (z-score threshold: {z_limit})",
         f"**Anomalies Found:** {len(unique_anomalies)}\n",
-        f"### Statistics",
+        f"### Statistics (business transactions only)",
         f"  Mean transaction: {fmt(mean_amt)}",
         f"  Median transaction: {fmt(median_amt)}",
         f"  Std deviation: {fmt(stdev_amt)}",
-        f"  Total spend: {fmt(total_spend)}\n",
+        f"  Total business spend: {fmt(total_spend)}\n",
     ]
 
     if not unique_anomalies:
