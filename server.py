@@ -3118,7 +3118,7 @@ async def qb_reclassify_transaction(entity_type: str, entity_id: str, new_accoun
     target_acct = accounts[0]
 
     # Read the existing transaction
-    txn = await qb_read(entity_type, entity_id)
+    txn = await qb_read(entity_type.lower(), entity_id)
     entity_data = txn.get(entity_type, {})
     if not entity_data:
         return f"{entity_type} #{entity_id} not found."
@@ -3688,7 +3688,7 @@ async def qb_transaction_detail(entity_type: str, entity_id: str) -> str:
     if entity_type not in valid_types:
         return f"Invalid entity_type '{entity_type}'. Valid types: {', '.join(valid_types)}"
 
-    txn = await qb_read(entity_type, entity_id)
+    txn = await qb_read(entity_type.lower(), entity_id)
     entity_data = txn.get(entity_type, {})
     if not entity_data:
         return f"{entity_type} #{entity_id} not found."
@@ -5360,7 +5360,7 @@ async def qb_bulk_update_vendor(transaction_ids: str, vendor_name: str) -> str:
     for txn_id in ids:
         try:
             # Read current transaction
-            current = await qb_read("Purchase", txn_id)
+            current = await qb_read("purchase", txn_id)
             purchase = current.get("Purchase", current)
             if not purchase.get("Id"):
                 errors.append(f"ID {txn_id}: not found")
