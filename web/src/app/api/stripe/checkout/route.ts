@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe, TIER_PRICES } from "@/lib/stripe";
+import { getStripe, getTierPrice } from "@/lib/stripe";
 
 /**
  * GET /api/stripe/checkout?tier=solopreneur&email=user@example.com
@@ -9,15 +9,17 @@ export async function GET(req: NextRequest) {
   const tier = req.nextUrl.searchParams.get("tier") || "solopreneur";
   const email = req.nextUrl.searchParams.get("email") || undefined;
 
-  const priceId = TIER_PRICES[tier];
-  if (!priceId) {
+  let priceId: string;
+  try {
+    priceId = getTierPrice(tier);
+  } catch {
     return NextResponse.json({ error: "Invalid tier" }, { status: 400 });
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin;
 
   try {
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
       customer_email: email,

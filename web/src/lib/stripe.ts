@@ -1,12 +1,23 @@
 import Stripe from "stripe";
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-02-24.acacia",
-});
+let _stripe: Stripe | null = null;
 
-// Map tier names to Stripe price IDs (configure in env vars)
-export const TIER_PRICES: Record<string, string> = {
-  solopreneur: process.env.STRIPE_PRICE_SOLOPRENEUR!,
-  business: process.env.STRIPE_PRICE_BUSINESS!,
-  firm: process.env.STRIPE_PRICE_FIRM!,
-};
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: "2025-02-24.acacia" as Stripe.LatestApiVersion,
+    });
+  }
+  return _stripe;
+}
+
+export function getTierPrice(tier: string): string {
+  const prices: Record<string, string | undefined> = {
+    solopreneur: process.env.STRIPE_PRICE_SOLOPRENEUR,
+    business: process.env.STRIPE_PRICE_BUSINESS,
+    firm: process.env.STRIPE_PRICE_FIRM,
+  };
+  const price = prices[tier];
+  if (!price) throw new Error(`No price configured for tier: ${tier}`);
+  return price;
+}

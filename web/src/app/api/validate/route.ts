@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 /**
  * POST /api/validate
@@ -16,6 +16,8 @@ export async function POST(req: NextRequest) {
         { status: 200 }
       );
     }
+
+    const supabase = getSupabase();
 
     const { data: license, error } = await supabase
       .from("licenses")
