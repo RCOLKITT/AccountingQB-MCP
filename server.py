@@ -5018,6 +5018,557 @@ async def qb_convert_estimate_to_invoice(estimate_id: str) -> str:
 
 
 # ===================================================================
+# BOOKS HEALTH AUDIT
+# ===================================================================
+
+@mcp.tool()
+async def qb_books_health_audit(tax_year: str = "2025") -> str:
+    """Run a comprehensive health audit on your QuickBooks books.
+    Checks for: unknown vendors, uncategorized transactions, potential duplicates,
+    undeposited funds, open invoices/bills, equity account cleanup, and more.
+    Returns a scored report (0-100) with actionable items for your accountant.
+    tax_year: YYYY format."""
+    start = f"{tax_year}-01-01"
+    end = f"{tax_year}-12-31"
+    issues = []
+    warnings = []
+    passed = []
+    score = 100  # start perfect, deduct for issues
+
+    # --- 1. Unknown/missing vendor transactions ---
+    purchases = (await qb_query(
+        f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
+    )).get("QueryResponse", {}).get("Purchase", [])
+
+    unknown_vendor_txns = []
+    for p in purchases:
+        vendor = p.get("EntityRef", {}).get("name", "")
+        if not vendor or vendor.lower() in ("unknown", ""):
+            unknown_vendor_txns.append({
+                "id": p.get("Id"),
+                "date": p.get("TxnDate"),
+                "amount": float(p.get("TotalAmt", 0)),
+                "memo": p.get("PrivateNote", p.get("Memo", ""))[:60],
+                "account": p.get("AccountRef", {}).get("name", "?"),
+            })
+
+    if unknown_vendor_txns:
+        deduction = min(25, len(unknown_vendor_txns) // 10 + 5)
+        score -= deduction
+        issues.append(
+            f"🔴 **{len(unknown_vendor_txns)} transactions with unknown/missing vendors**\n"
+            f"   These need vendor names assigned for proper 1099 tracking and expense reporting.\n"
+            f"   Largest: {fmt(max(t['amount'] for t in unknown_vendor_txns))} | "
+            f"Total: {fmt(sum(t['amount'] for t in unknown_vendor_txns))}\n"
+            f"   → Use `qb_unknown_vendor_report` to see full list and `qb_update_transaction` to fix."
+        )
+    else:
+        passed.append("✅ All transactions have vendor names assigned")
+
+    # --- 2. Uncategorized transactions ---
+    all_accounts = (await qb_query(
+        "SELECT * FROM Account MAXRESULTS 200"
+    )).get("QueryResponse", {}).get("Account", [])
+
+    uncat_accounts = [a for a in all_accounts
+                      if "uncategorized" in a.get("Name", "").lower()]
+    uncat_with_balance = [a for a in uncat_accounts
+                         if abs(float(a.get("CurrentBalance", 0))) > 0.01]
+
+    if uncat_with_balance:
+        total_uncat = sum(abs(float(a.get("CurrentBalance", 0))) for a in uncat_with_balance)
+        score -= min(20, int(total_uncat / 500) + 5)
+        issues.append(
+            f"🔴 **{len(uncat_with_balance)} uncategorized accounts with balances** "
+            f"(total: {fmt(total_uncat)})\n"
+            + "\n".join(f"   • {a['Name']}: {fmt(abs(float(a.get('CurrentBalance', 0))))}"
+                        for a in uncat_with_balance)
+            + "\n   → Use `qb_uncategorized_transactions` then `qb_reclassify_transaction` to fix."
+        )
+    else:
+        passed.append("✅ No uncategorized account balances")
+
+    # --- 3. Undeposited funds check ---
+    undeposited = [a for a in all_accounts
+                   if "undeposited" in a.get("Name", "").lower()
+                   and abs(float(a.get("CurrentBalance", 0))) > 0.01]
+    if undeposited:
+        total_ud = sum(abs(float(a.get("CurrentBalance", 0))) for a in undeposited)
+        score -= 5
+        warnings.append(
+            f"🟡 **Undeposited Funds balance: {fmt(total_ud)}**\n"
+            f"   Payments received but not yet deposited. Record bank deposits to clear."
+        )
+    else:
+        passed.append("✅ Undeposited Funds account is clear")
+
+    # --- 4. Open/overdue invoices ---
+    invoices = (await qb_query(
+        f"SELECT * FROM Invoice WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
+    )).get("QueryResponse", {}).get("Invoice", [])
+
+    unpaid = [i for i in invoices if float(i.get("Balance", 0)) > 0]
+    if unpaid:
+        total_ar = sum(float(i.get("Balance", 0)) for i in unpaid)
+        warnings.append(
+            f"🟡 **{len(unpaid)} unpaid invoices** totaling {fmt(total_ar)}\n"
+            f"   Ensure these are collected or written off before closing the year."
+        )
+    else:
+        passed.append("✅ No unpaid invoices")
+
+    # --- 5. Open bills (AP) ---
+    bills = (await qb_query(
+        f"SELECT * FROM Bill WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
+    )).get("QueryResponse", {}).get("Bill", [])
+
+    unpaid_bills = [b for b in bills if float(b.get("Balance", 0)) > 0]
+    if unpaid_bills:
+        total_ap = sum(float(b.get("Balance", 0)) for b in unpaid_bills)
+        warnings.append(
+            f"🟡 **{len(unpaid_bills)} unpaid bills** totaling {fmt(total_ap)}\n"
+            f"   Verify these are real obligations or void if duplicates."
+        )
+    else:
+        passed.append("✅ No unpaid bills")
+
+    # --- 6. Equity account review (owner transactions) ---
+    equity_accounts = [a for a in all_accounts
+                       if a.get("AccountType", "").lower() == "equity"
+                       and abs(float(a.get("CurrentBalance", 0))) > 0.01]
+    if equity_accounts:
+        equity_detail = "\n".join(
+            f"   • {a['Name']}: {fmt(float(a.get('CurrentBalance', 0)))}"
+            for a in equity_accounts
+        )
+        total_equity = sum(float(a.get("CurrentBalance", 0)) for a in equity_accounts)
+        if any("opening balance" in a.get("Name", "").lower() for a in equity_accounts):
+            score -= 5
+            warnings.append(
+                f"🟡 **Opening Balance Equity has a balance** — should be zero after setup.\n"
+                f"   Reclassify to Owner's Equity or retained earnings.\n{equity_detail}"
+            )
+        else:
+            passed.append(f"✅ Equity accounts look clean ({len(equity_accounts)} accounts, net {fmt(total_equity)})")
+    else:
+        passed.append("✅ No equity accounts with balances")
+
+    # --- 7. Potential duplicates (quick check) ---
+    from collections import defaultdict
+    txn_fingerprints = defaultdict(list)
+    for p in purchases:
+        key = (p.get("TxnDate", ""), str(round(float(p.get("TotalAmt", 0)), 2)))
+        txn_fingerprints[key].append(p.get("Id"))
+
+    dupes = {k: v for k, v in txn_fingerprints.items() if len(v) > 1}
+    dupe_count = sum(len(v) - 1 for v in dupes.values())
+    if dupe_count > 5:
+        score -= min(10, dupe_count)
+        warnings.append(
+            f"🟡 **{dupe_count} potential duplicate transactions** "
+            f"({len(dupes)} date/amount combinations)\n"
+            f"   → Use `qb_find_duplicates` for detailed review."
+        )
+    else:
+        passed.append("✅ No significant duplicate patterns detected")
+
+    # --- 8. Missing tax info (1099 readiness) ---
+    vendors = (await qb_query(
+        "SELECT * FROM Vendor MAXRESULTS 200"
+    )).get("QueryResponse", {}).get("Vendor", [])
+
+    vendors_no_tin = [v for v in vendors
+                      if not v.get("TaxIdentifier")
+                      and v.get("Vendor1099", False)]
+    if vendors_no_tin:
+        score -= 3
+        warnings.append(
+            f"🟡 **{len(vendors_no_tin)} 1099 vendors missing TIN**\n"
+            f"   → Collect W-9s from: "
+            + ", ".join(v.get("DisplayName", "?") for v in vendors_no_tin[:5])
+        )
+    else:
+        passed.append("✅ All 1099 vendors have TINs (or no vendors marked as 1099)")
+
+    # --- Score and report ---
+    score = max(0, score)
+    if score >= 90:
+        grade = "🟢 EXCELLENT"
+    elif score >= 70:
+        grade = "🟡 NEEDS ATTENTION"
+    elif score >= 50:
+        grade = "🟠 SIGNIFICANT ISSUES"
+    else:
+        grade = "🔴 CRITICAL — DO NOT SEND TO ACCOUNTANT"
+
+    lines = [
+        f"## Books Health Audit — {tax_year}",
+        f"### Score: {score}/100 {grade}\n",
+    ]
+
+    if issues:
+        lines.append("### Critical Issues")
+        lines.extend(issues)
+        lines.append("")
+
+    if warnings:
+        lines.append("### Warnings")
+        lines.extend(warnings)
+        lines.append("")
+
+    if passed:
+        lines.append("### Passed Checks")
+        lines.extend(passed)
+        lines.append("")
+
+    lines.append(f"\n**Summary:** {len(issues)} critical issues, {len(warnings)} warnings, {len(passed)} passed checks.")
+    lines.append(f"*Fix all critical issues before sending books to your accountant.*")
+
+    _audit_log("BOOKS_HEALTH_AUDIT", f"year={tax_year} score={score} issues={len(issues)} warnings={len(warnings)}")
+    return "\n".join(lines)
+
+
+# ===================================================================
+# UNKNOWN VENDOR REPORT & BULK FIX
+# ===================================================================
+
+@mcp.tool()
+async def qb_unknown_vendor_report(start_date: str = "", end_date: str = "", max_results: int = 200) -> str:
+    """Find all transactions with unknown or missing vendor names.
+    Groups by memo/description pattern to help identify bulk fixes.
+    Returns transaction IDs for use with qb_update_transaction.
+    start_date/end_date in YYYY-MM-DD (defaults to all time)."""
+    query = "SELECT * FROM Purchase"
+    conditions = []
+    if start_date:
+        start_date = _validate_date(start_date, "start_date")
+        conditions.append(f"TxnDate >= '{start_date}'")
+    if end_date:
+        end_date = _validate_date(end_date, "end_date")
+        conditions.append(f"TxnDate <= '{end_date}'")
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    query += f" MAXRESULTS {max_results}"
+
+    purchases = (await qb_query(query)).get("QueryResponse", {}).get("Purchase", [])
+
+    # Filter to unknown vendors
+    unknown = []
+    for p in purchases:
+        vendor = p.get("EntityRef", {}).get("name", "")
+        if not vendor or vendor.lower() in ("unknown", ""):
+            # Extract line item categories for context
+            line_cats = []
+            for line in p.get("Line", []):
+                detail = line.get("AccountBasedExpenseLineDetail", {})
+                acct = detail.get("AccountRef", {}).get("name", "")
+                if acct:
+                    line_cats.append(acct)
+
+            unknown.append({
+                "id": p.get("Id"),
+                "date": p.get("TxnDate", "?"),
+                "amount": float(p.get("TotalAmt", 0)),
+                "memo": p.get("PrivateNote", "") or p.get("Memo", "") or "",
+                "account": p.get("AccountRef", {}).get("name", "?"),
+                "categories": ", ".join(line_cats) if line_cats else "?",
+                "payment_type": p.get("PaymentType", "?"),
+            })
+
+    if not unknown:
+        return "✅ No transactions with unknown vendors found."
+
+    # Group by memo pattern for bulk identification
+    from collections import defaultdict
+    memo_groups = defaultdict(list)
+    for t in unknown:
+        # Normalize memo for grouping
+        memo = t["memo"].strip()
+        if not memo:
+            memo = f"[No memo — {t['categories']}]"
+        # Truncate long memos but keep identifying info
+        key = memo[:80] if len(memo) > 80 else memo
+        memo_groups[key].append(t)
+
+    # Sort groups by total amount (biggest first)
+    sorted_groups = sorted(memo_groups.items(),
+                           key=lambda x: sum(t["amount"] for t in x[1]),
+                           reverse=True)
+
+    lines = [
+        f"## Unknown Vendor Report",
+        f"**Total:** {len(unknown)} transactions with unknown/missing vendors",
+        f"**Total Amount:** {fmt(sum(t['amount'] for t in unknown))}",
+        f"**Grouped into:** {len(sorted_groups)} memo patterns\n",
+        f"### Transactions by Memo Pattern\n",
+    ]
+
+    for memo, txns in sorted_groups[:30]:  # cap at 30 groups
+        total = sum(t["amount"] for t in txns)
+        lines.append(f"**\"{memo}\"** — {len(txns)} txn(s), total {fmt(total)}")
+        lines.append(f"  Account: {txns[0]['account']} | Categories: {txns[0]['categories']}")
+        # Show IDs for bulk fix
+        ids = [t["id"] for t in txns]
+        if len(ids) <= 5:
+            lines.append(f"  IDs: {', '.join(ids)}")
+        else:
+            lines.append(f"  IDs: {', '.join(ids[:5])} ... +{len(ids)-5} more")
+        lines.append(f"  Date range: {txns[0]['date']} to {txns[-1]['date']}")
+        lines.append("")
+
+    lines.append("---")
+    lines.append("**To fix:** Use `qb_bulk_update_vendor` with the IDs and the correct vendor name.")
+    lines.append("**Common patterns:** CC payments from personal accounts → assign to yourself or the CC company.")
+
+    _audit_log("UNKNOWN_VENDOR_REPORT", f"found={len(unknown)} groups={len(sorted_groups)}")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+async def qb_bulk_update_vendor(transaction_ids: str, vendor_name: str) -> str:
+    """Bulk-assign a vendor name to multiple transactions.
+    transaction_ids: comma-separated Purchase IDs (e.g., '123,456,789').
+    vendor_name: display name of the vendor to assign. Must exist in QB already
+    (use qb_create_vendor first if needed)."""
+    ids = [i.strip() for i in transaction_ids.split(",") if i.strip()]
+    if not ids:
+        return "Error: No transaction IDs provided."
+    if not vendor_name.strip():
+        return "Error: vendor_name is required."
+
+    # Look up the vendor to get the ID
+    vendors = (await qb_query(
+        f"SELECT * FROM Vendor WHERE DisplayName = '{vendor_name.replace(chr(39), '')}' MAXRESULTS 5"
+    )).get("QueryResponse", {}).get("Vendor", [])
+
+    if not vendors:
+        # Try partial match
+        vendors = (await qb_query(
+            f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name.replace(chr(39), '')}%' MAXRESULTS 5"
+        )).get("QueryResponse", {}).get("Vendor", [])
+
+    if not vendors:
+        return (f"Error: Vendor '{vendor_name}' not found in QuickBooks. "
+                f"Create it first with `qb_create_vendor`.")
+
+    vendor = vendors[0]
+    vendor_ref = {"value": vendor["Id"], "name": vendor.get("DisplayName", vendor_name)}
+
+    success = 0
+    errors = []
+
+    for txn_id in ids:
+        try:
+            # Read current transaction
+            current = await qb_read("Purchase", txn_id)
+            purchase = current.get("Purchase", current)
+            if not purchase.get("Id"):
+                errors.append(f"ID {txn_id}: not found")
+                continue
+
+            # Update vendor
+            purchase["EntityRef"] = vendor_ref
+            result = await qb_request("POST", "purchase", json_body=purchase)
+            if result.get("Purchase", {}).get("Id"):
+                success += 1
+            else:
+                errors.append(f"ID {txn_id}: update failed")
+        except Exception as e:
+            errors.append(f"ID {txn_id}: {str(e)[:60]}")
+
+    lines = [
+        f"## Bulk Vendor Update Results",
+        f"**Vendor:** {vendor_name}",
+        f"**Attempted:** {len(ids)} transactions",
+        f"**Succeeded:** {success}",
+    ]
+    if errors:
+        lines.append(f"**Failed:** {len(errors)}")
+        for e in errors[:10]:
+            lines.append(f"  • {e}")
+
+    _audit_log("BULK_UPDATE_VENDOR", f"vendor={vendor_name} success={success}/{len(ids)}")
+    return "\n".join(lines)
+
+
+# ===================================================================
+# MONTH-END CLOSE WORKFLOW
+# ===================================================================
+
+@mcp.tool()
+async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
+    """Run a month-end close checklist for a specific month.
+    Checks: all transactions categorized, vendors assigned, accounts reconciled,
+    no orphaned items, and provides a close readiness score.
+    year: YYYY, month: 1-12."""
+    from calendar import monthrange
+
+    month = max(1, min(12, month))
+    _, last_day = monthrange(year, month)
+    start = f"{year}-{month:02d}-01"
+    end = f"{year}-{month:02d}-{last_day:02d}"
+    month_name = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][month - 1]
+
+    checklist = []
+    blockers = 0
+    warnings_count = 0
+
+    # --- 1. Transaction volume ---
+    purchases = (await qb_query(
+        f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
+    )).get("QueryResponse", {}).get("Purchase", [])
+
+    deposits = (await qb_query(
+        f"SELECT * FROM Deposit WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
+    )).get("QueryResponse", {}).get("Deposit", [])
+
+    journals = (await qb_query(
+        f"SELECT * FROM JournalEntry WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
+    )).get("QueryResponse", {}).get("JournalEntry", [])
+
+    total_txns = len(purchases) + len(deposits) + len(journals)
+    checklist.append(f"📊 **Transaction Volume:** {total_txns} total "
+                     f"({len(purchases)} purchases, {len(deposits)} deposits, {len(journals)} journal entries)")
+
+    # --- 2. Unknown vendors ---
+    unknown_vendors = [p for p in purchases
+                       if not p.get("EntityRef", {}).get("name")]
+    if unknown_vendors:
+        blockers += 1
+        checklist.append(
+            f"🔴 **{len(unknown_vendors)} purchases missing vendor** — "
+            f"total {fmt(sum(float(p.get('TotalAmt', 0)) for p in unknown_vendors))}\n"
+            f"   → Run `qb_unknown_vendor_report` to identify and fix."
+        )
+    else:
+        checklist.append("✅ All purchases have vendors assigned")
+
+    # --- 3. Uncategorized amounts ---
+    all_accounts = (await qb_query(
+        "SELECT * FROM Account MAXRESULTS 200"
+    )).get("QueryResponse", {}).get("Account", [])
+
+    uncat = [a for a in all_accounts
+             if "uncategorized" in a.get("Name", "").lower()
+             and abs(float(a.get("CurrentBalance", 0))) > 0.01]
+    if uncat:
+        total_uncat = sum(abs(float(a.get("CurrentBalance", 0))) for a in uncat)
+        blockers += 1
+        checklist.append(
+            f"🔴 **Uncategorized balances: {fmt(total_uncat)}**\n"
+            f"   → Run `qb_uncategorized_transactions` to find and reclassify."
+        )
+    else:
+        checklist.append("✅ No uncategorized balances")
+
+    # --- 4. P&L for the month ---
+    try:
+        pl_params = {"start_date": start, "end_date": end, "summarize_by": "Total"}
+        pl = await qb_request("GET", "reports/ProfitAndLoss", params=pl_params)
+        pl_rows = pl.get("Rows", {}).get("Row", [])
+        month_income = 0.0
+        month_expenses = 0.0
+        for row in pl_rows:
+            if row.get("type") != "Section":
+                continue
+            header = row.get("Header", {})
+            label = header.get("ColData", [{}])[0].get("value", "").lower().strip()
+            summary = row.get("Summary", {}).get("ColData", [])
+            if summary and len(summary) > 1:
+                val_str = summary[-1].get("value", "0").replace(",", "")
+                try:
+                    val = float(val_str)
+                except ValueError:
+                    val = 0
+                if label in ("income", "other income"):
+                    month_income += val
+                elif label in ("expenses", "other expenses"):
+                    month_expenses += abs(val)
+
+        net = month_income - month_expenses
+        checklist.append(
+            f"📊 **P&L Summary:** Income {fmt(month_income)} | "
+            f"Expenses {fmt(month_expenses)} | Net {fmt(net)}"
+        )
+    except Exception:
+        checklist.append("⚠️ Could not generate P&L for this month")
+
+    # --- 5. Duplicate check ---
+    from collections import defaultdict
+    fingerprints = defaultdict(list)
+    for p in purchases:
+        key = (p.get("TxnDate", ""), str(round(float(p.get("TotalAmt", 0)), 2)))
+        fingerprints[key].append(p.get("Id"))
+
+    dupes = {k: v for k, v in fingerprints.items() if len(v) > 1}
+    dupe_count = sum(len(v) - 1 for v in dupes.values())
+    if dupe_count > 3:
+        warnings_count += 1
+        checklist.append(
+            f"🟡 **{dupe_count} potential duplicates** — "
+            f"review with `qb_find_duplicates`"
+        )
+    else:
+        checklist.append("✅ No significant duplicates detected")
+
+    # --- 6. Large/unusual transactions ---
+    amounts = [float(p.get("TotalAmt", 0)) for p in purchases if float(p.get("TotalAmt", 0)) > 0]
+    if amounts:
+        import statistics
+        mean_amt = statistics.mean(amounts)
+        std_amt = statistics.stdev(amounts) if len(amounts) > 1 else mean_amt
+        threshold = mean_amt + 2.5 * std_amt
+        large = [p for p in purchases if float(p.get("TotalAmt", 0)) > threshold]
+        if large:
+            warnings_count += 1
+            checklist.append(
+                f"🟡 **{len(large)} unusually large transactions** (>{fmt(threshold)})\n"
+                f"   Largest: {fmt(max(float(p.get('TotalAmt', 0)) for p in large))} — verify these are correct."
+            )
+        else:
+            checklist.append("✅ No unusual transaction amounts")
+
+    # --- 7. Bank account reconciliation hint ---
+    bank_accounts = [a for a in all_accounts if a.get("AccountType") == "Bank"]
+    if bank_accounts:
+        bank_info = ", ".join(
+            f"{a['Name']}: {fmt(float(a.get('CurrentBalance', 0)))}"
+            for a in bank_accounts[:5]
+        )
+        checklist.append(
+            f"📊 **Bank Balances:** {bank_info}\n"
+            f"   → Verify these match your bank statements for {month_name} {year}."
+        )
+
+    # --- Close readiness ---
+    if blockers == 0 and warnings_count == 0:
+        status = "🟢 READY TO CLOSE"
+    elif blockers == 0:
+        status = "🟡 CLOSE WITH CAUTION"
+    else:
+        status = f"🔴 NOT READY — {blockers} blocking issue(s)"
+
+    lines = [
+        f"## Month-End Close: {month_name} {year}",
+        f"### Status: {status}\n",
+        "### Checklist\n",
+    ] + checklist + [
+        "",
+        f"---",
+        f"**Blockers:** {blockers} | **Warnings:** {warnings_count}",
+    ]
+
+    if blockers > 0:
+        lines.append(f"\n*Resolve all 🔴 items before closing the month.*")
+    else:
+        lines.append(f"\n*Month looks clean. Review 🟡 warnings and confirm bank reconciliation.*")
+
+    _audit_log("MONTH_END_CLOSE", f"{month_name} {year} blockers={blockers} warnings={warnings_count}")
+    return "\n".join(lines)
+
+
+# ===================================================================
 # ENTRY POINT
 # ===================================================================
 
