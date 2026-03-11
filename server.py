@@ -27,6 +27,16 @@ QB_CLIENT_SECRET = os.environ.get("QB_CLIENT_SECRET", "")
 QB_REDIRECT_URI = os.environ.get("QB_REDIRECT_URI", "http://localhost:8080/callback")
 QB_REALM_ID = os.environ.get("QB_REALM_ID", "")
 QB_REFRESH_TOKEN = os.environ.get("QB_REFRESH_TOKEN", "")
+# Prefer persisted refresh token (auto-saved after each OAuth exchange)
+_token_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".qb_refresh_token")
+if os.path.exists(_token_file):
+    try:
+        with open(_token_file) as _f:
+            _saved = _f.read().strip()
+        if _saved:
+            QB_REFRESH_TOKEN = _saved
+    except OSError:
+        pass
 QB_ENVIRONMENT = os.environ.get("QB_ENVIRONMENT", "production")
 
 BASE_URL = (
@@ -66,8 +76,18 @@ async def get_access_token() -> str:
     _access_token = data["access_token"]
     _token_expiry = datetime.now() + timedelta(seconds=data.get("expires_in", 3600) - 60)
     new_refresh = data.get("refresh_token")
-    if new_refresh:
+    if new_refresh and new_refresh != QB_REFRESH_TOKEN:
+        # Persist the new refresh token so restarts don't lose it.
+        # Save to a file next to server.py; also update the in-memory global.
+        global QB_REFRESH_TOKEN
+        QB_REFRESH_TOKEN = new_refresh
         os.environ["QB_REFRESH_TOKEN"] = new_refresh
+        token_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".qb_refresh_token")
+        try:
+            with open(token_path, "w") as f:
+                f.write(new_refresh)
+        except OSError:
+            pass  # best-effort; token is still in memory for this session
     return _access_token
 
 
