@@ -4,6 +4,7 @@
 *.env
 credentials.json
 tokens.json
+.qb_data/
 
 # Python
 __pycache__/
