@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
-import { supabase } from "@/lib/supabase";
+import { getStripe } from "@/lib/stripe";
+import { getSupabase } from "@/lib/supabase";
 
 /**
  * POST /api/stripe/portal
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Look up the license to get the Stripe customer ID
-    const { data: license, error } = await supabase
+    const { data: license, error } = await getSupabase()
       .from("licenses")
       .select("stripe_customer_id")
       .eq("key", licenseKey)
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create portal session
-    const portalSession = await stripe.billingPortal.sessions.create({
+    const portalSession = await getStripe().billingPortal.sessions.create({
       customer: license.stripe_customer_id,
       return_url: `${process.env.NEXT_PUBLIC_APP_URL || "https://localhost:3000"}`,
     });
