@@ -4524,31 +4524,47 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
     columns = result.get("Columns", {}).get("Column", [])
     month_labels = [c.get("ColTitle", "") for c in columns if c.get("ColTitle", "") != ""]
 
-    # Extract income and expense totals per month
-    monthly_income = []
-    monthly_expenses = []
+    # Extract income and expense totals per month.
+    # P&L by month may have separate "Income" and "Other Income" sections
+    # (and "Expenses" / "Other Expenses"), so we accumulate into dicts
+    # keyed by column index, then convert to lists at the end.
+    # We ignore summary rows like "Net Income", "Gross Profit", etc.
+    income_by_month = defaultdict(float)
+    expense_by_month = defaultdict(float)
+    num_month_cols = len(month_labels)
 
     for row in rows:
-        row_data = row.get("Summary", {}).get("ColData", []) or row.get("ColData", [])
+        if row.get("type") != "Section":
+            continue
         header = row.get("Header", {})
-        group = header.get("ColData", [{}])[0].get("value", "") if header.get("ColData") else row_data[0].get("value", "") if row_data else ""
+        group = header.get("ColData", [{}])[0].get("value", "") if header.get("ColData") else ""
+        group_lower = group.lower().strip()
 
-        if "income" in group.lower() and row.get("type") == "Section":
-            summary = row.get("Summary", {}).get("ColData", [])
-            for i, col in enumerate(summary):
-                val = col.get("value", "0").replace(",", "")
-                try:
-                    monthly_income.append(float(val))
-                except ValueError:
-                    pass
-        elif "expense" in group.lower() and row.get("type") == "Section":
-            summary = row.get("Summary", {}).get("ColData", [])
-            for i, col in enumerate(summary):
-                val = col.get("value", "0").replace(",", "")
-                try:
-                    monthly_expenses.append(float(val))
-                except ValueError:
-                    pass
+        is_income = group_lower in ("income", "other income")
+        is_expense = group_lower in ("expenses", "other expenses")
+        if not is_income and not is_expense:
+            continue
+
+        summary = row.get("Summary", {}).get("ColData", [])
+        if not summary:
+            continue
+
+        # Summary ColData has one entry per month column plus a "Total" column.
+        # The first element is the label (e.g. "Total Income"), so skip it.
+        numeric_cols = summary[1:] if len(summary) > num_month_cols else summary
+        for idx, col in enumerate(numeric_cols):
+            val_str = col.get("value", "0").replace(",", "")
+            try:
+                val = float(val_str)
+            except ValueError:
+                continue
+            if is_income:
+                income_by_month[idx] += val
+            else:
+                expense_by_month[idx] += abs(val)
+
+    monthly_income = [income_by_month[i] for i in sorted(income_by_month)] if income_by_month else []
+    monthly_expenses = [expense_by_month[i] for i in sorted(expense_by_month)] if expense_by_month else []
 
     # Fallback: use P&L total approach
     if not monthly_income and not monthly_expenses:
@@ -4566,10 +4582,12 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
                     val = float(val_str)
                 except ValueError:
                     val = 0
-                if "income" in label.lower():
-                    total_income = val
-                elif "expense" in label.lower():
-                    total_expenses = abs(val)
+                label_lower = label.lower().strip()
+                # Only match actual revenue/expense buckets, not "Net Income" etc.
+                if label_lower in ("income", "other income"):
+                    total_income += val
+                elif label_lower in ("expenses", "other expenses"):
+                    total_expenses += abs(val)
         avg_income = total_income / base_months
         avg_expenses = total_expenses / base_months
     else:
