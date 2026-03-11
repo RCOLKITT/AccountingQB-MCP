@@ -53,7 +53,7 @@ _token_expiry = None
 # Auth & HTTP helpers
 # ---------------------------------------------------------------------------
 async def get_access_token() -> str:
-    global _access_token, _token_expiry
+    global _access_token, _token_expiry, QB_REFRESH_TOKEN
     if _access_token and _token_expiry and datetime.now() < _token_expiry:
         return _access_token
 
@@ -78,8 +78,6 @@ async def get_access_token() -> str:
     new_refresh = data.get("refresh_token")
     if new_refresh and new_refresh != QB_REFRESH_TOKEN:
         # Persist the new refresh token so restarts don't lose it.
-        # Save to a file next to server.py; also update the in-memory global.
-        global QB_REFRESH_TOKEN
         QB_REFRESH_TOKEN = new_refresh
         os.environ["QB_REFRESH_TOKEN"] = new_refresh
         token_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".qb_refresh_token")
