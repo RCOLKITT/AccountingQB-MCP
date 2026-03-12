@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Stripe checkout error:", message);
     return NextResponse.json(
-      { error: "Failed to create checkout session", detail: message },
+      { error: "Failed to create checkout session" },
       { status: 500 }
     );
   }
