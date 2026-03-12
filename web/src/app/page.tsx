@@ -822,7 +822,7 @@ export default function Home() {
               </a>
               <p className="mt-4 text-sm text-gray-500">
                 AI-powered QuickBooks tools for Claude Desktop and Cowork.
-                Built by entrepreneurs, for entrepreneurs.
+                A <a href="https://vasperacapital.com" className="text-gray-400 transition hover:text-white">Vaspera Capital</a> product.
               </p>
             </div>
             <div>
@@ -844,7 +844,7 @@ export default function Home() {
           </div>
           <div className="mt-14 border-t border-white/[0.06] pt-8">
             <p className="text-center text-sm text-gray-600">
-              &copy; {new Date().getFullYear()} AccountingQB. All rights reserved.
+              &copy; {new Date().getFullYear()} Vaspera Capital. All rights reserved.
               AccountingQB is not affiliated with Intuit or QuickBooks.
             </p>
           </div>

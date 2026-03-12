@@ -31,7 +31,7 @@ export default function PrivacyPolicy() {
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">1. Overview</h2>
           <p className="text-gray-400 leading-relaxed">
             AccountingQB (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;) is a software product
-            operated by NutriFitAI LLC, a Delaware limited liability company. We are committed to protecting
+            operated by NutriFitAI LLC, doing business as Vaspera Capital, a Delaware limited liability company. We are committed to protecting
             your privacy and being transparent about how we handle data. This policy explains what
             information we collect, how we use it, and your rights.
           </p>
@@ -124,7 +124,7 @@ export default function PrivacyPolicy() {
             .
           </p>
           <p className="text-gray-400 leading-relaxed mt-3">
-            NutriFitAI LLC<br />
+            NutriFitAI LLC, d/b/a Vaspera Capital<br />
             12 Autumn Hill Ln<br />
             Southborough, MA 01772
           </p>
