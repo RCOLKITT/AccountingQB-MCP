@@ -607,6 +607,50 @@ export default function Home() {
             ))}
           </div>
 
+          {/* Manual vs AccountingQB comparison table */}
+          <div className="mt-16">
+            <h3 className="mb-6 text-center text-xl font-semibold text-white">
+              What that same work looks like done{" "}
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">manually</span>
+            </h3>
+            <div className="overflow-hidden rounded-2xl border border-white/[0.06]">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-white/[0.06] bg-[#131a2e]">
+                    <th className="px-6 py-4 font-medium text-gray-400">Task</th>
+                    <th className="px-6 py-4 text-center font-medium text-gray-400">Manual time</th>
+                    <th className="px-6 py-4 text-center font-medium text-cyan-400">AccountingQB</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {[
+                    { task: "Categorize & map expenses to Schedule C lines", manual: "3–5 hours", fast: "~2 seconds" },
+                    { task: "Scan for missed deductions across all categories", manual: "2–3 hours", fast: "~2 seconds" },
+                    { task: "Pull vendor payments, identify 1099-eligible, flag missing W-9s", manual: "2–4 hours", fast: "~2 seconds" },
+                    { task: "Calculate quarterly estimates (federal + state)", manual: "1–2 hours", fast: "~2 seconds" },
+                    { task: "Depreciation schedule (MACRS tables, Section 179 analysis)", manual: "1–2 hours", fast: "~2 seconds" },
+                  ].map((row) => (
+                    <tr key={row.task} className="bg-[#0f1629] transition hover:bg-white/[0.02]">
+                      <td className="px-6 py-4 text-gray-300">{row.task}</td>
+                      <td className="px-6 py-4 text-center text-gray-500">{row.manual}</td>
+                      <td className="px-6 py-4 text-center font-semibold text-emerald-400">{row.fast}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-white/[0.06] bg-[#131a2e]">
+                    <td className="px-6 py-4 font-medium text-white">Total</td>
+                    <td className="px-6 py-4 text-center font-medium text-gray-400">9–16 hours</td>
+                    <td className="px-6 py-4 text-center font-bold text-emerald-400">~10 seconds</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <p className="mt-4 text-center text-sm text-gray-500">
+              A CPA charges $150–300/hr for this same output. AccountingQB starts at $39/mo.
+            </p>
+          </div>
+
           <div className="mt-12 rounded-2xl border border-white/[0.06] bg-[#131a2e] p-8">
             <div className="grid items-center gap-8 sm:grid-cols-2">
               <div>
