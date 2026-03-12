@@ -34,10 +34,11 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.redirect(session.url!, 303);
-  } catch (err) {
-    console.error("Stripe checkout error:", err);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Stripe checkout error:", message);
     return NextResponse.json(
-      { error: "Failed to create checkout session" },
+      { error: "Failed to create checkout session", detail: message },
       { status: 500 }
     );
   }
