@@ -9,6 +9,7 @@ const tiers = [
     price: "$39",
     period: "/mo",
     description: "For freelancers & sole proprietors",
+    savings: "Save ~5 hrs/mo on bookkeeping & tax prep",
     features: [
       "All 91 QuickBooks tools",
       "Schedule C tax prep",
@@ -26,6 +27,7 @@ const tiers = [
     price: "$99",
     period: "/mo",
     description: "For growing small businesses",
+    savings: "Save ~12 hrs/mo across 3 companies",
     features: [
       "Everything in Solopreneur",
       "Up to 3 companies",
@@ -43,6 +45,7 @@ const tiers = [
     price: "$299",
     period: "/mo",
     description: "For accounting firms & bookkeepers",
+    savings: "Save ~3 hrs/client/mo — pays for itself at 3 clients",
     features: [
       "Everything in Business",
       "Unlimited companies",
@@ -508,6 +511,103 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ========== ROI / FIRM VALUE PROP ========== */}
+      <section className="relative border-y border-white/[0.06] bg-[#0c1120] py-28">
+        <div className="relative mx-auto max-w-6xl px-6">
+          <div className="text-center">
+            <div className="mb-4 inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/[0.08] px-3 py-1 text-xs font-medium text-emerald-300">
+              The Math
+            </div>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
+              It pays for itself{" "}
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">in the first week</span>
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-gray-400">
+              Manual bookkeeping tasks that used to take hours now happen in a single conversation.
+            </p>
+          </div>
+
+          <div className="mt-16 grid gap-6 sm:grid-cols-3">
+            {[
+              {
+                metric: "~3 hrs",
+                label: "saved per client per month",
+                detail: "Month-end close, categorization, and reconciliation that used to be manual",
+                icon: (
+                  <svg className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ),
+              },
+              {
+                metric: "$15/client",
+                label: "effective cost at 20 clients",
+                detail: "The Firm plan is $299/mo flat — the more clients you manage, the cheaper it gets",
+                icon: (
+                  <svg className="h-6 w-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+                  </svg>
+                ),
+              },
+              {
+                metric: "10 min",
+                label: "to prep a full tax package",
+                detail: "Schedule C, deduction finder, 1099 reports, depreciation — all from one prompt",
+                icon: (
+                  <svg className="h-6 w-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                  </svg>
+                ),
+              },
+            ].map((item) => (
+              <div key={item.label} className="gradient-border rounded-2xl p-8 text-center">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.04]">
+                  {item.icon}
+                </div>
+                <div className="text-4xl font-bold text-white">{item.metric}</div>
+                <div className="mt-1 text-sm font-medium text-gray-300">{item.label}</div>
+                <p className="mt-3 text-sm text-gray-500">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12 rounded-2xl border border-white/[0.06] bg-[#131a2e] p-8">
+            <div className="grid items-center gap-8 sm:grid-cols-2">
+              <div>
+                <h3 className="text-xl font-semibold text-white">Built for bookkeeping firms</h3>
+                <p className="mt-3 text-gray-400">
+                  If you&apos;re managing 20+ clients, your team is spending hundreds of hours a month on tasks
+                  AccountingQB handles in minutes. Month-end close, vendor cleanup, anomaly checks, tax prep —
+                  every workflow that eats your margin, automated.
+                </p>
+              </div>
+              <div className="rounded-xl bg-white/[0.03] p-6">
+                <div className="text-sm text-gray-500">Example: 20-client firm</div>
+                <div className="mt-3 space-y-2 text-sm">
+                  <div className="flex justify-between text-gray-400">
+                    <span>Hours saved/mo</span>
+                    <span className="font-semibold text-white">~60 hrs</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>At $50/hr staff cost</span>
+                    <span className="font-semibold text-white">$3,000 saved</span>
+                  </div>
+                  <div className="border-t border-white/[0.06] pt-2"></div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>AccountingQB Firm plan</span>
+                    <span className="font-semibold text-cyan-400">$299/mo</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span className="font-medium text-emerald-400">ROI</span>
+                    <span className="font-bold text-emerald-400">10x return</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ========== PRICING ========== */}
       <section id="pricing" className="relative border-y border-white/[0.06] bg-[#0c1120] py-28">
         <div className="absolute inset-0 bg-grid opacity-20" />
@@ -517,10 +617,11 @@ export default function Home() {
               Pricing
             </div>
             <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
-              Simple, transparent pricing
+              Less than the cost of{" "}
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">one hour of bookkeeping</span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-gray-400">
-              Start with a 14-day free trial. No credit card required.
+              Start with a 14-day free trial. No credit card required. Cancel anytime.
             </p>
           </div>
 
@@ -545,6 +646,9 @@ export default function Home() {
                   <span className="text-5xl font-bold text-white">{t.price}</span>
                   <span className="text-gray-500">{t.period}</span>
                 </div>
+                {t.savings && (
+                  <p className="mt-2 text-xs font-medium text-cyan-400/80">{t.savings}</p>
+                )}
                 <a
                   href={t.href}
                   className={`mt-8 block w-full rounded-xl py-3 text-center text-sm font-semibold transition ${
