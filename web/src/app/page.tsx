@@ -629,6 +629,7 @@ export default function Home() {
                     { task: "Pull vendor payments, identify 1099-eligible, flag missing W-9s", manual: "2–4 hours", fast: "~2 seconds" },
                     { task: "Calculate quarterly estimates (federal + state)", manual: "1–2 hours", fast: "~2 seconds" },
                     { task: "Depreciation schedule (MACRS tables, Section 179 analysis)", manual: "1–2 hours", fast: "~2 seconds" },
+                    { task: "Extract invoices from email/Drive & reconcile against QB", manual: "2–4 hours", fast: "~30 seconds" },
                   ].map((row) => (
                     <tr key={row.task} className="bg-[#0f1629] transition hover:bg-white/[0.02]">
                       <td className="px-6 py-4 text-gray-300">{row.task}</td>
@@ -640,8 +641,8 @@ export default function Home() {
                 <tfoot>
                   <tr className="border-t border-white/[0.06] bg-[#131a2e]">
                     <td className="px-6 py-4 font-medium text-white">Total</td>
-                    <td className="px-6 py-4 text-center font-medium text-gray-400">9–16 hours</td>
-                    <td className="px-6 py-4 text-center font-bold text-emerald-400">~10 seconds</td>
+                    <td className="px-6 py-4 text-center font-medium text-gray-400">11–20 hours</td>
+                    <td className="px-6 py-4 text-center font-bold text-emerald-400">~40 seconds</td>
                   </tr>
                 </tfoot>
               </table>
