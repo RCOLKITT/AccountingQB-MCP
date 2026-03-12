@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     // Create portal session
     const portalSession = await getStripe().billingPortal.sessions.create({
       customer: license.stripe_customer_id,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL || "https://localhost:3000"}`,
+      return_url: process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com",
     });
 
     return NextResponse.json({ url: portalSession.url });
