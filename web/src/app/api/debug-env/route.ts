@@ -8,9 +8,9 @@ export async function GET() {
   return NextResponse.json({
     STRIPE_SECRET_KEY: !!process.env.STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET: !!process.env.STRIPE_WEBHOOK_SECRET,
-    STRIPE_PRICE_SOLOPRENEUR: !!process.env.STRIPE_PRICE_SOLOPRENEUR,
-    STRIPE_PRICE_BUSINESS: !!process.env.STRIPE_PRICE_BUSINESS,
-    STRIPE_PRICE_FIRM: !!process.env.STRIPE_PRICE_FIRM,
+    STRIPE_PRICE_SOLOPRENEUR: process.env.STRIPE_PRICE_SOLOPRENEUR || "(not set)",
+    STRIPE_PRICE_BUSINESS: process.env.STRIPE_PRICE_BUSINESS || "(not set)",
+    STRIPE_PRICE_FIRM: process.env.STRIPE_PRICE_FIRM || "(not set)",
     SUPABASE_URL: !!process.env.SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     NEXT_PUBLIC_BASE_URL: !!process.env.NEXT_PUBLIC_BASE_URL,
