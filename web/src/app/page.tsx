@@ -308,34 +308,56 @@ export default function Home() {
               Features
             </div>
             <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
-              Everything you need to manage
+              91 tools across every
               <br />
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">your books with AI</span>
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">accounting workflow</span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-gray-400">
-              Built by an entrepreneur, for entrepreneurs. Every tool we wished existed.
+              Reports. Tax prep. Reconciliation. Invoicing. Forecasting. Compliance.
+              Built by an entrepreneur who needed every single one.
             </p>
           </div>
 
+          {/* Tool Suite Breakdown */}
+          <div className="mt-16 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {[
+              { count: "15", label: "Reports & Analysis", color: "text-cyan-400 border-cyan-500/20 bg-cyan-500/[0.06]" },
+              { count: "9", label: "Tax & Compliance", color: "text-amber-400 border-amber-500/20 bg-amber-500/[0.06]" },
+              { count: "15", label: "Create & Write", color: "text-blue-400 border-blue-500/20 bg-blue-500/[0.06]" },
+              { count: "16", label: "Transactions & Search", color: "text-purple-400 border-purple-500/20 bg-purple-500/[0.06]" },
+              { count: "8", label: "Smart Bookkeeping", color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/[0.06]" },
+              { count: "8", label: "Entity Management", color: "text-indigo-400 border-indigo-500/20 bg-indigo-500/[0.06]" },
+              { count: "4", label: "Cash Flow & Runway", color: "text-green-400 border-green-500/20 bg-green-500/[0.06]" },
+              { count: "3", label: "Reconciliation", color: "text-rose-400 border-rose-500/20 bg-rose-500/[0.06]" },
+              { count: "3", label: "Close & Audit", color: "text-orange-400 border-orange-500/20 bg-orange-500/[0.06]" },
+              { count: "10", label: "Modify, Delete & Bulk", color: "text-gray-400 border-gray-500/20 bg-gray-500/[0.06]" },
+            ].map((cat) => (
+              <div key={cat.label} className={`rounded-xl border p-4 text-center ${cat.color}`}>
+                <div className="text-2xl font-bold">{cat.count}</div>
+                <div className="mt-1 text-xs opacity-80">{cat.label}</div>
+              </div>
+            ))}
+          </div>
+
           {/* Bento Grid */}
-          <div className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Large card */}
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Invoice Reconciliation — NEW HIGHLIGHT */}
             <div className="gradient-border rounded-2xl p-8 sm:col-span-2 lg:col-span-2">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20">
-                <svg className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500/20 to-pink-600/20">
+                <svg className="h-6 w-6 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-white">91 Accounting Tools</h3>
+              <h3 className="text-xl font-semibold text-white">Email Invoice Scanning + Auto-Reconciliation</h3>
               <p className="mt-2 text-gray-400">
-                From P&L reports to Schedule C prep, anomaly detection to cash flow forecasting.
-                The most comprehensive QuickBooks MCP ever built — covering every accounting workflow you need.
+                Extract invoices from your email, then match them against QuickBooks transactions with fuzzy amount matching
+                and date tolerance. Instantly find what&apos;s been paid, what&apos;s missing, and what doesn&apos;t add up — no more
+                manual cross-referencing between your inbox and your books.
               </p>
-              {/* Tool category mini-grid */}
-              <div className="mt-6 grid grid-cols-3 gap-2 text-xs sm:grid-cols-4">
-                {["Reports", "Tax Prep", "Reconciliation", "Invoicing", "Cash Flow", "Anomaly Detection", "Vendor Mgmt", "Forecasting"].map((t) => (
-                  <div key={t} className="rounded-lg bg-white/[0.04] px-3 py-2 text-center text-gray-400">{t}</div>
-                ))}
+              <div className="mt-6 grid grid-cols-3 gap-2 text-xs">
+                <div className="rounded-lg bg-white/[0.04] px-3 py-2 text-center text-gray-400">Extract from email</div>
+                <div className="rounded-lg bg-white/[0.04] px-3 py-2 text-center text-gray-400">Fuzzy matching</div>
+                <div className="rounded-lg bg-white/[0.04] px-3 py-2 text-center text-gray-400">Batch reconcile</div>
               </div>
             </div>
 
@@ -376,9 +398,9 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-white">Tax Season Ready</h3>
+              <h3 className="text-xl font-semibold text-white">9 Tax Prep Tools</h3>
               <p className="mt-2 text-gray-400">
-                Schedule C mapping, quarterly estimates, deduction finder, depreciation schedules, 1099 reports, and home office calculator.
+                Schedule C mapping (basic + detailed), quarterly estimates, deduction finder, depreciation schedules, 1099 reports, home office &amp; vehicle calculators.
               </p>
             </div>
 
@@ -389,9 +411,9 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-white">Smart Bookkeeping</h3>
+              <h3 className="text-xl font-semibold text-white">AI Bookkeeping Assistant</h3>
               <p className="mt-2 text-gray-400">
-                Auto-categorization, duplicate detection, unknown vendor reports, anomaly flagging, and books health audit scored 0-100.
+                Auto-categorization suggestions, duplicate detection, unknown vendor cleanup, anomaly flagging, bulk vendor updates, and a books health audit scored 0-100.
               </p>
             </div>
           </div>
@@ -465,35 +487,49 @@ export default function Home() {
             </h2>
           </div>
 
-          <div className="mt-16 grid gap-4 sm:grid-cols-2">
+          <div className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
                 title: "Tax Prep in Minutes",
-                desc: "Schedule C, missed deductions, quarterly estimates, 1099 reports — all in a conversation.",
+                desc: "Schedule C (basic + detailed), deduction finder, quarterly estimates, 1099 reports, home office calc, vehicle depreciation — the full tax package from one prompt.",
                 tag: "Tax Season",
                 tagColor: "text-amber-400 bg-amber-500/10 border-amber-500/20",
                 example: "\"Generate my Schedule C and find any deductions I missed this year.\"",
               },
               {
+                title: "Invoice Reconciliation",
+                desc: "Extract invoices from email, match them against QuickBooks with fuzzy amounts and date tolerance. See what&apos;s paid, what&apos;s missing, what doesn&apos;t add up.",
+                tag: "Reconciliation",
+                tagColor: "text-rose-400 bg-rose-500/10 border-rose-500/20",
+                example: "\"Match these invoices from my email against QB and show me any gaps.\"",
+              },
+              {
                 title: "Monthly Close Workflow",
-                desc: "Books health audit, uncategorized transactions, unknown vendors, scored close checklist.",
+                desc: "Books health audit scored 0-100, uncategorized transaction cleanup, unknown vendor reports, and a scored close readiness checklist.",
                 tag: "Bookkeeping",
                 tagColor: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
                 example: "\"Run my month-end close for February and show me what needs fixing.\"",
               },
               {
                 title: "Cash Flow Intelligence",
-                desc: "Forecast cash, calculate runway, compare periods, track burn rate — no spreadsheets.",
+                desc: "6-month forecasting, runway calculator, burn rate trends, period-over-period comparison, and profit margin analysis by customer or product.",
                 tag: "Financial Analysis",
                 tagColor: "text-blue-400 bg-blue-500/10 border-blue-500/20",
                 example: "\"What does my cash flow look like for the next 6 months?\"",
               },
               {
                 title: "Anomaly Detection",
-                desc: "Flag duplicates, unusual amounts, round-number patterns, and vendor concentration risks.",
+                desc: "Flag duplicates, unusual amounts, round-number patterns, weekend activity, and vendor concentration risks. Statistical outlier detection built in.",
                 tag: "Risk Management",
-                tagColor: "text-rose-400 bg-rose-500/10 border-rose-500/20",
+                tagColor: "text-purple-400 bg-purple-500/10 border-purple-500/20",
                 example: "\"Check Q4 for any suspicious transactions or duplicates.\"",
+              },
+              {
+                title: "Full Accounting Suite",
+                desc: "Create expenses, invoices, bills, estimates, journal entries, deposits, transfers, credit memos, vendor credits — plus batch operations and bulk vendor updates.",
+                tag: "Write & Create",
+                tagColor: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+                example: "\"Create an invoice for Acme Corp for $5,000 consulting, due in 30 days.\"",
               },
             ].map((uc) => (
               <div key={uc.title} className="gradient-border rounded-2xl p-8 transition duration-300 hover:bg-white/[0.02]">
@@ -523,39 +559,39 @@ export default function Home() {
               <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">in the first week</span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-gray-400">
-              Manual bookkeeping tasks that used to take hours now happen in a single conversation.
+              91 tools means 91 tasks that used to be manual. Tax prep, invoice reconciliation, vendor cleanup, anomaly checks, month-end close — all in a conversation.
             </p>
           </div>
 
           <div className="mt-16 grid gap-6 sm:grid-cols-3">
             {[
               {
-                metric: "~3 hrs",
-                label: "saved per client per month",
-                detail: "Month-end close, categorization, and reconciliation that used to be manual",
-                icon: (
-                  <svg className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                ),
-              },
-              {
-                metric: "$15/client",
-                label: "effective cost at 20 clients",
-                detail: "The Firm plan is $299/mo flat — the more clients you manage, the cheaper it gets",
-                icon: (
-                  <svg className="h-6 w-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
-                  </svg>
-                ),
-              },
-              {
                 metric: "10 min",
-                label: "to prep a full tax package",
-                detail: "Schedule C, deduction finder, 1099 reports, depreciation — all from one prompt",
+                label: "full tax package",
+                detail: "Schedule C, deductions, 1099s, quarterly estimates, depreciation, home office — all from one prompt",
                 icon: (
                   <svg className="h-6 w-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                  </svg>
+                ),
+              },
+              {
+                metric: "30 sec",
+                label: "invoice reconciliation",
+                detail: "Extract invoices from email, match against QB, find gaps — replaces hours of manual cross-referencing",
+                icon: (
+                  <svg className="h-6 w-6 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                  </svg>
+                ),
+              },
+              {
+                metric: "~3 hrs",
+                label: "saved per client per month",
+                detail: "Month-end close, categorization, reconciliation, vendor cleanup, anomaly checks — all automated",
+                icon: (
+                  <svg className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 ),
               },
@@ -577,8 +613,8 @@ export default function Home() {
                 <h3 className="text-xl font-semibold text-white">Built for bookkeeping firms</h3>
                 <p className="mt-3 text-gray-400">
                   If you&apos;re managing 20+ clients, your team is spending hundreds of hours a month on tasks
-                  AccountingQB handles in minutes. Month-end close, vendor cleanup, anomaly checks, tax prep —
-                  every workflow that eats your margin, automated.
+                  AccountingQB handles in minutes. Invoice reconciliation, month-end close, vendor cleanup,
+                  anomaly checks, tax prep — 91 tools covering every workflow that eats your margin.
                 </p>
               </div>
               <div className="rounded-xl bg-white/[0.03] p-6">
