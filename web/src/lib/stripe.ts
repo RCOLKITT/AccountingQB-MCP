@@ -12,10 +12,10 @@ export function getStripe(): Stripe {
 }
 
 export function getTierPrice(tier: string): string {
-  const prices: Record<string, string | undefined> = {
-    solopreneur: process.env.STRIPE_PRICE_SOLOPRENEUR,
-    business: process.env.STRIPE_PRICE_BUSINESS,
-    firm: process.env.STRIPE_PRICE_FIRM,
+  const prices: Record<string, string> = {
+    solopreneur: process.env.STRIPE_PRICE_SOLOPRENEUR || "price_1T9x8q8gtMApOcAQLAHpDrZv",
+    business: process.env.STRIPE_PRICE_BUSINESS || "price_1T9x8r8gtMApOcAQdWEsb6aB",
+    firm: process.env.STRIPE_PRICE_FIRM || "price_1T9x8s8gtMApOcAQnseRO501",
   };
   const price = prices[tier];
   if (!price) throw new Error(`No price configured for tier: ${tier}`);
