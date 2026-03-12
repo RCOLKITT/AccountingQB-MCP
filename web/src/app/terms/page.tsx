@@ -30,8 +30,8 @@ export default function TermsOfService() {
         <div className="prose prose-invert mt-12 max-w-none">
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">1. Agreement to Terms</h2>
           <p className="text-gray-400 leading-relaxed">
-            By accessing or using AccountingQB (&ldquo;the Service&rdquo;), operated by NutriFitAI LLC
-            (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;), you agree to be bound by these
+            By accessing or using AccountingQB (&ldquo;the Service&rdquo;), operated by NutriFitAI LLC,
+            doing business as Vaspera Capital (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;), you agree to be bound by these
             Terms of Service. If you do not agree to these terms, do not use the Service.
           </p>
 
@@ -114,7 +114,7 @@ export default function TermsOfService() {
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">11. Limitation of Liability</h2>
           <p className="text-gray-400 leading-relaxed">
-            TO THE MAXIMUM EXTENT PERMITTED BY LAW, NUTRIFITAI LLC AND ITS OFFICERS, DIRECTORS,
+            TO THE MAXIMUM EXTENT PERMITTED BY LAW, NUTRIFITAI LLC (D/B/A VASPERA CAPITAL) AND ITS OFFICERS, DIRECTORS,
             EMPLOYEES, AND AGENTS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL,
             CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS OR REVENUES, WHETHER
             INCURRED DIRECTLY OR INDIRECTLY, OR ANY LOSS OF DATA, USE, GOODWILL, OR OTHER
@@ -127,7 +127,7 @@ export default function TermsOfService() {
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">12. Indemnification</h2>
           <p className="text-gray-400 leading-relaxed">
-            You agree to indemnify and hold harmless NutriFitAI LLC from any claims, damages,
+            You agree to indemnify and hold harmless NutriFitAI LLC (d/b/a Vaspera Capital) from any claims, damages,
             losses, liabilities, and expenses (including reasonable attorney&apos;s fees) arising out
             of or related to your use of the Service, your violation of these Terms, or your
             violation of any rights of another party.
@@ -165,7 +165,7 @@ export default function TermsOfService() {
             .
           </p>
           <p className="text-gray-400 leading-relaxed mt-3">
-            NutriFitAI LLC<br />
+            NutriFitAI LLC, d/b/a Vaspera Capital<br />
             12 Autumn Hill Ln<br />
             Southborough, MA 01772
           </p>
