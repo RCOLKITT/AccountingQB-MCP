@@ -153,7 +153,16 @@ function SuccessContent() {
           </ol>
         </div>
 
-        <div className="mt-8 flex items-center justify-center gap-4">
+        {licenseKey && (
+          <a
+            href={`/setup?key=${licenseKey}`}
+            className="mt-8 block w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 text-center text-lg font-semibold shadow-lg shadow-cyan-500/20 transition hover:shadow-cyan-500/40"
+          >
+            Continue to Setup →
+          </a>
+        )}
+
+        <div className="mt-4 flex items-center justify-center gap-4">
           <a
             href="/"
             className="rounded-lg border border-white/20 px-6 py-3 text-sm font-semibold transition hover:bg-white/10"
@@ -161,8 +170,8 @@ function SuccessContent() {
             Back to Home
           </a>
           <a
-            href="mailto:ryan@vasperacapital.com"
-            className="rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold shadow-lg shadow-blue-600/25 transition hover:bg-blue-500"
+            href="mailto:support@accountingqb.com"
+            className="rounded-lg border border-white/20 px-6 py-3 text-sm font-semibold transition hover:bg-white/10"
           >
             Need Help?
           </a>
