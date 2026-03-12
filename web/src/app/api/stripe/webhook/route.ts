@@ -37,18 +37,21 @@ export async function POST(req: NextRequest) {
       const email = session.customer_email || session.customer_details?.email || "";
       const licenseKey = `LK-${crypto.randomBytes(16).toString("hex").toUpperCase()}`;
 
-      // Create license record
-      await supabase.from("licenses").insert({
-        key: licenseKey,
-        email,
-        tier,
-        stripe_customer_id: session.customer as string,
-        stripe_subscription_id: session.subscription as string,
-        status: "trialing",
-        trial_ends_at: new Date(
-          Date.now() + 14 * 24 * 60 * 60 * 1000
-        ).toISOString(),
-      });
+      // Upsert license record (idempotent — safe for replayed webhook events)
+      await supabase.from("licenses").upsert(
+        {
+          key: licenseKey,
+          email,
+          tier,
+          stripe_customer_id: session.customer as string,
+          stripe_subscription_id: session.subscription as string,
+          status: "trialing",
+          trial_ends_at: new Date(
+            Date.now() + 14 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+        },
+        { onConflict: "stripe_subscription_id", ignoreDuplicates: true }
+      );
 
       console.log(`New license created: ${licenseKey} for ${email} (${tier})`);
       break;
