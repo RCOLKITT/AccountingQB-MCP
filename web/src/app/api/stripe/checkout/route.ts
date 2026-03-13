@@ -37,8 +37,9 @@ export async function GET(req: NextRequest) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Stripe checkout error:", message);
+    // TEMPORARY: surface error for debugging — remove before launch
     return NextResponse.json(
-      { error: "Failed to create checkout session" },
+      { error: "Failed to create checkout session", debug: message },
       { status: 500 }
     );
   }
