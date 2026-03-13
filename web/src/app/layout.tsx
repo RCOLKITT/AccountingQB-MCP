@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";
@@ -116,7 +117,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="bg-[#0a0e1a] text-gray-100 antialiased">{children}</body>
+      <body className="bg-[#0a0e1a] text-gray-100 antialiased">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
