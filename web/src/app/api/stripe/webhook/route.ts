@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
+import { sendLicenseEmail } from "@/lib/resend";
 import crypto from "crypto";
 import Stripe from "stripe";
 
@@ -36,24 +37,45 @@ export async function POST(req: NextRequest) {
       const tier = session.metadata?.tier || "solopreneur";
       const email = session.customer_email || session.customer_details?.email || "";
       const licenseKey = `LK-${crypto.randomBytes(16).toString("hex").toUpperCase()}`;
+      const trialEndsAt = new Date(
+        Date.now() + 14 * 24 * 60 * 60 * 1000
+      ).toISOString();
 
       // Upsert license record (idempotent — safe for replayed webhook events)
-      await supabase.from("licenses").upsert(
-        {
+      const { data: existing } = await supabase
+        .from("licenses")
+        .select("key")
+        .eq("stripe_subscription_id", session.subscription as string)
+        .single();
+
+      if (!existing) {
+        await supabase.from("licenses").insert({
           key: licenseKey,
           email,
           tier,
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
           status: "trialing",
-          trial_ends_at: new Date(
-            Date.now() + 14 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-        },
-        { onConflict: "stripe_subscription_id", ignoreDuplicates: true }
-      );
+          trial_ends_at: trialEndsAt,
+        });
 
-      console.log(`New license created: ${licenseKey} for ${email} (${tier})`);
+        // Send license email
+        if (email) {
+          try {
+            await sendLicenseEmail({
+              to: email,
+              licenseKey,
+              tier,
+              trialEndsAt,
+            });
+            console.log(`License email sent to ${email}`);
+          } catch (emailErr) {
+            console.error("Failed to send license email:", emailErr);
+          }
+        }
+
+        console.log(`New license created: ${licenseKey} for ${email} (${tier})`);
+      }
       break;
     }
 
