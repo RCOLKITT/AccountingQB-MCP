@@ -42,7 +42,7 @@ export async function sendLicenseEmail({
           <!-- Logo -->
           <tr>
             <td align="center" style="padding-bottom: 32px;">
-              <span style="font-size: 28px; font-weight: 700; color: #ffffff;">Account<span style="background: linear-gradient(135deg, #22d3ee, #3b82f6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">QB</span></span>
+              <span style="font-size: 28px; font-weight: 700; color: #ffffff;">Accounting<span style="background: linear-gradient(135deg, #22d3ee, #3b82f6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">QB</span></span>
             </td>
           </tr>
 
