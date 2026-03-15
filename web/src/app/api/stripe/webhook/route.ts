@@ -41,12 +41,12 @@ export async function POST(req: NextRequest) {
         Date.now() + 14 * 24 * 60 * 60 * 1000
       ).toISOString();
 
-      // Upsert license record (idempotent — safe for replayed webhook events)
+      // Check if license already exists (idempotent — safe for replayed webhook events)
       const { data: existing } = await supabase
         .from("licenses")
         .select("key")
         .eq("stripe_subscription_id", session.subscription as string)
-        .single();
+        .maybeSingle();
 
       if (!existing) {
         await supabase.from("licenses").insert({
