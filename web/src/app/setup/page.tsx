@@ -74,8 +74,8 @@ function SetupContent() {
       <nav className="border-b border-white/5 px-6 py-4">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <a href="/" className="text-xl font-bold">
+            <span className="text-white">Accounting</span>
             <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">QB</span>
-            <span className="text-white/80 ml-1">Quarterback</span>
           </a>
           <a
             href="mailto:support@accountingqb.com"
@@ -87,11 +87,31 @@ function SetupContent() {
       </nav>
 
       <div className="mx-auto max-w-3xl px-6 py-12">
+        {/* New easier flow banner */}
+        <div className="mb-8 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-6">
+          <div className="flex items-start gap-4">
+            <span className="text-2xl">✨</span>
+            <div>
+              <h2 className="font-semibold text-white">New: One-Click Setup</h2>
+              <p className="mt-1 text-sm text-gray-300">
+                We now offer a simpler setup flow — no Intuit developer account needed. Just install the extension and connect your QuickBooks with one click.
+              </p>
+              <a
+                href="/dashboard"
+                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2 text-sm font-semibold transition hover:shadow-lg hover:shadow-cyan-500/20"
+              >
+                Use Easy Setup →
+              </a>
+            </div>
+          </div>
+        </div>
+
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Get Started with Quarterback
+          Advanced Setup (Self-Hosted)
         </h1>
         <p className="mt-3 text-lg text-gray-400">
-          Follow these steps to connect your QuickBooks and start talking to your books.
+          For developers who want to use their own Intuit OAuth credentials. Most users should use the{" "}
+          <a href="/dashboard" className="text-cyan-400 hover:underline">easy setup</a> instead.
         </p>
 
         {/* Progress bar */}
@@ -147,7 +167,7 @@ function SetupContent() {
             <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
               <h2 className="text-xl font-semibold">Step 2: Create a QuickBooks Developer App</h2>
               <p className="mt-2 text-gray-400">
-                You need API credentials from Intuit to let Quarterback read your QuickBooks data. This takes about 2 minutes.
+                You need API credentials from Intuit to let AccountingQB read your QuickBooks data. This takes about 2 minutes.
               </p>
 
               <ol className="mt-6 space-y-5 text-gray-300">
@@ -166,7 +186,7 @@ function SetupContent() {
                 <li className="flex gap-4">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-blue-400 text-sm font-bold">c</span>
                   <div>
-                    <p>Select <strong className="text-white">QuickBooks Online and Payments</strong>. Name it anything (e.g. &quot;Quarterback&quot;).</p>
+                    <p>Select <strong className="text-white">QuickBooks Online and Payments</strong>. Name it anything (e.g. &quot;AccountingQB&quot;).</p>
                   </div>
                 </li>
                 <li className="flex gap-4">
@@ -211,7 +231,7 @@ function SetupContent() {
             <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
               <h2 className="text-xl font-semibold">Step 3: Connect Your QuickBooks Company</h2>
               <p className="mt-2 text-gray-400">
-                Authorize Quarterback to access your QuickBooks data. Your data stays on your machine — we never store it on our servers.
+                Authorize AccountingQB to access your QuickBooks data. Your data stays on your machine — we never store it on our servers.
               </p>
 
               <div className="mt-6 rounded-xl border border-green-400/20 bg-green-400/5 p-5">
