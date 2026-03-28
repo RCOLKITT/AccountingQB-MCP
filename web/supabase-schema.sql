@@ -57,3 +57,39 @@ CREATE TRIGGER set_updated_at
   BEFORE UPDATE ON licenses
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================
+-- OAuth Tokens: stores QuickBooks OAuth tokens for each license
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS oauth_tokens (
+  id                UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  license_key       TEXT NOT NULL REFERENCES licenses(key) ON DELETE CASCADE,
+  realm_id          TEXT NOT NULL,
+  company_name      TEXT,
+
+  -- Tokens (will be encrypted in production)
+  access_token      TEXT NOT NULL,
+  refresh_token     TEXT NOT NULL,
+  token_expires_at  TIMESTAMPTZ NOT NULL,
+
+  -- Timestamps
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW(),
+
+  -- One connection per company per license
+  UNIQUE(license_key, realm_id)
+);
+
+-- Index for token lookups by license key
+CREATE INDEX IF NOT EXISTS idx_oauth_tokens_license_key
+  ON oauth_tokens (license_key);
+
+-- Row-Level Security
+ALTER TABLE oauth_tokens ENABLE ROW LEVEL SECURITY;
+
+-- Updated-at trigger for oauth_tokens
+CREATE TRIGGER set_oauth_tokens_updated_at
+  BEFORE UPDATE ON oauth_tokens
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();

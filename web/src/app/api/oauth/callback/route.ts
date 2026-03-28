@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSupabase } from "@/lib/supabase";
 
 /**
  * GET /api/oauth/callback
@@ -6,11 +7,9 @@ import { NextRequest, NextResponse } from "next/server";
  *
  * This endpoint:
  * 1. Exchanges the authorization code for access + refresh tokens
- * 2. Returns tokens to the user's local MCP server (NOT stored on our servers)
- * 3. Redirects to a success page with instructions
- *
- * The tokens are displayed once for the user to copy into their local config.
- * We never persist QuickBooks tokens server-side — zero-knowledge architecture.
+ * 2. Validates the license key
+ * 3. Stores tokens in Supabase (encrypted at rest via Supabase)
+ * 4. Redirects to success page
  */
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
@@ -21,14 +20,14 @@ export async function GET(req: NextRequest) {
   // Handle OAuth errors
   if (errorParam) {
     const errorDesc = req.nextUrl.searchParams.get("error_description") || "Unknown error";
-    return buildErrorPage(`QuickBooks authorization failed: ${errorDesc}`);
+    return redirectWithError(`QuickBooks authorization failed: ${errorDesc}`);
   }
 
   if (!code || !realmId) {
-    return buildErrorPage("Missing authorization code or realm ID.");
+    return redirectWithError("Missing authorization code or realm ID.");
   }
 
-  // Decode state
+  // Decode state to get license key
   let licenseKey = "";
   if (stateParam) {
     try {
@@ -37,8 +36,28 @@ export async function GET(req: NextRequest) {
       );
       licenseKey = decoded.licenseKey || "";
     } catch {
-      // State decode failed — non-critical, continue
+      return redirectWithError("Invalid state parameter.");
     }
+  }
+
+  if (!licenseKey) {
+    return redirectWithError("No license key provided. Please start the connection from your account dashboard.");
+  }
+
+  // Validate license key exists and is active
+  const supabase = getSupabase();
+  const { data: license, error: licenseError } = await supabase
+    .from("licenses")
+    .select("key, tier, status")
+    .eq("key", licenseKey)
+    .single();
+
+  if (licenseError || !license) {
+    return redirectWithError("Invalid license key. Please check your license and try again.");
+  }
+
+  if (license.status === "canceled" || license.status === "expired") {
+    return redirectWithError("Your license is no longer active. Please renew your subscription.");
   }
 
   // Exchange code for tokens
@@ -67,120 +86,69 @@ export async function GET(req: NextRequest) {
     if (!tokenRes.ok) {
       const errBody = await tokenRes.text();
       console.error("Token exchange failed:", errBody);
-      return buildErrorPage("Failed to exchange authorization code for tokens.");
+      return redirectWithError("Failed to exchange authorization code for tokens.");
     }
 
     tokenData = await tokenRes.json();
   } catch (err) {
     console.error("Token exchange error:", err);
-    return buildErrorPage("Network error during token exchange.");
+    return redirectWithError("Network error during token exchange.");
   }
 
-  // Build success page with credentials for local setup
-  // IMPORTANT: We display these ONCE. We do NOT store them server-side.
-  return buildSuccessPage({
-    realmId,
-    refreshToken: tokenData.refresh_token,
-    accessToken: tokenData.access_token,
-    licenseKey,
-  });
+  // Fetch company info for display name
+  let companyName = null;
+  try {
+    const companyRes = await fetch(
+      `https://quickbooks.api.intuit.com/v3/company/${realmId}/companyinfo/${realmId}?minorversion=65`,
+      {
+        headers: {
+          "Authorization": `Bearer ${tokenData.access_token}`,
+          "Accept": "application/json",
+        },
+      }
+    );
+    if (companyRes.ok) {
+      const companyData = await companyRes.json();
+      companyName = companyData.CompanyInfo?.CompanyName || null;
+    }
+  } catch {
+    // Non-critical — continue without company name
+  }
+
+  // Calculate token expiration (access tokens expire in 1 hour)
+  const tokenExpiresAt = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000).toISOString();
+
+  // Store tokens in Supabase (upsert to handle reconnections)
+  const { error: upsertError } = await supabase
+    .from("oauth_tokens")
+    .upsert(
+      {
+        license_key: licenseKey,
+        realm_id: realmId,
+        company_name: companyName,
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        token_expires_at: tokenExpiresAt,
+      },
+      { onConflict: "license_key,realm_id" }
+    );
+
+  if (upsertError) {
+    console.error("Failed to store OAuth tokens:", upsertError);
+    return redirectWithError("Failed to save connection. Please try again.");
+  }
+
+  // Redirect to success page
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";
+  const successUrl = new URL("/oauth/success", baseUrl);
+  successUrl.searchParams.set("company", companyName || realmId);
+
+  return NextResponse.redirect(successUrl.toString(), 303);
 }
 
-function buildErrorPage(message: string) {
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><title>Connection Failed</title>
-<style>body{font-family:system-ui,sans-serif;max-width:600px;margin:80px auto;padding:0 20px;text-align:center}
-.error{background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:32px;margin-top:24px}
-h1{color:#dc2626}</style></head>
-<body>
-<h1>Connection Failed</h1>
-<div class="error"><p>${escapeHtml(message)}</p>
-<p>Please close this window and try again from Claude Desktop.</p></div>
-</body></html>`;
-  return new NextResponse(html, {
-    status: 400,
-    headers: { "Content-Type": "text/html" },
-  });
-}
-
-function buildSuccessPage(creds: {
-  realmId: string;
-  refreshToken: string;
-  accessToken: string;
-  licenseKey: string;
-}) {
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><title>QuickBooks Connected!</title>
-<style>
-body{font-family:system-ui,sans-serif;max-width:700px;margin:40px auto;padding:0 20px;color:#1e293b}
-.success{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:32px;margin:24px 0}
-.cred-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:12px 0;
-font-family:monospace;font-size:13px;word-break:break-all;position:relative}
-.cred-label{font-weight:600;font-family:system-ui,sans-serif;font-size:14px;margin-bottom:6px;color:#475569}
-.copy-btn{position:absolute;top:8px;right:8px;background:#3b82f6;color:white;border:none;
-border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer}
-.copy-btn:hover{background:#2563eb}
-.warning{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px;margin:24px 0;font-size:14px}
-h1{color:#16a34a}
-.step{margin:20px 0;padding-left:28px;position:relative}
-.step::before{content:attr(data-step);position:absolute;left:0;font-weight:bold;color:#3b82f6}
-</style>
-<script>
-function copyText(id){
-  const el=document.getElementById(id);
-  navigator.clipboard.writeText(el.textContent.trim());
-  const btn=el.parentElement.querySelector('.copy-btn');
-  btn.textContent='Copied!';
-  setTimeout(()=>btn.textContent='Copy',1500);
-}
-</script>
-</head>
-<body>
-<h1>QuickBooks Connected Successfully!</h1>
-
-<div class="success">
-<p>Your QuickBooks account has been authorized. Copy the credentials below into your Claude Desktop MCP configuration.</p>
-</div>
-
-<div class="warning">
-<strong>Important:</strong> These credentials are shown <strong>once</strong> and are NOT stored on our servers.
-Copy them now. If you lose them, you'll need to re-authorize.
-</div>
-
-<div class="cred-label">Company ID (Realm ID)</div>
-<div class="cred-box"><button class="copy-btn" onclick="copyText('realm')">Copy</button>
-<div id="realm">${escapeHtml(creds.realmId)}</div></div>
-
-<div class="cred-label">Refresh Token</div>
-<div class="cred-box"><button class="copy-btn" onclick="copyText('refresh')">Copy</button>
-<div id="refresh">${escapeHtml(creds.refreshToken)}</div></div>
-
-<h2 style="margin-top:32px">Setup Instructions</h2>
-
-<div class="step" data-step="1.">Open Claude Desktop → Settings → MCP Servers</div>
-<div class="step" data-step="2.">Find <strong>QuickBooks Accounting</strong> and click Configure</div>
-<div class="step" data-step="3.">Paste the <strong>Realm ID</strong> into the Company ID field</div>
-<div class="step" data-step="4.">Paste the <strong>Refresh Token</strong> into the Refresh Token field</div>
-<div class="step" data-step="5.">Click Save — you're ready to go!</div>
-
-${creds.licenseKey ? `<p style="margin-top:24px;font-size:14px;color:#64748b">License: ${escapeHtml(creds.licenseKey)}</p>` : ""}
-
-<p style="margin-top:32px;text-align:center;color:#94a3b8;font-size:13px">
-You can safely close this window after copying your credentials.
-</p>
-</body></html>`;
-
-  return new NextResponse(html, {
-    headers: { "Content-Type": "text/html" },
-  });
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+function redirectWithError(message: string) {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";
+  const errorUrl = new URL("/oauth/error", baseUrl);
+  errorUrl.searchParams.set("message", message);
+  return NextResponse.redirect(errorUrl.toString(), 303);
 }
