@@ -191,10 +191,12 @@ CREATE TABLE oauth_tokens (
 **Deliverable:** Complete web experience for new flow.
 
 ### Phase 5: Marketplace Submission (Week 3)
-- [ ] Create Anthropic developer account
-- [ ] Submit extension to marketplace
-- [x] Write marketplace description (README.md created)
+- [x] Add tool annotations (readOnlyHint/destructiveHint) to all 91 tools
+- [x] Add privacy_policies to manifest.json
+- [x] Add LICENSE file
+- [x] Write marketplace description (README.md with privacy policy)
 - [x] Add extension icon (icon.png)
+- [ ] Submit extension via Google Form
 - [ ] Create demo video
 - [ ] Respond to review feedback
 
