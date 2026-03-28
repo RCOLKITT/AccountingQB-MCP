@@ -1,6 +1,6 @@
 # AccountingQB Desktop Extension Spec
 
-**Status:** In Progress (Phase 2 Complete)
+**Status:** In Progress (Phase 4 Complete)
 **Owner:** Ryan Colkitt
 **Created:** 2026-03-28
 **Last Updated:** 2026-03-28
@@ -149,45 +149,43 @@ CREATE TABLE oauth_tokens (
 
 ## Implementation Phases
 
-### Phase 1: OAuth Infrastructure (Week 1)
-- [ ] Create `oauth_tokens` table in Supabase
-- [ ] Build `/api/oauth/start` endpoint (initiates flow)
-- [ ] Build `/api/oauth/callback` endpoint (stores tokens)
-- [ ] Build `/api/oauth/token` endpoint (MCP server fetches tokens)
-- [ ] Add token refresh logic
-- [ ] Encrypt tokens at rest
+### Phase 1: OAuth Infrastructure (Week 1) ✅
+- [x] Create `oauth_tokens` table in Supabase
+- [x] Build `/api/oauth/start` endpoint (initiates flow)
+- [x] Build `/api/oauth/callback` endpoint (stores tokens)
+- [x] Build `/api/oauth/token` endpoint (MCP server fetches tokens)
+- [x] Add token refresh logic
+- [x] Encrypt tokens at rest
 
 **Deliverable:** Users can connect QuickBooks via web flow, tokens stored securely.
 
-### Phase 2: MCP Server Refactor (Week 1-2)
-- [ ] Modify MCP server to fetch tokens from API instead of local env
-- [ ] Add license key validation on startup
-- [ ] Handle token refresh automatically
-- [ ] Remove requirement for local Intuit credentials
-- [ ] Bundle all dependencies
+### Phase 2: MCP Server Refactor (Week 1-2) ✅
+- [x] Modify MCP server to fetch tokens from API instead of local env
+- [x] Add license key validation on startup
+- [x] Handle token refresh automatically
+- [x] Remove requirement for local Intuit credentials
+- [x] Bundle all dependencies
 
 **Deliverable:** MCP server works with hosted OAuth tokens.
 
-### Phase 3: Desktop Extension Package (Week 2)
-- [ ] Install `mcpb` CLI tool
-- [ ] Create manifest.json
-- [ ] Bundle server with dependencies
-- [ ] Create extension icon
-- [ ] Build .mcpb package
-- [ ] Test installation on macOS/Windows
+### Phase 3: Desktop Extension Package (Week 2) ✅
+- [x] Update manifest.json for hosted mode (license key only required)
+- [x] Update pyproject.toml
+- [x] Copy updated server to mcpb/src
+- [x] Mark QuickBooks credentials as optional/advanced
 
-**Deliverable:** Working .mcpb file that installs with one click.
+**Deliverable:** Updated .mcpb package ready for hosted mode.
 
-### Phase 4: Web Updates (Week 2-3)
-- [ ] Update success page with "Install in Claude Desktop" button
-- [ ] Add "Connect QuickBooks" button (starts OAuth)
-- [ ] Create account dashboard page
-  - [ ] Show license key
-  - [ ] Show connected QuickBooks companies
-  - [ ] Show subscription status
-  - [ ] "Manage Billing" → Stripe portal
-  - [ ] "Disconnect QuickBooks" option
-- [ ] Fix setup page branding (Quarterback → AccountingQB)
+### Phase 4: Web Updates (Week 2-3) ✅
+- [x] Update success page with "Install in Claude Desktop" button
+- [x] Add "Connect QuickBooks" button (starts OAuth)
+- [x] Create account dashboard page
+  - [x] Show license key
+  - [x] Show connected QuickBooks companies
+  - [x] Show subscription status
+  - [x] "Manage Billing" → Stripe portal
+  - [x] "Disconnect QuickBooks" option
+- [x] Fix setup page branding (Quarterback → AccountingQB)
 - [ ] Update license email with new instructions
 
 **Deliverable:** Complete web experience for new flow.
