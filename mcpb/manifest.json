@@ -14,6 +14,9 @@
   "repository": "https://github.com/RCOLKITT/AccountingQB-MCP",
   "homepage": "https://accountingqb.com",
   "license": "Commercial",
+  "privacy_policies": [
+    "https://accountingqb.com/privacy"
+  ],
   "keywords": [
     "quickbooks",
     "accounting",
