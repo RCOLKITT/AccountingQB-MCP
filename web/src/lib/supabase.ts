@@ -24,3 +24,15 @@ export interface License {
   created_at: string;
   updated_at: string;
 }
+
+export interface OAuthToken {
+  id: string;
+  license_key: string;
+  realm_id: string;
+  company_name: string | null;
+  access_token: string;
+  refresh_token: string;
+  token_expires_at: string;
+  created_at: string;
+  updated_at: string;
+}
