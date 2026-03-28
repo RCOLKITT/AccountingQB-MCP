@@ -537,7 +537,7 @@ def _parse_report_rows(rows, lines, indent=0):
 # HOSTED MODE — Company Management
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_companies() -> str:
     """List all QuickBooks companies connected to your AccountingQB license.
     Only available in hosted mode (when using AccountingQB Desktop Extension)."""
@@ -565,7 +565,7 @@ async def qb_list_companies() -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_switch_company(realm_id: str) -> str:
     """Switch to a different QuickBooks company. Use qb_list_companies to see available companies.
     Only available in hosted mode (when using AccountingQB Desktop Extension)."""
@@ -595,7 +595,7 @@ async def qb_switch_company(realm_id: str) -> str:
     return f"Company with realm ID `{realm_id}` not found. Use `qb_list_companies` to see available companies."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_refresh_connection() -> str:
     """Refresh the connection to AccountingQB servers. Use this if you've connected
     new QuickBooks companies or if you're having connection issues."""
@@ -618,7 +618,7 @@ async def qb_refresh_connection() -> str:
 # COMPANY INFO
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_company_info() -> str:
     """Get QuickBooks company information including name, address, fiscal year, and subscription status."""
     result = await qb_query("SELECT * FROM CompanyInfo")
@@ -645,7 +645,7 @@ async def qb_company_info() -> str:
 # TRANSACTION QUERIES — Purchases / Expenses
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_transactions(start_date: str, end_date: str, vendor_name: str = "", min_amount: float = 0, max_amount: float = 0, max_results: int = 100) -> str:
     """List QuickBooks transactions (purchases, expenses) within a date range. Dates in YYYY-MM-DD format. Optionally filter by vendor_name, min_amount, max_amount."""
     query = (
@@ -700,7 +700,7 @@ async def qb_list_transactions(start_date: str, end_date: str, vendor_name: str 
 # TRANSACTION QUERIES — Deposits
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_deposits(start_date: str, end_date: str, max_results: int = 100) -> str:
     """List deposits (income, owner investments, bank deposits) within a date range. Dates in YYYY-MM-DD format. Use this to find income or money deposited into business accounts."""
     query = (
@@ -746,7 +746,7 @@ async def qb_list_deposits(start_date: str, end_date: str, max_results: int = 10
 # TRANSACTION QUERIES — Transfers
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_transfers(start_date: str, end_date: str, max_results: int = 100) -> str:
     """List transfers between accounts within a date range. Dates in YYYY-MM-DD format. Use this to see money moved between business bank accounts or credit cards."""
     query = (
@@ -782,7 +782,7 @@ async def qb_list_transfers(start_date: str, end_date: str, max_results: int = 1
 # TRANSACTION QUERIES — Journal Entries
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_journal_entries(start_date: str, end_date: str, max_results: int = 100) -> str:
     """List journal entries (adjustments, reclassifications) within a date range. Dates in YYYY-MM-DD format. Useful for finding accounting adjustments, corrections, and manual entries."""
     query = (
@@ -825,7 +825,7 @@ async def qb_list_journal_entries(start_date: str, end_date: str, max_results: i
 # TRANSACTION QUERIES — Bills (Accounts Payable)
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_bills(start_date: str, end_date: str, vendor_name: str = "", max_results: int = 100) -> str:
     """List bills (accounts payable) within a date range. Dates in YYYY-MM-DD. Optionally filter by vendor_name. Shows what you owe to vendors."""
     query = f"SELECT * FROM Bill WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
@@ -871,7 +871,7 @@ async def qb_list_bills(start_date: str, end_date: str, vendor_name: str = "", m
 # TRANSACTION QUERIES — Bill Payments
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_bill_payments(start_date: str, end_date: str, max_results: int = 100) -> str:
     """List bill payments within a date range. Dates in YYYY-MM-DD. Shows payments made against bills (accounts payable)."""
     query = (
@@ -910,7 +910,7 @@ async def qb_list_bill_payments(start_date: str, end_date: str, max_results: int
 # TRANSACTION QUERIES — Sales Receipts
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_sales_receipts(start_date: str, end_date: str, max_results: int = 100) -> str:
     """List sales receipts (direct sales, not invoiced) within a date range. Dates in YYYY-MM-DD."""
     query = (
@@ -948,7 +948,7 @@ async def qb_list_sales_receipts(start_date: str, end_date: str, max_results: in
 # TRANSACTION QUERIES — Customer Payments
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_payments(start_date: str, end_date: str, max_results: int = 100) -> str:
     """List customer payments received within a date range. Dates in YYYY-MM-DD. Shows payments applied against invoices."""
     query = (
@@ -981,7 +981,7 @@ async def qb_list_payments(start_date: str, end_date: str, max_results: int = 10
 # TRANSACTION QUERIES — Invoices
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_invoices(start_date: str, end_date: str, customer_name: str = "", status: str = "", max_results: int = 100) -> str:
     """List invoices within a date range. Dates in YYYY-MM-DD. Filter by customer_name and/or status (Paid, Unpaid, Overdue). Shows accounts receivable."""
     query = f"SELECT * FROM Invoice WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
@@ -1034,7 +1034,7 @@ async def qb_list_invoices(start_date: str, end_date: str, customer_name: str = 
 # UNIVERSAL TRANSACTION SEARCH
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_search_transactions(start_date: str, end_date: str, search_term: str = "", max_results: int = 50) -> str:
     """Search across ALL transaction types (purchases, deposits, transfers, journal entries, bills, payments, invoices, sales receipts) in a date range. Optionally filter by search_term (matches vendor, customer, memo, account names). Dates in YYYY-MM-DD."""
     all_txns = []
@@ -1144,7 +1144,7 @@ async def qb_search_transactions(start_date: str, end_date: str, search_term: st
 # EXPENSE SUMMARY
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_expense_summary(start_date: str, end_date: str) -> str:
     """Get expenses grouped by category/account for a date range. Useful for Schedule C and tax deduction tracking. Dates in YYYY-MM-DD format."""
     query = (
@@ -1187,7 +1187,7 @@ async def qb_expense_summary(start_date: str, end_date: str) -> str:
 # REPORTS — Profit & Loss
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_profit_loss(start_date: str, end_date: str, summarize_by: str = "Total") -> str:
     """Generate a Profit & Loss (Income Statement) report. Dates in YYYY-MM-DD. summarize_by: Total, Month, Quarter, Year."""
     report = await qb_request("GET", "reports/ProfitAndLoss", params={
@@ -1207,7 +1207,7 @@ async def qb_profit_loss(start_date: str, end_date: str, summarize_by: str = "To
 # REPORTS — Balance Sheet
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_balance_sheet(as_of_date: str) -> str:
     """Generate a Balance Sheet report as of a specific date. Date in YYYY-MM-DD format."""
     report = await qb_request("GET", "reports/BalanceSheet", params={
@@ -1226,7 +1226,7 @@ async def qb_balance_sheet(as_of_date: str) -> str:
 # REPORTS — Cash Flow Statement
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_cash_flow(start_date: str, end_date: str) -> str:
     """Generate a Statement of Cash Flows report. Dates in YYYY-MM-DD. Shows operating, investing, and financing cash activities."""
     report = await qb_request("GET", "reports/CashFlow", params={
@@ -1245,7 +1245,7 @@ async def qb_cash_flow(start_date: str, end_date: str) -> str:
 # REPORTS — General Ledger
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_general_ledger(start_date: str, end_date: str, account_name: str = "") -> str:
     """Generate a General Ledger report showing all transactions by account. Dates in YYYY-MM-DD. Optionally filter by account_name."""
     params = {
@@ -1274,7 +1274,7 @@ async def qb_general_ledger(start_date: str, end_date: str, account_name: str = 
 # REPORTS — Trial Balance
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_trial_balance(start_date: str, end_date: str) -> str:
     """Generate a Trial Balance report. Dates in YYYY-MM-DD. Shows all account debits and credits to verify books are balanced."""
     report = await qb_request("GET", "reports/TrialBalance", params={
@@ -1293,7 +1293,7 @@ async def qb_trial_balance(start_date: str, end_date: str) -> str:
 # REPORTS — Accounts Receivable Aging
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_ar_aging(as_of_date: str) -> str:
     """Generate an Accounts Receivable Aging report. Date in YYYY-MM-DD. Shows what customers owe you, grouped by how overdue."""
     report = await qb_request("GET", "reports/AgedReceivables", params={
@@ -1312,7 +1312,7 @@ async def qb_ar_aging(as_of_date: str) -> str:
 # REPORTS — Accounts Payable Aging
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_ap_aging(as_of_date: str) -> str:
     """Generate an Accounts Payable Aging report. Date in YYYY-MM-DD. Shows what you owe vendors, grouped by how overdue."""
     report = await qb_request("GET", "reports/AgedPayables", params={
@@ -1331,7 +1331,7 @@ async def qb_ap_aging(as_of_date: str) -> str:
 # REPORTS — Tax Summary (Schedule C)
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_tax_summary(start_date: str, end_date: str) -> str:
     """Generate a tax-oriented summary mapping QuickBooks data to Schedule C lines. Dates in YYYY-MM-DD."""
     report = await qb_request("GET", "reports/ProfitAndLoss", params={
@@ -1414,7 +1414,7 @@ async def qb_tax_summary(start_date: str, end_date: str) -> str:
 # ENTITY MANAGEMENT — Accounts
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_accounts(max_results: int = 100) -> str:
     """List all chart of accounts (expense categories, income accounts, etc.) in QuickBooks."""
     query = f"SELECT * FROM Account MAXRESULTS {max_results}"
@@ -1445,7 +1445,7 @@ async def qb_list_accounts(max_results: int = 100) -> str:
 # ENTITY MANAGEMENT — Vendors
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_vendors(name: str = "", max_results: int = 50) -> str:
     """List vendors/suppliers in QuickBooks. Optionally filter by name."""
     query = "SELECT * FROM Vendor"
@@ -1469,7 +1469,7 @@ async def qb_list_vendors(name: str = "", max_results: int = 50) -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_vendor(display_name: str, email: str = "", phone: str = "", company_name: str = "") -> str:
     """Create a new vendor/supplier in QuickBooks. display_name is required. Optionally include email, phone, company_name."""
     vendor_body = {"DisplayName": display_name}
@@ -1494,7 +1494,7 @@ async def qb_create_vendor(display_name: str, email: str = "", phone: str = "", 
 # ENTITY MANAGEMENT — Customers
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_customers(name: str = "", max_results: int = 50) -> str:
     """List customers in QuickBooks. Optionally filter by name."""
     query = "SELECT * FROM Customer"
@@ -1518,7 +1518,7 @@ async def qb_list_customers(name: str = "", max_results: int = 50) -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_customer(display_name: str, email: str = "", phone: str = "", company_name: str = "") -> str:
     """Create a new customer in QuickBooks. display_name is required. Optionally include email, phone, company_name."""
     customer_body = {"DisplayName": display_name}
@@ -1543,7 +1543,7 @@ async def qb_create_customer(display_name: str, email: str = "", phone: str = ""
 # ENTITY MANAGEMENT — Items / Products & Services
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_items(name: str = "", max_results: int = 100) -> str:
     """List products and services (items) in QuickBooks. Optionally filter by name. Items are used on invoices and sales receipts."""
     query = "SELECT * FROM Item"
@@ -1578,7 +1578,7 @@ async def qb_list_items(name: str = "", max_results: int = 100) -> str:
 # TRANSACTION CREATION — Expenses / Purchases
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_expense(vendor_name: str, amount: float, account_name: str, date: str, description: str = "", payment_method: str = "") -> str:
     """Create a new expense/purchase in QuickBooks. vendor_name: payee, amount: total, account_name: expense category, date: YYYY-MM-DD, description: memo, payment_method: bank/card account name."""
     vendors = await qb_query(f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1")
@@ -1631,7 +1631,7 @@ async def qb_create_expense(vendor_name: str, amount: float, account_name: str, 
 # TRANSACTION CREATION — Invoices
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_invoice(customer_name: str, line_items: str, due_date: str = "", memo: str = "") -> str:
     """Create a customer invoice. line_items is a JSON string: [{"description": "...", "amount": 100}]. due_date in YYYY-MM-DD."""
     customers = await qb_query(f"SELECT * FROM Customer WHERE DisplayName LIKE '%{customer_name}%' MAXRESULTS 1")
@@ -1677,7 +1677,7 @@ async def qb_create_invoice(customer_name: str, line_items: str, due_date: str =
 # TRANSACTION CREATION — Journal Entries (Reclassify)
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") -> str:
     """Create a journal entry for reclassifications or adjustments. date: YYYY-MM-DD. lines_json is a JSON string: [{"account_name": "...", "amount": 100.00, "type": "Debit"}, {"account_name": "...", "amount": 100.00, "type": "Credit"}]. Debits and credits must balance."""
     entries = json.loads(lines_json) if isinstance(lines_json, str) else lines_json
@@ -1738,7 +1738,7 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
 # TRANSACTION CREATION — Deposits
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str, memo: str = "") -> str:
     """Create a bank deposit. date: YYYY-MM-DD. deposit_to_account: name of bank account receiving deposit. lines_json: JSON string [{"account_name": "...", "amount": 100.00, "description": "..."}]."""
     dep_accounts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{deposit_to_account}%' MAXRESULTS 1")
@@ -1791,7 +1791,7 @@ async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str,
 # TRANSACTION CREATION — Transfers
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_transfer(date: str, from_account: str, to_account: str, amount: float, memo: str = "") -> str:
     """Create a transfer between two accounts. date: YYYY-MM-DD. from_account and to_account are account names. amount is the transfer amount."""
     from_accts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{from_account}%' MAXRESULTS 1")
@@ -1828,7 +1828,7 @@ async def qb_create_transfer(date: str, from_account: str, to_account: str, amou
 # TRANSACTION UPDATE — Generic entity updater
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_update_transaction(entity_type: str, entity_id: str, updates_json: str) -> str:
     """Update an existing transaction. entity_type: Purchase, Deposit, Transfer, JournalEntry, Bill, Invoice, etc. entity_id: the transaction ID. updates_json: JSON string of fields to update (e.g., {"PrivateNote": "new memo", "TxnDate": "2025-01-15"}). Fetches current version first to ensure SyncToken is correct."""
     entity_lower = entity_type.lower()
@@ -1855,7 +1855,7 @@ async def qb_update_transaction(entity_type: str, entity_id: str, updates_json: 
 # TRANSACTION VOID
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_void_transaction(entity_type: str, entity_id: str) -> str:
     """Void a transaction (keeps it in records but zeroes the amount). entity_type: Purchase, Invoice, Payment, SalesReceipt, BillPayment, etc. entity_id: the transaction ID. Note: not all entity types support void."""
     entity_lower = entity_type.lower()
@@ -1882,7 +1882,7 @@ async def qb_void_transaction(entity_type: str, entity_id: str) -> str:
 # RECONCILIATION
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_reconcile_invoices(start_date: str, end_date: str, invoice_data: str) -> str:
     """Compare email-extracted invoices against QuickBooks transactions. invoice_data is a JSON string: [{"vendor": "...", "amount": 100.00, "date": "2025-01-15"}]. Dates in YYYY-MM-DD."""
     query = (
@@ -1955,7 +1955,7 @@ async def qb_reconcile_invoices(start_date: str, end_date: str, invoice_data: st
 # ACCOUNT BALANCE LOOKUP
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_account_balance(account_name: str) -> str:
     """Get the current balance of a specific account by name. Returns account details and balance."""
     accounts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 5")
@@ -1977,7 +1977,7 @@ async def qb_account_balance(account_name: str) -> str:
 # SMART FEATURES — Uncategorized / Duplicates / Auto-Categorize
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_uncategorized_transactions(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
     """Find transactions that are uncategorized or booked to 'Uncategorized Expense/Income/Asset'.
     Useful for cleaning up books. Dates in YYYY-MM-DD format. If omitted, searches all time."""
@@ -2030,7 +2030,7 @@ async def qb_uncategorized_transactions(start_date: str = "", end_date: str = ""
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_find_duplicates(start_date: str, end_date: str, tolerance_days: int = 3, max_results: int = 200) -> str:
     """Find potential duplicate transactions within a date range. Matches by amount and vendor within tolerance_days window. Dates in YYYY-MM-DD."""
     result = await qb_query(
@@ -2074,7 +2074,7 @@ async def qb_find_duplicates(start_date: str, end_date: str, tolerance_days: int
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_auto_categorize_suggestions(start_date: str, end_date: str, max_results: int = 100) -> str:
     """Suggest categories for uncategorized transactions based on vendor history.
     Analyzes past categorization patterns to recommend correct accounts. Dates in YYYY-MM-DD."""
@@ -2137,7 +2137,7 @@ async def qb_auto_categorize_suggestions(start_date: str, end_date: str, max_res
 # BATCH OPERATIONS
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_batch_create_expenses(expenses_json: str) -> str:
     """Create multiple expenses in one call. expenses_json is a JSON array of objects:
     [{"vendor_name": "...", "amount": 100, "account_name": "...", "date": "YYYY-MM-DD", "description": "..."}].
@@ -2219,7 +2219,7 @@ async def qb_batch_create_expenses(expenses_json: str) -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_batch_create_bills(bills_json: str) -> str:
     """Create multiple bills (accounts payable) in one call. bills_json is a JSON array:
     [{"vendor_name": "...", "amount": 100, "account_name": "...", "date": "YYYY-MM-DD", "due_date": "YYYY-MM-DD", "description": "..."}].
@@ -2291,7 +2291,7 @@ async def qb_batch_create_bills(bills_json: str) -> str:
 # ADVANCED REPORTS — Period Comparison, Runway, Burn Rate
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_compare_periods(report_type: str, period1_start: str, period1_end: str, period2_start: str, period2_end: str) -> str:
     """Compare two time periods side-by-side. report_type: 'ProfitAndLoss' or 'BalanceSheet'.
     Shows each period's totals and the dollar/percentage change. Dates in YYYY-MM-DD."""
@@ -2355,7 +2355,7 @@ async def qb_compare_periods(report_type: str, period1_start: str, period1_end: 
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_monthly_burn_rate(months_back: int = 6) -> str:
     """Calculate monthly burn rate based on the last N months of expenses.
     Returns monthly totals, average burn, and trend. Useful for runway planning."""
@@ -2434,7 +2434,7 @@ async def qb_monthly_burn_rate(months_back: int = 6) -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_runway_calculator(current_cash: float = 0, monthly_revenue: float = 0, monthly_expenses: float = 0) -> str:
     """Calculate runway (months until cash runs out). If amounts are 0, auto-calculates from last 3 months of QB data.
     Returns months of runway and recommendations."""
@@ -2511,7 +2511,7 @@ async def qb_runway_calculator(current_cash: float = 0, monthly_revenue: float =
 # TAX TOOLS — Schedule C, Quarterly Estimates, Deductions, Depreciation
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_schedule_c(tax_year: str = "2024") -> str:
     """Generate IRS Schedule C (Profit or Loss from Business) line-by-line mapping.
     Maps QuickBooks expense categories to Schedule C lines for tax filing. tax_year: YYYY format."""
@@ -2649,7 +2649,7 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str = "single", state: str = "MA") -> str:
     """Estimate quarterly tax payments (federal + state) based on YTD P&L.
     filing_status: single, married_joint, married_separate. state: two-letter code (MA, CA, etc.)."""
@@ -2751,7 +2751,7 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_deduction_finder(tax_year: str = "2024") -> str:
     """Analyze books for commonly missed tax deductions. Checks for home office,
     vehicle expenses, health insurance, retirement contributions, startup costs,
@@ -2919,7 +2919,7 @@ async def qb_deduction_finder(tax_year: str = "2024") -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_depreciation_schedule(tax_year: str = "2024") -> str:
     """Generate a depreciation schedule for all fixed assets. Shows Section 179,
     MACRS, and accumulated depreciation for tax year. Pulls from QB asset accounts."""
@@ -2976,7 +2976,7 @@ async def qb_depreciation_schedule(tax_year: str = "2024") -> str:
 # RECONCILIATION & MATCHING
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_match_invoices_to_transactions(invoices_json: str, start_date: str, end_date: str, tolerance: float = 2.0) -> str:
     """Match extracted invoices against QuickBooks transactions. invoices_json is a JSON array:
     [{"vendor": "...", "amount": 100, "date": "YYYY-MM-DD", "description": "..."}].
@@ -3068,7 +3068,7 @@ async def qb_match_invoices_to_transactions(invoices_json: str, start_date: str,
 # UTILITIES — Account Management, Vendor Merge, Fiscal Year Close
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_inactivate_account(account_name: str) -> str:
     """Inactivate a QuickBooks account (hide it from active lists without deleting).
     Useful for cleaning up unused or personal accounts. Requires exact account name."""
@@ -3100,7 +3100,7 @@ async def qb_inactivate_account(account_name: str) -> str:
     return f"✅ Account '{account_name}' (ID: {acct['Id']}) has been inactivated."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_account(name: str, account_type: str, account_sub_type: str = "", description: str = "") -> str:
     """Create a new account in the chart of accounts.
     account_type: Bank, Accounts Receivable, Other Current Asset, Fixed Asset, Other Asset,
@@ -3122,7 +3122,7 @@ async def qb_create_account(name: str, account_type: str, account_sub_type: str 
             f"  Type: {new_acct.get('AccountType')} / {new_acct.get('AccountSubType', '')}")
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_vendor_summary(start_date: str, end_date: str, top_n: int = 20) -> str:
     """Rank vendors by total spend within a date range. Shows top N vendors with
     transaction count and total amount. Useful for negotiation and cost analysis."""
@@ -3157,7 +3157,7 @@ async def qb_vendor_summary(start_date: str, end_date: str, top_n: int = 20) -> 
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_bill(vendor_name: str, amount: float, account_name: str, date: str, due_date: str = "", description: str = "") -> str:
     """Create a single bill (accounts payable) in QuickBooks.
     vendor_name: payee, amount: total, account_name: expense category, date: YYYY-MM-DD.
@@ -3200,7 +3200,7 @@ async def qb_create_bill(vendor_name: str, amount: float, account_name: str, dat
             f"  Category: {acct_list[0]['Name']}")
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_profit_loss_by_class(start_date: str, end_date: str) -> str:
     """Generate P&L report broken down by class/department. Useful for multi-segment businesses.
     Dates in YYYY-MM-DD. Returns nothing if classes aren't used."""
@@ -3222,7 +3222,7 @@ async def qb_profit_loss_by_class(start_date: str, end_date: str) -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_income_summary(start_date: str, end_date: str) -> str:
     """Get income grouped by source/category for a date range. Complements qb_expense_summary.
     Shows all income accounts and their totals. Dates in YYYY-MM-DD."""
@@ -3268,7 +3268,7 @@ async def qb_income_summary(start_date: str, end_date: str) -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_fiscal_year_close_checklist(tax_year: str = "2024") -> str:
     """Generate a year-end close checklist with status checks against QuickBooks data.
     Verifies key items are in order for tax filing: uncategorized transactions, open invoices,
@@ -3362,7 +3362,7 @@ async def qb_fiscal_year_close_checklist(tax_year: str = "2024") -> str:
 # ATTACHMENT / RECEIPT UPLOAD
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_upload_receipt(entity_type: str, entity_id: str, file_name: str, file_url: str, content_type: str = "image/jpeg") -> str:
     """Attach a receipt or document to a QuickBooks transaction.
     entity_type: Purchase, Bill, Invoice, etc. entity_id: transaction ID.
@@ -3411,7 +3411,7 @@ async def qb_upload_receipt(entity_type: str, entity_id: str, file_name: str, fi
             f"  Attachment ID: {attachable.get('Id', '?')}")
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_attachments(entity_type: str = "", entity_id: str = "", max_results: int = 25) -> str:
     """List attachments/receipts. Filter by entity_type and entity_id to see attachments
     for a specific transaction, or leave empty to list all recent attachments."""
@@ -3443,7 +3443,7 @@ async def qb_list_attachments(entity_type: str = "", entity_id: str = "", max_re
 # RECURRING TRANSACTIONS
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_recurring_transactions(max_results: int = 50) -> str:
     """List all recurring transactions (templates) in QuickBooks.
     Shows recurring bills, invoices, and expenses with their schedules."""
@@ -3551,7 +3551,7 @@ def _audit_log(action: str, details: str):
 # NEW TOOL 1: Reclassify Transaction
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_reclassify_transaction(entity_type: str, entity_id: str, new_account_name: str, memo: str = "") -> str:
     """Reclassify a transaction to a different expense/income account. Simpler than manual update.
     entity_type: Purchase, Deposit, Bill, etc. entity_id: the transaction ID.
@@ -3610,7 +3610,7 @@ async def qb_reclassify_transaction(entity_type: str, entity_id: str, new_accoun
 # NEW TOOL 2: Batch Create Journal Entries
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_batch_create_journal_entries(entries_json: str) -> str:
     """Create multiple journal entries in one call. entries_json is a JSON array:
     [{"date": "YYYY-MM-DD", "memo": "...", "lines": [{"account_name": "...", "amount": 100.00, "type": "Debit"}, ...]}].
@@ -3708,7 +3708,7 @@ async def qb_batch_create_journal_entries(entries_json: str) -> str:
 # NEW TOOL 3: Home Office Calculator (Form 8829)
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_home_office_calculator(
     home_sqft: float,
     office_sqft: float,
@@ -3778,7 +3778,7 @@ async def qb_home_office_calculator(
 # NEW TOOL 4: Vehicle Depreciation Calculator
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_vehicle_depreciation_calculator(
     purchase_price: float,
     purchase_date: str,
@@ -3873,7 +3873,7 @@ async def qb_vehicle_depreciation_calculator(
 # NEW TOOL 5: List Journal Entries by Memo
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_journal_entries_by_memo(search_text: str, max_results: int = 50) -> str:
     """Search journal entries by memo/private note text. Useful for finding specific
     JEs by description (e.g., 'home office', 'depreciation', 'reclassify').
@@ -3924,7 +3924,7 @@ async def qb_list_journal_entries_by_memo(search_text: str, max_results: int = 5
 # NEW TOOL 6: Account Transactions
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_account_transactions(account_name: str, start_date: str, end_date: str, max_results: int = 100) -> str:
     """Get all transactions for a specific account within a date range.
     Shows every debit and credit hitting the account with vendor names, memos,
@@ -4080,7 +4080,7 @@ async def qb_account_transactions(account_name: str, start_date: str, end_date: 
 # NEW TOOL 7: Schedule C Detailed
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
     """Generate a detailed Schedule C (Profit or Loss from Business) mapping with
     QuickBooks account-level detail for each line. More granular than qb_schedule_c —
@@ -4184,7 +4184,7 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
 # NEW TOOL 8: Create Sub-Account
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_sub_account(name: str, parent_account_name: str, account_type: str = "", account_sub_type: str = "", description: str = "") -> str:
     """Create a sub-account under an existing parent account. Simpler than qb_create_account
     for building account hierarchies. name: new sub-account name.
@@ -4233,7 +4233,7 @@ async def qb_create_sub_account(name: str, parent_account_name: str, account_typ
 # NEW TOOL 9: Transaction Detail
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_transaction_detail(entity_type: str, entity_id: str) -> str:
     """Get complete details for a single transaction. entity_type: Purchase, Deposit,
     Transfer, JournalEntry, Bill, Invoice, Payment, SalesReceipt, BillPayment, etc.
@@ -4318,7 +4318,7 @@ async def qb_transaction_detail(entity_type: str, entity_id: str) -> str:
 # NEW TOOL 10: Delete Journal Entry
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_delete_journal_entry(journal_entry_id: str, confirm: bool = False) -> str:
     """Delete a journal entry. Use for removing draft, duplicate, or test JEs.
     journal_entry_id: the JE ID to delete. confirm: must be True to execute deletion.
@@ -4365,7 +4365,7 @@ async def qb_delete_journal_entry(journal_entry_id: str, confirm: bool = False) 
 # NEW: 1099 Contractor Reporting
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 600.0) -> str:
     """Generate 1099-NEC contractor reporting data for a tax year.
     Lists all vendors paid >= threshold (default $600) via non-employee compensation.
@@ -4507,7 +4507,7 @@ async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 6
 # NEW: Anomaly Detection
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str = "medium") -> str:
     """Analyze transactions for anomalies and unusual patterns.
     Detects: unusually large transactions, duplicate payments, weekend/holiday activity,
@@ -4751,7 +4751,7 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
 # NEW: Credit Memo Management
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_credit_memos(start_date: str, end_date: str, customer_name: str = "", max_results: int = 100) -> str:
     """List credit memos (customer credits/refunds) within a date range.
     Credit memos reduce what a customer owes. Optionally filter by customer_name.
@@ -4798,7 +4798,7 @@ async def qb_list_credit_memos(start_date: str, end_date: str, customer_name: st
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_credit_memo(customer_name: str, line_items: str, date: str = "", memo: str = "") -> str:
     """Create a credit memo for a customer. Reduces what the customer owes.
     customer_name: customer to credit. line_items: JSON string array
@@ -4860,7 +4860,7 @@ async def qb_create_credit_memo(customer_name: str, line_items: str, date: str =
 # NEW: Vendor Credit Management
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_vendor_credits(start_date: str, end_date: str, vendor_name: str = "", max_results: int = 100) -> str:
     """List vendor credits within a date range. Vendor credits reduce what you owe a vendor.
     Optionally filter by vendor_name. start_date/end_date in YYYY-MM-DD format."""
@@ -4907,7 +4907,7 @@ async def qb_list_vendor_credits(start_date: str, end_date: str, vendor_name: st
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_vendor_credit(vendor_name: str, amount: float, account_name: str, date: str = "", description: str = "") -> str:
     """Create a vendor credit. Reduces what you owe a vendor (e.g., refund, return, pricing adjustment).
     vendor_name: vendor issuing the credit. amount: credit amount.
@@ -4965,7 +4965,7 @@ async def qb_create_vendor_credit(vendor_name: str, amount: float, account_name:
 # NEW: Sales Tax Summary
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_sales_tax_summary(start_date: str, end_date: str) -> str:
     """Generate a sales tax summary report for a date range.
     Shows taxable sales, tax collected, tax rates, and liability by jurisdiction.
@@ -5077,7 +5077,7 @@ async def qb_sales_tax_summary(start_date: str, end_date: str) -> str:
 # NEW: Multi-Period Cash Flow Forecast
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -> str:
     """Forecast future cash flow based on historical patterns.
     Analyzes the last base_months of income/expenses and projects months_forward.
@@ -5238,7 +5238,7 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
 # NEW: Profit Margin by Customer/Item
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_profit_margin_analysis(start_date: str, end_date: str, group_by: str = "customer") -> str:
     """Analyze profit margins by customer or item/product.
     Shows revenue, COGS (if tracked), and margin for each customer or item.
@@ -5351,7 +5351,7 @@ async def qb_profit_margin_analysis(start_date: str, end_date: str, group_by: st
 # NEW: Budget vs Actual
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_budget_vs_actual(fiscal_year: str = "2025") -> str:
     """Compare budgeted amounts vs actual spending for a fiscal year.
     Requires budgets to be set up in QuickBooks. Shows variance by account
@@ -5458,7 +5458,7 @@ async def qb_budget_vs_actual(fiscal_year: str = "2025") -> str:
 # NEW: Estimate to Invoice Conversion
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_estimates(start_date: str = "", end_date: str = "", customer_name: str = "", status: str = "", max_results: int = 50) -> str:
     """List estimates/quotes. Optionally filter by date range, customer, or status.
     status: Pending, Accepted, Closed, Rejected (leave empty for all).
@@ -5515,7 +5515,7 @@ async def qb_list_estimates(start_date: str = "", end_date: str = "", customer_n
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_convert_estimate_to_invoice(estimate_id: str) -> str:
     """Convert an estimate/quote into an invoice. Copies all line items, customer,
     and details from the estimate. estimate_id: the estimate's ID."""
@@ -5582,7 +5582,7 @@ async def qb_convert_estimate_to_invoice(estimate_id: str) -> str:
 # BOOKS HEALTH AUDIT
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_books_health_audit(tax_year: str = "2025") -> str:
     """Run a comprehensive health audit on your QuickBooks books.
     Checks for: unknown vendors, uncategorized transactions, potential duplicates,
@@ -5816,7 +5816,7 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
 # UNKNOWN VENDOR REPORT & BULK FIX
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_unknown_vendor_report(start_date: str = "", end_date: str = "", max_results: int = 200) -> str:
     """Find all transactions with unknown or missing vendor names.
     Groups by memo/description pattern to help identify bulk fixes.
@@ -5938,7 +5938,7 @@ async def qb_unknown_vendor_report(start_date: str = "", end_date: str = "", max
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_bulk_update_vendor(transaction_ids: str, vendor_name: str) -> str:
     """Bulk-assign a vendor name to multiple transactions.
     transaction_ids: comma-separated Purchase IDs (e.g., '123,456,789').
@@ -6005,7 +6005,7 @@ async def qb_bulk_update_vendor(transaction_ids: str, vendor_name: str) -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_bulk_update_vendors_multi(vendor_mapping: str) -> str:
     """Bulk-assign MULTIPLE vendors to transactions in one call.
     vendor_mapping: JSON string mapping vendor names to transaction ID lists.
@@ -6095,7 +6095,7 @@ async def qb_bulk_update_vendors_multi(vendor_mapping: str) -> str:
 # MONTH-END CLOSE WORKFLOW
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
     """Run a month-end close checklist for a specific month.
     Checks: all transactions categorized, vendors assigned, accounts reconciled,
@@ -6272,7 +6272,7 @@ async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
 # NEW: Delete Transaction (generalized)
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_delete_transaction(entity_type: str, entity_id: str, confirm: bool = False) -> str:
     """Delete a transaction permanently. Supports: Purchase, Deposit, Transfer,
     JournalEntry, Bill, BillPayment, Invoice, Payment, SalesReceipt, CreditMemo, VendorCredit.
@@ -6333,7 +6333,7 @@ async def qb_delete_transaction(entity_type: str, entity_id: str, confirm: bool 
 # NEW: Update Vendor / Update Customer
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_update_vendor(vendor_name: str, email: str = "", phone: str = "",
                            company_name: str = "", display_name: str = "",
                            vendor_1099: bool = False, tax_id: str = "") -> str:
@@ -6386,7 +6386,7 @@ async def qb_update_vendor(vendor_name: str, email: str = "", phone: str = "",
     return "Error: Update failed. Check the vendor name and try again."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_update_customer(customer_name: str, email: str = "", phone: str = "",
                              company_name: str = "", display_name: str = "") -> str:
     """Update an existing customer's details.
@@ -6438,7 +6438,7 @@ async def qb_update_customer(customer_name: str, email: str = "", phone: str = "
 # NEW: Record Bill Payment / Invoice Payment
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_record_bill_payment(vendor_name: str, amount: float, bill_id: str = "",
                                   payment_account: str = "", date: str = "", memo: str = "") -> str:
     """Record a payment against a vendor bill (accounts payable).
@@ -6521,7 +6521,7 @@ async def qb_record_bill_payment(vendor_name: str, amount: float, bill_id: str =
     return "Error: Bill payment creation failed."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_record_invoice_payment(customer_name: str, amount: float, invoice_id: str = "",
                                      deposit_account: str = "", date: str = "",
                                      payment_method: str = "", memo: str = "") -> str:
@@ -6606,7 +6606,7 @@ async def qb_record_invoice_payment(customer_name: str, amount: float, invoice_i
 # NEW: Create Estimate
 # ===================================================================
 
-@mcp.tool()
+@mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_estimate(customer_name: str, line_items: str, expiration_date: str = "",
                               memo: str = "") -> str:
     """Create a customer estimate/quote.

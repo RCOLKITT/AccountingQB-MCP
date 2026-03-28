@@ -18,12 +18,41 @@
 4. **Connect QuickBooks** — click the link when Claude prompts you
 5. **Start asking questions** like "Show me my P&L for last quarter"
 
-## Privacy
+## Privacy Policy
 
-Your financial data stays secure:
-- OAuth tokens are stored securely (not on your local machine)
-- Data flows directly between Claude and QuickBooks
-- Zero-knowledge architecture — we never see your financial data
+AccountingQB is designed with privacy as a core principle.
+
+### Data Collection
+- **License Key**: We validate your license key against our servers
+- **OAuth Tokens**: Stored securely on our servers (encrypted at rest) to enable QuickBooks connectivity
+- **Usage Metrics**: Anonymous usage statistics for product improvement (no financial data)
+
+### Data NOT Collected
+- **Financial Data**: Your QuickBooks data is never transmitted to or stored on our servers
+- **Transaction Details**: All financial queries are processed directly between Claude and QuickBooks
+- **Personal Information**: Beyond your email for license management, we collect no personal data
+
+### Data Flow
+1. Your prompts go to Claude (Anthropic)
+2. Claude calls AccountingQB tools running locally
+3. Tools fetch data directly from QuickBooks API
+4. Results are returned to Claude
+5. Our servers are only involved for license validation and OAuth token storage
+
+### Security
+- OAuth tokens encrypted at rest using AES-256
+- HTTPS for all API communications
+- No plaintext credential storage
+- Regular security audits
+
+### Your Rights
+- Request deletion of your data at any time
+- Export your connected company list
+- Revoke QuickBooks access from the dashboard
+
+For the complete privacy policy, visit: https://accountingqb.com/privacy
+
+Contact: support@accountingqb.com
 
 ## Example Prompts
 
