@@ -1,17 +1,18 @@
 {
   "mcpb_version": "0.3",
-  "name": "quickbooks-accounting-mcp",
-  "display_name": "QuickBooks Accounting for Claude",
-  "version": "2.0.0",
-  "description": "The most comprehensive QuickBooks Online MCP server — 91 tools for transactions, reports, tax prep, bookkeeping automation, and financial analysis.",
-  "long_description": "Connect Claude to your QuickBooks Online account. Run P&L reports, reconcile transactions, file-prep for Schedule C, detect anomalies, manage vendors/customers, batch operations, and more. Your financial data stays on your machine — zero cloud routing.",
+  "name": "accountingqb",
+  "display_name": "AccountingQB — QuickBooks for Claude",
+  "version": "3.0.0",
+  "description": "91 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep, anomaly detection — all through natural conversation.",
+  "long_description": "Connect Claude to your QuickBooks Online with one click. Run P&L reports, reconcile transactions, prep for Schedule C, detect anomalies, and more. Your data stays on your machine — zero cloud routing.\n\n**Getting Started:**\n1. Enter your license key (get one at accountingqb.com)\n2. Click 'Connect QuickBooks' when prompted\n3. Start asking Claude about your books!",
   "author": {
-    "name": "Ryan Colkitt",
-    "email": "ryan@vasperacapital.com",
-    "url": "https://github.com/RCOLKITT"
+    "name": "Vaspera Capital",
+    "email": "support@accountingqb.com",
+    "url": "https://accountingqb.com"
   },
   "repository": "https://github.com/RCOLKITT/AccountingQB-MCP",
-  "license": "MIT",
+  "homepage": "https://accountingqb.com",
+  "license": "Commercial",
   "keywords": [
     "quickbooks",
     "accounting",
@@ -20,7 +21,8 @@
     "schedule-c",
     "finance",
     "mcp",
-    "claude"
+    "claude",
+    "ai-accounting"
   ],
   "server": {
     "type": "uv",
@@ -34,47 +36,56 @@
     "platforms": ["darwin", "win32", "linux"]
   },
   "user_config": {
-    "QB_CLIENT_ID": {
-      "type": "string",
-      "title": "QuickBooks Client ID",
-      "description": "Your Intuit Developer app Client ID (from developer.intuit.com)",
-      "required": true
-    },
-    "QB_CLIENT_SECRET": {
-      "type": "string",
-      "title": "QuickBooks Client Secret",
-      "description": "Your Intuit Developer app Client Secret",
-      "sensitive": true,
-      "required": true
-    },
-    "QB_REALM_ID": {
-      "type": "string",
-      "title": "QuickBooks Company ID (Realm ID)",
-      "description": "Your QuickBooks company/realm ID (found in your QuickBooks URL)",
-      "required": true
-    },
-    "QB_REFRESH_TOKEN": {
-      "type": "string",
-      "title": "QuickBooks Refresh Token",
-      "description": "Initial OAuth refresh token (will auto-rotate after first use)",
-      "sensitive": true,
-      "required": true
-    },
     "QB_LICENSE_KEY": {
       "type": "string",
       "title": "License Key",
-      "description": "Your product license key (leave blank for free tier — 25 read-only tools)",
-      "required": false
+      "description": "Your AccountingQB license key (starts with LK-). Get one at accountingqb.com",
+      "required": true,
+      "placeholder": "LK-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+    },
+    "QB_CLIENT_ID": {
+      "type": "string",
+      "title": "QuickBooks Client ID (Optional)",
+      "description": "Only needed for self-hosted mode. Leave blank to use AccountingQB hosted OAuth.",
+      "required": false,
+      "advanced": true
+    },
+    "QB_CLIENT_SECRET": {
+      "type": "string",
+      "title": "QuickBooks Client Secret (Optional)",
+      "description": "Only needed for self-hosted mode.",
+      "sensitive": true,
+      "required": false,
+      "advanced": true
+    },
+    "QB_REALM_ID": {
+      "type": "string",
+      "title": "QuickBooks Company ID (Optional)",
+      "description": "Only needed for self-hosted mode. In hosted mode, use qb_list_companies to manage.",
+      "required": false,
+      "advanced": true
+    },
+    "QB_REFRESH_TOKEN": {
+      "type": "string",
+      "title": "QuickBooks Refresh Token (Optional)",
+      "description": "Only needed for self-hosted mode.",
+      "sensitive": true,
+      "required": false,
+      "advanced": true
     },
     "QB_ENVIRONMENT": {
       "type": "string",
       "title": "QuickBooks Environment",
       "description": "Set to 'sandbox' for testing, 'production' for live data",
       "default": "production",
-      "required": false
+      "required": false,
+      "advanced": true
     }
   },
   "tools": [
+    {"name": "qb_list_companies", "description": "List connected QuickBooks companies"},
+    {"name": "qb_switch_company", "description": "Switch to a different company"},
+    {"name": "qb_refresh_connection", "description": "Refresh connection to AccountingQB"},
     {"name": "qb_company_info", "description": "Get company details, address, EIN, fiscal year"},
     {"name": "qb_list_transactions", "description": "List purchases/expenses in a date range"},
     {"name": "qb_list_deposits", "description": "List deposits and income"},
