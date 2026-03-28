@@ -1,6 +1,6 @@
 # AccountingQB Desktop Extension Spec
 
-**Status:** In Progress (Phase 1 Complete)
+**Status:** In Progress (Phase 2 Complete)
 **Owner:** Ryan Colkitt
 **Created:** 2026-03-28
 **Last Updated:** 2026-03-28
