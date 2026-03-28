@@ -69,14 +69,17 @@ export async function sendLicenseEmail({
               </div>
 
               <!-- Getting Started -->
-              <h2 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600; color: #ffffff;">Getting Started</h2>
+              <h2 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600; color: #ffffff;">Getting Started (3 Easy Steps)</h2>
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
                     <table cellpadding="0" cellspacing="0">
                       <tr>
                         <td style="width: 32px; height: 32px; background: linear-gradient(135deg, #22d3ee, #3b82f6); border-radius: 50%; text-align: center; vertical-align: middle; color: #ffffff; font-weight: 600; font-size: 14px;">1</td>
-                        <td style="padding-left: 16px; color: #d1d5db; font-size: 15px;">Copy your license key above</td>
+                        <td style="padding-left: 16px; color: #d1d5db; font-size: 15px;">
+                          <strong style="color: #ffffff;">Install the extension</strong><br>
+                          <span style="font-size: 13px; color: #9ca3af;">Click the button below to install in Claude Desktop (one click!)</span>
+                        </td>
                       </tr>
                     </table>
                   </td>
@@ -86,17 +89,10 @@ export async function sendLicenseEmail({
                     <table cellpadding="0" cellspacing="0">
                       <tr>
                         <td style="width: 32px; height: 32px; background: linear-gradient(135deg, #3b82f6, #6366f1); border-radius: 50%; text-align: center; vertical-align: middle; color: #ffffff; font-weight: 600; font-size: 14px;">2</td>
-                        <td style="padding-left: 16px; color: #d1d5db; font-size: 15px;">Install the extension in Claude Desktop</td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                    <table cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="width: 32px; height: 32px; background: linear-gradient(135deg, #6366f1, #8b5cf6); border-radius: 50%; text-align: center; vertical-align: middle; color: #ffffff; font-weight: 600; font-size: 14px;">3</td>
-                        <td style="padding-left: 16px; color: #d1d5db; font-size: 15px;">Connect your QuickBooks account</td>
+                        <td style="padding-left: 16px; color: #d1d5db; font-size: 15px;">
+                          <strong style="color: #ffffff;">Connect QuickBooks</strong><br>
+                          <span style="font-size: 13px; color: #9ca3af;">Authorize access to your QuickBooks Online company</span>
+                        </td>
                       </tr>
                     </table>
                   </td>
@@ -105,17 +101,28 @@ export async function sendLicenseEmail({
                   <td style="padding: 12px 0;">
                     <table cellpadding="0" cellspacing="0">
                       <tr>
-                        <td style="width: 32px; height: 32px; background: linear-gradient(135deg, #8b5cf6, #a855f7); border-radius: 50%; text-align: center; vertical-align: middle; color: #ffffff; font-weight: 600; font-size: 14px;">4</td>
-                        <td style="padding-left: 16px; color: #d1d5db; font-size: 15px;">Start talking to your books!</td>
+                        <td style="width: 32px; height: 32px; background: linear-gradient(135deg, #6366f1, #10b981); border-radius: 50%; text-align: center; vertical-align: middle; color: #ffffff; font-weight: 600; font-size: 14px;">3</td>
+                        <td style="padding-left: 16px; color: #d1d5db; font-size: 15px;">
+                          <strong style="color: #ffffff;">Start talking to your books!</strong><br>
+                          <span style="font-size: 13px; color: #9ca3af;">Try: "Show me my P&L for last quarter"</span>
+                        </td>
                       </tr>
                     </table>
                   </td>
                 </tr>
               </table>
 
-              <!-- CTA Button -->
+              <!-- CTA Buttons -->
               <div style="text-align: center; margin-top: 32px;">
-                <a href="https://accountingqb.com/setup" style="display: inline-block; background: linear-gradient(135deg, #22d3ee, #3b82f6, #6366f1); color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; padding: 14px 32px; border-radius: 8px;">View Setup Guide</a>
+                <a href="https://accountingqb.com/dashboard?key=${encodeURIComponent(licenseKey)}" style="display: inline-block; background: linear-gradient(135deg, #22d3ee, #3b82f6, #6366f1); color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; padding: 14px 32px; border-radius: 8px; margin-bottom: 12px;">Go to Dashboard</a>
+              </div>
+
+              <!-- No Developer Account Needed -->
+              <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 16px; margin-top: 24px; text-align: center;">
+                <p style="margin: 0; font-size: 14px; color: #34d399;">
+                  <strong>No Intuit developer account needed!</strong><br>
+                  <span style="color: #6ee7b7; font-size: 13px;">We handle the OAuth setup for you.</span>
+                </p>
               </div>
 
             </td>
@@ -124,7 +131,7 @@ export async function sendLicenseEmail({
           <!-- Footer -->
           <tr>
             <td style="padding-top: 32px; text-align: center;">
-              <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">Questions? Reply to this email or visit our docs.</p>
+              <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">Questions? Reply to this email or contact support@accountingqb.com</p>
               <p style="margin: 0; font-size: 12px; color: #4b5563;">
                 AccountingQB by Vaspera Capital<br>
                 <a href="https://accountingqb.com" style="color: #3b82f6; text-decoration: none;">accountingqb.com</a>
