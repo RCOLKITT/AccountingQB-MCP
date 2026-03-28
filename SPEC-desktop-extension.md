@@ -186,7 +186,7 @@ CREATE TABLE oauth_tokens (
   - [x] "Manage Billing" → Stripe portal
   - [x] "Disconnect QuickBooks" option
 - [x] Fix setup page branding (Quarterback → AccountingQB)
-- [ ] Update license email with new instructions
+- [x] Update license email with new instructions
 
 **Deliverable:** Complete web experience for new flow.
 
