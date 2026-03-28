@@ -193,7 +193,8 @@ CREATE TABLE oauth_tokens (
 ### Phase 5: Marketplace Submission (Week 3)
 - [ ] Create Anthropic developer account
 - [ ] Submit extension to marketplace
-- [ ] Write marketplace description
+- [x] Write marketplace description (README.md created)
+- [x] Add extension icon (icon.png)
 - [ ] Create demo video
 - [ ] Respond to review feedback
 
