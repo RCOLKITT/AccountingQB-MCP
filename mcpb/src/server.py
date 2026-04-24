@@ -14,6 +14,7 @@ import os
 import sys
 import json
 import time
+import asyncio
 import hashlib
 import logging
 import functools
@@ -252,6 +253,44 @@ def require_license(func):
     return wrapper
 
 # ---------------------------------------------------------------------------
+# Usage Tracking
+# ---------------------------------------------------------------------------
+# Reports tool invocations to AccountingQB API for analytics and "time saved"
+# calculations. This is non-blocking and fire-and-forget — tool execution is
+# never interrupted by tracking failures.
+
+async def _track_usage(tool_name: str) -> None:
+    """Report tool usage to AccountingQB API (non-blocking, fire-and-forget).
+    Silently fails if license key is not set or API is unreachable."""
+    if not LICENSE_KEY:
+        return
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                USAGE_API_URL,
+                json={
+                    "licenseKey": LICENSE_KEY,
+                    "toolName": tool_name,
+                    "realmId": QB_REALM_ID or None,
+                },
+            )
+    except Exception as e:
+        # Non-blocking — don't interrupt tool execution for tracking failures
+        logger.debug(f"Usage tracking failed for {tool_name}: {e}")
+
+def track_usage(func):
+    """Decorator that tracks tool usage after successful execution.
+    Runs tracking in background task to avoid blocking tool response."""
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        result = await func(*args, **kwargs)
+        # Track usage in background (fire-and-forget)
+        asyncio.create_task(_track_usage(func.__name__))
+        return result
+    return wrapper
+
+# ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 QB_CLIENT_ID = os.environ.get("QB_CLIENT_ID", "")
@@ -264,6 +303,9 @@ QB_REFRESH_TOKEN = os.environ.get("QB_REFRESH_TOKEN", "")
 QB_API_URL = os.environ.get("QB_API_URL", "https://accountingqb.com")
 _hosted_mode = False  # True if tokens are managed by AccountingQB API
 _hosted_companies: list[dict] = []  # List of connected companies from API
+
+# Usage tracking: report tool invocations back to AccountingQB for analytics
+USAGE_API_URL = os.environ.get("QB_USAGE_API_URL", f"{QB_API_URL}/api/usage/track")
 
 def _fetch_hosted_tokens() -> bool:
     """Fetch OAuth tokens from AccountingQB API using license key.
@@ -379,6 +421,146 @@ AUTH_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
 
 _access_token = None
 _token_expiry = None
+
+# ---------------------------------------------------------------------------
+# Demo Mode
+# ---------------------------------------------------------------------------
+# Demo mode returns mock data for reviewers who don't have QuickBooks access.
+# Activated by license keys starting with "LK-DEMO-" or the exact key "DEMO".
+
+def _is_demo_mode() -> bool:
+    """Check if we're running in demo mode (for reviewers without QuickBooks)."""
+    if not LICENSE_KEY:
+        return False
+    key_upper = LICENSE_KEY.upper()
+    return key_upper == "DEMO" or key_upper.startswith("LK-DEMO-")
+
+_DEMO_MODE = _is_demo_mode()
+
+# Demo company info
+DEMO_COMPANY = {
+    "CompanyName": "Acme Consulting LLC",
+    "LegalName": "Acme Consulting LLC",
+    "CompanyAddr": {
+        "Line1": "123 Main Street",
+        "City": "San Francisco",
+        "CountrySubDivisionCode": "CA",
+        "PostalCode": "94102"
+    },
+    "Email": {"Address": "hello@acmeconsulting.com"},
+    "PrimaryPhone": {"FreeFormNumber": "(415) 555-0123"},
+    "FiscalYearStartMonth": "January",
+    "Country": "US",
+    "EmployerId": "12-3456789"
+}
+
+# Demo vendors
+DEMO_VENDORS = [
+    {"Id": "1", "DisplayName": "Amazon Web Services", "Balance": 2847.50, "Active": True},
+    {"Id": "2", "DisplayName": "Google Workspace", "Balance": 0, "Active": True},
+    {"Id": "3", "DisplayName": "WeWork", "Balance": 1500.00, "Active": True},
+    {"Id": "4", "DisplayName": "Zoom Communications", "Balance": 149.90, "Active": True},
+    {"Id": "5", "DisplayName": "Staples Office Supplies", "Balance": 0, "Active": True},
+    {"Id": "6", "DisplayName": "United Airlines", "Balance": 0, "Active": True},
+    {"Id": "7", "DisplayName": "Uber for Business", "Balance": 0, "Active": True},
+    {"Id": "8", "DisplayName": "Adobe Creative Cloud", "Balance": 599.88, "Active": True},
+]
+
+# Demo customers
+DEMO_CUSTOMERS = [
+    {"Id": "1", "DisplayName": "TechStart Inc", "Balance": 15000.00, "Active": True, "PrimaryEmailAddr": {"Address": "ap@techstart.io"}},
+    {"Id": "2", "DisplayName": "Green Valley Farms", "Balance": 7500.00, "Active": True, "PrimaryEmailAddr": {"Address": "billing@greenvalley.com"}},
+    {"Id": "3", "DisplayName": "Metro Legal Services", "Balance": 0, "Active": True, "PrimaryEmailAddr": {"Address": "accounts@metrolegal.com"}},
+    {"Id": "4", "DisplayName": "Sunrise Healthcare", "Balance": 22500.00, "Active": True, "PrimaryEmailAddr": {"Address": "finance@sunrisehc.org"}},
+    {"Id": "5", "DisplayName": "Blue Ocean Media", "Balance": 4200.00, "Active": True, "PrimaryEmailAddr": {"Address": "pay@blueocean.media"}},
+]
+
+# Demo accounts (Chart of Accounts)
+DEMO_ACCOUNTS = [
+    {"Id": "1", "Name": "Checking", "AccountType": "Bank", "CurrentBalance": 47523.84, "Active": True, "FullyQualifiedName": "Checking"},
+    {"Id": "2", "Name": "Savings", "AccountType": "Bank", "CurrentBalance": 125000.00, "Active": True, "FullyQualifiedName": "Savings"},
+    {"Id": "3", "Name": "Accounts Receivable", "AccountType": "Accounts Receivable", "CurrentBalance": 49200.00, "Active": True, "FullyQualifiedName": "Accounts Receivable"},
+    {"Id": "4", "Name": "Accounts Payable", "AccountType": "Accounts Payable", "CurrentBalance": 5097.28, "Active": True, "FullyQualifiedName": "Accounts Payable"},
+    {"Id": "5", "Name": "Consulting Revenue", "AccountType": "Income", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Consulting Revenue"},
+    {"Id": "6", "Name": "Software Revenue", "AccountType": "Income", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Software Revenue"},
+    {"Id": "7", "Name": "Office Supplies", "AccountType": "Expense", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Office Supplies"},
+    {"Id": "8", "Name": "Software & Subscriptions", "AccountType": "Expense", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Software & Subscriptions"},
+    {"Id": "9", "Name": "Travel", "AccountType": "Expense", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Travel"},
+    {"Id": "10", "Name": "Rent", "AccountType": "Expense", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Rent"},
+    {"Id": "11", "Name": "Professional Services", "AccountType": "Expense", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Professional Services"},
+    {"Id": "12", "Name": "Advertising", "AccountType": "Expense", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Advertising"},
+]
+
+# Demo transactions (recent expenses)
+DEMO_TRANSACTIONS = [
+    {"Id": "101", "TxnDate": "2026-03-25", "TotalAmt": 149.90, "EntityRef": {"name": "Zoom Communications"}, "AccountRef": {"name": "Software & Subscriptions"}, "PaymentType": "CreditCard", "Line": [{"Description": "Zoom Pro Annual"}]},
+    {"Id": "102", "TxnDate": "2026-03-22", "TotalAmt": 1500.00, "EntityRef": {"name": "WeWork"}, "AccountRef": {"name": "Rent"}, "PaymentType": "Check", "Line": [{"Description": "March coworking space"}]},
+    {"Id": "103", "TxnDate": "2026-03-20", "TotalAmt": 847.50, "EntityRef": {"name": "Amazon Web Services"}, "AccountRef": {"name": "Software & Subscriptions"}, "PaymentType": "CreditCard", "Line": [{"Description": "AWS monthly hosting"}]},
+    {"Id": "104", "TxnDate": "2026-03-18", "TotalAmt": 234.56, "EntityRef": {"name": "Staples Office Supplies"}, "AccountRef": {"name": "Office Supplies"}, "PaymentType": "CreditCard", "Line": [{"Description": "Office supplies"}]},
+    {"Id": "105", "TxnDate": "2026-03-15", "TotalAmt": 425.00, "EntityRef": {"name": "United Airlines"}, "AccountRef": {"name": "Travel"}, "PaymentType": "CreditCard", "Line": [{"Description": "Flight to Chicago client meeting"}]},
+    {"Id": "106", "TxnDate": "2026-03-12", "TotalAmt": 2000.00, "EntityRef": {"name": "Amazon Web Services"}, "AccountRef": {"name": "Software & Subscriptions"}, "PaymentType": "CreditCard", "Line": [{"Description": "AWS reserved instances"}]},
+    {"Id": "107", "TxnDate": "2026-03-10", "TotalAmt": 599.88, "EntityRef": {"name": "Adobe Creative Cloud"}, "AccountRef": {"name": "Software & Subscriptions"}, "PaymentType": "CreditCard", "Line": [{"Description": "Adobe CC annual"}]},
+    {"Id": "108", "TxnDate": "2026-03-05", "TotalAmt": 87.50, "EntityRef": {"name": "Uber for Business"}, "AccountRef": {"name": "Travel"}, "PaymentType": "CreditCard", "Line": [{"Description": "Client transportation"}]},
+]
+
+# Demo invoices
+DEMO_INVOICES = [
+    {"Id": "201", "DocNumber": "1042", "TxnDate": "2026-03-01", "DueDate": "2026-03-31", "CustomerRef": {"name": "TechStart Inc", "value": "1"}, "TotalAmt": 15000.00, "Balance": 15000.00, "Line": [{"Description": "Q1 Consulting Services", "Amount": 15000.00}]},
+    {"Id": "202", "DocNumber": "1043", "TxnDate": "2026-03-05", "DueDate": "2026-04-04", "CustomerRef": {"name": "Sunrise Healthcare", "value": "4"}, "TotalAmt": 22500.00, "Balance": 22500.00, "Line": [{"Description": "Software implementation", "Amount": 22500.00}]},
+    {"Id": "203", "DocNumber": "1044", "TxnDate": "2026-03-10", "DueDate": "2026-04-09", "CustomerRef": {"name": "Green Valley Farms", "value": "2"}, "TotalAmt": 7500.00, "Balance": 7500.00, "Line": [{"Description": "Website redesign", "Amount": 7500.00}]},
+    {"Id": "204", "DocNumber": "1041", "TxnDate": "2026-02-15", "DueDate": "2026-03-15", "CustomerRef": {"name": "Metro Legal Services", "value": "3"}, "TotalAmt": 12000.00, "Balance": 0, "Line": [{"Description": "IT consulting", "Amount": 12000.00}]},
+    {"Id": "205", "DocNumber": "1045", "TxnDate": "2026-03-20", "DueDate": "2026-04-19", "CustomerRef": {"name": "Blue Ocean Media", "value": "5"}, "TotalAmt": 4200.00, "Balance": 4200.00, "Line": [{"Description": "Marketing automation setup", "Amount": 4200.00}]},
+]
+
+# Demo P&L data (for reports)
+DEMO_PROFIT_LOSS = {
+    "Header": {"ReportName": "ProfitAndLoss", "StartPeriod": "2026-01-01", "EndPeriod": "2026-03-28", "Currency": "USD"},
+    "Rows": {
+        "Row": [
+            {"group": "Income", "Summary": {"ColData": [{"value": "Income"}, {"value": "187500.00"}]}, "Rows": {"Row": [
+                {"ColData": [{"value": "Consulting Revenue"}, {"value": "145000.00"}]},
+                {"ColData": [{"value": "Software Revenue"}, {"value": "42500.00"}]}
+            ]}},
+            {"group": "COGS", "Summary": {"ColData": [{"value": "Cost of Goods Sold"}, {"value": "0.00"}]}},
+            {"group": "GrossProfit", "Summary": {"ColData": [{"value": "Gross Profit"}, {"value": "187500.00"}]}},
+            {"group": "Expenses", "Summary": {"ColData": [{"value": "Expenses"}, {"value": "48750.00"}]}, "Rows": {"Row": [
+                {"ColData": [{"value": "Software & Subscriptions"}, {"value": "12500.00"}]},
+                {"ColData": [{"value": "Rent"}, {"value": "13500.00"}]},
+                {"ColData": [{"value": "Travel"}, {"value": "8750.00"}]},
+                {"ColData": [{"value": "Office Supplies"}, {"value": "2500.00"}]},
+                {"ColData": [{"value": "Professional Services"}, {"value": "7500.00"}]},
+                {"ColData": [{"value": "Advertising"}, {"value": "4000.00"}]}
+            ]}},
+            {"group": "NetIncome", "Summary": {"ColData": [{"value": "Net Income"}, {"value": "138750.00"}]}}
+        ]
+    }
+}
+
+# Demo Balance Sheet
+DEMO_BALANCE_SHEET = {
+    "Header": {"ReportName": "BalanceSheet", "StartPeriod": "2026-03-28", "EndPeriod": "2026-03-28", "Currency": "USD"},
+    "Rows": {
+        "Row": [
+            {"group": "Assets", "Summary": {"ColData": [{"value": "ASSETS"}, {"value": "221723.84"}]}, "Rows": {"Row": [
+                {"group": "CurrentAssets", "Summary": {"ColData": [{"value": "Current Assets"}, {"value": "221723.84"}]}, "Rows": {"Row": [
+                    {"ColData": [{"value": "Checking"}, {"value": "47523.84"}]},
+                    {"ColData": [{"value": "Savings"}, {"value": "125000.00"}]},
+                    {"ColData": [{"value": "Accounts Receivable"}, {"value": "49200.00"}]}
+                ]}}
+            ]}},
+            {"group": "Liabilities", "Summary": {"ColData": [{"value": "LIABILITIES"}, {"value": "5097.28"}]}, "Rows": {"Row": [
+                {"ColData": [{"value": "Accounts Payable"}, {"value": "5097.28"}]}
+            ]}},
+            {"group": "Equity", "Summary": {"ColData": [{"value": "EQUITY"}, {"value": "216626.56"}]}, "Rows": {"Row": [
+                {"ColData": [{"value": "Owner's Equity"}, {"value": "77876.56"}]},
+                {"ColData": [{"value": "Net Income"}, {"value": "138750.00"}]}
+            ]}}
+        ]
+    }
+}
+
+if _DEMO_MODE:
+    logger.info("🎭 Running in DEMO MODE — returning mock data for all tools")
 
 
 # ---------------------------------------------------------------------------
@@ -541,6 +723,16 @@ def _parse_report_rows(rows, lines, indent=0):
 async def qb_list_companies() -> str:
     """List all QuickBooks companies connected to your AccountingQB license.
     Only available in hosted mode (when using AccountingQB Desktop Extension)."""
+    # Demo mode: show demo company
+    if _DEMO_MODE:
+        return (
+            "## Connected QuickBooks Companies\n\n"
+            "🎭 *Demo Mode — Sample Data*\n\n"
+            "1. **Acme Consulting LLC** ✓ (active)\n"
+            "   - Realm ID: `DEMO-123456789`\n\n"
+            "*This is a demo account with sample data.*"
+        )
+
     if not _hosted_mode:
         return (
             "This tool is only available in hosted mode.\n\n"
@@ -621,13 +813,18 @@ async def qb_refresh_connection() -> str:
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_company_info() -> str:
     """Get QuickBooks company information including name, address, fiscal year, and subscription status."""
-    result = await qb_query("SELECT * FROM CompanyInfo")
-    info = result.get("QueryResponse", {}).get("CompanyInfo", [{}])[0]
-    lines = ["## QuickBooks Company Info\n"]
+    # Demo mode: return mock company data
+    if _DEMO_MODE:
+        info = DEMO_COMPANY
+        lines = ["## QuickBooks Company Info\n", "🎭 *Demo Mode — Sample Data*\n"]
+    else:
+        result = await qb_query("SELECT * FROM CompanyInfo")
+        info = result.get("QueryResponse", {}).get("CompanyInfo", [{}])[0]
+        lines = ["## QuickBooks Company Info\n"]
     lines.append(f"- **Company:** {info.get('CompanyName', 'N/A')}")
     lines.append(f"- **Legal Name:** {info.get('LegalName', 'N/A')}")
-    lines.append(f"- **EIN:** {info.get('EIN', 'N/A')}")
-    lines.append(f"- **Industry:** {info.get('IndustryType', 'N/A')}")
+    lines.append(f"- **EIN:** {info.get('EmployerId', info.get('EIN', 'N/A'))}")
+    lines.append(f"- **Industry:** {info.get('IndustryType', 'Consulting')}")
     lines.append(f"- **Fiscal Year Start:** {info.get('FiscalYearStartMonth', 'N/A')}")
     addr = info.get("CompanyAddr", {})
     if addr:
@@ -648,12 +845,16 @@ async def qb_company_info() -> str:
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_transactions(start_date: str, end_date: str, vendor_name: str = "", min_amount: float = 0, max_amount: float = 0, max_results: int = 100) -> str:
     """List QuickBooks transactions (purchases, expenses) within a date range. Dates in YYYY-MM-DD format. Optionally filter by vendor_name, min_amount, max_amount."""
-    query = (
-        f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' "
-        f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
-    )
-    result = await qb_query(query)
-    purchases = result.get("QueryResponse", {}).get("Purchase", [])
+    # Demo mode: return mock transactions
+    if _DEMO_MODE:
+        purchases = DEMO_TRANSACTIONS[:max_results]
+    else:
+        query = (
+            f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' "
+            f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
+        )
+        result = await qb_query(query)
+        purchases = result.get("QueryResponse", {}).get("Purchase", [])
 
     if not purchases:
         return f"No transactions found between {start_date} and {end_date}."
@@ -984,11 +1185,14 @@ async def qb_list_payments(start_date: str, end_date: str, max_results: int = 10
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_invoices(start_date: str, end_date: str, customer_name: str = "", status: str = "", max_results: int = 100) -> str:
     """List invoices within a date range. Dates in YYYY-MM-DD. Filter by customer_name and/or status (Paid, Unpaid, Overdue). Shows accounts receivable."""
-    query = f"SELECT * FROM Invoice WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
-    query += f" MAXRESULTS {max_results}"
-
-    result = await qb_query(query)
-    invoices = result.get("QueryResponse", {}).get("Invoice", [])
+    # Demo mode: return mock invoices
+    if _DEMO_MODE:
+        invoices = DEMO_INVOICES[:max_results]
+    else:
+        query = f"SELECT * FROM Invoice WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
+        query += f" MAXRESULTS {max_results}"
+        result = await qb_query(query)
+        invoices = result.get("QueryResponse", {}).get("Invoice", [])
 
     if not invoices:
         return f"No invoices found between {start_date} and {end_date}."
@@ -1190,6 +1394,30 @@ async def qb_expense_summary(start_date: str, end_date: str) -> str:
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_profit_loss(start_date: str, end_date: str, summarize_by: str = "Total") -> str:
     """Generate a Profit & Loss (Income Statement) report. Dates in YYYY-MM-DD. summarize_by: Total, Month, Quarter, Year."""
+    # Demo mode: return mock P&L
+    if _DEMO_MODE:
+        return (
+            f"## Profit & Loss: {start_date} to {end_date}\n\n"
+            "🎭 *Demo Mode — Sample Data*\n\n"
+            "### Income\n"
+            "| Category | Amount |\n"
+            "|----------|--------|\n"
+            "| Consulting Revenue | $145,000.00 |\n"
+            "| Software Revenue | $42,500.00 |\n"
+            "| **Total Income** | **$187,500.00** |\n\n"
+            "### Expenses\n"
+            "| Category | Amount |\n"
+            "|----------|--------|\n"
+            "| Software & Subscriptions | $12,500.00 |\n"
+            "| Rent | $13,500.00 |\n"
+            "| Travel | $8,750.00 |\n"
+            "| Office Supplies | $2,500.00 |\n"
+            "| Professional Services | $7,500.00 |\n"
+            "| Advertising | $4,000.00 |\n"
+            "| **Total Expenses** | **$48,750.00** |\n\n"
+            "### Net Income: **$138,750.00**"
+        )
+
     report = await qb_request("GET", "reports/ProfitAndLoss", params={
         "start_date": start_date,
         "end_date": end_date,
@@ -1210,6 +1438,33 @@ async def qb_profit_loss(start_date: str, end_date: str, summarize_by: str = "To
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_balance_sheet(as_of_date: str) -> str:
     """Generate a Balance Sheet report as of a specific date. Date in YYYY-MM-DD format."""
+    # Demo mode: return mock balance sheet
+    if _DEMO_MODE:
+        return (
+            f"## Balance Sheet as of {as_of_date}\n\n"
+            "🎭 *Demo Mode — Sample Data*\n\n"
+            "### ASSETS\n"
+            "| Account | Balance |\n"
+            "|---------|--------|\n"
+            "| **Current Assets** | |\n"
+            "| Checking | $47,523.84 |\n"
+            "| Savings | $125,000.00 |\n"
+            "| Accounts Receivable | $49,200.00 |\n"
+            "| **Total Assets** | **$221,723.84** |\n\n"
+            "### LIABILITIES\n"
+            "| Account | Balance |\n"
+            "|---------|--------|\n"
+            "| Accounts Payable | $5,097.28 |\n"
+            "| **Total Liabilities** | **$5,097.28** |\n\n"
+            "### EQUITY\n"
+            "| Account | Balance |\n"
+            "|---------|--------|\n"
+            "| Owner's Equity | $77,876.56 |\n"
+            "| Net Income | $138,750.00 |\n"
+            "| **Total Equity** | **$216,626.56** |\n\n"
+            "**Total Liabilities + Equity: $221,723.84**"
+        )
+
     report = await qb_request("GET", "reports/BalanceSheet", params={
         "date_macro": "",
         "start_date": as_of_date,
@@ -1417,9 +1672,13 @@ async def qb_tax_summary(start_date: str, end_date: str) -> str:
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_accounts(max_results: int = 100) -> str:
     """List all chart of accounts (expense categories, income accounts, etc.) in QuickBooks."""
-    query = f"SELECT * FROM Account MAXRESULTS {max_results}"
-    result = await qb_query(query)
-    accounts = result.get("QueryResponse", {}).get("Account", [])
+    # Demo mode: return mock accounts
+    if _DEMO_MODE:
+        accounts = DEMO_ACCOUNTS[:max_results]
+    else:
+        query = f"SELECT * FROM Account MAXRESULTS {max_results}"
+        result = await qb_query(query)
+        accounts = result.get("QueryResponse", {}).get("Account", [])
 
     if not accounts:
         return "No accounts found."
@@ -1448,13 +1707,18 @@ async def qb_list_accounts(max_results: int = 100) -> str:
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_vendors(name: str = "", max_results: int = 50) -> str:
     """List vendors/suppliers in QuickBooks. Optionally filter by name."""
-    query = "SELECT * FROM Vendor"
-    if name:
-        query += f" WHERE DisplayName LIKE '%{name}%'"
-    query += f" MAXRESULTS {max_results}"
-
-    result = await qb_query(query)
-    vendors = result.get("QueryResponse", {}).get("Vendor", [])
+    # Demo mode: return mock vendors
+    if _DEMO_MODE:
+        vendors = DEMO_VENDORS[:max_results]
+        if name:
+            vendors = [v for v in vendors if name.lower() in v.get("DisplayName", "").lower()]
+    else:
+        query = "SELECT * FROM Vendor"
+        if name:
+            query += f" WHERE DisplayName LIKE '%{name}%'"
+        query += f" MAXRESULTS {max_results}"
+        result = await qb_query(query)
+        vendors = result.get("QueryResponse", {}).get("Vendor", [])
 
     if not vendors:
         return "No vendors found."
@@ -1497,13 +1761,18 @@ async def qb_create_vendor(display_name: str, email: str = "", phone: str = "", 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_customers(name: str = "", max_results: int = 50) -> str:
     """List customers in QuickBooks. Optionally filter by name."""
-    query = "SELECT * FROM Customer"
-    if name:
-        query += f" WHERE DisplayName LIKE '%{name}%'"
-    query += f" MAXRESULTS {max_results}"
-
-    result = await qb_query(query)
-    customers = result.get("QueryResponse", {}).get("Customer", [])
+    # Demo mode: return mock customers
+    if _DEMO_MODE:
+        customers = DEMO_CUSTOMERS[:max_results]
+        if name:
+            customers = [c for c in customers if name.lower() in c.get("DisplayName", "").lower()]
+    else:
+        query = "SELECT * FROM Customer"
+        if name:
+            query += f" WHERE DisplayName LIKE '%{name}%'"
+        query += f" MAXRESULTS {max_results}"
+        result = await qb_query(query)
+        customers = result.get("QueryResponse", {}).get("Customer", [])
 
     if not customers:
         return "No customers found."
@@ -1581,6 +1850,17 @@ async def qb_list_items(name: str = "", max_results: int = 100) -> str:
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_expense(vendor_name: str, amount: float, account_name: str, date: str, description: str = "", payment_method: str = "") -> str:
     """Create a new expense/purchase in QuickBooks. vendor_name: payee, amount: total, account_name: expense category, date: YYYY-MM-DD, description: memo, payment_method: bank/card account name."""
+    # Demo mode: simulate success
+    if _DEMO_MODE:
+        return (
+            f"🎭 *Demo Mode* — Expense simulated!\n\n"
+            f"- ID: DEMO-{hash(vendor_name + date) % 10000}\n"
+            f"- Vendor: {vendor_name}\n"
+            f"- Amount: {fmt(amount)}\n"
+            f"- Category: {account_name}\n"
+            f"- Date: {date}\n\n"
+            f"*In production, this would create a real expense in QuickBooks.*"
+        )
     vendors = await qb_query(f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1")
     vendor_list = vendors.get("QueryResponse", {}).get("Vendor", [])
     if not vendor_list:
@@ -1634,6 +1914,18 @@ async def qb_create_expense(vendor_name: str, amount: float, account_name: str, 
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_invoice(customer_name: str, line_items: str, due_date: str = "", memo: str = "") -> str:
     """Create a customer invoice. line_items is a JSON string: [{"description": "...", "amount": 100}]. due_date in YYYY-MM-DD."""
+    # Demo mode: simulate success
+    if _DEMO_MODE:
+        items = json.loads(line_items) if isinstance(line_items, str) else line_items
+        total = sum(item.get("amount", 0) for item in items)
+        return (
+            f"🎭 *Demo Mode* — Invoice simulated!\n\n"
+            f"- Invoice #: DEMO-{1046 + hash(customer_name) % 100}\n"
+            f"- Customer: {customer_name}\n"
+            f"- Total: {fmt(total)}\n"
+            f"- Due: {due_date or 'Net 30'}\n\n"
+            f"*In production, this would create a real invoice in QuickBooks.*"
+        )
     customers = await qb_query(f"SELECT * FROM Customer WHERE DisplayName LIKE '%{customer_name}%' MAXRESULTS 1")
     customer_list = customers.get("QueryResponse", {}).get("Customer", [])
     if not customer_list:
@@ -6699,8 +6991,25 @@ def _apply_license_gating():
         f"{gated_count} paid tools"
     )
 
-# Apply gating after all tools are registered
+def _apply_usage_tracking():
+    """Wrap all registered MCP tools with usage tracking.
+    Only active when a license key is configured."""
+    if not LICENSE_KEY:
+        logger.debug("Usage tracking not active (no license key)")
+        return
+
+    tracked_count = 0
+    for tool_name in list(mcp._tool_manager._tools.keys()):
+        tool = mcp._tool_manager._tools[tool_name]
+        original_fn = tool.fn
+        tool.fn = track_usage(original_fn)
+        tracked_count += 1
+
+    logger.info(f"Usage tracking active: {tracked_count} tools tracked")
+
+# Apply gating and tracking after all tools are registered
 _apply_license_gating()
+_apply_usage_tracking()
 
 
 # ===================================================================

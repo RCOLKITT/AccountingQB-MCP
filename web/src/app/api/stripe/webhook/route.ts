@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
 import { sendLicenseEmail } from "@/lib/resend";
+import { createStripeEventLogger, logEvent } from "@/lib/event-logger";
 import crypto from "crypto";
 import Stripe from "stripe";
 
@@ -30,6 +31,11 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = getSupabase();
+
+  // Create event logger for this webhook
+  const subscriptionId = (event.data.object as { subscription?: string; id?: string }).subscription
+    || (event.data.object as { id?: string }).id;
+  const eventLogger = createStripeEventLogger(event.id, event.type, subscriptionId);
 
   switch (event.type) {
     case "checkout.session.completed": {
@@ -75,6 +81,12 @@ export async function POST(req: NextRequest) {
         }
 
         console.log(`New license created: ${licenseKey} for ${email} (${tier})`);
+
+        // Log successful license creation
+        await eventLogger.success(licenseKey, { email, tier });
+      } else {
+        // Log duplicate event (idempotent)
+        await eventLogger.success(existing.key, { note: "Duplicate event - already processed" });
       }
       break;
     }
@@ -85,19 +97,36 @@ export async function POST(req: NextRequest) {
                      sub.status === "trialing" ? "trialing" :
                      sub.status === "canceled" ? "canceled" : "expired";
 
+      const { data: license } = await supabase
+        .from("licenses")
+        .select("key")
+        .eq("stripe_subscription_id", sub.id)
+        .maybeSingle();
+
       await supabase
         .from("licenses")
         .update({ status, updated_at: new Date().toISOString() })
         .eq("stripe_subscription_id", sub.id);
+
+      await eventLogger.success(license?.key, { newStatus: status });
       break;
     }
 
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
+
+      const { data: license } = await supabase
+        .from("licenses")
+        .select("key")
+        .eq("stripe_subscription_id", sub.id)
+        .maybeSingle();
+
       await supabase
         .from("licenses")
         .update({ status: "canceled", updated_at: new Date().toISOString() })
         .eq("stripe_subscription_id", sub.id);
+
+      await eventLogger.success(license?.key, { newStatus: "canceled" });
       break;
     }
 
@@ -113,6 +142,8 @@ export async function POST(req: NextRequest) {
             updated_at: new Date().toISOString(),
           })
           .eq("stripe_subscription_id", invoice.subscription as string);
+
+        await eventLogger.success(undefined, { note: "Trial converted to paid" });
       }
       break;
     }
@@ -123,11 +154,19 @@ export async function POST(req: NextRequest) {
         `Payment failed for subscription ${invoice.subscription}`
       );
       // Stripe handles retry logic; we don't cancel immediately
+      await eventLogger.failure("Payment failed");
       break;
     }
 
     default:
-      // Unhandled event type
+      // Log unhandled event types for monitoring
+      await logEvent({
+        eventType: "stripe_webhook",
+        eventId: event.id,
+        action: event.type,
+        payload: { note: "Unhandled event type" },
+        success: true,
+      });
       break;
   }
 

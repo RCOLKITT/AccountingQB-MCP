@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import {
+  getTokenLimiter,
+  getClientIP,
+  rateLimitResponse,
+  isRateLimitingEnabled,
+} from "@/lib/ratelimit";
+import { logOAuthRefresh } from "@/lib/event-logger";
 
 /**
  * POST /api/oauth/token
@@ -14,6 +21,15 @@ import { getSupabase } from "@/lib/supabase";
  * Automatically refreshes expired access tokens before returning.
  */
 export async function POST(req: NextRequest) {
+  // Rate limit: 10 requests per minute per IP
+  if (isRateLimitingEnabled()) {
+    const ip = getClientIP(req);
+    const { success, reset } = await getTokenLimiter().limit(ip);
+    if (!success) {
+      return rateLimitResponse(reset);
+    }
+  }
+
   try {
     const { licenseKey, realmId } = await req.json();
 
@@ -94,12 +110,18 @@ export async function POST(req: NextRequest) {
               })
               .eq("id", token.id);
 
+            // Log successful token refresh
+            await logOAuthRefresh(licenseKey, token.realm_id, true);
+
             return {
               ...token,
               access_token: refreshed.access_token,
               refresh_token: refreshed.refresh_token,
               token_expires_at: refreshed.token_expires_at,
             };
+          } else {
+            // Log failed token refresh
+            await logOAuthRefresh(licenseKey, token.realm_id, false, "Refresh request failed");
           }
         }
         return token;

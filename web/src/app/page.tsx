@@ -3,6 +3,35 @@
    Design: Stripe/Linear/Vercel inspired. Navy + cyan-blue-indigo gradient.
    ============================================================================ */
 
+import { getSupabase } from "@/lib/supabase";
+
+interface PublicStats {
+  totalHoursSaved: number;
+  callsThisWeek: number;
+  activeLicenses: number;
+}
+
+async function getPublicStats(): Promise<PublicStats | null> {
+  try {
+    const supabase = getSupabase();
+    const { data: stats } = await supabase
+      .from("usage_stats_cache")
+      .select("*")
+      .eq("id", "global")
+      .single();
+
+    if (!stats) return null;
+
+    return {
+      totalHoursSaved: stats.total_hours_saved || 0,
+      callsThisWeek: stats.calls_this_week || 0,
+      activeLicenses: stats.active_licenses || 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
 const tiers = [
   {
     name: "Solopreneur",
@@ -123,7 +152,9 @@ function CheckIcon() {
    PAGE
    ============================================================================ */
 
-export default function Home() {
+export default async function Home() {
+  const publicStats = await getPublicStats();
+
   return (
     <main className="min-h-screen overflow-x-hidden">
 
@@ -142,12 +173,20 @@ export default function Home() {
             <a href="#pricing" className="text-sm text-gray-400 transition hover:text-white">Pricing</a>
             <a href="#faq" className="text-sm text-gray-400 transition hover:text-white">FAQ</a>
           </div>
-          <a
-            href="#pricing"
-            className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:shadow-blue-500/30 hover:brightness-110"
-          >
-            Get Started
-          </a>
+          <div className="flex items-center gap-4">
+            <a
+              href="/dashboard"
+              className="text-sm text-gray-400 transition hover:text-white"
+            >
+              Dashboard
+            </a>
+            <a
+              href="#pricing"
+              className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:shadow-blue-500/30 hover:brightness-110"
+            >
+              Get Started
+            </a>
+          </div>
         </div>
       </nav>
 
@@ -282,6 +321,29 @@ export default function Home() {
       {/* ========== TRUST BAR ========== */}
       <section className="relative border-y border-white/[0.06] bg-[#0c1120]">
         <div className="mx-auto max-w-6xl px-6 py-8">
+          {/* Live Stats (shown only if we have data) */}
+          {publicStats && (publicStats.totalHoursSaved > 0 || publicStats.callsThisWeek > 0) && (
+            <div className="mb-6 flex flex-col items-center justify-center gap-6 sm:flex-row sm:gap-12">
+              {publicStats.totalHoursSaved > 0 && (
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-cyan-400">{publicStats.totalHoursSaved.toLocaleString()}</div>
+                  <div className="text-sm text-gray-500">hours saved</div>
+                </div>
+              )}
+              {publicStats.callsThisWeek > 0 && (
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-400">{publicStats.callsThisWeek.toLocaleString()}</div>
+                  <div className="text-sm text-gray-500">queries this week</div>
+                </div>
+              )}
+              {publicStats.activeLicenses > 0 && (
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-indigo-400">{publicStats.activeLicenses.toLocaleString()}</div>
+                  <div className="text-sm text-gray-500">active users</div>
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex flex-col items-center justify-center gap-8 sm:flex-row sm:gap-16">
             {[
               { icon: "shield", label: "Zero-knowledge architecture" },
@@ -831,6 +893,7 @@ export default function Home() {
                 <li><a href="#features" className="transition hover:text-white">Features</a></li>
                 <li><a href="#pricing" className="transition hover:text-white">Pricing</a></li>
                 <li><a href="#faq" className="transition hover:text-white">FAQ</a></li>
+                <li><a href="/dashboard" className="transition hover:text-white">Dashboard</a></li>
               </ul>
             </div>
             <div>
