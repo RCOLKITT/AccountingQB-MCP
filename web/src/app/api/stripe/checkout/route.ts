@@ -1,11 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe, getTierPrice } from "@/lib/stripe";
+import {
+  getCheckoutLimiter,
+  getClientIP,
+  rateLimitResponse,
+  isRateLimitingEnabled,
+} from "@/lib/ratelimit";
 
 /**
  * GET /api/stripe/checkout?tier=solopreneur&email=user@example.com
  * Creates a Stripe Checkout session for subscription with 14-day trial.
  */
 export async function GET(req: NextRequest) {
+  // Rate limit: 5 requests per minute per IP
+  if (isRateLimitingEnabled()) {
+    const ip = getClientIP(req);
+    const { success, reset } = await getCheckoutLimiter().limit(ip);
+    if (!success) {
+      return rateLimitResponse(reset);
+    }
+  }
+
   const tier = req.nextUrl.searchParams.get("tier") || "solopreneur";
   const email = req.nextUrl.searchParams.get("email") || undefined;
 
@@ -37,9 +52,8 @@ export async function GET(req: NextRequest) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Stripe checkout error:", message);
-    // TEMPORARY: surface error for debugging — remove before launch
     return NextResponse.json(
-      { error: "Failed to create checkout session", debug: message },
+      { error: "Failed to create checkout session" },
       { status: 500 }
     );
   }

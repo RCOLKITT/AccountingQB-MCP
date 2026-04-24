@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import { logOAuthDisconnect } from "@/lib/event-logger";
 
 /**
  * POST /api/oauth/revoke
@@ -76,11 +77,15 @@ export async function POST(req: NextRequest) {
 
     if (deleteError) {
       console.error("Failed to delete token:", deleteError);
+      await logOAuthDisconnect(licenseKey, realmId, false, deleteError.message);
       return NextResponse.json(
         { error: "Failed to disconnect company" },
         { status: 500 }
       );
     }
+
+    // Log successful disconnection
+    await logOAuthDisconnect(licenseKey, realmId, true);
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
+import {
+  getOAuthStartLimiter,
+  rateLimitResponse,
+  isRateLimitingEnabled,
+} from "@/lib/ratelimit";
+import {
+  generateState,
+  encodeStatePayload,
+  redirectWithStateCookie,
+} from "@/lib/csrf";
 
 /**
  * GET /api/oauth/start
@@ -22,13 +31,18 @@ export async function GET(req: NextRequest) {
 
   const licenseKey = req.nextUrl.searchParams.get("license_key") || "";
 
-  // Generate a random state parameter for CSRF protection
-  const state = crypto.randomBytes(16).toString("hex");
+  // Rate limit: 5 requests per minute per license (or "anonymous" if no license)
+  if (isRateLimitingEnabled()) {
+    const limitKey = licenseKey || "anonymous";
+    const { success, reset } = await getOAuthStartLimiter().limit(limitKey);
+    if (!success) {
+      return rateLimitResponse(reset);
+    }
+  }
 
-  // Encode license key and state together so we can verify on callback
-  const statePayload = Buffer.from(
-    JSON.stringify({ state, licenseKey })
-  ).toString("base64url");
+  // Generate cryptographically secure state for CSRF protection
+  const state = generateState();
+  const statePayload = encodeStatePayload(state, licenseKey);
 
   const scopes = [
     "com.intuit.quickbooks.accounting",
@@ -41,5 +55,6 @@ export async function GET(req: NextRequest) {
   authUrl.searchParams.set("redirect_uri", redirectUri);
   authUrl.searchParams.set("state", statePayload);
 
-  return NextResponse.redirect(authUrl.toString(), 303);
+  // Set state in HTTP-only cookie and redirect to Intuit
+  return redirectWithStateCookie(authUrl.toString(), state);
 }

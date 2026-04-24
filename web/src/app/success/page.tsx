@@ -59,7 +59,6 @@ function SuccessContent() {
     }
   };
 
-  const installUrl = "mcpb://install?name=accountingqb";
   const connectQBUrl = licenseKey
     ? `/api/oauth/start?license_key=${encodeURIComponent(licenseKey)}`
     : "#";
@@ -152,15 +151,15 @@ function SuccessContent() {
                   <div>
                     <h3 className="font-semibold text-white">Install the Extension</h3>
                     <p className="mt-1 text-sm text-gray-400">
-                      Click below to install AccountingQB in Claude Desktop. You&apos;ll be prompted to enter your license key.
+                      Follow our quick setup guide to add AccountingQB to Claude Desktop.
                     </p>
                   </div>
                 </div>
                 <a
-                  href={installUrl}
+                  href={`/setup-wizard?key=${encodeURIComponent(licenseKey || "")}`}
                   className="block w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 text-center text-lg font-semibold shadow-lg shadow-cyan-500/20 transition hover:shadow-cyan-500/40"
                 >
-                  Install in Claude Desktop
+                  Start Setup Guide
                 </a>
                 <p className="text-xs text-center text-gray-500">
                   Don&apos;t have Claude Desktop?{" "}
@@ -170,14 +169,14 @@ function SuccessContent() {
                     rel="noopener noreferrer"
                     className="text-cyan-400 hover:underline"
                   >
-                    Download it here
+                    Download it here first
                   </a>
                 </p>
                 <button
                   onClick={() => setCurrentStep(2)}
                   className="mt-4 w-full rounded-xl border border-white/10 px-6 py-3 text-sm font-medium hover:bg-white/10 transition"
                 >
-                  I&apos;ve installed it → Next
+                  I&apos;ve already installed it → Next
                 </button>
               </div>
             )}

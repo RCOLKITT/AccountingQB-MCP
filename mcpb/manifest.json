@@ -1,17 +1,20 @@
 {
-  "mcpb_version": "0.3",
+  "manifest_version": "0.3",
   "name": "accountingqb",
-  "display_name": "AccountingQB — QuickBooks for Claude",
+  "display_name": "AccountingQB \u2014 QuickBooks for Claude",
   "version": "3.0.0",
   "icon": "icon.png",
-  "description": "91 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep, anomaly detection — all through natural conversation.",
-  "long_description": "Connect Claude to your QuickBooks Online with one click. Run P&L reports, reconcile transactions, prep for Schedule C, detect anomalies, and more. Your data stays on your machine — zero cloud routing.\n\n**Getting Started:**\n1. Enter your license key (get one at accountingqb.com)\n2. Click 'Connect QuickBooks' when prompted\n3. Start asking Claude about your books!",
+  "description": "91 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep, anomaly detection \u2014 all through natural conversation.",
+  "long_description": "Connect Claude to your QuickBooks Online with one click. Run P&L reports, reconcile transactions, prep for Schedule C, detect anomalies, and more. Your data stays on your machine \u2014 zero cloud routing.\n\n**Getting Started:**\n1. Enter your license key (get one at accountingqb.com)\n2. Click 'Connect QuickBooks' when prompted\n3. Start asking Claude about your books!",
   "author": {
     "name": "Vaspera Capital",
     "email": "support@accountingqb.com",
     "url": "https://accountingqb.com"
   },
-  "repository": "https://github.com/RCOLKITT/AccountingQB-MCP",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RCOLKITT/AccountingQB-MCP"
+  },
   "homepage": "https://accountingqb.com",
   "license": "Commercial",
   "privacy_policies": [
@@ -29,158 +32,441 @@
     "ai-accounting"
   ],
   "server": {
-    "type": "uv",
+    "type": "python",
     "entry_point": "src/server.py",
     "mcp_config": {
       "command": "uv",
-      "args": ["run", "${__dirname}/src/server.py"]
+      "args": [
+        "run",
+        "${__dirname}/src/server.py"
+      ]
     }
   },
   "compatibility": {
-    "platforms": ["darwin", "win32", "linux"]
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ]
   },
   "user_config": {
     "QB_LICENSE_KEY": {
       "type": "string",
       "title": "License Key",
       "description": "Your AccountingQB license key (starts with LK-). Get one at accountingqb.com",
-      "required": true,
-      "placeholder": "LK-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+      "required": true
     },
     "QB_CLIENT_ID": {
       "type": "string",
       "title": "QuickBooks Client ID (Optional)",
       "description": "Only needed for self-hosted mode. Leave blank to use AccountingQB hosted OAuth.",
-      "required": false,
-      "advanced": true
+      "required": false
     },
     "QB_CLIENT_SECRET": {
       "type": "string",
       "title": "QuickBooks Client Secret (Optional)",
       "description": "Only needed for self-hosted mode.",
       "sensitive": true,
-      "required": false,
-      "advanced": true
+      "required": false
     },
     "QB_REALM_ID": {
       "type": "string",
       "title": "QuickBooks Company ID (Optional)",
       "description": "Only needed for self-hosted mode. In hosted mode, use qb_list_companies to manage.",
-      "required": false,
-      "advanced": true
+      "required": false
     },
     "QB_REFRESH_TOKEN": {
       "type": "string",
       "title": "QuickBooks Refresh Token (Optional)",
       "description": "Only needed for self-hosted mode.",
       "sensitive": true,
-      "required": false,
-      "advanced": true
+      "required": false
     },
     "QB_ENVIRONMENT": {
       "type": "string",
       "title": "QuickBooks Environment",
       "description": "Set to 'sandbox' for testing, 'production' for live data",
       "default": "production",
-      "required": false,
-      "advanced": true
+      "required": false
     }
   },
   "tools": [
-    {"name": "qb_list_companies", "description": "List connected QuickBooks companies"},
-    {"name": "qb_switch_company", "description": "Switch to a different company"},
-    {"name": "qb_refresh_connection", "description": "Refresh connection to AccountingQB"},
-    {"name": "qb_company_info", "description": "Get company details, address, EIN, fiscal year"},
-    {"name": "qb_list_transactions", "description": "List purchases/expenses in a date range"},
-    {"name": "qb_list_deposits", "description": "List deposits and income"},
-    {"name": "qb_list_transfers", "description": "List account transfers"},
-    {"name": "qb_list_journal_entries", "description": "List journal entries"},
-    {"name": "qb_list_bills", "description": "List accounts payable bills"},
-    {"name": "qb_list_bill_payments", "description": "List bill payments"},
-    {"name": "qb_list_sales_receipts", "description": "List sales receipts"},
-    {"name": "qb_list_payments", "description": "List customer payments"},
-    {"name": "qb_list_invoices", "description": "List invoices with status filter"},
-    {"name": "qb_search_transactions", "description": "Search all transaction types"},
-    {"name": "qb_expense_summary", "description": "Expenses by category"},
-    {"name": "qb_income_summary", "description": "Income by category"},
-    {"name": "qb_profit_loss", "description": "P&L / Income Statement"},
-    {"name": "qb_balance_sheet", "description": "Balance Sheet report"},
-    {"name": "qb_cash_flow", "description": "Statement of Cash Flows"},
-    {"name": "qb_general_ledger", "description": "General ledger by account"},
-    {"name": "qb_trial_balance", "description": "Trial balance report"},
-    {"name": "qb_ar_aging", "description": "Accounts receivable aging"},
-    {"name": "qb_ap_aging", "description": "Accounts payable aging"},
-    {"name": "qb_tax_summary", "description": "Tax-oriented Schedule C mapping"},
-    {"name": "qb_list_accounts", "description": "Chart of accounts"},
-    {"name": "qb_list_vendors", "description": "List vendors/suppliers"},
-    {"name": "qb_list_customers", "description": "List customers"},
-    {"name": "qb_list_items", "description": "List products and services"},
-    {"name": "qb_create_expense", "description": "Create a new expense"},
-    {"name": "qb_create_invoice", "description": "Create a customer invoice"},
-    {"name": "qb_create_journal_entry", "description": "Create a journal entry"},
-    {"name": "qb_create_deposit", "description": "Create a bank deposit"},
-    {"name": "qb_create_transfer", "description": "Transfer between accounts"},
-    {"name": "qb_create_vendor", "description": "Create a new vendor"},
-    {"name": "qb_create_customer", "description": "Create a new customer"},
-    {"name": "qb_create_bill", "description": "Create a bill (AP)"},
-    {"name": "qb_create_account", "description": "Create a new account"},
-    {"name": "qb_create_sub_account", "description": "Create a sub-account"},
-    {"name": "qb_create_estimate", "description": "Create a quote/estimate"},
-    {"name": "qb_create_credit_memo", "description": "Create customer credit memo"},
-    {"name": "qb_create_vendor_credit", "description": "Create vendor credit"},
-    {"name": "qb_update_transaction", "description": "Update an existing transaction"},
-    {"name": "qb_void_transaction", "description": "Void a transaction"},
-    {"name": "qb_delete_transaction", "description": "Delete a transaction"},
-    {"name": "qb_delete_journal_entry", "description": "Delete a journal entry"},
-    {"name": "qb_reclassify_transaction", "description": "Reclassify to different account"},
-    {"name": "qb_update_vendor", "description": "Update vendor details"},
-    {"name": "qb_update_customer", "description": "Update customer details"},
-    {"name": "qb_record_bill_payment", "description": "Record a bill payment"},
-    {"name": "qb_record_invoice_payment", "description": "Record invoice payment"},
-    {"name": "qb_convert_estimate_to_invoice", "description": "Convert estimate to invoice"},
-    {"name": "qb_batch_create_expenses", "description": "Bulk create expenses"},
-    {"name": "qb_batch_create_bills", "description": "Bulk create bills"},
-    {"name": "qb_batch_create_journal_entries", "description": "Bulk create journal entries"},
-    {"name": "qb_bulk_update_vendor", "description": "Assign vendor to multiple txns"},
-    {"name": "qb_bulk_update_vendors_multi", "description": "Bulk vendor assignment"},
-    {"name": "qb_account_balance", "description": "Get account balance"},
-    {"name": "qb_account_transactions", "description": "All transactions for an account"},
-    {"name": "qb_transaction_detail", "description": "Full details of one transaction"},
-    {"name": "qb_reconcile_invoices", "description": "Match invoices to transactions"},
-    {"name": "qb_match_invoices_to_transactions", "description": "Fuzzy match invoices to QB"},
-    {"name": "qb_uncategorized_transactions", "description": "Find uncategorized items"},
-    {"name": "qb_find_duplicates", "description": "Detect duplicate transactions"},
-    {"name": "qb_auto_categorize_suggestions", "description": "AI categorization suggestions"},
-    {"name": "qb_anomaly_detection", "description": "Detect unusual transactions"},
-    {"name": "qb_unknown_vendor_report", "description": "Find unknown/missing vendors"},
-    {"name": "qb_compare_periods", "description": "Compare two time periods"},
-    {"name": "qb_monthly_burn_rate", "description": "Monthly burn rate analysis"},
-    {"name": "qb_runway_calculator", "description": "Cash runway calculator"},
-    {"name": "qb_cash_flow_forecast", "description": "Project future cash flow"},
-    {"name": "qb_profit_margin_analysis", "description": "Margins by customer/item"},
-    {"name": "qb_budget_vs_actual", "description": "Budget vs actual spending"},
-    {"name": "qb_vendor_summary", "description": "Top vendors by spend"},
-    {"name": "qb_schedule_c", "description": "Schedule C line mapping"},
-    {"name": "qb_schedule_c_detailed", "description": "Detailed Schedule C with accounts"},
-    {"name": "qb_estimate_quarterly_tax", "description": "Quarterly tax estimates"},
-    {"name": "qb_deduction_finder", "description": "Find missed tax deductions"},
-    {"name": "qb_depreciation_schedule", "description": "Asset depreciation schedules"},
-    {"name": "qb_home_office_calculator", "description": "Home office deduction (Form 8829)"},
-    {"name": "qb_vehicle_depreciation_calculator", "description": "Vehicle depreciation calc"},
-    {"name": "qb_1099_contractor_report", "description": "1099-NEC contractor reporting"},
-    {"name": "qb_sales_tax_summary", "description": "Sales tax summary by jurisdiction"},
-    {"name": "qb_fiscal_year_close_checklist", "description": "Year-end close checklist"},
-    {"name": "qb_books_health_audit", "description": "Comprehensive books health audit"},
-    {"name": "qb_month_end_close", "description": "Month-end close checklist"},
-    {"name": "qb_upload_receipt", "description": "Attach receipt to transaction"},
-    {"name": "qb_list_attachments", "description": "List document attachments"},
-    {"name": "qb_list_recurring_transactions", "description": "List recurring transactions"},
-    {"name": "qb_list_estimates", "description": "List estimates/quotes"},
-    {"name": "qb_list_credit_memos", "description": "List customer credit memos"},
-    {"name": "qb_list_vendor_credits", "description": "List vendor credits"},
-    {"name": "qb_list_journal_entries_by_memo", "description": "Search JEs by memo text"},
-    {"name": "qb_inactivate_account", "description": "Deactivate an account"},
-    {"name": "qb_profit_loss_by_class", "description": "P&L by class/department"}
+    {
+      "name": "qb_list_companies",
+      "description": "List connected QuickBooks companies"
+    },
+    {
+      "name": "qb_switch_company",
+      "description": "Switch to a different company"
+    },
+    {
+      "name": "qb_refresh_connection",
+      "description": "Refresh connection to AccountingQB"
+    },
+    {
+      "name": "qb_company_info",
+      "description": "Get company details, address, EIN, fiscal year"
+    },
+    {
+      "name": "qb_list_transactions",
+      "description": "List purchases/expenses in a date range"
+    },
+    {
+      "name": "qb_list_deposits",
+      "description": "List deposits and income"
+    },
+    {
+      "name": "qb_list_transfers",
+      "description": "List account transfers"
+    },
+    {
+      "name": "qb_list_journal_entries",
+      "description": "List journal entries"
+    },
+    {
+      "name": "qb_list_bills",
+      "description": "List accounts payable bills"
+    },
+    {
+      "name": "qb_list_bill_payments",
+      "description": "List bill payments"
+    },
+    {
+      "name": "qb_list_sales_receipts",
+      "description": "List sales receipts"
+    },
+    {
+      "name": "qb_list_payments",
+      "description": "List customer payments"
+    },
+    {
+      "name": "qb_list_invoices",
+      "description": "List invoices with status filter"
+    },
+    {
+      "name": "qb_search_transactions",
+      "description": "Search all transaction types"
+    },
+    {
+      "name": "qb_expense_summary",
+      "description": "Expenses by category"
+    },
+    {
+      "name": "qb_income_summary",
+      "description": "Income by category"
+    },
+    {
+      "name": "qb_profit_loss",
+      "description": "P&L / Income Statement"
+    },
+    {
+      "name": "qb_balance_sheet",
+      "description": "Balance Sheet report"
+    },
+    {
+      "name": "qb_cash_flow",
+      "description": "Statement of Cash Flows"
+    },
+    {
+      "name": "qb_general_ledger",
+      "description": "General ledger by account"
+    },
+    {
+      "name": "qb_trial_balance",
+      "description": "Trial balance report"
+    },
+    {
+      "name": "qb_ar_aging",
+      "description": "Accounts receivable aging"
+    },
+    {
+      "name": "qb_ap_aging",
+      "description": "Accounts payable aging"
+    },
+    {
+      "name": "qb_tax_summary",
+      "description": "Tax-oriented Schedule C mapping"
+    },
+    {
+      "name": "qb_list_accounts",
+      "description": "Chart of accounts"
+    },
+    {
+      "name": "qb_list_vendors",
+      "description": "List vendors/suppliers"
+    },
+    {
+      "name": "qb_list_customers",
+      "description": "List customers"
+    },
+    {
+      "name": "qb_list_items",
+      "description": "List products and services"
+    },
+    {
+      "name": "qb_create_expense",
+      "description": "Create a new expense"
+    },
+    {
+      "name": "qb_create_invoice",
+      "description": "Create a customer invoice"
+    },
+    {
+      "name": "qb_create_journal_entry",
+      "description": "Create a journal entry"
+    },
+    {
+      "name": "qb_create_deposit",
+      "description": "Create a bank deposit"
+    },
+    {
+      "name": "qb_create_transfer",
+      "description": "Transfer between accounts"
+    },
+    {
+      "name": "qb_create_vendor",
+      "description": "Create a new vendor"
+    },
+    {
+      "name": "qb_create_customer",
+      "description": "Create a new customer"
+    },
+    {
+      "name": "qb_create_bill",
+      "description": "Create a bill (AP)"
+    },
+    {
+      "name": "qb_create_account",
+      "description": "Create a new account"
+    },
+    {
+      "name": "qb_create_sub_account",
+      "description": "Create a sub-account"
+    },
+    {
+      "name": "qb_create_estimate",
+      "description": "Create a quote/estimate"
+    },
+    {
+      "name": "qb_create_credit_memo",
+      "description": "Create customer credit memo"
+    },
+    {
+      "name": "qb_create_vendor_credit",
+      "description": "Create vendor credit"
+    },
+    {
+      "name": "qb_update_transaction",
+      "description": "Update an existing transaction"
+    },
+    {
+      "name": "qb_void_transaction",
+      "description": "Void a transaction"
+    },
+    {
+      "name": "qb_delete_transaction",
+      "description": "Delete a transaction"
+    },
+    {
+      "name": "qb_delete_journal_entry",
+      "description": "Delete a journal entry"
+    },
+    {
+      "name": "qb_reclassify_transaction",
+      "description": "Reclassify to different account"
+    },
+    {
+      "name": "qb_update_vendor",
+      "description": "Update vendor details"
+    },
+    {
+      "name": "qb_update_customer",
+      "description": "Update customer details"
+    },
+    {
+      "name": "qb_record_bill_payment",
+      "description": "Record a bill payment"
+    },
+    {
+      "name": "qb_record_invoice_payment",
+      "description": "Record invoice payment"
+    },
+    {
+      "name": "qb_convert_estimate_to_invoice",
+      "description": "Convert estimate to invoice"
+    },
+    {
+      "name": "qb_batch_create_expenses",
+      "description": "Bulk create expenses"
+    },
+    {
+      "name": "qb_batch_create_bills",
+      "description": "Bulk create bills"
+    },
+    {
+      "name": "qb_batch_create_journal_entries",
+      "description": "Bulk create journal entries"
+    },
+    {
+      "name": "qb_bulk_update_vendor",
+      "description": "Assign vendor to multiple txns"
+    },
+    {
+      "name": "qb_bulk_update_vendors_multi",
+      "description": "Bulk vendor assignment"
+    },
+    {
+      "name": "qb_account_balance",
+      "description": "Get account balance"
+    },
+    {
+      "name": "qb_account_transactions",
+      "description": "All transactions for an account"
+    },
+    {
+      "name": "qb_transaction_detail",
+      "description": "Full details of one transaction"
+    },
+    {
+      "name": "qb_reconcile_invoices",
+      "description": "Match invoices to transactions"
+    },
+    {
+      "name": "qb_match_invoices_to_transactions",
+      "description": "Fuzzy match invoices to QB"
+    },
+    {
+      "name": "qb_uncategorized_transactions",
+      "description": "Find uncategorized items"
+    },
+    {
+      "name": "qb_find_duplicates",
+      "description": "Detect duplicate transactions"
+    },
+    {
+      "name": "qb_auto_categorize_suggestions",
+      "description": "AI categorization suggestions"
+    },
+    {
+      "name": "qb_anomaly_detection",
+      "description": "Detect unusual transactions"
+    },
+    {
+      "name": "qb_unknown_vendor_report",
+      "description": "Find unknown/missing vendors"
+    },
+    {
+      "name": "qb_compare_periods",
+      "description": "Compare two time periods"
+    },
+    {
+      "name": "qb_monthly_burn_rate",
+      "description": "Monthly burn rate analysis"
+    },
+    {
+      "name": "qb_runway_calculator",
+      "description": "Cash runway calculator"
+    },
+    {
+      "name": "qb_cash_flow_forecast",
+      "description": "Project future cash flow"
+    },
+    {
+      "name": "qb_profit_margin_analysis",
+      "description": "Margins by customer/item"
+    },
+    {
+      "name": "qb_budget_vs_actual",
+      "description": "Budget vs actual spending"
+    },
+    {
+      "name": "qb_vendor_summary",
+      "description": "Top vendors by spend"
+    },
+    {
+      "name": "qb_schedule_c",
+      "description": "Schedule C line mapping"
+    },
+    {
+      "name": "qb_schedule_c_detailed",
+      "description": "Detailed Schedule C with accounts"
+    },
+    {
+      "name": "qb_estimate_quarterly_tax",
+      "description": "Quarterly tax estimates"
+    },
+    {
+      "name": "qb_deduction_finder",
+      "description": "Find missed tax deductions"
+    },
+    {
+      "name": "qb_depreciation_schedule",
+      "description": "Asset depreciation schedules"
+    },
+    {
+      "name": "qb_home_office_calculator",
+      "description": "Home office deduction (Form 8829)"
+    },
+    {
+      "name": "qb_vehicle_depreciation_calculator",
+      "description": "Vehicle depreciation calc"
+    },
+    {
+      "name": "qb_1099_contractor_report",
+      "description": "1099-NEC contractor reporting"
+    },
+    {
+      "name": "qb_sales_tax_summary",
+      "description": "Sales tax summary by jurisdiction"
+    },
+    {
+      "name": "qb_fiscal_year_close_checklist",
+      "description": "Year-end close checklist"
+    },
+    {
+      "name": "qb_books_health_audit",
+      "description": "Comprehensive books health audit"
+    },
+    {
+      "name": "qb_month_end_close",
+      "description": "Month-end close checklist"
+    },
+    {
+      "name": "qb_upload_receipt",
+      "description": "Attach receipt to transaction"
+    },
+    {
+      "name": "qb_list_attachments",
+      "description": "List document attachments"
+    },
+    {
+      "name": "qb_list_recurring_transactions",
+      "description": "List recurring transactions"
+    },
+    {
+      "name": "qb_list_estimates",
+      "description": "List estimates/quotes"
+    },
+    {
+      "name": "qb_list_credit_memos",
+      "description": "List customer credit memos"
+    },
+    {
+      "name": "qb_list_vendor_credits",
+      "description": "List vendor credits"
+    },
+    {
+      "name": "qb_list_journal_entries_by_memo",
+      "description": "Search JEs by memo text"
+    },
+    {
+      "name": "qb_inactivate_account",
+      "description": "Deactivate an account"
+    },
+    {
+      "name": "qb_profit_loss_by_class",
+      "description": "P&L by class/department"
+    }
   ],
   "tools_generated": true
 }

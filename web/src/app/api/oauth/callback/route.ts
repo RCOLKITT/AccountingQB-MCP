@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { getSupabase } from "@/lib/supabase";
+import { validateState, clearStateCookie, CSRF_COOKIE_NAME } from "@/lib/csrf";
+import { logOAuthConnect } from "@/lib/event-logger";
 
 /**
  * GET /api/oauth/callback
@@ -27,18 +30,19 @@ export async function GET(req: NextRequest) {
     return redirectWithError("Missing authorization code or realm ID.");
   }
 
-  // Decode state to get license key
-  let licenseKey = "";
-  if (stateParam) {
-    try {
-      const decoded = JSON.parse(
-        Buffer.from(stateParam, "base64url").toString()
-      );
-      licenseKey = decoded.licenseKey || "";
-    } catch {
-      return redirectWithError("Invalid state parameter.");
-    }
+  // CSRF validation: verify state cookie matches URL state
+  const cookieStore = await cookies();
+  const cookieState = cookieStore.get(CSRF_COOKIE_NAME)?.value;
+
+  const statePayload = validateState(cookieState, stateParam ?? undefined);
+
+  if (!statePayload) {
+    return redirectWithError(
+      "Invalid or expired authorization request. Please start the connection again."
+    );
   }
+
+  const licenseKey = statePayload.licenseKey;
 
   if (!licenseKey) {
     return redirectWithError("No license key provided. Please start the connection from your account dashboard.");
@@ -138,12 +142,17 @@ export async function GET(req: NextRequest) {
     return redirectWithError("Failed to save connection. Please try again.");
   }
 
-  // Redirect to success page
+  // Log successful OAuth connection
+  await logOAuthConnect(licenseKey, realmId, companyName);
+
+  // Redirect to success page and clear the CSRF cookie
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";
   const successUrl = new URL("/oauth/success", baseUrl);
   successUrl.searchParams.set("company", companyName || realmId);
 
-  return NextResponse.redirect(successUrl.toString(), 303);
+  const response = NextResponse.redirect(successUrl.toString(), 303);
+  clearStateCookie(response);
+  return response;
 }
 
 function redirectWithError(message: string) {

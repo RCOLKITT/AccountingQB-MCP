@@ -36,3 +36,37 @@ export interface OAuthToken {
   created_at: string;
   updated_at: string;
 }
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  display_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserLicense {
+  id: string;
+  user_id: string;
+  license_key: string;
+  role: "owner" | "member";
+  created_at: string;
+}
+
+export interface ToolUsage {
+  id: string;
+  license_key: string;
+  realm_id: string | null;
+  tool_name: string;
+  time_saved_minutes: number;
+  invoked_at: string;
+}
+
+export interface UsageStatsCache {
+  id: string;
+  total_tool_calls: number;
+  total_hours_saved: number;
+  calls_this_week: number;
+  active_licenses: number;
+  updated_at: string;
+}
