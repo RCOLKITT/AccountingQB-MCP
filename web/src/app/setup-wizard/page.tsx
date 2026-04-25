@@ -33,6 +33,8 @@ function SetupWizardContent() {
   const [connecting, setConnecting] = useState(false);
   const [connected, setConnected] = useState(false);
   const [inputKey, setInputKey] = useState(licenseKey);
+  const [oauthTimeout, setOauthTimeout] = useState(false);
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
 
   useEffect(() => {
     setPlatform(detectPlatform());
@@ -89,8 +91,22 @@ function SetupWizardContent() {
         // ignore
       }
     }, 2000);
+    // Show timeout message after 2 minutes
+    setTimeout(() => {
+      if (!connected) {
+        setOauthTimeout(true);
+      }
+    }, 120000);
     // Stop checking after 5 minutes
-    setTimeout(() => clearInterval(checkInterval), 300000);
+    setTimeout(() => {
+      clearInterval(checkInterval);
+      setConnecting(false);
+    }, 300000);
+  };
+
+  const resetOAuth = () => {
+    setConnecting(false);
+    setOauthTimeout(false);
   };
 
   return (
@@ -277,6 +293,31 @@ function SetupWizardContent() {
                   {platform === "windows" ? "winget install astral-sh.uv" : "curl -LsSf https://astral.sh/uv/install.sh | sh"}
                 </code>
               </div>
+
+              {/* Common Issues */}
+              <details className="mt-6 rounded-xl border border-white/10 bg-white/[0.02]">
+                <summary className="cursor-pointer px-5 py-3 text-sm font-medium text-gray-300 hover:text-white">
+                  Having trouble? Common issues & fixes
+                </summary>
+                <div className="px-5 pb-5 space-y-4 text-sm">
+                  <div>
+                    <p className="font-medium text-white">Config file doesn&apos;t exist</p>
+                    <p className="text-gray-400">Create it! Just paste the config above into a new file at the path shown.</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-white">Claude doesn&apos;t show AccountingQB tools</p>
+                    <p className="text-gray-400">Make sure you saved the config and completely restarted Claude Desktop (not just closed the window).</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-white">&quot;uvx not found&quot; error</p>
+                    <p className="text-gray-400">Install uv using the command above, then restart your terminal and Claude Desktop.</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-white">JSON syntax error</p>
+                    <p className="text-gray-400">Make sure you have proper commas between entries. Use a JSON validator like <a href="https://jsonlint.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">jsonlint.com</a>.</p>
+                  </div>
+                </div>
+              </details>
             </div>
 
             <div className="flex gap-3">
@@ -320,6 +361,29 @@ function SetupWizardContent() {
                   <div className="text-4xl mb-2">✓</div>
                   <p className="text-green-400 font-semibold">QuickBooks Connected!</p>
                 </div>
+              ) : oauthTimeout ? (
+                <div className="mt-6 space-y-4">
+                  <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-5">
+                    <p className="font-medium text-yellow-400">Taking longer than expected?</p>
+                    <p className="mt-2 text-sm text-gray-300">
+                      If the OAuth window closed without completing, try again or check if a popup blocker is active.
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={resetOAuth}
+                      className="flex-1 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-3 font-semibold"
+                    >
+                      Try Again
+                    </button>
+                    <button
+                      onClick={() => setShowTroubleshooting(true)}
+                      className="rounded-xl border border-white/10 px-6 py-3 font-medium hover:bg-white/10 transition"
+                    >
+                      Help
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <button
                   onClick={handleConnectQB}
@@ -328,6 +392,48 @@ function SetupWizardContent() {
                 >
                   {connecting ? "Waiting for authorization..." : "Connect QuickBooks"}
                 </button>
+              )}
+
+              {/* Troubleshooting */}
+              {showTroubleshooting && (
+                <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-white">Troubleshooting</h3>
+                    <button
+                      onClick={() => setShowTroubleshooting(false)}
+                      className="text-gray-500 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <ul className="space-y-3 text-sm text-gray-300">
+                    <li className="flex gap-2">
+                      <span className="text-cyan-400">•</span>
+                      <span>Make sure popup blockers are disabled for this site</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-cyan-400">•</span>
+                      <span>Try opening in an incognito/private window</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-cyan-400">•</span>
+                      <span>Check that you&apos;re using the correct QuickBooks account</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-cyan-400">•</span>
+                      <span>Ensure your QuickBooks company allows third-party apps</span>
+                    </li>
+                  </ul>
+                  <div className="mt-4 pt-4 border-t border-white/10">
+                    <p className="text-sm text-gray-400">
+                      Still stuck? Email{" "}
+                      <a href="mailto:support@vasperacapital.com" className="text-cyan-400 hover:underline">
+                        support@vasperacapital.com
+                      </a>{" "}
+                      with your license key and we&apos;ll help within 24 hours.
+                    </p>
+                  </div>
+                </div>
               )}
 
               <p className="mt-4 text-center text-sm text-gray-500">

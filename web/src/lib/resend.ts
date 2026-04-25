@@ -114,7 +114,9 @@ export async function sendLicenseEmail({
 
               <!-- CTA Buttons -->
               <div style="text-align: center; margin-top: 32px;">
-                <a href="https://accountingqb.com/dashboard?key=${encodeURIComponent(licenseKey)}" style="display: inline-block; background: linear-gradient(135deg, #22d3ee, #3b82f6, #6366f1); color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; padding: 14px 32px; border-radius: 8px; margin-bottom: 12px;">Go to Dashboard</a>
+                <a href="https://accountingqb.com/setup-wizard?key=${encodeURIComponent(licenseKey)}" style="display: inline-block; background: linear-gradient(135deg, #22d3ee, #3b82f6, #6366f1); color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; padding: 14px 32px; border-radius: 8px; margin-bottom: 12px;">Start Setup Guide</a>
+                <br>
+                <a href="https://accountingqb.com/dashboard?key=${encodeURIComponent(licenseKey)}" style="display: inline-block; color: #9ca3af; text-decoration: none; font-size: 13px; margin-top: 8px;">Already set up? Go to Dashboard →</a>
               </div>
 
               <!-- No Developer Account Needed -->
