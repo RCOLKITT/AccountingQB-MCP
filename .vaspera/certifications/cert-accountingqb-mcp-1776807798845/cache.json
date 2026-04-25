@@ -1,0 +1,218 @@
+{
+  "version": 1,
+  "projectHash": "4ee2bee9bdcc28714914a62a2f95da583fc2aa77e7feca91a1540b767477e7fb",
+  "createdAt": "2026-04-21T21:44:47.825Z",
+  "updatedAt": "2026-04-21T21:44:47.825Z",
+  "files": [
+    {
+      "path": "cowork-plugin/plugin.json",
+      "hash": "0e1c1b28170ab0dca0356e8ab15e45bb0fc978373bf5832d1ebc713c9e931964",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 748
+    },
+    {
+      "path": "mcpb/manifest.json",
+      "hash": "b3a05d8a9f1034ded8cfda5961699598213ec051c724128b2ead37dac22cf3a4",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 10609
+    },
+    {
+      "path": "scripts/create-demo-keys.ts",
+      "hash": "5e8bb2d8c7619bb2d0eb99d66d094c2beada4b4eb79bd01653d806f0cc2f8430",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 2525
+    },
+    {
+      "path": "web/.env.example",
+      "hash": "675dcb9ef92a5116aeb5f4c6868dd4a6a1b364ac306059d0f905db4a05e07073",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 832
+    },
+    {
+      "path": "web/next-env.d.ts",
+      "hash": "85ae5aee75f011967cf2d25cbc342f62d69314e9d925f7f4aa3456fc2cffcca6",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 262
+    },
+    {
+      "path": "web/next.config.ts",
+      "hash": "bb0a2a07f1f102463edc62eeefff6c3ede63846cee18bbbdf6f5518639a1765e",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 139
+    },
+    {
+      "path": "web/package-lock.json",
+      "hash": "4eac6cd78b1a6ccaebceb112c102a2fe29c01eabcae79fa1d965dfccb9dbdb0d",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 349784
+    },
+    {
+      "path": "web/package.json",
+      "hash": "31c47437aa1fb4bc3872bdcf9e9212a15dee901595342bccb1ff2c16e85ce8fe",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 750
+    },
+    {
+      "path": "web/postcss.config.mjs",
+      "hash": "ab4805b77935e8d8a2036e5de3d3a15d6e21229e8e3a1a4aea10b09327709460",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 146
+    },
+    {
+      "path": "web/sbom.cdx.json",
+      "hash": "2d98d39462bd61838a82275f039c981d15a77e13e39df3b55a4341fb058e2604",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 285412
+    },
+    {
+      "path": "web/src/app/api/oauth/callback/route.ts",
+      "hash": "23c92af8c8968a57204c307234f22edf8975bc4a606d83e60062fdcb019c481d",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 5109
+    },
+    {
+      "path": "web/src/app/api/oauth/revoke/route.ts",
+      "hash": "88b582261e915cfa91bf52114faf8f5da172d2f71bd799f930c5551ba7091ffc",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 2551
+    },
+    {
+      "path": "web/src/app/api/oauth/start/route.ts",
+      "hash": "6f7a5e13b9603914f2cf347c201f967825a57242f8f332c9d575b94231c5b0f6",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 1487
+    },
+    {
+      "path": "web/src/app/api/oauth/token/route.ts",
+      "hash": "b0cf83867609b3b3c5b2708588e7df02c508e4e8ab30110a00547687bd3c825b",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 5103
+    },
+    {
+      "path": "web/src/app/api/stripe/checkout/route.ts",
+      "hash": "5ac0d7939dfff55c1b7effcae5ad825a8fdbecf686fc4d6970732406db95c128",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 1555
+    },
+    {
+      "path": "web/src/app/api/stripe/portal/route.ts",
+      "hash": "05ad97b88bbd47d413823c349ad6486cdae17f0e155e0a27260d58bd17605d1f",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 1436
+    },
+    {
+      "path": "web/src/app/api/stripe/session/route.ts",
+      "hash": "4336a9b3d39e83c2bffb24c0f2b48ddc63a4db5d5a5860d6f3d3b4055e621d39",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 1866
+    },
+    {
+      "path": "web/src/app/api/stripe/webhook/route.ts",
+      "hash": "ffb92c0c30cbdfc92daf830bb22f56d6ed71669a09ccb8aec6229a54bef80575",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 4200
+    },
+    {
+      "path": "web/src/app/api/validate/route.ts",
+      "hash": "3bc387a2ac4e1c3311f690c8720c35b1745197957f77915274ebc37cadfc9bc4",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 1929
+    },
+    {
+      "path": "web/src/app/dashboard/page.tsx",
+      "hash": "8ebeac7cd7065e605507ea63e67f9fed7f9c890a95c25a091bba345c4e218f79",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 12676
+    },
+    {
+      "path": "web/src/app/layout.tsx",
+      "hash": "fd3ea322f45ea77ac4f755b1610db11cbf11e7203ed6fadb56b86facd0995455",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 3339
+    },
+    {
+      "path": "web/src/app/oauth/error/page.tsx",
+      "hash": "dcd2046543809221784e29d5b818d77d0adafdb3077481ae73150b0ea9fc83c4",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 1916
+    },
+    {
+      "path": "web/src/app/oauth/success/page.tsx",
+      "hash": "198e219dbc027a6868b44de2666231263ba1359a5bd9f0f2e3433321ad702641",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 1918
+    },
+    {
+      "path": "web/src/app/page.tsx",
+      "hash": "080c31c8b27d3d8fcec1a06a0069ab692bf78d9522086cbb5b31cb37d1e65c6f",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 47680
+    },
+    {
+      "path": "web/src/app/privacy/page.tsx",
+      "hash": "669890919afc29cfc4b33a5cb207a8caec01d491c2a8102cd9b829b341ffe759",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 7533
+    },
+    {
+      "path": "web/src/app/robots.ts",
+      "hash": "ff7a145d3633b157babfc384dc5b0c43ea7ec25ff38d2a4c0a7f5157b22c50f7",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 351
+    },
+    {
+      "path": "web/src/app/setup/page.tsx",
+      "hash": "1fb2344c37c020282495c9e479049a85d4555e0dfee9973c4a409e00bfdd18be",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 17560
+    },
+    {
+      "path": "web/src/app/sitemap.ts",
+      "hash": "14b557805590ca070bcc1e40e41b3d75aa96e373669c0facd7c427675febff5a",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 585
+    },
+    {
+      "path": "web/src/app/success/page.tsx",
+      "hash": "0aba4dfd84105512670f55384d6161b1f504ee74202653cac432c64a70b522d9",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 12909
+    },
+    {
+      "path": "web/src/app/terms/page.tsx",
+      "hash": "a0731bc0a1c1b3873327a6d64c6ba86af0056152e43dbd7d0f9ecca377ee3f6e",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 10434
+    },
+    {
+      "path": "web/src/lib/resend.ts",
+      "hash": "ac198d16008aa2dff3cefd01512e4d1dad94e025469bcf551e140ce37519af8f",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 7838
+    },
+    {
+      "path": "web/src/lib/stripe.ts",
+      "hash": "a3366286cf11a72f27e8e6bb6b20d28586cced953f88cc1951cb9e7fb085d8d9",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 658
+    },
+    {
+      "path": "web/src/lib/supabase.ts",
+      "hash": "b9c93904d4d921bf67c182374706498a650897db86f5478c7b67f4463fc8cf55",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 887
+    },
+    {
+      "path": "web/supabase-schema.sql",
+      "hash": "4f0119f5590b6bb622142f3696ea0df21e918ece773222d50a540d1e57d7b120",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 3248
+    },
+    {
+      "path": "web/tsconfig.json",
+      "hash": "e756e7a5c72c69a2f08d40682ab5294bf555ffa4085f634261da2a49615bab06",
+      "lastChecked": "2026-04-21T21:44:47.805Z",
+      "size": 566
+    }
+  ]
+}

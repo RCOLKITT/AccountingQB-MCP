@@ -282,7 +282,7 @@ function SuccessContent() {
             Back to Home
           </a>
           <a
-            href="mailto:support@accountingqb.com"
+            href="mailto:support@vasperacapital.com"
             className="rounded-lg border border-white/20 px-6 py-3 text-sm font-semibold transition hover:bg-white/10"
           >
             Need Help?

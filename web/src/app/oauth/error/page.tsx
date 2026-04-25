@@ -35,7 +35,7 @@ function ErrorContent() {
             Back to Home
           </a>
           <a
-            href="mailto:support@accountingqb.com"
+            href="mailto:support@vasperacapital.com"
             className="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-3 text-sm font-semibold shadow-lg transition hover:shadow-cyan-500/40"
           >
             Contact Support

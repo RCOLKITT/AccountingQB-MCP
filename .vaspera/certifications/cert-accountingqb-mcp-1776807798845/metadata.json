@@ -1,0 +1,21 @@
+{
+  "id": "cert-accountingqb-mcp-1776807798845",
+  "project_name": "AccountingQB-MCP",
+  "project_path": "/Users/ryancolkitt/Documents/GitHub/AccountingQB-MCP",
+  "started_at": "2026-04-21T21:43:18.846Z",
+  "status": "completed",
+  "agents_requested": [
+    "security"
+  ],
+  "agents_completed": [
+    "security"
+  ],
+  "scanners_run": true,
+  "scanners_completed_at": "2026-04-21T21:43:57.044Z",
+  "scanner_findings_count": 13,
+  "completed_at": "2026-04-21T21:44:47.825Z",
+  "certification_level": "BLOCKED",
+  "final_score": 0,
+  "expires_at": "2026-05-21T21:44:47.801Z",
+  "project_hash": "4ee2bee9bdcc28714914a62a2f95da583fc2aa77e7feca91a1540b767477e7fb"
+}

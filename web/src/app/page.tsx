@@ -901,7 +901,7 @@ export default async function Home() {
               <ul className="mt-4 space-y-2.5 text-sm text-gray-500">
                 <li><a href="/privacy" className="transition hover:text-white">Privacy Policy</a></li>
                 <li><a href="/terms" className="transition hover:text-white">Terms of Service</a></li>
-                <li><a href="mailto:support@accountingqb.com" className="transition hover:text-white">Contact</a></li>
+                <li><a href="mailto:support@vasperacapital.com" className="transition hover:text-white">Contact</a></li>
               </ul>
             </div>
           </div>
