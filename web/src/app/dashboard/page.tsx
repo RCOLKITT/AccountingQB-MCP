@@ -378,6 +378,39 @@ function DashboardContent() {
               </div>
             )}
 
+            {/* Trial Banner (if trialing) */}
+            {selectedLicense.status === "trialing" && selectedLicense.trial_ends_at && (
+              <div className="rounded-2xl border border-blue-400/30 bg-blue-400/10 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">⏳</span>
+                    <div>
+                      <p className="font-medium text-white">
+                        {(() => {
+                          const daysLeft = Math.ceil(
+                            (new Date(selectedLicense.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+                          );
+                          if (daysLeft <= 0) return "Trial expired";
+                          if (daysLeft === 1) return "1 day left in trial";
+                          return `${daysLeft} days left in trial`;
+                        })()}
+                      </p>
+                      <p className="text-sm text-blue-300">
+                        Your trial ends on {new Date(selectedLicense.trial_ends_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={openBillingPortal}
+                    disabled={portalLoading}
+                    className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold hover:bg-blue-600 transition disabled:opacity-50"
+                  >
+                    {portalLoading ? "..." : "Upgrade Now"}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* License Card */}
             <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-6">
               <div className="flex items-start justify-between">
@@ -473,20 +506,31 @@ function DashboardContent() {
               )}
             </div>
 
-            {/* Billing */}
+            {/* Billing & Subscription */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-              <h2 className="text-lg font-semibold mb-4">Billing</h2>
+              <h2 className="text-lg font-semibold mb-4">Billing & Subscription</h2>
               <p className="text-sm text-gray-400 mb-4">
-                Manage your subscription, update payment method, or view
-                invoices.
+                Manage your subscription, update payment method, view invoices, or cancel anytime.
               </p>
-              <button
-                onClick={openBillingPortal}
-                disabled={portalLoading}
-                className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium hover:bg-white/10 transition disabled:opacity-50"
-              >
-                {portalLoading ? "Opening..." : "Open Billing Portal"}
-              </button>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={openBillingPortal}
+                  disabled={portalLoading}
+                  className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20 transition disabled:opacity-50"
+                >
+                  {portalLoading ? "Opening..." : "Manage Subscription"}
+                </button>
+                <button
+                  onClick={openBillingPortal}
+                  disabled={portalLoading}
+                  className="rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-400 hover:text-white hover:border-white/20 transition disabled:opacity-50"
+                >
+                  Cancel Subscription
+                </button>
+              </div>
+              <p className="mt-3 text-xs text-gray-500">
+                Cancel anytime from the billing portal. No questions asked.
+              </p>
             </div>
 
             {/* Quick Actions */}
@@ -494,12 +538,12 @@ function DashboardContent() {
               <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
               <div className="grid gap-3 sm:grid-cols-2">
                 <a
-                  href="mcpb://install?name=accountingqb"
+                  href={`/setup-wizard?key=${encodeURIComponent(selectedLicense.key)}`}
                   className="rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-600/10 border border-cyan-500/20 p-4 hover:border-cyan-500/40 transition"
                 >
-                  <p className="font-medium text-white">Reinstall Extension</p>
+                  <p className="font-medium text-white">Setup Guide</p>
                   <p className="text-sm text-gray-400 mt-1">
-                    Open in Claude Desktop
+                    Install or reinstall extension
                   </p>
                 </a>
                 <a
