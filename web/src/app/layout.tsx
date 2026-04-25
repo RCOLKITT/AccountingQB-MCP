@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import SupportWidget from "@/components/support/SupportWidget";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";
@@ -117,6 +118,7 @@ export default function RootLayout({
       <body className="bg-[#0a0e1a] text-gray-100 antialiased">
         {children}
         <Analytics />
+        <SupportWidget />
       </body>
     </html>
   );

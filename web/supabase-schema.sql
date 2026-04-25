@@ -264,3 +264,81 @@ INSERT INTO usage_stats_cache (id) VALUES ('global') ON CONFLICT (id) DO NOTHING
 
 -- Row-Level Security (service role only)
 ALTER TABLE usage_stats_cache ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- Support Conversations: stores chat history for continuity
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS support_conversations (
+  id                UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  license_key       TEXT REFERENCES licenses(key) ON DELETE SET NULL,
+  anonymous_id      TEXT,           -- For non-authenticated users
+  status            TEXT NOT NULL DEFAULT 'open'
+                    CHECK (status IN ('open', 'resolved', 'escalated')),
+  metadata          JSONB,          -- tier, companies, page context
+
+  -- Timestamps
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for user conversations
+CREATE INDEX IF NOT EXISTS idx_support_conversations_license_key
+  ON support_conversations (license_key)
+  WHERE license_key IS NOT NULL;
+
+-- Index for anonymous conversations (cleanup)
+CREATE INDEX IF NOT EXISTS idx_support_conversations_anonymous
+  ON support_conversations (anonymous_id)
+  WHERE anonymous_id IS NOT NULL;
+
+-- Row-Level Security (service role only)
+ALTER TABLE support_conversations ENABLE ROW LEVEL SECURITY;
+
+-- Updated-at trigger
+CREATE TRIGGER set_support_conversations_updated_at
+  BEFORE UPDATE ON support_conversations
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================
+-- Support Messages: individual messages in a conversation
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS support_messages (
+  id                UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  conversation_id   UUID NOT NULL REFERENCES support_conversations(id) ON DELETE CASCADE,
+  role              TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content           TEXT NOT NULL,
+
+  -- Timestamps
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for loading conversation history
+CREATE INDEX IF NOT EXISTS idx_support_messages_conversation_id
+  ON support_messages (conversation_id, created_at);
+
+-- Row-Level Security (service role only)
+ALTER TABLE support_messages ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- Support Analytics: tracks common issues for KB improvement
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS support_analytics (
+  id                UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  topic             TEXT NOT NULL,  -- 'installation', 'oauth', 'tools', etc.
+  resolved_self     BOOLEAN DEFAULT true,
+  escalated         BOOLEAN DEFAULT false,
+
+  -- Timestamps
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for analytics queries
+CREATE INDEX IF NOT EXISTS idx_support_analytics_topic
+  ON support_analytics (topic);
+
+-- Row-Level Security (service role only)
+ALTER TABLE support_analytics ENABLE ROW LEVEL SECURITY;
