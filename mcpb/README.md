@@ -52,7 +52,7 @@ AccountingQB is designed with privacy as a core principle.
 
 For the complete privacy policy, visit: https://accountingqb.com/privacy
 
-Contact: support@accountingqb.com
+Contact: support@vasperacapital.com
 
 ## Example Prompts
 
@@ -65,7 +65,7 @@ Contact: support@accountingqb.com
 
 ## Support
 
-- Email: support@accountingqb.com
+- Email: support@vasperacapital.com
 - Website: [accountingqb.com](https://accountingqb.com)
 
 ## Pricing

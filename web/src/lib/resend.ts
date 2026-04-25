@@ -131,7 +131,7 @@ export async function sendLicenseEmail({
           <!-- Footer -->
           <tr>
             <td style="padding-top: 32px; text-align: center;">
-              <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">Questions? Reply to this email or contact support@accountingqb.com</p>
+              <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">Questions? Reply to this email or contact support@vasperacapital.com</p>
               <p style="margin: 0; font-size: 12px; color: #4b5563;">
                 AccountingQB by Vaspera Capital<br>
                 <a href="https://accountingqb.com" style="color: #3b82f6; text-decoration: none;">accountingqb.com</a>

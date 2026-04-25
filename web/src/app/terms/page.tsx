@@ -159,8 +159,8 @@ export default function TermsOfService() {
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">16. Contact Us</h2>
           <p className="text-gray-400 leading-relaxed">
             If you have questions about these Terms, contact us at{" "}
-            <a href="mailto:support@accountingqb.com" className="text-cyan-400 hover:underline">
-              support@accountingqb.com
+            <a href="mailto:support@vasperacapital.com" className="text-cyan-400 hover:underline">
+              support@vasperacapital.com
             </a>
             .
           </p>

@@ -118,8 +118,8 @@ export default function PrivacyPolicy() {
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">12. Contact Us</h2>
           <p className="text-gray-400 leading-relaxed">
             If you have questions about this privacy policy or our data practices, contact us at{" "}
-            <a href="mailto:support@accountingqb.com" className="text-cyan-400 hover:underline">
-              support@accountingqb.com
+            <a href="mailto:support@vasperacapital.com" className="text-cyan-400 hover:underline">
+              support@vasperacapital.com
             </a>
             .
           </p>

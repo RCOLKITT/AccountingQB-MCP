@@ -1,0 +1,22 @@
+{
+  "overall_score": 0,
+  "certification_level": "BLOCKED",
+  "agent_scores": {
+    "security": 0
+  },
+  "agent_confidences": {
+    "security": 100
+  },
+  "total_findings": 14,
+  "by_severity": {
+    "critical": 6,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "info": 8
+  },
+  "cross_verification_rate": 0.42857142857142855,
+  "red_team_challenges_accepted": 0,
+  "red_team_challenges_total": 0,
+  "calculated_at": "2026-04-21T21:44:42.382Z"
+}

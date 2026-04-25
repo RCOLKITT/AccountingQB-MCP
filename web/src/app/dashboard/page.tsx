@@ -254,7 +254,7 @@ function DashboardContent() {
               </>
             )}
             <a
-              href="mailto:support@accountingqb.com"
+              href="mailto:support@vasperacapital.com"
               className="text-sm text-gray-400 hover:text-white transition"
             >
               Support
@@ -503,7 +503,7 @@ function DashboardContent() {
                   </p>
                 </a>
                 <a
-                  href="mailto:support@accountingqb.com"
+                  href="mailto:support@vasperacapital.com"
                   className="rounded-xl bg-white/[0.03] border border-white/10 p-4 hover:border-white/20 transition"
                 >
                   <p className="font-medium text-white">Contact Support</p>

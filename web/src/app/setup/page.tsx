@@ -78,7 +78,7 @@ function SetupContent() {
             <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">QB</span>
           </a>
           <a
-            href="mailto:support@accountingqb.com"
+            href="mailto:support@vasperacapital.com"
             className="text-sm text-gray-400 hover:text-white transition"
           >
             Need help?
@@ -342,7 +342,7 @@ function SetupContent() {
         {/* Help footer */}
         <div className="mt-12 border-t border-white/5 pt-8 text-center text-sm text-gray-500">
           <p>
-            Stuck? Email <a href="mailto:support@accountingqb.com" className="text-cyan-400 hover:underline">support@accountingqb.com</a> and we&apos;ll help you get connected.
+            Stuck? Email <a href="mailto:support@vasperacapital.com" className="text-cyan-400 hover:underline">support@vasperacapital.com</a> and we&apos;ll help you get connected.
           </p>
         </div>
       </div>

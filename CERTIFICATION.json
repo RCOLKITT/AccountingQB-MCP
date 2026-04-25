@@ -1,0 +1,67 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "id": "cert-accountingqb-mcp-1776807798845",
+    "project_name": "AccountingQB-MCP",
+    "project_path": "/Users/ryancolkitt/Documents/GitHub/AccountingQB-MCP",
+    "started_at": "2026-04-21T21:43:18.846Z",
+    "status": "completed",
+    "agents_requested": [
+      "security"
+    ],
+    "agents_completed": [
+      "security"
+    ],
+    "scanners_run": true,
+    "scanners_completed_at": "2026-04-21T21:43:57.044Z",
+    "scanner_findings_count": 13,
+    "completed_at": "2026-04-21T21:44:47.825Z",
+    "certification_level": "BLOCKED",
+    "final_score": 0,
+    "expires_at": "2026-05-21T21:44:47.801Z",
+    "project_hash": "4ee2bee9bdcc28714914a62a2f95da583fc2aa77e7feca91a1540b767477e7fb"
+  },
+  "consensus": {
+    "overall_score": 0,
+    "certification_level": "BLOCKED",
+    "agent_scores": {
+      "security": 0
+    },
+    "agent_confidences": {
+      "security": 100
+    },
+    "total_findings": 14,
+    "by_severity": {
+      "critical": 6,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "info": 8
+    },
+    "cross_verification_rate": 0.42857142857142855,
+    "red_team_challenges_accepted": 0,
+    "red_team_challenges_total": 0,
+    "calculated_at": "2026-04-21T21:44:42.382Z"
+  },
+  "summary": {
+    "level": "BLOCKED",
+    "score": 0,
+    "findings": 14,
+    "by_severity": {
+      "critical": 6,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "info": 8
+    },
+    "valid_until": "2026-05-21T21:44:47.801Z"
+  },
+  "agents": [
+    {
+      "name": "security",
+      "score": 0,
+      "confidence": 100,
+      "findings_count": 14
+    }
+  ]
+}
