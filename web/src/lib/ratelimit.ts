@@ -60,6 +60,16 @@ export function getUsageTrackLimiter(): Ratelimit {
   });
 }
 
+// Rate limiter for support chat: 20 messages per minute per IP
+export function getSupportLimiter(): Ratelimit {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(20, "1 m"),
+    prefix: "ratelimit:support",
+    analytics: true,
+  });
+}
+
 /**
  * Extracts client IP from request headers.
  * Vercel sets x-forwarded-for; falls back to x-real-ip or "unknown".
