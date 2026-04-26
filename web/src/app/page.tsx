@@ -4,6 +4,7 @@
    ============================================================================ */
 
 import { getSupabase } from "@/lib/supabase";
+import LandingNav from "@/components/nav/LandingNav";
 
 interface PublicStats {
   totalHoursSaved: number;
@@ -159,36 +160,7 @@ export default async function Home() {
     <main className="min-h-screen overflow-x-hidden">
 
       {/* ========== NAV ========== */}
-      <nav className="fixed top-0 z-50 w-full border-b border-white/[0.06] bg-[#0a0e1a]/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
-          <a href="/" className="flex items-center gap-2.5">
-            <LogoMark className="h-8 w-8" />
-            <span className="text-lg font-bold tracking-tight text-white">
-              Accounting<span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">QB</span>
-            </span>
-          </a>
-          <div className="hidden items-center gap-8 md:flex">
-            <a href="#features" className="text-sm text-gray-400 transition hover:text-white">Features</a>
-            <a href="#demo" className="text-sm text-gray-400 transition hover:text-white">Demo</a>
-            <a href="#pricing" className="text-sm text-gray-400 transition hover:text-white">Pricing</a>
-            <a href="#faq" className="text-sm text-gray-400 transition hover:text-white">FAQ</a>
-          </div>
-          <div className="flex items-center gap-4">
-            <a
-              href="/dashboard"
-              className="text-sm text-gray-400 transition hover:text-white"
-            >
-              Dashboard
-            </a>
-            <a
-              href="#pricing"
-              className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:shadow-blue-500/30 hover:brightness-110"
-            >
-              Get Started
-            </a>
-          </div>
-        </div>
-      </nav>
+      <LandingNav />
 
       {/* ========== HERO ========== */}
       <section className="relative min-h-screen pt-20">
