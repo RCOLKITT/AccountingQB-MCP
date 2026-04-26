@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/update-stats",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/process-emails",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/check-trials",
+      "schedule": "0 9 * * *"
     }
   ]
 }

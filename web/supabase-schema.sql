@@ -342,3 +342,119 @@ CREATE INDEX IF NOT EXISTS idx_support_analytics_topic
 
 -- Row-Level Security (service role only)
 ALTER TABLE support_analytics ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- Email Schedules: queue for scheduled/automated emails
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS email_schedules (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  license_key     TEXT NOT NULL REFERENCES licenses(key) ON DELETE CASCADE,
+  email_type      TEXT NOT NULL,  -- 'welcome', 'day_3_checkin', 'trial_warning_4day', etc.
+  scheduled_for   TIMESTAMPTZ NOT NULL,
+  sent_at         TIMESTAMPTZ,
+  cancelled       BOOLEAN DEFAULT false,
+  metadata        JSONB,          -- Template variables (email, name, tier, etc.)
+  error_message   TEXT,           -- If sending failed
+
+  -- Timestamps
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for processing pending emails
+CREATE INDEX IF NOT EXISTS idx_email_schedules_pending
+  ON email_schedules (scheduled_for)
+  WHERE sent_at IS NULL AND cancelled = false;
+
+-- Index for license lookups
+CREATE INDEX IF NOT EXISTS idx_email_schedules_license_key
+  ON email_schedules (license_key);
+
+-- Index for email type queries
+CREATE INDEX IF NOT EXISTS idx_email_schedules_type
+  ON email_schedules (email_type);
+
+-- Row-Level Security (service role only)
+ALTER TABLE email_schedules ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- User Milestones: tracks user progress through setup
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS user_milestones (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  license_key     TEXT NOT NULL REFERENCES licenses(key) ON DELETE CASCADE,
+  milestone       TEXT NOT NULL,  -- 'signup', 'qb_connected', 'first_tool_used', 'trial_converted'
+  completed_at    TIMESTAMPTZ DEFAULT NOW(),
+  metadata        JSONB,          -- Additional context (realm_id, tool_name, etc.)
+
+  -- One milestone per type per license
+  UNIQUE(license_key, milestone)
+);
+
+-- Index for license lookups
+CREATE INDEX IF NOT EXISTS idx_user_milestones_license_key
+  ON user_milestones (license_key);
+
+-- Index for milestone type queries
+CREATE INDEX IF NOT EXISTS idx_user_milestones_type
+  ON user_milestones (milestone);
+
+-- Row-Level Security (service role only)
+ALTER TABLE user_milestones ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- Trial Extensions: audit trail for admin-granted extensions
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS trial_extensions (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  license_key     TEXT NOT NULL REFERENCES licenses(key) ON DELETE CASCADE,
+  extended_by     TEXT NOT NULL,  -- Admin email who granted extension
+  extension_days  INTEGER NOT NULL,
+  old_trial_end   TIMESTAMPTZ NOT NULL,
+  new_trial_end   TIMESTAMPTZ NOT NULL,
+  reason          TEXT,           -- Optional reason for extension
+
+  -- Timestamps
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for license lookups
+CREATE INDEX IF NOT EXISTS idx_trial_extensions_license_key
+  ON trial_extensions (license_key);
+
+-- Row-Level Security (service role only)
+ALTER TABLE trial_extensions ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- Admin Users: controls access to /admin dashboard
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS admin_users (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  email           TEXT NOT NULL UNIQUE,
+  role            TEXT NOT NULL DEFAULT 'admin'
+                    CHECK (role IN ('admin', 'super_admin')),
+
+  -- Timestamps
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Row-Level Security (service role only)
+ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
+
+-- Seed initial admin (update with your email)
+INSERT INTO admin_users (email, role)
+VALUES ('ryan@vasperacapital.com', 'super_admin')
+ON CONFLICT (email) DO NOTHING;
+
+-- ============================================================
+-- Add billing columns to licenses table (for charge notifications)
+-- Run these ALTER statements if the table already exists
+-- ============================================================
+
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS card_last_four TEXT;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS card_brand TEXT;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS next_billing_date TIMESTAMPTZ;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS billing_amount_cents INTEGER;

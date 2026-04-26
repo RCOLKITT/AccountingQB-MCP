@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { getSupabase } from "@/lib/supabase";
 import { validateState, clearStateCookie, CSRF_COOKIE_NAME } from "@/lib/csrf";
 import { logOAuthConnect } from "@/lib/event-logger";
+import { scheduleEmail, cancelEmailsByType } from "@/lib/emails/schedule-email";
 
 /**
  * GET /api/oauth/callback
@@ -144,6 +145,46 @@ export async function GET(req: NextRequest) {
 
   // Log successful OAuth connection
   await logOAuthConnect(licenseKey, realmId, companyName);
+
+  // Track qb_connected milestone (first connection for this license)
+  const { data: existingMilestone } = await supabase
+    .from("user_milestones")
+    .select("id")
+    .eq("license_key", licenseKey)
+    .eq("milestone", "qb_connected")
+    .maybeSingle();
+
+  if (!existingMilestone) {
+    await supabase.from("user_milestones").insert({
+      license_key: licenseKey,
+      milestone: "qb_connected",
+      metadata: { realmId, companyName },
+    });
+
+    // Cancel the day 3 check-in email since they connected successfully
+    await cancelEmailsByType(licenseKey, "day_3_checkin");
+
+    // Get license email for QB connected confirmation
+    const { data: licenseData } = await supabase
+      .from("licenses")
+      .select("email, tier")
+      .eq("key", licenseKey)
+      .single();
+
+    // Schedule QB connected confirmation email
+    if (licenseData?.email) {
+      await scheduleEmail({
+        licenseKey,
+        emailType: "qb_connected",
+        scheduledFor: new Date(),
+        metadata: {
+          email: licenseData.email,
+          tier: licenseData.tier,
+          companyName: companyName || realmId,
+        },
+      });
+    }
+  }
 
   // Redirect to success page and clear the CSRF cookie
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";

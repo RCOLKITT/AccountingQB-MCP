@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 import SupportWidget from "@/components/support/SupportWidget";
 import "./globals.css";
@@ -116,9 +117,11 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-[#0a0e1a] text-gray-100 antialiased">
-        {children}
-        <Analytics />
-        <SupportWidget />
+        <ClerkProvider>
+          {children}
+          <Analytics />
+          <SupportWidget />
+        </ClerkProvider>
       </body>
     </html>
   );

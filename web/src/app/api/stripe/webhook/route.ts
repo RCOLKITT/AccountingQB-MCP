@@ -3,6 +3,8 @@ import { getStripe } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
 import { sendLicenseEmail } from "@/lib/resend";
 import { createStripeEventLogger, logEvent } from "@/lib/event-logger";
+import { scheduleOnboardingEmails } from "@/lib/emails/schedule-email";
+import { scheduleEmail } from "@/lib/emails/schedule-email";
 import crypto from "crypto";
 import Stripe from "stripe";
 
@@ -65,7 +67,27 @@ export async function POST(req: NextRequest) {
           trial_ends_at: trialEndsAt,
         });
 
-        // Send license email
+        // Track signup milestone
+        await supabase.from("user_milestones").insert({
+          license_key: licenseKey,
+          milestone: "signup",
+          metadata: { email, tier },
+        });
+
+        // Schedule onboarding email sequence
+        try {
+          await scheduleOnboardingEmails(
+            licenseKey,
+            email,
+            tier,
+            new Date(trialEndsAt)
+          );
+          console.log(`Onboarding emails scheduled for ${email}`);
+        } catch (emailErr) {
+          console.error("Failed to schedule onboarding emails:", emailErr);
+        }
+
+        // Send license email (immediate)
         if (email) {
           try {
             await sendLicenseEmail({
@@ -103,9 +125,38 @@ export async function POST(req: NextRequest) {
         .eq("stripe_subscription_id", sub.id)
         .maybeSingle();
 
+      // Build update object with billing info if available
+      const updateData: Record<string, unknown> = {
+        status,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Capture next billing date
+      if (sub.current_period_end) {
+        updateData.next_billing_date = new Date(sub.current_period_end * 1000).toISOString();
+      }
+
+      // Capture billing amount
+      if (sub.items?.data?.[0]?.price?.unit_amount) {
+        updateData.billing_amount_cents = sub.items.data[0].price.unit_amount;
+      }
+
+      // Get card info from default payment method
+      if (sub.default_payment_method && typeof sub.default_payment_method === "string") {
+        try {
+          const pm = await getStripe().paymentMethods.retrieve(sub.default_payment_method);
+          if (pm.card) {
+            updateData.card_last_four = pm.card.last4;
+            updateData.card_brand = pm.card.brand;
+          }
+        } catch {
+          // Payment method retrieval failed, continue without card info
+        }
+      }
+
       await supabase
         .from("licenses")
-        .update({ status, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq("stripe_subscription_id", sub.id);
 
       await eventLogger.success(license?.key, { newStatus: status });
@@ -133,6 +184,15 @@ export async function POST(req: NextRequest) {
     case "invoice.payment_succeeded": {
       const invoice = event.data.object as Stripe.Invoice;
       if (invoice.subscription) {
+        // Get the license for this subscription
+        const { data: license } = await supabase
+          .from("licenses")
+          .select("key, email, tier, status")
+          .eq("stripe_subscription_id", invoice.subscription as string)
+          .maybeSingle();
+
+        const wasTrialing = license?.status === "trialing";
+
         // Trial converted to paid — activate license
         await supabase
           .from("licenses")
@@ -143,7 +203,47 @@ export async function POST(req: NextRequest) {
           })
           .eq("stripe_subscription_id", invoice.subscription as string);
 
-        await eventLogger.success(undefined, { note: "Trial converted to paid" });
+        // Track trial conversion milestone
+        if (wasTrialing && license?.key) {
+          await supabase.from("user_milestones").upsert(
+            {
+              license_key: license.key,
+              milestone: "trial_converted",
+              metadata: { amountCents: invoice.amount_paid },
+            },
+            { onConflict: "license_key,milestone", ignoreDuplicates: true }
+          );
+
+          // Cancel any pending trial warning emails
+          await supabase
+            .from("email_schedules")
+            .update({ cancelled: true })
+            .eq("license_key", license.key)
+            .in("email_type", ["trial_warning_4day", "trial_warning_1day", "trial_expired"])
+            .is("sent_at", null);
+        }
+
+        // Schedule subscription renewed (receipt) email
+        if (license?.key && license?.email) {
+          const nextBillingDate = invoice.lines?.data?.[0]?.period?.end
+            ? new Date(invoice.lines.data[0].period.end * 1000).toISOString()
+            : "";
+
+          await scheduleEmail({
+            licenseKey: license.key,
+            emailType: "subscription_renewed",
+            scheduledFor: new Date(),
+            metadata: {
+              email: license.email,
+              tier: license.tier,
+              amountCents: invoice.amount_paid,
+              nextBillingDate,
+              invoiceUrl: invoice.hosted_invoice_url,
+            },
+          });
+        }
+
+        await eventLogger.success(license?.key, { note: wasTrialing ? "Trial converted to paid" : "Subscription renewed" });
       }
       break;
     }
@@ -153,6 +253,28 @@ export async function POST(req: NextRequest) {
       console.warn(
         `Payment failed for subscription ${invoice.subscription}`
       );
+
+      // Get the license for this subscription
+      const { data: license } = await supabase
+        .from("licenses")
+        .select("key, email, tier")
+        .eq("stripe_subscription_id", invoice.subscription as string)
+        .maybeSingle();
+
+      // Schedule payment failed email
+      if (license?.key && license?.email) {
+        await scheduleEmail({
+          licenseKey: license.key,
+          emailType: "payment_failed",
+          scheduledFor: new Date(),
+          metadata: {
+            email: license.email,
+            tier: license.tier,
+            attemptCount: invoice.attempt_count || 1,
+          },
+        });
+      }
+
       // Stripe handles retry logic; we don't cancel immediately
       await eventLogger.failure("Payment failed");
       break;

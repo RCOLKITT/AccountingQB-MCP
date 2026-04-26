@@ -1,0 +1,90 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getSupabase } from "@/lib/supabase";
+import { getAdminSession } from "@/lib/admin-auth";
+import { rescheduleTrialEmails } from "@/lib/emails/schedule-email";
+
+/**
+ * POST /api/admin/users/[key]/extend-trial
+ * Extend a user's trial period.
+ */
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ key: string }> }
+) {
+  // Verify admin
+  const admin = await getAdminSession();
+  if (!admin) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { key } = await params;
+  const { days, reason } = await req.json();
+
+  if (!days || days < 1 || days > 365) {
+    return NextResponse.json(
+      { error: "Invalid extension period" },
+      { status: 400 }
+    );
+  }
+
+  const supabase = getSupabase();
+
+  // Get current license
+  const { data: license, error } = await supabase
+    .from("licenses")
+    .select("key, email, tier, status, trial_ends_at")
+    .eq("key", key)
+    .single();
+
+  if (error || !license) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  // Calculate new trial end date
+  const currentTrialEnd = license.trial_ends_at
+    ? new Date(license.trial_ends_at)
+    : new Date();
+  const newTrialEnd = new Date(
+    currentTrialEnd.getTime() + days * 24 * 60 * 60 * 1000
+  );
+
+  // Update license
+  const { error: updateError } = await supabase
+    .from("licenses")
+    .update({
+      trial_ends_at: newTrialEnd.toISOString(),
+      status: "trialing", // Reset to trialing if expired
+      updated_at: new Date().toISOString(),
+    })
+    .eq("key", key);
+
+  if (updateError) {
+    console.error("Failed to extend trial:", updateError);
+    return NextResponse.json(
+      { error: "Failed to extend trial" },
+      { status: 500 }
+    );
+  }
+
+  // Record the extension
+  await supabase.from("trial_extensions").insert({
+    license_key: key,
+    extended_by: admin.email,
+    extension_days: days,
+    old_trial_end: currentTrialEnd.toISOString(),
+    new_trial_end: newTrialEnd.toISOString(),
+    reason: reason || null,
+  });
+
+  // Reschedule trial warning emails
+  await rescheduleTrialEmails(key, license.email, license.tier, newTrialEnd);
+
+  console.log(
+    `Trial extended for ${key}: +${days} days by ${admin.email}`
+  );
+
+  return NextResponse.json({
+    success: true,
+    newTrialEnd: newTrialEnd.toISOString(),
+  });
+}
