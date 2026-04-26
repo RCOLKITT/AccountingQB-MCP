@@ -2,7 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy initialization to avoid build-time errors
+let resend: Resend | null = null;
+
+function getResend(): Resend {
+  if (!resend) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 interface EscalateRequest {
   conversationId: string;
@@ -65,7 +73,7 @@ export async function POST(req: NextRequest) {
       .eq("id", conversationId);
 
     // Send email to support team
-    const { error: emailError } = await resend.emails.send({
+    const { error: emailError } = await getResend().emails.send({
       from: "AccountingQB Support <noreply@accountingqb.com>",
       to: process.env.SUPPORT_EMAIL || "support@vasperacapital.com",
       replyTo: userEmail || undefined,
