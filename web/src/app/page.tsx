@@ -866,6 +866,7 @@ export default async function Home() {
                 <li><a href="#pricing" className="transition hover:text-white">Pricing</a></li>
                 <li><a href="#faq" className="transition hover:text-white">FAQ</a></li>
                 <li><a href="/dashboard" className="transition hover:text-white">Dashboard</a></li>
+                <li><a href="/sign-in" className="transition hover:text-white">Sign In</a></li>
               </ul>
             </div>
             <div>
