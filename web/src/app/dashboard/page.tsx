@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useUser, UserButton, SignInButton, SignedIn, SignedOut } from "@clerk/nextjs";
 
 interface Company {
   realmId: string;
@@ -36,9 +37,17 @@ function DashboardContent() {
   const keyParam = searchParams.get("key");
   const legacyMode = searchParams.get("legacy") === "true";
 
-  // Auth state
-  const [user, setUser] = useState<User | null>(null);
+  // Clerk auth
+  const { isLoaded: clerkLoaded, isSignedIn, user: clerkUser } = useUser();
+
+  // Legacy auth state (for existing users)
+  const [legacyUser, setLegacyUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+
+  // Combined user - prefer Clerk, fall back to legacy
+  const user = clerkUser
+    ? { id: clerkUser.id, email: clerkUser.primaryEmailAddress?.emailAddress || "", displayName: clerkUser.fullName }
+    : legacyUser;
 
   // License state
   const [licenses, setLicenses] = useState<License[]>([]);
@@ -57,10 +66,12 @@ function DashboardContent() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
-  // Check auth on mount
+  // Check auth on mount (for legacy users and license linking)
   useEffect(() => {
-    checkAuth();
-  }, []);
+    if (clerkLoaded) {
+      checkAuth();
+    }
+  }, [clerkLoaded, isSignedIn]);
 
   // Fetch companies when license changes
   useEffect(() => {
@@ -71,23 +82,32 @@ function DashboardContent() {
 
   const checkAuth = async () => {
     try {
-      const res = await fetch("/api/auth/me");
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-        setLicenses(data.licenses || []);
-        if (data.licenses?.length > 0) {
-          setSelectedLicense(data.licenses[0]);
+      // If Clerk user is signed in, fetch their licenses
+      if (isSignedIn && clerkUser) {
+        const res = await fetch("/api/user/licenses");
+        if (res.ok) {
+          const data = await res.json();
+          setLicenses(data.licenses || []);
+          if (data.licenses?.length > 0) {
+            setSelectedLicense(data.licenses[0]);
+          }
+          fetchStats();
         }
-        // Fetch usage stats for authenticated users
-        fetchStats();
-      } else if (!legacyMode && !keyParam) {
-        // Not authenticated and not in legacy mode - redirect to login
-        router.push("/login");
-        return;
+      } else {
+        // Try legacy auth for existing users
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          setLegacyUser(data.user);
+          setLicenses(data.licenses || []);
+          if (data.licenses?.length > 0) {
+            setSelectedLicense(data.licenses[0]);
+          }
+          fetchStats();
+        }
       }
     } catch {
-      // Auth check failed - continue with legacy mode if applicable
+      // Auth check failed - continue with license key mode if applicable
     } finally {
       setAuthLoading(false);
     }
@@ -218,7 +238,7 @@ function DashboardContent() {
     : "#";
 
   // Loading state
-  if (authLoading) {
+  if (!clerkLoaded || authLoading) {
     return (
       <main className="min-h-screen bg-[#0a0e1a] text-white flex items-center justify-center">
         <p className="text-gray-400">Loading...</p>
@@ -226,8 +246,8 @@ function DashboardContent() {
     );
   }
 
-  // Legacy mode: license key input (when not authenticated)
-  const showLegacyInput = !user && (legacyMode || keyParam) && !selectedLicense;
+  // Show license key input when not authenticated and no license selected
+  const showLegacyInput = !isSignedIn && !legacyUser && (legacyMode || keyParam) && !selectedLicense;
 
   return (
     <main className="min-h-screen bg-[#0a0e1a] text-white">
@@ -241,18 +261,35 @@ function DashboardContent() {
             </span>
           </a>
           <div className="flex items-center gap-4">
-            {user && (
-              <>
-                <span className="text-sm text-gray-400">{user.email}</span>
-                <button
-                  onClick={signOut}
-                  disabled={signingOut}
-                  className="text-sm text-gray-400 hover:text-white transition"
-                >
-                  {signingOut ? "..." : "Sign out"}
-                </button>
-              </>
-            )}
+            <SignedIn>
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "w-8 h-8",
+                  },
+                }}
+              />
+            </SignedIn>
+            <SignedOut>
+              {legacyUser ? (
+                <>
+                  <span className="text-sm text-gray-400">{legacyUser.email}</span>
+                  <button
+                    onClick={signOut}
+                    disabled={signingOut}
+                    className="text-sm text-gray-400 hover:text-white transition"
+                  >
+                    {signingOut ? "..." : "Sign out"}
+                  </button>
+                </>
+              ) : (
+                <SignInButton mode="modal">
+                  <button className="text-sm text-gray-400 hover:text-white transition">
+                    Sign in
+                  </button>
+                </SignInButton>
+              )}
+            </SignedOut>
             <a
               href="mailto:support@vasperacapital.com"
               className="text-sm text-gray-400 hover:text-white transition"
@@ -307,7 +344,7 @@ function DashboardContent() {
         {selectedLicense && (
           <div className="mt-8 space-y-6">
             {/* Usage Stats (only for authenticated users) */}
-            {user && stats && (
+            {(isSignedIn || legacyUser) && stats && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-center">
                   <p className="text-3xl font-bold text-cyan-400">
@@ -337,7 +374,7 @@ function DashboardContent() {
             )}
 
             {/* Top Tools (only for authenticated users with usage) */}
-            {user && stats && stats.topTools.length > 0 && (
+            {(isSignedIn || legacyUser) && stats && stats.topTools.length > 0 && (
               <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
                 <h2 className="text-lg font-semibold mb-4">Most Used Tools</h2>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -357,7 +394,7 @@ function DashboardContent() {
             )}
 
             {/* License Selector (for users with multiple licenses) */}
-            {user && licenses.length > 1 && (
+            {(isSignedIn || legacyUser) && licenses.length > 1 && (
               <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
                 <h2 className="text-lg font-semibold mb-4">Your Licenses</h2>
                 <div className="flex flex-wrap gap-2">
@@ -559,7 +596,7 @@ function DashboardContent() {
             </div>
 
             {/* Change License (legacy mode only) */}
-            {!user && (
+            {!isSignedIn && !legacyUser && (
               <div className="text-center">
                 <button
                   onClick={() => {
