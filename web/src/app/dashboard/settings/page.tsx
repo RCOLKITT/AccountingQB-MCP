@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -17,7 +17,7 @@ interface UserProfile {
   qbConnections: { realmId: string; companyName: string | null }[];
 }
 
-export default function SettingsPage() {
+function SettingsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const licenseKey = searchParams.get("key");
@@ -361,4 +361,18 @@ function formatDate(date: string): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center">
+          <div className="text-gray-400">Loading...</div>
+        </div>
+      }
+    >
+      <SettingsContent />
+    </Suspense>
+  );
 }
