@@ -1,6 +1,14 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy initialization to avoid build-time errors
+let resend: Resend | null = null;
+
+function getResend(): Resend {
+  if (!resend) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 interface LicenseEmailParams {
   to: string;
@@ -23,7 +31,7 @@ export async function sendLicenseEmail({
     day: "numeric",
   });
 
-  const { data, error } = await resend.emails.send({
+  const { data, error } = await getResend().emails.send({
     from: "AccountingQB <noreply@accountingqb.com>",
     to,
     subject: `Your AccountingQB License Key - ${tierName} Plan`,

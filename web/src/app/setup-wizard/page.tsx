@@ -44,6 +44,13 @@ function SetupWizardContent() {
     }
   }, [licenseKey]);
 
+  // Auto-advance when user confirms they have Claude Desktop
+  useEffect(() => {
+    if (hasClaudeDesktop === true) {
+      setStep("install-extension");
+    }
+  }, [hasClaudeDesktop]);
+
   const effectiveKey = inputKey || licenseKey || "YOUR_LICENSE_KEY";
 
   const configSnippet = `{
@@ -221,7 +228,6 @@ function SetupWizardContent() {
                 I have Claude Desktop → Next
               </button>
             </div>
-            {hasClaudeDesktop && setStep("install-extension")}
           </div>
         )}
 
