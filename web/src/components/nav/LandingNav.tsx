@@ -1,6 +1,6 @@
 "use client";
 
-import { SignedIn, SignedOut, UserButton, SignInButton } from "@clerk/nextjs";
+import { useAuth, UserButton } from "@clerk/nextjs";
 
 /* Inline Logo SVG Component */
 function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
@@ -26,6 +26,8 @@ function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
 }
 
 export default function LandingNav() {
+  const { isSignedIn, isLoaded } = useAuth();
+
   return (
     <nav className="fixed top-0 z-50 w-full border-b border-white/[0.06] bg-[#0a0e1a]/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
@@ -42,34 +44,38 @@ export default function LandingNav() {
           <a href="#faq" className="text-sm text-gray-400 transition hover:text-white">FAQ</a>
         </div>
         <div className="flex items-center gap-4">
-          <SignedIn>
-            <a
-              href="/dashboard"
-              className="text-sm text-gray-400 transition hover:text-white"
-            >
-              Dashboard
-            </a>
-            <UserButton
-              appearance={{
-                elements: {
-                  avatarBox: "w-8 h-8",
-                },
-              }}
-            />
-          </SignedIn>
-          <SignedOut>
-            <SignInButton mode="modal">
-              <button className="text-sm text-gray-400 transition hover:text-white">
+          {isSignedIn ? (
+            <>
+              <a
+                href="/dashboard"
+                className="text-sm text-gray-400 transition hover:text-white"
+              >
+                Dashboard
+              </a>
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "w-8 h-8",
+                  },
+                }}
+              />
+            </>
+          ) : (
+            <>
+              <a
+                href="/sign-in"
+                className="text-sm text-gray-400 transition hover:text-white"
+              >
                 Sign in
-              </button>
-            </SignInButton>
-            <a
-              href="#pricing"
-              className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:shadow-blue-500/30 hover:brightness-110"
-            >
-              Get Started
-            </a>
-          </SignedOut>
+              </a>
+              <a
+                href="#pricing"
+                className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:shadow-blue-500/30 hover:brightness-110"
+              >
+                Get Started
+              </a>
+            </>
+          )}
         </div>
       </div>
     </nav>
