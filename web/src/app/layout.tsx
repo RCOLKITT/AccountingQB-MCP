@@ -117,7 +117,7 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-[#0a0e1a] text-gray-100 antialiased">
-        <ClerkProvider>
+        <ClerkProvider afterSignInUrl="/dashboard" afterSignUpUrl="/dashboard">
           {children}
           <Analytics />
           <SupportWidget />
