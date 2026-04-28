@@ -29,7 +29,9 @@ export default clerkMiddleware(async (auth, req) => {
       return NextResponse.redirect(new URL("/sign-in", req.url));
     }
 
-    const role = (sessionClaims?.metadata as { role?: string } | undefined)?.role;
+    // Check both publicMetadata and metadata (Clerk uses publicMetadata)
+    const publicMeta = sessionClaims?.publicMetadata as { role?: string } | undefined;
+    const role = publicMeta?.role;
     if (role !== "admin") {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
