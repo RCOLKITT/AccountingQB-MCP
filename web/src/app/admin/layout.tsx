@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getAdminSession } from "@/lib/admin-auth";
+import { currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
 export default async function AdminLayout({
@@ -7,10 +7,16 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const admin = await getAdminSession();
+  const user = await currentUser();
 
-  if (!admin) {
-    redirect("/admin/login");
+  // Check if user is authenticated and has admin role
+  if (!user) {
+    redirect("/sign-in");
+  }
+
+  const role = (user.publicMetadata as { role?: string })?.role;
+  if (role !== "admin") {
+    redirect("/dashboard");
   }
 
   return (
@@ -50,15 +56,15 @@ export default async function AdminLayout({
             </nav>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-400">{admin.email}</span>
-            <form action="/api/admin/logout" method="POST">
-              <button
-                type="submit"
-                className="text-sm text-gray-400 hover:text-white transition"
-              >
-                Logout
-              </button>
-            </form>
+            <span className="text-sm text-gray-400">
+              {user.emailAddresses[0]?.emailAddress}
+            </span>
+            <Link
+              href="/"
+              className="text-sm text-gray-400 hover:text-white transition"
+            >
+              Exit Admin
+            </Link>
           </div>
         </div>
       </header>
