@@ -1,4 +1,4 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
@@ -24,15 +24,17 @@ const isAdminRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, req) => {
   // Admin routes require admin role
   if (isAdminRoute(req)) {
-    const { userId, sessionClaims } = await auth();
+    const { userId } = await auth();
 
     if (!userId) {
       return NextResponse.redirect(new URL("/sign-in", req.url));
     }
 
-    // Check both publicMetadata and metadata (Clerk uses publicMetadata)
-    const publicMeta = sessionClaims?.publicMetadata as { role?: string } | undefined;
-    const role = publicMeta?.role;
+    // Fetch user to get publicMetadata (not included in session JWT by default)
+    const client = await clerkClient();
+    const user = await client.users.getUser(userId);
+    const role = (user.publicMetadata as { role?: string })?.role;
+
     if (role !== "admin") {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
