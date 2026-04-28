@@ -44,7 +44,9 @@ export default function LandingNav() {
           <a href="#faq" className="text-sm text-gray-400 transition hover:text-white">FAQ</a>
         </div>
         <div className="flex items-center gap-4">
-          {isSignedIn ? (
+          {!isLoaded ? (
+            <div className="h-8 w-8 animate-pulse rounded-full bg-white/10" />
+          ) : isSignedIn ? (
             <>
               <a
                 href="/dashboard"
