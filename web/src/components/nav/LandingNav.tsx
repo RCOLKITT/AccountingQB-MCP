@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth, UserButton } from "@clerk/nextjs";
+import { useAuth, useSession, UserButton } from "@clerk/nextjs";
 
 /* Inline Logo SVG Component */
 function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
@@ -27,6 +27,8 @@ function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
 
 export default function LandingNav() {
   const { isSignedIn, isLoaded } = useAuth();
+  const { session } = useSession();
+  const isAdmin = (session?.user?.publicMetadata as { role?: string } | undefined)?.role === "admin";
 
   return (
     <nav className="fixed top-0 z-50 w-full border-b border-white/[0.06] bg-[#0a0e1a]/80 backdrop-blur-xl">
@@ -48,6 +50,14 @@ export default function LandingNav() {
             <div className="h-8 w-8 animate-pulse rounded-full bg-white/10" />
           ) : isSignedIn ? (
             <>
+              {isAdmin && (
+                <a
+                  href="/admin"
+                  className="text-sm text-cyan-400 transition hover:text-cyan-300"
+                >
+                  Admin
+                </a>
+              )}
               <a
                 href="/dashboard"
                 className="text-sm text-gray-400 transition hover:text-white"
