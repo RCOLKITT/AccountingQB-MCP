@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
-import { getAdminSession } from "@/lib/admin-auth";
+import { currentUser } from "@clerk/nextjs/server";
 
 interface LicenseRow {
   key: string;
@@ -16,10 +16,15 @@ interface LicenseRow {
  * List users with optional filters and search.
  */
 export async function GET(req: NextRequest) {
-  // Verify admin
-  const admin = await getAdminSession();
-  if (!admin) {
+  // Verify admin via Clerk
+  const user = await currentUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const role = (user.publicMetadata as { role?: string })?.role;
+  if (role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const supabase = getSupabase();

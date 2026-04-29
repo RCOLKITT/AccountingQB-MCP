@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
-import { getAdminSession } from "@/lib/admin-auth";
+import { currentUser } from "@clerk/nextjs/server";
 import { scheduleEmail } from "@/lib/emails/schedule-email";
 import { EmailType } from "@/lib/emails/send-email";
 
@@ -23,11 +23,18 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ key: string }> }
 ) {
-  // Verify admin
-  const admin = await getAdminSession();
-  if (!admin) {
+  // Verify admin via Clerk
+  const user = await currentUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const role = (user.publicMetadata as { role?: string })?.role;
+  if (role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const adminEmail = user.emailAddresses[0]?.emailAddress || "admin";
 
   const { key } = await params;
   const { emailType } = await req.json();
@@ -59,7 +66,7 @@ export async function POST(
       tier: license.tier,
       trialEndsAt: license.trial_ends_at,
       manualSend: true,
-      sentBy: admin.email,
+      sentBy: adminEmail,
     },
   });
 
@@ -71,7 +78,7 @@ export async function POST(
   }
 
   console.log(
-    `Email ${emailType} scheduled for ${key} by ${admin.email}`
+    `Email ${emailType} scheduled for ${key} by ${adminEmail}`
   );
 
   return NextResponse.json({ success: true, scheduleId: result.scheduleId });
