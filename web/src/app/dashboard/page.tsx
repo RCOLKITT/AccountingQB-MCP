@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useUser, UserButton, SignInButton, SignedIn, SignedOut } from "@clerk/nextjs";
+import { SetupPrompt } from "@/components/setup/SetupPrompt";
 
 interface Company {
   realmId: string;
@@ -57,6 +58,10 @@ function DashboardContent() {
   // Data state
   const [companies, setCompanies] = useState<Company[]>([]);
   const [stats, setStats] = useState<UsageStats | null>(null);
+  const [setupStatus, setSetupStatus] = useState<{
+    claudeConfigured: boolean;
+    qbConnected: boolean;
+  } | null>(null);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -73,10 +78,11 @@ function DashboardContent() {
     }
   }, [clerkLoaded, isSignedIn]);
 
-  // Fetch companies when license changes
+  // Fetch companies and setup status when license changes
   useEffect(() => {
     if (selectedLicense) {
       fetchCompanies(selectedLicense.key);
+      fetchSetupStatus(selectedLicense.key);
     }
   }, [selectedLicense]);
 
@@ -121,6 +127,18 @@ function DashboardContent() {
       }
     } catch {
       // Stats are non-critical
+    }
+  };
+
+  const fetchSetupStatus = async (licenseKey: string) => {
+    try {
+      const res = await fetch(`/api/setup/verify?license_key=${encodeURIComponent(licenseKey)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSetupStatus(data.setup);
+      }
+    } catch {
+      // Setup status is non-critical
     }
   };
 
@@ -343,6 +361,13 @@ function DashboardContent() {
         {/* Main Dashboard Content */}
         {selectedLicense && (
           <div className="mt-8 space-y-6">
+            {/* Setup Prompt - shows until setup is complete */}
+            <SetupPrompt
+              licenseKey={selectedLicense.key}
+              hasClaudeConfigured={setupStatus?.claudeConfigured}
+              hasQBConnected={setupStatus?.qbConnected || companies.length > 0}
+            />
+
             {/* Usage Stats (only for authenticated users) */}
             {(isSignedIn || legacyUser) && stats && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
