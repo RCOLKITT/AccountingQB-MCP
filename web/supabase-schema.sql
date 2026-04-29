@@ -458,3 +458,66 @@ ALTER TABLE licenses ADD COLUMN IF NOT EXISTS card_last_four TEXT;
 ALTER TABLE licenses ADD COLUMN IF NOT EXISTS card_brand TEXT;
 ALTER TABLE licenses ADD COLUMN IF NOT EXISTS next_billing_date TIMESTAMPTZ;
 ALTER TABLE licenses ADD COLUMN IF NOT EXISTS billing_amount_cents INTEGER;
+
+-- ============================================================
+-- Artifacts: stores Claude-generated reports, analyses, exports
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS artifacts (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  license_key     TEXT NOT NULL REFERENCES licenses(key) ON DELETE CASCADE,
+  realm_id        TEXT,           -- QuickBooks company ID (nullable for cross-company reports)
+
+  -- Artifact metadata
+  type            TEXT NOT NULL   -- 'report', 'analysis', 'reconciliation', 'export'
+                    CHECK (type IN ('report', 'analysis', 'reconciliation', 'export')),
+  name            TEXT NOT NULL,
+  description     TEXT,
+
+  -- Content
+  data            JSONB NOT NULL, -- Structured data for rendering (tables, charts, summaries)
+  format          TEXT DEFAULT 'table'  -- 'table', 'chart', 'summary', 'pdf'
+                    CHECK (format IN ('table', 'chart', 'summary', 'pdf')),
+
+  -- Organization
+  tags            TEXT[],
+  starred         BOOLEAN DEFAULT false,
+
+  -- Provenance
+  created_by      TEXT DEFAULT 'claude',  -- 'claude' or user_id
+
+  -- Timestamps
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for license lookups (primary query path)
+CREATE INDEX IF NOT EXISTS idx_artifacts_license_key
+  ON artifacts (license_key);
+
+-- Index for company-specific queries
+CREATE INDEX IF NOT EXISTS idx_artifacts_realm_id
+  ON artifacts (realm_id)
+  WHERE realm_id IS NOT NULL;
+
+-- Index for type filtering
+CREATE INDEX IF NOT EXISTS idx_artifacts_type
+  ON artifacts (type);
+
+-- Index for starred items
+CREATE INDEX IF NOT EXISTS idx_artifacts_starred
+  ON artifacts (license_key, starred)
+  WHERE starred = true;
+
+-- Index for recent artifacts
+CREATE INDEX IF NOT EXISTS idx_artifacts_created_at
+  ON artifacts (license_key, created_at DESC);
+
+-- Row-Level Security (service role only)
+ALTER TABLE artifacts ENABLE ROW LEVEL SECURITY;
+
+-- Updated-at trigger for artifacts
+CREATE TRIGGER set_artifacts_updated_at
+  BEFORE UPDATE ON artifacts
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();

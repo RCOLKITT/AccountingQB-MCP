@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
-import { getAdminSession } from "@/lib/admin-auth";
+import { currentUser } from "@clerk/nextjs/server";
 import { rescheduleTrialEmails } from "@/lib/emails/schedule-email";
 
 /**
@@ -11,11 +11,18 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ key: string }> }
 ) {
-  // Verify admin
-  const admin = await getAdminSession();
-  if (!admin) {
+  // Verify admin via Clerk
+  const user = await currentUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const role = (user.publicMetadata as { role?: string })?.role;
+  if (role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const adminEmail = user.emailAddresses[0]?.emailAddress || "admin";
 
   const { key } = await params;
   const { days, reason } = await req.json();
@@ -69,7 +76,7 @@ export async function POST(
   // Record the extension
   await supabase.from("trial_extensions").insert({
     license_key: key,
-    extended_by: admin.email,
+    extended_by: adminEmail,
     extension_days: days,
     old_trial_end: currentTrialEnd.toISOString(),
     new_trial_end: newTrialEnd.toISOString(),
@@ -80,7 +87,7 @@ export async function POST(
   await rescheduleTrialEmails(key, license.email, license.tier, newTrialEnd);
 
   console.log(
-    `Trial extended for ${key}: +${days} days by ${admin.email}`
+    `Trial extended for ${key}: +${days} days by ${adminEmail}`
   );
 
   return NextResponse.json({
