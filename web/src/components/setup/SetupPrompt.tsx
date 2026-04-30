@@ -13,14 +13,20 @@ export function SetupPrompt({
   hasClaudeConfigured = false,
   hasQBConnected = false,
 }: SetupPromptProps) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"prompt" | "terminal" | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
 
-  const setupPrompt = `Configure AccountingQB MCP server with this license key: ${licenseKey}
+  const setupPrompt = `I want to set up AccountingQB, an MCP server that connects QuickBooks to Claude Desktop. My license key is: ${licenseKey}
 
-Read my Claude Desktop config file at ~/Library/Application Support/Claude/claude_desktop_config.json (or %APPDATA%\\Claude\\claude_desktop_config.json on Windows).
+Please help me set it up. Pick whichever option works in your current environment:
 
-Add this to the mcpServers object (merge with existing servers if any):
+OPTION A — If you have filesystem access (Claude Desktop/Claude Code):
+
+1. Read my Claude Desktop config file:
+   - macOS: ~/Library/Application Support/Claude/claude_desktop_config.json
+   - Windows: %APPDATA%\\Claude\\claude_desktop_config.json
+2. If it doesn't exist, create it with: {"mcpServers": {}}
+3. Parse it as JSON and merge this entry into mcpServers (preserve all existing servers):
 
 "accountingqb": {
   "command": "uvx",
@@ -30,12 +36,28 @@ Add this to the mcpServers object (merge with existing servers if any):
   }
 }
 
-Write the updated config, then tell me to restart Claude Desktop with Cmd+Q (not just close the window).`;
+4. Write the file back as valid JSON (pretty-printed, 2-space indent)
+5. Tell me to fully quit Claude Desktop with Cmd+Q (macOS) or right-click tray → Quit (Windows). Closing the window is NOT enough.
+
+OPTION B — If you can't access my filesystem (Cowork mode or claude.ai web):
+
+Tell me to run this in my terminal:
+  uvx accountingqb-setup --license-key ${licenseKey}
+
+Or give me manual instructions to edit the config file myself.`;
+
+  const terminalCommand = `uvx accountingqb-setup --license-key ${licenseKey}`;
 
   const copyPrompt = async () => {
     await navigator.clipboard.writeText(setupPrompt);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
+    setCopied("prompt");
+    setTimeout(() => setCopied(null), 3000);
+  };
+
+  const copyTerminal = async () => {
+    await navigator.clipboard.writeText(terminalCommand);
+    setCopied("terminal");
+    setTimeout(() => setCopied(null), 3000);
   };
 
   const allComplete = hasClaudeConfigured && hasQBConnected;
@@ -102,7 +124,7 @@ Write the updated config, then tell me to restart Claude Desktop with Cmd+Q (not
           onClick={copyPrompt}
           className="flex-1 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:shadow-cyan-500/40"
         >
-          {copied ? (
+          {copied === "prompt" ? (
             <span className="flex items-center justify-center gap-2">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -155,7 +177,26 @@ Write the updated config, then tell me to restart Claude Desktop with Cmd+Q (not
           </li>
         </ol>
         <p className="mt-3 text-xs text-gray-500">
-          Note: This only works in the Desktop app, not claude.ai web.
+          Note: This works best in the Claude Desktop app or Claude Code.
+        </p>
+      </div>
+
+      {/* Terminal alternative */}
+      <div className="mt-4 rounded-xl bg-white/[0.03] p-4">
+        <h4 className="text-sm font-medium text-white mb-2">Or run in Terminal:</h4>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 rounded-lg bg-black/40 px-3 py-2 text-sm text-cyan-400 font-mono overflow-x-auto">
+            {terminalCommand}
+          </code>
+          <button
+            onClick={copyTerminal}
+            className="shrink-0 rounded-lg border border-white/10 px-3 py-2 text-sm text-gray-400 hover:bg-white/5 hover:text-white transition"
+          >
+            {copied === "terminal" ? "Copied!" : "Copy"}
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-gray-500">
+          Requires <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">uv</a> installed.
         </p>
       </div>
 
