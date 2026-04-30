@@ -25,6 +25,7 @@ from .config import (
     validate_round_trip,
     write_config,
 )
+from .doctor import run_doctor
 from .license import validate_license
 from .paths import get_config_path, get_os_name, get_restart_instruction
 
@@ -96,6 +97,12 @@ def main(
         "--skip-validation",
         help="Skip server-side license validation",
     ),
+    doctor: bool = typer.Option(
+        False,
+        "--doctor",
+        "-d",
+        help="Run diagnostic checks on your AccountingQB setup",
+    ),
     version: bool = typer.Option(
         False,
         "--version",
@@ -122,6 +129,11 @@ def main(
 
     console.print(f"[dim]Detected:[/dim] {os_name}")
     console.print(f"[dim]Config:[/dim] {config_path}")
+
+    # Doctor check
+    if doctor:
+        do_doctor(config_path)
+        raise typer.Exit(0)
 
     # Status check
     if status:
@@ -323,6 +335,45 @@ def do_uninstall(config_path: Path, yes: bool, dry_run: bool):
         title="Next Step",
         border_style="green"
     ))
+
+
+def do_doctor(config_path: Path):
+    """Run diagnostic checks."""
+    console.print()
+    console.print("[bold cyan]AccountingQB Doctor[/bold cyan]")
+    console.print("Running diagnostic checks...")
+    console.print()
+
+    results = run_doctor(config_path)
+
+    passed = 0
+    failed = 0
+
+    for result in results:
+        if result.passed:
+            console.print(f"[green]✓[/green] {result.name}")
+            console.print(f"  [dim]{result.message}[/dim]")
+            passed += 1
+        else:
+            console.print(f"[red]✗[/red] {result.name}")
+            console.print(f"  [red]{result.message}[/red]")
+            if result.details:
+                console.print(f"  [dim]{result.details}[/dim]")
+            if result.fix:
+                console.print(f"  [yellow]Fix:[/yellow] {result.fix}")
+            failed += 1
+        console.print()
+
+    # Summary
+    console.print("─" * 40)
+    if failed == 0:
+        console.print(f"[green]All {passed} checks passed![/green]")
+        console.print()
+        console.print("[dim]Your AccountingQB setup looks healthy.[/dim]")
+    else:
+        console.print(f"[yellow]{passed} passed, {failed} failed[/yellow]")
+        console.print()
+        console.print("[dim]Fix the issues above and run --doctor again.[/dim]")
 
 
 if __name__ == "__main__":
