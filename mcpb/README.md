@@ -2,6 +2,24 @@
 
 91 AI tools connecting Claude to your QuickBooks Online. Reports, reconciliation, tax prep, anomaly detection — all through natural conversation.
 
+## Quick Setup
+
+```sh
+uvx accountingqb-setup --license-key YOUR_LICENSE_KEY
+```
+
+Get your license key at [accountingqb.com](https://accountingqb.com)
+
+Then restart Claude Desktop (Cmd+Q on macOS, not just close the window).
+
+### Troubleshooting
+
+```sh
+uvx accountingqb-setup --doctor
+```
+
+Runs 7 diagnostic checks: uv installed, config exists, valid JSON, AccountingQB configured, license valid, QuickBooks connected, server starts.
+
 ## Features
 
 - **15 Reports & Analysis** — P&L, Balance Sheet, Cash Flow, Trial Balance, AR/AP Aging, and more
@@ -10,71 +28,38 @@
 - **8 Smart Bookkeeping** — Auto-categorization, duplicate detection, anomaly flagging, unknown vendor cleanup
 - **4 Cash Flow Tools** — Runway calculator, burn rate, cash flow forecasting
 
-## Getting Started
-
-1. **Get a license key** at [accountingqb.com](https://accountingqb.com)
-2. **Install this extension** in Claude Desktop
-3. **Enter your license key** when prompted
-4. **Connect QuickBooks** — click the link when Claude prompts you
-5. **Start asking questions** like "Show me my P&L for last quarter"
-
-## Privacy Policy
-
-AccountingQB is designed with privacy as a core principle.
-
-### Data Collection
-- **License Key**: We validate your license key against our servers
-- **OAuth Tokens**: Stored securely on our servers (encrypted at rest) to enable QuickBooks connectivity
-- **Usage Metrics**: Anonymous usage statistics for product improvement (no financial data)
-
-### Data NOT Collected
-- **Financial Data**: Your QuickBooks data is never transmitted to or stored on our servers
-- **Transaction Details**: All financial queries are processed directly between Claude and QuickBooks
-- **Personal Information**: Beyond your email for license management, we collect no personal data
-
-### Data Flow
-1. Your prompts go to Claude (Anthropic)
-2. Claude calls AccountingQB tools running locally
-3. Tools fetch data directly from QuickBooks API
-4. Results are returned to Claude
-5. Our servers are only involved for license validation and OAuth token storage
-
-### Security
-- OAuth tokens encrypted at rest using AES-256
-- HTTPS for all API communications
-- No plaintext credential storage
-- Regular security audits
-
-### Your Rights
-- Request deletion of your data at any time
-- Export your connected company list
-- Revoke QuickBooks access from the dashboard
-
-For the complete privacy policy, visit: https://accountingqb.com/privacy
-
-Contact: support@vasperacapital.com
-
 ## Example Prompts
 
-- "What's my burn rate and runway?"
+- "What's my P&L for this quarter?"
+- "Show me my burn rate and runway"
 - "Generate my Schedule C for tax prep"
 - "Find any duplicate transactions from last month"
-- "Show me expenses by category for Q4"
-- "Create an invoice for Acme Corp for $5,000 consulting"
+- "Create an invoice for Acme Corp for $5,000"
 - "Run my month-end close checklist"
 
-## Support
+## Privacy
 
-- Email: support@vasperacapital.com
-- Website: [accountingqb.com](https://accountingqb.com)
+Your QuickBooks data never touches our servers. All financial queries go directly from Claude to QuickBooks.
+
+We only store:
+- Your license key (for validation)
+- OAuth tokens (encrypted, for QuickBooks connectivity)
+- Anonymous usage metrics
+
+Full privacy policy: [accountingqb.com/privacy](https://accountingqb.com/privacy)
 
 ## Pricing
 
-- **Solopreneur** — $39/mo (1 company)
-- **Business** — $99/mo (up to 3 companies)
+- **Solopreneur** — $39/mo (2 companies)
+- **Business** — $99/mo (10 companies)
 - **Firm** — $299/mo (unlimited companies)
 
-All plans include a 14-day free trial with full access to all 91 tools.
+All plans include a 14-day free trial.
+
+## Support
+
+- Email: support@accountingqb.com
+- Website: [accountingqb.com](https://accountingqb.com)
 
 ---
 
