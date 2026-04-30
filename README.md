@@ -57,7 +57,7 @@ If you prefer to configure manually, add this to your Claude Desktop config:
 ```json
 {
   "mcpServers": {
-    "quickbooks": {
+    "accountingqb": {
       "command": "python3",
       "args": ["/path/to/AccountingQB-MCP/server.py"],
       "env": {
@@ -260,7 +260,7 @@ Your refresh token may have expired (100-day limit). Run `python setup.py` to re
 Check that your `QB_REALM_ID` matches the company you authorized. You can find it in the URL when logged into QuickBooks Online.
 
 **Tools not appearing in Claude Desktop**
-Restart Claude Desktop after running setup. Check that the `quickbooks` entry exists in your Claude Desktop config.
+Restart Claude Desktop after running setup. Check that the `accountingqb` entry exists in your Claude Desktop config.
 
 **Sandbox vs Production**
 If you're seeing test data, check that `QB_ENVIRONMENT` is set to `"production"` in your config.

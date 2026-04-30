@@ -32,4 +32,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.scripts]
-quickbooks-mcp = "server:mcp.run"
+accountingqb = "server:mcp.run"
