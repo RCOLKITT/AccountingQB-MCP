@@ -36,11 +36,59 @@ accountingqb-setup --license-key LK-... --dry-run
 # Check current state
 accountingqb-setup --status
 
+# Diagnose issues (checks config, license, QB connection, server)
+accountingqb-setup --doctor
+
 # Remove
 accountingqb-setup --uninstall
 
 # Test against a config file in a different location
 accountingqb-setup --config /tmp/test_config.json
+```
+
+## Doctor command
+
+The `--doctor` flag runs comprehensive diagnostic checks:
+
+1. **uv installed** - Checks if uvx is available in PATH
+2. **Config file exists** - Verifies Claude Desktop config file is present
+3. **Config valid JSON** - Ensures the config file is valid JSON
+4. **AccountingQB configured** - Checks if the MCP entry exists with a license key
+5. **License valid** - Validates the license key with the server
+6. **QuickBooks connected** - Checks if any QuickBooks companies are connected
+7. **MCP server starts** - Verifies the accountingqb package can load
+
+Example output:
+
+```
+AccountingQB Doctor
+Running diagnostic checks...
+
+✓ uv installed
+  uvx found at /usr/local/bin/uvx
+
+✓ Config file exists
+  /Users/you/Library/Application Support/Claude/claude_desktop_config.json
+
+✓ Config valid JSON
+  Config file is valid JSON
+
+✓ AccountingQB configured
+  License key: LK-****************************7F93
+
+✓ License valid
+  License valid (tier: solopreneur)
+
+✓ QuickBooks connected
+  1 company(ies): My Business LLC
+
+✓ MCP server starts
+  accountingqb package loads successfully
+
+────────────────────────────────────────
+All 7 checks passed!
+
+Your AccountingQB setup looks healthy.
 ```
 
 You can also pass the key via the `QB_LICENSE_KEY` environment variable
