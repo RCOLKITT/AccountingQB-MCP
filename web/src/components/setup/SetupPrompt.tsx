@@ -196,7 +196,7 @@ Or give me manual instructions to edit the config file myself.`;
           </button>
         </div>
         <p className="mt-2 text-xs text-gray-500">
-          Requires <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">uv</a> installed.
+          Requires <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">uv</a> installed. Run <code className="text-cyan-400">uvx accountingqb-setup --doctor</code> to troubleshoot.
         </p>
       </div>
 
