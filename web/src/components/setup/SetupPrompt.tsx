@@ -16,35 +16,21 @@ export function SetupPrompt({
   const [copied, setCopied] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
 
-  const setupPrompt = `I just signed up for AccountingQB and need help setting it up. Please configure the MCP server for me.
+  const setupPrompt = `Configure AccountingQB MCP server with this license key: ${licenseKey}
 
-My license key is: ${licenseKey}
+Read my Claude Desktop config file at ~/Library/Application Support/Claude/claude_desktop_config.json (or %APPDATA%\\Claude\\claude_desktop_config.json on Windows).
 
-Please:
-1. Add AccountingQB to my Claude MCP configuration file
-2. The config should use uvx to run the accountingqb package
-3. After updating the config, remind me to restart Claude Desktop
-4. Then help me verify the connection by calling the verify endpoint
+Add this to the mcpServers object (merge with existing servers if any):
 
-Here's the MCP config to add:
-{
-  "mcpServers": {
-    "accountingqb": {
-      "command": "uvx",
-      "args": ["accountingqb"],
-      "env": {
-        "QB_LICENSE_KEY": "${licenseKey}"
-      }
-    }
+"accountingqb": {
+  "command": "uvx",
+  "args": ["accountingqb"],
+  "env": {
+    "QB_LICENSE_KEY": "${licenseKey}"
   }
 }
 
-Config file locations:
-- macOS: ~/Library/Application Support/Claude/claude_desktop_config.json
-- Windows: %APPDATA%\\Claude\\claude_desktop_config.json
-- Linux: ~/.config/Claude/claude_desktop_config.json
-
-After setup, I'll need to connect my QuickBooks account at: https://accountingqb.com/api/oauth/start?license_key=${encodeURIComponent(licenseKey)}`;
+Write the updated config, then tell me to restart Claude Desktop with Cmd+Q (not just close the window).`;
 
   const copyPrompt = async () => {
     await navigator.clipboard.writeText(setupPrompt);
@@ -80,7 +66,7 @@ After setup, I'll need to connect my QuickBooks account at: https://accountingqb
         <div>
           <h3 className="text-lg font-semibold text-white">Get Started in 1 Minute</h3>
           <p className="mt-1 text-sm text-gray-400">
-            Copy this prompt into Claude Desktop to auto-configure everything.
+            Paste this into the <span className="text-white font-medium">Claude Desktop app</span> (not claude.ai web).
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm">
@@ -121,7 +107,7 @@ After setup, I'll need to connect my QuickBooks account at: https://accountingqb
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              Copied! Paste in Claude
+              Copied! Paste in Claude Desktop App
             </span>
           ) : (
             <span className="flex items-center justify-center gap-2">
@@ -157,17 +143,20 @@ After setup, I'll need to connect my QuickBooks account at: https://accountingqb
           </li>
           <li className="flex items-start gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs text-cyan-400">2</span>
-            <span>Open Claude Desktop and paste it</span>
+            <span>Open the <span className="text-white">Claude Desktop app</span> (download at <a href="https://claude.ai/download" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">claude.ai/download</a>)</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs text-cyan-400">3</span>
-            <span>Claude will configure everything automatically</span>
+            <span>Paste the prompt — Claude will edit your config file</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs text-cyan-400">4</span>
-            <span>Restart Claude Desktop when prompted</span>
+            <span>Quit (Cmd+Q) and reopen Claude Desktop</span>
           </li>
         </ol>
+        <p className="mt-3 text-xs text-gray-500">
+          Note: This only works in the Desktop app, not claude.ai web.
+        </p>
       </div>
 
       {!hasQBConnected && (
