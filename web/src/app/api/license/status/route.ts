@@ -1,11 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import {
+  getLicenseVerifyLimiter,
+  getClientIP,
+  rateLimitResponse,
+  isRateLimitingEnabled,
+} from "@/lib/ratelimit";
+
+// Log status check (fire-and-forget)
+function logStatusCheck(
+  supabase: ReturnType<typeof getSupabase>,
+  licenseKey: string | null,
+  action: string,
+  success: boolean,
+  ip: string,
+  tier?: string
+) {
+  supabase
+    .from("event_logs")
+    .insert({
+      event_type: "license_status",
+      license_key: licenseKey,
+      action,
+      payload: { ip, tier },
+      success,
+    })
+    .then(() => {})
+    .catch(() => {});
+}
 
 /**
  * GET /api/license/status
  * Get license status including QuickBooks connections.
  */
 export async function GET(req: NextRequest) {
+  const ip = getClientIP(req);
+
+  // Rate limit by IP
+  if (isRateLimitingEnabled()) {
+    const { success, reset } = await getLicenseVerifyLimiter().limit(ip);
+    if (!success) {
+      return rateLimitResponse(reset);
+    }
+  }
+
   const { searchParams } = req.nextUrl;
   const licenseKey = searchParams.get("license_key");
 
@@ -26,6 +64,7 @@ export async function GET(req: NextRequest) {
     .single();
 
   if (licenseError || !license) {
+    logStatusCheck(supabase, licenseKey, "not_found", false, ip);
     return NextResponse.json(
       { error: "License key not found" },
       { status: 404 }
@@ -44,6 +83,7 @@ export async function GET(req: NextRequest) {
     .select("milestone, completed_at")
     .eq("license_key", licenseKey);
 
+  logStatusCheck(supabase, licenseKey, "status_retrieved", true, ip, license.tier);
   return NextResponse.json({
     license: {
       tier: license.tier,
