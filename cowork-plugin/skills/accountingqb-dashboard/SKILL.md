@@ -1,11 +1,11 @@
 ---
 name: accountingqb-dashboard
-description: Renders the AccountingQB living dashboard artifact in the user's Cowork sidebar — a rich, persistent UI for QuickBooks data with tabs for P&L, cash flow, receivables, payables, transactions, taxes, and books health, plus an "Ask AccountingQB" chat panel powered by sample() and sendPrompt(). Use this skill when the user says "open accountingqb", "show me my dashboard", "open my books", "accountingqb dashboard", "what's my financial picture", "how are my books doing", or any general invocation that wants a visual overview rather than a single report. Also use when the user says "refresh dashboard" or "reload my books".
+description: Renders the AccountingQB living dashboard artifact in the user's Cowork sidebar — a rich, persistent UI for QuickBooks data with tabs for P&L, cash flow, receivables, payables, transactions, taxes, and books health, plus an "Ask AccountingQB" chat panel. Use this skill when the user says "open accountingqb", "show me my dashboard", "open my books", "accountingqb dashboard", "what's my financial picture", "how are my books doing", or any general invocation that wants a visual overview rather than a single report. Also use when the user says "refresh dashboard" or "reload my books".
 ---
 
 # AccountingQB Dashboard
 
-You render the AccountingQB living dashboard artifact — a single Cowork artifact that consolidates P&L, cash flow, receivables, payables, transactions, tax estimation, and books-health into one persistent view. The artifact is interactive: tabs are clickable, period selectors trigger re-fetches via `window.cowork.callMcpTool()`, and the Ask AccountingQB chat panel handles natural-language Q&A and action commands.
+You render the AccountingQB living dashboard artifact — a single Cowork artifact that consolidates P&L, cash flow, receivables, payables, transactions, tax estimation, and books-health into one persistent view.
 
 ## When to render the artifact
 
@@ -18,28 +18,26 @@ Trigger on any of:
 ## How to render
 
 1. Read the artifact template from `references/artifact-template.html`.
-2. Pull a starter snapshot of QB data using these tools in parallel:
-   - `qb_company_info`
-   - `qb_profit_loss` for current month-to-date and year-to-date
-   - `qb_runway_calculator`
-   - `qb_monthly_burn_rate` with `months_back: 6`
-   - `qb_account_balance` for primary checking
-   - `qb_uncategorized_transactions` (last 30 days)
-3. Pass that snapshot as `window.HEARTH_DATA` (yes, the artifact uses the same global name as Hearth — the artifact ID keeps them separate) injected into the template.
-4. Call `mcp__cowork__create_artifact` (or `update_artifact` if `accountingqb-dashboard` already exists) with the populated HTML.
-5. Tell the user: *"Your AccountingQB dashboard is open in the sidebar."* — one short sentence. Do not narrate the dashboard contents.
+2. Call `mcp__cowork__create_artifact` (or `update_artifact` if `accountingqb-dashboard` already exists) with the HTML template directly. **Do not pre-fetch any QB data** — the artifact handles connection checking and data loading automatically.
+3. Tell the user: *"Your AccountingQB dashboard is open in the sidebar."* — one short sentence. Do not narrate the dashboard contents.
+
+The artifact will:
+- **Auto-detect connection status** and show a welcome/setup screen if QuickBooks isn't connected
+- **Guide new users** through setup with clear steps (install, license, connect QB, add to Claude)
+- **Load data automatically** once connected, showing KPIs, P&L, and books health
 
 ## How the artifact behaves
 
-- **Live data fetching**: each tab calls `window.cowork.callMcpTool('mcp__accountingqb__qb_*', {...})` directly to fetch fresh data on click. The skill's only job at render time is the initial snapshot.
-- **Markdown rendering**: QuickBooks MCP tools return markdown strings. The artifact has an inline markdown parser that renders these natively. No client-side parsing of numbers is needed — let the markdown be the source of truth.
-- **Period selector**: P&L and Cash Flow tabs have day/week/month/quarter/half/year selectors that call `qb_profit_loss` or `qb_cash_flow` with the appropriate date range.
-- **Ask AccountingQB chat panel**: same intent-router pattern as Hearth's chat panel. Quick lookups go to `window.cowork.sample()`. Action commands (create invoice, reclassify transaction, etc.) route to `sendPrompt()` which fires the existing AccountingQB skills.
-- **Reload button**: the artifact's view header has a built-in Reload button. Each reload re-runs all `callMcpTool` calls to refresh.
+- **Connection check**: On load, the artifact tests the MCP connection. If not connected, it shows a friendly setup guide with step-by-step instructions. Users can click "Retry" after completing setup.
+- **Live data fetching**: Each tab calls `window.cowork.callMcpTool()` directly to fetch fresh data on click.
+- **Dynamic company name**: The company name is fetched from QuickBooks and displayed in the header.
+- **Markdown rendering**: QuickBooks MCP tools return markdown strings. The artifact parses and renders tables, headers, and lists natively.
+- **Period selector**: P&L and Cash Flow tabs have MTD/QTD/YTD/Prior Year selectors.
+- **Ask AccountingQB chat panel**: Quick lookups go to `window.cowork.sample()`. Action commands (create invoice, reclassify transaction, etc.) route to `window.cowork.sendPrompt()` which fires the existing AccountingQB skills.
 
 ## When the user asks for a specific report inside the chat panel
 
-The `accountingqb-accounting`, `accountingqb-bookkeeping`, and `accountingqb-tax-prep` skills already handle these. The dashboard skill is the rendering layer; the existing skills are the action layer. When chat panel routes to `sendPrompt()`, the appropriate sibling skill picks it up.
+The `accountingqb-accounting`, `accountingqb-bookkeeping`, and `accountingqb-tax-prep` skills already handle these. The dashboard skill is the rendering layer; the existing skills are the action layer. When the chat panel routes to `sendPrompt()`, the appropriate sibling skill picks it up.
 
 ## Sister product
 
