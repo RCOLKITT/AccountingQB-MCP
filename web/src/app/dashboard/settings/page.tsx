@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 interface UserProfile {
@@ -19,13 +19,15 @@ interface UserProfile {
 
 function SettingsContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const licenseKey = searchParams.get("key");
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [showRotateModal, setShowRotateModal] = useState(false);
+  const [rotateLoading, setRotateLoading] = useState(false);
+  const [newKey, setNewKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (licenseKey) {
@@ -70,6 +72,30 @@ function SettingsContent() {
       alert("Network error");
     } finally {
       setCancelLoading(false);
+    }
+  };
+
+  const handleRotateKey = async () => {
+    setRotateLoading(true);
+    try {
+      const res = await fetch("/api/license/rotate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ license_key: licenseKey, reason: "user_requested" }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.new_key) {
+        setNewKey(data.new_key);
+      } else {
+        alert(data.error || "Failed to rotate key");
+        setShowRotateModal(false);
+      }
+    } catch {
+      alert("Network error");
+      setShowRotateModal(false);
+    } finally {
+      setRotateLoading(false);
     }
   };
 
@@ -286,6 +312,28 @@ function SettingsContent() {
             )}
           </div>
 
+          {/* Security */}
+          <div className="bg-[#131a2e] rounded-xl border border-white/10 p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              Security
+            </h3>
+            <p className="text-gray-400 mb-4">
+              If you believe your license key has been compromised, you can rotate it to generate a new one. Your old key will be immediately invalidated.
+            </p>
+            <div className="flex items-center justify-between py-3 border-t border-white/5">
+              <div>
+                <div className="text-white font-medium">Rotate License Key</div>
+                <div className="text-gray-500 text-sm">Generate a new key and invalidate the current one</div>
+              </div>
+              <button
+                onClick={() => setShowRotateModal(true)}
+                className="px-4 py-2 bg-yellow-500/10 text-yellow-400 rounded-lg hover:bg-yellow-500/20 transition"
+              >
+                Rotate Key
+              </button>
+            </div>
+          </div>
+
           {/* Support */}
           <div className="bg-[#131a2e] rounded-xl border border-white/10 p-6">
             <h3 className="text-lg font-semibold text-white mb-4">
@@ -331,6 +379,75 @@ function SettingsContent() {
                 {cancelLoading ? "Cancelling..." : "Yes, Cancel"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rotate Key Modal */}
+      {showRotateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-[#131a2e] rounded-xl border border-white/10 p-6 w-full max-w-md mx-4">
+            {newKey ? (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-white">Key Rotated Successfully</h3>
+                </div>
+                <p className="text-gray-400 mb-4">
+                  Your new license key is below. Copy it and update your local config:
+                </p>
+                <div className="bg-black/30 rounded-lg p-4 mb-4">
+                  <code className="text-cyan-400 font-mono text-sm break-all select-all">
+                    {newKey}
+                  </code>
+                </div>
+                <p className="text-yellow-400 text-sm mb-6">
+                  Run <code className="bg-yellow-500/10 px-1 rounded">accountingqb setup</code> to update your local configuration with the new key.
+                </p>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(newKey);
+                    window.location.href = `/dashboard/settings?key=${newKey}`;
+                  }}
+                  className="w-full py-2 rounded-lg bg-cyan-500 text-white hover:bg-cyan-600"
+                >
+                  Copy Key & Continue
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-white">Rotate License Key?</h3>
+                </div>
+                <p className="text-gray-400 mb-6">
+                  This will generate a new license key and immediately invalidate your current one. You'll need to update your local configuration with the new key.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowRotateModal(false)}
+                    className="flex-1 py-2 rounded-lg bg-white/5 text-gray-300 hover:bg-white/10"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleRotateKey}
+                    disabled={rotateLoading}
+                    className="flex-1 py-2 rounded-lg bg-yellow-500 text-black font-medium hover:bg-yellow-400 disabled:opacity-50"
+                  >
+                    {rotateLoading ? "Rotating..." : "Rotate Key"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
