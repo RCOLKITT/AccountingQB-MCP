@@ -120,6 +120,8 @@ body{font-family:'Inter',-apple-system,'Helvetica Neue',sans-serif;background:va
 .status-text{font-size:13px;color:var(--text-muted)}
 .retry-btn{padding:8px 16px;background:linear-gradient(135deg,#22d3ee,#3b82f6);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;margin-left:10px}
 .retry-btn:hover{opacity:0.9}
+.get-started-btn{display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#22d3ee,#3b82f6);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;margin-bottom:20px;box-shadow:0 4px 20px rgba(34,211,238,0.3)}
+.get-started-btn:hover{opacity:0.9;transform:translateY(-1px)}
 </style>
 </head>
 <body>
@@ -144,36 +146,30 @@ body{font-family:'Inter',-apple-system,'Helvetica Neue',sans-serif;background:va
 <p class="tagline">Your AI-powered QuickBooks dashboard. Let's get you connected.</p>
 
 <div class="steps">
-<h2>Setup Steps</h2>
+<h2>Get Started</h2>
 <div class="step">
 <div class="step-num" id="step1-num">1</div>
 <div class="step-content">
-<h3>Install AccountingQB</h3>
-<p>Run this in your terminal:<br><code>pip install accountingqb-mcp</code></p>
+<h3>Create your account</h3>
+<p>Sign up for AccountingQB and start your free trial. No credit card required.</p>
 </div>
 </div>
 <div class="step">
 <div class="step-num" id="step2-num">2</div>
 <div class="step-content">
-<h3>Get your license key</h3>
-<p>Visit <a href="https://accountingqb.com" target="_blank">accountingqb.com</a> to get your license key, or start a free trial.</p>
+<h3>Connect QuickBooks</h3>
+<p>Securely link your QuickBooks Online account with one click.</p>
 </div>
 </div>
 <div class="step">
 <div class="step-num" id="step3-num">3</div>
 <div class="step-content">
-<h3>Connect to QuickBooks</h3>
-<p>Run <code>accountingqb setup</code> and follow the prompts to connect your QuickBooks Online account.</p>
-</div>
-</div>
-<div class="step">
-<div class="step-num" id="step4-num">4</div>
-<div class="step-content">
-<h3>Add to Claude</h3>
-<p>Run <code>accountingqb doctor</code> to verify your setup and get the MCP config for Claude Desktop or Cowork.</p>
+<h3>You're done!</h3>
+<p>Come back here and click Retry to load your financial dashboard.</p>
 </div>
 </div>
 </div>
+<a href="https://accountingqb.com/setup" target="_blank" class="get-started-btn">Get Started Free</a>
 
 <div class="status-bar">
 <div class="status-dot" id="status-dot"></div>
@@ -669,7 +665,6 @@ async function checkConnection(){
     markStep(1, true);
     markStep(2, true);
     markStep(3, true);
-    markStep(4, true);
 
     // Update company name in UI
     const brandSub = document.querySelector('.brand .sub');
