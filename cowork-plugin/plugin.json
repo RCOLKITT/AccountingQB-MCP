@@ -1,12 +1,19 @@
 {
   "name": "AccountingQB",
   "version": "2.0.0",
-  "description": "91 tools connecting Claude to your QuickBooks Online. Run reports, reconcile books, prep for taxes, detect anomalies — all through natural conversation.",
+  "description": "91 tools connecting Claude to your QuickBooks Online. Run reports, reconcile books, prep for taxes, detect anomalies \u2014 all through natural conversation.",
   "author": "Ryan Colkitt",
   "contact": "ryan@vasperacapital.com",
   "homepage": "https://github.com/RCOLKITT/AccountingQB-MCP",
-  "categories": ["accounting", "finance", "tax", "bookkeeping", "small-business"],
+  "categories": [
+    "accounting",
+    "finance",
+    "tax",
+    "bookkeeping",
+    "small-business"
+  ],
   "skills": [
+    "skills/accountingqb-dashboard",
     "skills/accountingqb-accounting",
     "skills/accountingqb-tax-prep",
     "skills/accountingqb-bookkeeping"
@@ -19,6 +26,8 @@
     }
   ],
   "requirements": {
-    "connectors": ["accountingqb"]
+    "connectors": [
+      "accountingqb"
+    ]
   }
 }

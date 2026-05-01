@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AccountingQB</title>
+<style>
+:root{color-scheme:dark;--bg:#0a0e1a;--bg-2:#0f1629;--card:#131a2e;--border:rgba(255,255,255,0.08);--border-glow:rgba(59,130,246,0.3);--text:#f1f5f9;--text-muted:#94a3b8;--text-dim:#64748b;--cyan:#22d3ee;--blue:#3b82f6;--indigo:#6366f1;--green:#10b981;--green-bg:rgba(16,185,129,0.12);--red:#ef4444;--red-bg:rgba(239,68,68,0.12);--warn:#f59e0b;--warn-bg:rgba(245,158,11,0.12)}
+*{box-sizing:border-box}
+body{font-family:'Inter',-apple-system,'Helvetica Neue',sans-serif;background:var(--bg);color:var(--text);margin:0;padding:0;line-height:1.5;font-size:14px;-webkit-font-smoothing:antialiased}
+.app{max-width:1400px;margin:0 auto;padding:14px}
+.nav{display:flex;align-items:center;gap:14px;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:16px;letter-spacing:-0.01em}
+.brand .gradient{background:linear-gradient(135deg,#22d3ee 0%,#3b82f6 50%,#6366f1 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.brand .sub{font-size:11px;color:var(--text-muted);font-weight:400;margin-left:4px}
+.tabs{display:flex;gap:3px;flex:1;margin-left:6px;flex-wrap:wrap}
+.tab{padding:6px 11px;font-size:13px;color:var(--text-muted);border-radius:6px;cursor:pointer;font-weight:500;border:none;background:transparent;font-family:inherit}
+.tab.active{background:linear-gradient(135deg,rgba(34,211,238,0.18),rgba(59,130,246,0.18),rgba(99,102,241,0.18));color:var(--text);box-shadow:inset 0 0 0 1px rgba(59,130,246,0.3)}
+.tab:hover:not(.active){background:rgba(255,255,255,0.04);color:var(--text)}
+.runway-pill{padding:5px 11px;font-size:12px;background:var(--green-bg);color:var(--green);border-radius:999px;font-weight:600;border:1px solid rgba(16,185,129,0.25)}
+.runway-pill.warn{background:var(--warn-bg);color:var(--warn);border-color:rgba(245,158,11,0.25)}
+.runway-pill.danger{background:var(--red-bg);color:var(--red);border-color:rgba(239,68,68,0.25)}
+.body{display:grid;grid-template-columns:1fr 320px;gap:14px}
+.main{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative;overflow:hidden}
+.card::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(59,130,246,0.3),transparent);pointer-events:none}
+.card-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.card-h h3{font-size:14px;font-weight:600;color:var(--text);margin:0;letter-spacing:-0.005em}
+.card-h .small{font-size:12px;color:var(--text-muted)}
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi{background:rgba(15,22,41,0.6);border:1px solid var(--border);padding:14px 16px;border-radius:10px;position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;top:0;left:0;width:2px;height:100%;background:linear-gradient(180deg,#22d3ee,#3b82f6,#6366f1);opacity:0.6}
+.kpi-l{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:600;margin-bottom:6px}
+.kpi-v{font-size:22px;font-weight:700;line-height:1.1;background:linear-gradient(135deg,#22d3ee 0%,#3b82f6 50%,#6366f1 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-0.01em}
+.kpi-s{font-size:11px;color:var(--green);margin-top:6px}
+.kpi-s.neg{color:var(--red)}
+.period-tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.period-tab{padding:5px 11px;font-size:11px;color:var(--text-muted);border-radius:6px;cursor:pointer;font-weight:600;border:1px solid var(--border);background:transparent;text-transform:uppercase;letter-spacing:.04em;font-family:inherit}
+.period-tab.active{background:linear-gradient(135deg,rgba(34,211,238,0.2),rgba(59,130,246,0.2));color:var(--text);border-color:rgba(59,130,246,0.4)}
+.md-content{font-size:13px;line-height:1.65;color:var(--text)}
+.md-content h1{font-size:17px;color:var(--text);font-weight:600;margin:14px 0 8px;letter-spacing:-0.01em}
+.md-content h2{font-size:14px;color:var(--text);font-weight:600;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.md-content h3{font-size:12px;color:var(--cyan);font-weight:600;margin:10px 0 4px;text-transform:uppercase;letter-spacing:.06em}
+.md-content h4{font-size:12px;color:var(--text-muted);font-weight:600;margin:8px 0 4px;padding-left:8px}
+.md-content p{margin:6px 0;color:var(--text-muted)}
+.md-content strong{color:var(--text);font-weight:600}
+.md-content ul{margin:6px 0;padding-left:22px;color:var(--text-muted)}
+.md-content li{margin:3px 0}
+.md-content table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px}
+.md-content th{background:rgba(15,22,41,0.8);text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);font-weight:600;color:var(--cyan);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.md-content td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.04);font-variant-numeric:tabular-nums;color:var(--text)}
+.md-content td:not(:first-child){text-align:right}
+.md-content code{background:rgba(34,211,238,0.1);padding:1px 5px;border-radius:3px;font-size:12px;color:var(--cyan)}
+.md-content blockquote{border-left:2px solid var(--cyan);padding:6px 14px;background:rgba(34,211,238,0.05);border-radius:6px;margin:10px 0;color:var(--text-muted)}
+.empty{text-align:center;padding:30px 18px;color:var(--text-muted)}
+.empty .e-h{color:var(--text);font-size:16px;margin-bottom:8px;font-weight:600}
+.empty .e-p{font-size:13px;line-height:1.6}
+.loading{text-align:center;padding:30px 18px;color:var(--text-muted);font-style:italic;font-size:13px}
+.loading::after{content:"";display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.1);border-top-color:var(--cyan);border-radius:50%;animation:spin 0.8s linear infinite;margin-left:10px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.chat{background:var(--card);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;min-height:560px;position:relative;overflow:hidden}
+.chat::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,238,0.4),rgba(59,130,246,0.4),rgba(99,102,241,0.4),transparent);pointer-events:none}
+.chat-h{padding:13px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text);font-size:14px;letter-spacing:-0.005em}
+.chat-h .dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px rgba(34,211,238,0.6)}
+.chat-h .modes{margin-left:auto;display:flex;align-items:center;gap:8px;font-weight:500;font-size:11px;color:var(--text-muted)}
+.toggle{position:relative;display:inline-block;width:32px;height:18px}
+.toggle input{opacity:0;width:0;height:0}
+.toggle .slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.06);transition:.2s;border-radius:18px;border:1px solid var(--border)}
+.toggle .slider:before{position:absolute;content:"";height:12px;width:12px;left:2px;top:2px;background:var(--text-muted);transition:.2s;border-radius:50%}
+.toggle input:checked+.slider{background:linear-gradient(135deg,#22d3ee,#3b82f6);border-color:transparent}
+.toggle input:checked+.slider:before{transform:translateX(14px);background:#fff}
+.chat-msgs{flex:1;padding:12px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:380px}
+.msg-row{display:flex;flex-direction:column;gap:3px}
+.msg-row.u{align-items:flex-end}
+.msg-row.a{align-items:flex-start}
+.msg-meta{font-size:10px;color:var(--text-dim);font-weight:500;letter-spacing:.02em}
+.msg-meta .pill{padding:1px 6px;border-radius:4px;font-size:9px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.msg-meta .pill.q{background:rgba(34,211,238,0.15);color:var(--cyan)}
+.msg-meta .pill.d{background:linear-gradient(135deg,rgba(59,130,246,0.25),rgba(99,102,241,0.25));color:#a5b4fc}
+.msg{font-size:12px;line-height:1.55}
+.msg.u{background:linear-gradient(135deg,rgba(34,211,238,0.15),rgba(59,130,246,0.15));color:var(--text);padding:7px 11px;border-radius:10px 10px 2px 10px;max-width:90%;border:1px solid rgba(59,130,246,0.25)}
+.msg.a{background:rgba(255,255,255,0.04);color:var(--text);padding:7px 11px;border-radius:10px 10px 10px 2px;max-width:92%;border:1px solid var(--border)}
+.msg-hint{font-size:11px;color:var(--text-dim);font-style:italic;text-align:center;padding:8px}
+.chat-i{padding:10px 12px;border-top:1px solid var(--border)}
+.chat-input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;color:var(--text);background:rgba(15,22,41,0.6);outline:none;box-sizing:border-box}
+.chat-input::placeholder{color:var(--text-dim)}
+.chat-input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,211,238,0.15)}
+.chat-suggestions{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.chat-suggestion{font-size:11px;padding:5px 10px;border-radius:6px;background:rgba(255,255,255,0.04);color:var(--text-muted);border:1px solid var(--border);cursor:pointer;font-family:inherit}
+.chat-suggestion:hover{background:rgba(34,211,238,0.1);color:var(--cyan);border-color:rgba(34,211,238,0.3)}
+.action-log{padding:10px 12px;border-top:1px solid var(--border);background:rgba(10,14,26,0.5);border-radius:0 0 12px 12px;font-size:11px;color:var(--text-muted);max-height:120px;overflow-y:auto}
+.action-log .h{font-weight:600;color:var(--cyan);text-transform:uppercase;letter-spacing:.06em;font-size:10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.action-log .h button{background:transparent;border:0;color:var(--text-dim);cursor:pointer;font-size:10px;font-family:inherit}
+.action-log .empty-log{font-style:italic;font-size:11px}
+.action-log .log-row{padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;display:flex;justify-content:space-between;gap:8px}
+.action-log .log-row:last-child{border-bottom:none}
+.action-log .log-row .what{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.action-log .log-row .when{color:var(--text-dim);font-size:10px;flex-shrink:0}
+@media (max-width:1100px){.body{grid-template-columns:1fr}}
+@media (max-width:600px){.kpi-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="nav">
+<div class="brand">
+<svg viewBox="0 0 512 512" width="22" height="22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<defs>
+<linearGradient id="aqbg" x1="60" y1="60" x2="452" y2="452" gradientUnits="userSpaceOnUse">
+<stop offset="0%" stop-color="#22d3ee"/>
+<stop offset="40%" stop-color="#3b82f6"/>
+<stop offset="100%" stop-color="#6366f1"/>
+</linearGradient>
+</defs>
+<path d="M 210 108 A 148 148 0 1 1 209.99 108 Z M 210 164 A 92 92 0 1 0 210.01 164 Z" fill="url(#aqbg)" fill-rule="evenodd"/>
+<rect x="290" y="310" width="120" height="52" rx="26" fill="url(#aqbg)" transform="rotate(42, 350, 336)"/>
+<rect x="290" y="118" width="42" height="268" rx="4" fill="url(#aqbg)"/>
+<path d="M 311 118 L 360 118 A 62 62 0 0 1 360 242 L 311 242 Z" fill="url(#aqbg)"/>
+<path d="M 311 242 L 370 242 A 72 72 0 0 1 370 386 L 311 386 Z" fill="url(#aqbg)"/>
+<path d="M 318 148 L 348 148 A 34 34 0 0 1 348 216 L 318 216 Z" fill="#0a0e1a"/>
+<path d="M 318 268 L 355 268 A 42 42 0 0 1 355 364 L 318 364 Z" fill="#0a0e1a"/>
+</svg>
+<span class="gradient">AccountingQB</span>
+<span class="sub">NutriFitAI LLC</span>
+</div>
+<div class="tabs" role="tablist">
+<button class="tab active" data-tab="dashboard">Dashboard</button>
+<button class="tab" data-tab="pl">P&amp;L</button>
+<button class="tab" data-tab="cashflow">Cash Flow</button>
+<button class="tab" data-tab="receivables">A/R</button>
+<button class="tab" data-tab="payables">A/P</button>
+<button class="tab" data-tab="transactions">Transactions</button>
+<button class="tab" data-tab="tax">Tax</button>
+<button class="tab" data-tab="health">Health</button>
+</div>
+<span id="runway-pill" class="runway-pill">Loading…</span>
+</div>
+
+<div class="body">
+<div class="main">
+
+<div id="view-dashboard">
+<div class="card">
+<div class="card-h"><h3>At a glance</h3><span id="as-of" class="small"></span></div>
+<div class="kpi-grid">
+<div class="kpi"><div class="kpi-l">Cash on hand</div><div class="kpi-v" id="kpi-cash">—</div><div class="kpi-s" id="kpi-cash-s">loading</div></div>
+<div class="kpi"><div class="kpi-l">Net Income (YTD)</div><div class="kpi-v" id="kpi-net">—</div><div class="kpi-s" id="kpi-net-s">loading</div></div>
+<div class="kpi"><div class="kpi-l">Avg monthly burn</div><div class="kpi-v" id="kpi-burn">—</div><div class="kpi-s" id="kpi-burn-s">loading</div></div>
+<div class="kpi"><div class="kpi-l">Runway</div><div class="kpi-v" id="kpi-runway">—</div><div class="kpi-s" id="kpi-runway-s">loading</div></div>
+</div>
+</div>
+
+<div class="card">
+<div class="card-h"><h3>Profit &amp; Loss</h3><span class="small" id="pl-period-label">Year-to-date</span></div>
+<div id="dashboard-pl" class="md-content"><div class="loading">Loading P&amp;L</div></div>
+</div>
+
+<div class="card">
+<div class="card-h"><h3>Books health</h3><span class="small">Score &amp; cleanup items</span></div>
+<div id="dashboard-health" class="md-content"><div class="loading">Loading audit</div></div>
+</div>
+</div>
+
+<div id="view-pl" style="display:none">
+<div class="card">
+<div class="card-h"><h3>Profit &amp; Loss</h3><span class="small" id="pl-tab-period">Year-to-date</span></div>
+<div class="period-tabs" id="pl-period-tabs">
+<button class="period-tab" data-period="mtd">Month</button>
+<button class="period-tab" data-period="qtd">Quarter</button>
+<button class="period-tab active" data-period="ytd">Year</button>
+<button class="period-tab" data-period="prev_year">Prior Year</button>
+</div>
+<div id="pl-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+</div>
+
+<div id="view-cashflow" style="display:none">
+<div class="card">
+<div class="card-h"><h3>Cash flow statement</h3><span class="small">Year-to-date</span></div>
+<div id="cashflow-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Cash flow forecast</h3><span class="small">Next 90 days</span></div>
+<div id="cashflow-forecast" class="md-content"><div class="loading">Loading</div></div>
+</div>
+</div>
+
+<div id="view-receivables" style="display:none">
+<div class="card">
+<div class="card-h"><h3>Accounts Receivable aging</h3><span class="small">Who owes you</span></div>
+<div id="ar-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+</div>
+
+<div id="view-payables" style="display:none">
+<div class="card">
+<div class="card-h"><h3>Accounts Payable aging</h3><span class="small">Who you owe</span></div>
+<div id="ap-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+</div>
+
+<div id="view-transactions" style="display:none">
+<div class="card">
+<div class="card-h"><h3>Uncategorized transactions</h3><span class="small">Cleanup queue</span></div>
+<div id="uncat-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Recent activity</h3><span class="small">Last 90 days</span></div>
+<div id="recent-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+</div>
+
+<div id="view-tax" style="display:none">
+<div class="card">
+<div class="card-h"><h3>Quarterly tax estimate</h3><span class="small">Current quarter</span></div>
+<div id="tax-quarterly" class="md-content"><div class="loading">Loading</div></div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Schedule C summary</h3><span class="small">Year-to-date deductions</span></div>
+<div id="tax-schedulec" class="md-content"><div class="loading">Loading</div></div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Deduction finder</h3><span class="small">AI-spotted opportunities</span></div>
+<div id="tax-deductions" class="md-content"><div class="loading">Loading</div></div>
+</div>
+</div>
+
+<div id="view-health" style="display:none">
+<div class="card">
+<div class="card-h"><h3>Books health audit</h3><span class="small">Comprehensive cleanup score</span></div>
+<div id="health-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+</div>
+
+</div>
+
+<aside class="chat" aria-label="Ask AccountingQB">
+<div class="chat-h">
+<span class="dot"></span> Ask AccountingQB
+<div class="modes"><span>Deep</span><label class="toggle"><input type="checkbox" id="deep-mode-toggle"><span class="slider"></span></label></div>
+</div>
+<div class="chat-msgs" id="chat-msgs">
+<div class="msg-hint">Ask about your books. Quick lookups answer instantly. Actions route through AccountingQB skills.</div>
+</div>
+<div class="chat-i">
+<input id="chat-input" class="chat-input" placeholder="Ask a question or give a command..." aria-label="Ask AccountingQB">
+<div class="chat-suggestions">
+<button class="chat-suggestion" data-q="What's my profit this month?">P&amp;L this month</button>
+<button class="chat-suggestion" data-q="Who owes me money?">A/R</button>
+<button class="chat-suggestion" data-q="Create an invoice for $5,000 to Acme Corp">Try a command</button>
+</div>
+</div>
+<div class="action-log">
+<div class="h"><span>Recent actions</span><button onclick="clearActions()">Clear</button></div>
+<div id="action-log-list"><div class="empty-log">No actions yet — try giving a command.</div></div>
+</div>
+</aside>
+
+</div>
+</div>
+
+<script>window.HEARTH_DATA = window.HEARTH_DATA || {};</script>
+<script>
+const D = window.HEARTH_DATA || {};
+const NS = 'mcp__accountingqb__';
+
+function md2html(s){
+  if(!s) return '<div class="empty"><div class="e-p">No data returned.</div></div>';
+  if(typeof s !== 'string') s = (s.result || s.text || JSON.stringify(s));
+  s = s.replace(/\r\n/g, '\n');
+  s = s.replace(/((?:^\|.*\|\s*\n)+)/gm, (m) => {
+    const rows = m.trim().split('\n').map(r => r.replace(/^\||\|$/g,'').split('|').map(c => c.trim()));
+    if(rows.length < 2) return m;
+    const isSep = (r) => r.every(c => /^:?-+:?$/.test(c));
+    const sepIdx = rows.findIndex(isSep);
+    const header = sepIdx >= 0 ? rows[sepIdx-1] : null;
+    const data = sepIdx >= 0 ? rows.slice(sepIdx+1) : rows;
+    let out = '<table>';
+    if(header) out += '<thead><tr>' + header.map(c => '<th>' + escapeHtml(c) + '</th>').join('') + '</tr></thead>';
+    out += '<tbody>' + data.map(r => '<tr>' + r.map(c => '<td>' + inlineMd(c) + '</td>').join('') + '</tr>').join('') + '</tbody></table>';
+    return out;
+  });
+  s = s.replace(/^####\s+(.+)$/gm, '<h4>$1</h4>');
+  s = s.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
+  s = s.replace(/^##\s+(.+)$/gm, '<h2>$1</h2>');
+  s = s.replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
+  s = s.replace(/(?:^[-*]\s+.*\n?)+/gm, (m) => {
+    const items = m.trim().split('\n').map(line => '<li>' + inlineMd(line.replace(/^[-*]\s+/, '')) + '</li>').join('');
+    return '<ul>' + items + '</ul>';
+  });
+  s = s.replace(/^>\s+(.+)$/gm, '<blockquote>$1</blockquote>');
+  s = s.split(/\n{2,}/).map(block => {
+    if(block.match(/^<(h[1-6]|table|ul|blockquote)/)) return block;
+    if(!block.trim()) return '';
+    return '<p>' + inlineMd(block.replace(/\n/g, '<br>')) + '</p>';
+  }).join('\n');
+  return s;
+}
+function inlineMd(s){
+  s = escapeHtml(s);
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/`(.+?)`/g, '<code>$1</code>');
+  return s;
+}
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function periodRange(period){
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = today.getMonth();
+  const iso = (dt) => dt.toISOString().slice(0,10);
+  if(period === 'mtd') return [iso(new Date(y, m, 1)), iso(today)];
+  if(period === 'qtd') return [iso(new Date(y, Math.floor(m/3)*3, 1)), iso(today)];
+  if(period === 'ytd') return [iso(new Date(y, 0, 1)), iso(today)];
+  if(period === 'prev_year') return [iso(new Date(y-1, 0, 1)), iso(new Date(y-1, 11, 31))];
+  return [iso(new Date(y, 0, 1)), iso(today)];
+}
+
+async function call(tool, args){
+  if(!window.cowork || !window.cowork.callMcpTool){
+    return { error: 'cowork.callMcpTool not available — render this artifact inside Cowork.' };
+  }
+  try {
+    return await window.cowork.callMcpTool(NS + tool, args || {});
+  } catch(e){
+    return { error: e.message || String(e) };
+  }
+}
+
+function setContent(id, content, errMessage){
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(content && content.error){ el.innerHTML = '<div class="empty"><div class="e-p">' + escapeHtml(errMessage || 'Could not load data') + ' — ' + escapeHtml(content.error) + '</div></div>'; return; }
+  el.innerHTML = md2html(content);
+}
+
+function parseAmountFromMd(s, label){
+  if(typeof s !== 'string') s = (s && (s.result || s.text)) || '';
+  const re = new RegExp('\\*\\*' + label + '[:\\s]*\\**\\s*\\$?([\\-\\(\\)\\d,\\.]+)', 'i');
+  const m = s.match(re);
+  if(!m) return null;
+  const n = parseFloat(m[1].replace(/[\(\)$,]/g, ''));
+  return isNaN(n) ? null : n;
+}
+
+function parseRunwayMonthsFromMd(s){
+  if(typeof s !== 'string') s = (s && (s.result || s.text)) || '';
+  const m = s.match(/Runway:\s*([\d\.]+)\s*months/i);
+  return m ? parseFloat(m[1]) : null;
+}
+
+const fmt = n => n == null ? '—' : '$' + Math.round(Math.abs(n)).toLocaleString();
+const fmtSign = n => (n < 0 ? '-' : '') + fmt(n);
+
+async function loadDashboardKpis(){
+  const [start, end] = periodRange('ytd');
+  const [pl, runway] = await Promise.all([
+    call('qb_profit_loss', { start_date: start, end_date: end, summarize_by: 'Total' }),
+    call('qb_runway_calculator', {})
+  ]);
+  setContent('dashboard-pl', pl, 'Could not load P&L');
+  const plStr = (pl && pl.result) || '';
+  const runwayStr = (runway && runway.result) || '';
+  const netIncome = parseAmountFromMd(plStr, 'Net Income');
+  const cash = parseAmountFromMd(runwayStr, 'Cash on hand');
+  const burn = parseAmountFromMd(runwayStr, 'Net monthly burn');
+  const runMonths = parseRunwayMonthsFromMd(runwayStr);
+  document.getElementById('kpi-cash').textContent = cash != null ? fmt(cash) : '—';
+  document.getElementById('kpi-cash-s').textContent = cash != null ? 'across primary accounts' : 'no data';
+  document.getElementById('kpi-net').textContent = netIncome != null ? fmtSign(netIncome) : '—';
+  const netS = document.getElementById('kpi-net-s');
+  if(netIncome != null){
+    netS.textContent = netIncome >= 0 ? 'profitable YTD' : 'loss YTD';
+    netS.className = 'kpi-s' + (netIncome < 0 ? ' neg' : '');
+  } else { netS.textContent = 'no P&L data yet'; }
+  document.getElementById('kpi-burn').textContent = burn != null ? fmt(burn) : '—';
+  document.getElementById('kpi-burn-s').textContent = burn != null ? '90-day rolling' : 'no data';
+  document.getElementById('kpi-runway').textContent = runMonths != null ? runMonths.toFixed(1) + ' mo' : '—';
+  document.getElementById('kpi-runway-s').textContent = runMonths != null ? 'at current burn' : 'needs data';
+  const pill = document.getElementById('runway-pill');
+  if(runMonths == null){ pill.textContent = 'No data'; pill.className = 'runway-pill'; }
+  else if(runMonths < 3){ pill.textContent = runMonths.toFixed(1) + ' mo runway'; pill.className = 'runway-pill danger'; }
+  else if(runMonths < 12){ pill.textContent = runMonths.toFixed(1) + ' mo runway'; pill.className = 'runway-pill warn'; }
+  else { pill.textContent = runMonths.toFixed(1) + ' mo runway'; pill.className = 'runway-pill'; }
+  document.getElementById('as-of').textContent = 'As of ' + new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+}
+
+async function loadHealthSummary(){
+  const result = await call('qb_books_health_audit', { tax_year: String(new Date().getFullYear()) });
+  setContent('dashboard-health', result, 'Could not run audit');
+  setContent('health-content', result, 'Could not run audit');
+}
+
+const loaded = {};
+async function loadTab(tab){
+  if(loaded[tab]) return;
+  loaded[tab] = true;
+  if(tab === 'pl'){ await loadPL('ytd'); }
+  else if(tab === 'cashflow'){
+    const [start, end] = periodRange('ytd');
+    const [cf, fc] = await Promise.all([call('qb_cash_flow', { start_date: start, end_date: end }), call('qb_cash_flow_forecast', { months_forward: 3 })]);
+    setContent('cashflow-content', cf, 'Could not load cash flow');
+    setContent('cashflow-forecast', fc, 'Could not load forecast');
+  } else if(tab === 'receivables'){ setContent('ar-content', await call('qb_ar_aging', {}), 'Could not load A/R aging'); }
+  else if(tab === 'payables'){ setContent('ap-content', await call('qb_ap_aging', {}), 'Could not load A/P aging'); }
+  else if(tab === 'transactions'){
+    const [uncat, recent] = await Promise.all([call('qb_uncategorized_transactions', { max_results: 25 }), call('qb_search_transactions', { max_results: 30 })]);
+    setContent('uncat-content', uncat, 'Could not load uncategorized');
+    setContent('recent-content', recent, 'Could not load recent transactions');
+  } else if(tab === 'tax'){
+    const [q, sc, ded] = await Promise.all([call('qb_estimate_quarterly_tax', {}), call('qb_schedule_c_detailed', { tax_year: String(new Date().getFullYear()) }), call('qb_deduction_finder', {})]);
+    setContent('tax-quarterly', q, 'Could not estimate quarterly tax');
+    setContent('tax-schedulec', sc, 'Could not load Schedule C');
+    setContent('tax-deductions', ded, 'Could not run deduction finder');
+  }
+}
+
+async function loadPL(period){
+  const [start, end] = periodRange(period);
+  const result = await call('qb_profit_loss', { start_date: start, end_date: end, summarize_by: 'Total' });
+  setContent('pl-content', result, 'Could not load P&L');
+  const labels = {mtd:'Month-to-date', qtd:'Quarter-to-date', ytd:'Year-to-date', prev_year:'Prior year'};
+  document.getElementById('pl-tab-period').textContent = labels[period] || 'Year-to-date';
+  document.getElementById('pl-period-label').textContent = labels[period] || 'Year-to-date';
+}
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    ['dashboard','pl','cashflow','receivables','payables','transactions','tax','health'].forEach(v => {
+      document.getElementById('view-' + v).style.display = v === t.dataset.tab ? '' : 'none';
+    });
+    loadTab(t.dataset.tab);
+  });
+});
+
+document.querySelectorAll('#pl-period-tabs .period-tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('#pl-period-tabs .period-tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('pl-content').innerHTML = '<div class="loading">Loading</div>';
+    loadPL(t.dataset.period);
+  });
+});
+
+const ACTION_VERBS = ['create','reclassify','categorize','recategorize','delete','set ','update','import','export','add ','remove','push','rename','rebuild','apply','tag ','merge','split','archive','mark ','flag ','assign','move ','rerun','refresh','run ','build ','fetch','open ','generate','send','sync','reconcile','void','pay ','record','close ','match','file '];
+const ASK_STARTERS = ['where','what','how much','what\'s','show me','tell me','summarize','compare','why','when','who','do i','am i','is my','are my','should i','can you tell','how many','how is'];
+
+function classifyIntent(question){
+  const q = question.toLowerCase().trim();
+  for(const v of ACTION_VERBS){ if(q.startsWith(v) || q.includes(' ' + v)) return 'do'; }
+  for(const a of ASK_STARTERS){ if(q.startsWith(a)) return 'ask'; }
+  return 'ask';
+}
+
+const ACTION_LOG = JSON.parse(sessionStorage.getItem('aqb-actions') || '[]');
+function logAction(text){
+  ACTION_LOG.unshift({text, ts: new Date().toISOString()});
+  ACTION_LOG.splice(20);
+  try{ sessionStorage.setItem('aqb-actions', JSON.stringify(ACTION_LOG)); }catch(e){}
+  renderActionLog();
+}
+function clearActions(){ ACTION_LOG.length = 0; try{ sessionStorage.removeItem('aqb-actions'); }catch(e){} renderActionLog(); }
+function renderActionLog(){
+  const el = document.getElementById('action-log-list');
+  if(ACTION_LOG.length === 0){ el.innerHTML = '<div class="empty-log">No actions yet — try giving a command.</div>'; return; }
+  el.innerHTML = ACTION_LOG.slice(0,6).map(a => {
+    const t = new Date(a.ts);
+    const s = Math.round((Date.now() - t.getTime()) / 1000);
+    const ago = s < 60 ? s+'s ago' : s < 3600 ? Math.round(s/60)+'m ago' : s < 86400 ? Math.round(s/3600)+'h ago' : Math.round(s/86400)+'d ago';
+    return '<div class="log-row"><span class="what">' + escapeHtml(a.text.length > 50 ? a.text.slice(0,50)+'…' : a.text) + '</span><span class="when">' + ago + '</span></div>';
+  }).join('');
+}
+
+function appendMsg(role, content, mode){
+  const msgs = document.getElementById('chat-msgs');
+  const hint = msgs.querySelector('.msg-hint'); if(hint) hint.remove();
+  const row = document.createElement('div');
+  row.className = 'msg-row ' + (role === 'user' ? 'u' : 'a');
+  if(mode){
+    const meta = document.createElement('div');
+    meta.className = 'msg-meta';
+    if(mode === 'quick') meta.innerHTML = '<span class="pill q">⚡ QUICK</span>';
+    else if(mode === 'deep') meta.innerHTML = '<span class="pill d">→ DEEP</span>';
+    else if(mode === 'pending') meta.innerHTML = '<span class="pill d">→ SENT</span>';
+    row.appendChild(meta);
+  }
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role === 'user' ? 'u' : 'a');
+  div.textContent = content;
+  row.appendChild(div);
+  msgs.appendChild(row);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+async function askAQB(question){
+  const deepToggle = document.getElementById('deep-mode-toggle');
+  const forceDeep = deepToggle && deepToggle.checked;
+  const intent = forceDeep ? 'do' : classifyIntent(question);
+  appendMsg('user', question);
+  if(intent === 'do'){
+    if(typeof sendPrompt !== 'function'){ appendMsg('assistant', 'Cannot route — sendPrompt not available.', 'deep'); return; }
+    sendPrompt('AccountingQB: ' + question);
+    appendMsg('assistant', 'Routed to AccountingQB skills in main chat. Actions will execute and the dashboard will refresh on next reload.', 'pending');
+    logAction(question);
+    return;
+  }
+  if(!window.cowork || !window.cowork.sample){ appendMsg('assistant', 'Quick mode requires Cowork runtime.', 'quick'); return; }
+  const ctx = { product: 'AccountingQB', company: 'NutriFitAI LLC', as_of: new Date().toISOString().slice(0,10) };
+  const systemPrompt = 'You are AccountingQB, an accounting AI for QuickBooks Online users. Answer concisely (2-3 sentences). For data questions, suggest the user reload the dashboard or click the relevant tab — you cannot pull live QB data in quick mode. For action requests, suggest they toggle Deep mode. Question: "' + question + '"';
+  try {
+    const result = await window.cowork.sample(systemPrompt, [ctx]);
+    if(result && result.text) appendMsg('assistant', result.text, 'quick');
+    else appendMsg('assistant', 'Could not answer that. Try Deep mode for live data.', 'quick');
+  } catch(e){ appendMsg('assistant', 'Sorry — chat service unavailable.', 'quick'); }
+}
+
+document.getElementById('chat-input').addEventListener('keydown', e => {
+  if(e.key === 'Enter' && e.target.value.trim()){ askAQB(e.target.value.trim()); e.target.value = ''; }
+});
+document.querySelectorAll('.chat-suggestion').forEach(s => {
+  s.addEventListener('click', () => askAQB(s.dataset.q));
+});
+
+loadDashboardKpis();
+loadHealthSummary();
+renderActionLog();
+</script>
+</body>
+</html>
