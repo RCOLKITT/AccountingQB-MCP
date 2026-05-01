@@ -13,40 +13,39 @@ export function SetupPrompt({
   hasClaudeConfigured = false,
   hasQBConnected = false,
 }: SetupPromptProps) {
-  const [copied, setCopied] = useState<"prompt" | "terminal" | null>(null);
+  const [copied, setCopied] = useState<"prompt" | "terminal" | "key" | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
 
-  const setupPrompt = `I want to set up AccountingQB, an MCP server that connects QuickBooks to Claude Desktop. My license key is: ${licenseKey}
+  // Prompt does NOT include the license key - Claude will ask for it
+  const setupPrompt = `I want to set up AccountingQB, an MCP server that connects QuickBooks to Claude Desktop.
 
-Please help me set it up. Pick whichever option works in your current environment:
-
-OPTION A — If you have filesystem access (Claude Desktop/Claude Code):
+Please help me configure it:
 
 1. Read my Claude Desktop config file:
    - macOS: ~/Library/Application Support/Claude/claude_desktop_config.json
    - Windows: %APPDATA%\\Claude\\claude_desktop_config.json
 2. If it doesn't exist, create it with: {"mcpServers": {}}
-3. Parse it as JSON and merge this entry into mcpServers (preserve all existing servers):
+3. Ask me for my license key. When I provide it, do NOT echo it back in your response.
+4. Merge this entry into mcpServers (preserve existing servers):
 
 "accountingqb": {
   "command": "uvx",
   "args": ["accountingqb"],
   "env": {
-    "QB_LICENSE_KEY": "${licenseKey}"
+    "QB_LICENSE_KEY": "<my-license-key>"
   }
 }
 
-4. Write the file back as valid JSON (pretty-printed, 2-space indent)
-5. Tell me to fully quit Claude Desktop with Cmd+Q (macOS) or right-click tray → Quit (Windows). Closing the window is NOT enough.
-
-OPTION B — If you can't access my filesystem (Cowork mode or claude.ai web):
-
-Tell me to run this in my terminal:
-  uvx accountingqb-setup --license-key ${licenseKey}
-
-Or give me manual instructions to edit the config file myself.`;
+5. Write the file back as valid JSON (pretty-printed, 2-space indent)
+6. Tell me to fully quit Claude Desktop with Cmd+Q (macOS) or right-click tray → Quit (Windows). Closing the window is NOT enough.`;
 
   const terminalCommand = `uvx accountingqb-setup --license-key ${licenseKey}`;
+
+  const copyKey = async () => {
+    await navigator.clipboard.writeText(licenseKey);
+    setCopied("key");
+    setTimeout(() => setCopied(null), 3000);
+  };
 
   const copyPrompt = async () => {
     await navigator.clipboard.writeText(setupPrompt);
@@ -88,7 +87,7 @@ Or give me manual instructions to edit the config file myself.`;
         <div>
           <h3 className="text-lg font-semibold text-white">Get Started in 1 Minute</h3>
           <p className="mt-1 text-sm text-gray-400">
-            Paste this into the <span className="text-white font-medium">Claude Desktop app</span> (not claude.ai web).
+            Paste this prompt into <span className="text-white font-medium">Claude Desktop</span> — no terminal required.
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm">
@@ -119,7 +118,8 @@ Or give me manual instructions to edit the config file myself.`;
         </div>
       </div>
 
-      <div className="mt-6 flex flex-col gap-4 sm:flex-row">
+      {/* Primary: Claude prompt */}
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
           onClick={copyPrompt}
           className="flex-1 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:shadow-cyan-500/40"
@@ -129,7 +129,7 @@ Or give me manual instructions to edit the config file myself.`;
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              Copied! Paste in Claude Desktop App
+              Copied! Paste in Claude Desktop
             </span>
           ) : (
             <span className="flex items-center justify-center gap-2">
@@ -141,8 +141,14 @@ Or give me manual instructions to edit the config file myself.`;
           )}
         </button>
         <button
+          onClick={copyKey}
+          className="rounded-xl border border-white/10 px-4 py-4 text-sm text-gray-400 transition hover:bg-white/5 hover:text-white"
+        >
+          {copied === "key" ? "Key Copied!" : "Copy License Key"}
+        </button>
+        <button
           onClick={() => setShowPrompt(!showPrompt)}
-          className="rounded-xl border border-white/10 px-4 py-2 text-sm text-gray-400 transition hover:bg-white/5 hover:text-white"
+          className="rounded-xl border border-white/10 px-4 py-4 text-sm text-gray-400 transition hover:bg-white/5 hover:text-white"
         >
           {showPrompt ? "Hide" : "Preview"}
         </button>
@@ -161,29 +167,26 @@ Or give me manual instructions to edit the config file myself.`;
         <ol className="space-y-2 text-sm text-gray-400">
           <li className="flex items-start gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs text-cyan-400">1</span>
-            <span>Copy the prompt above</span>
+            <span>Copy the prompt and paste it into <a href="https://claude.ai/download" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">Claude Desktop</a></span>
           </li>
           <li className="flex items-start gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs text-cyan-400">2</span>
-            <span>Open the <span className="text-white">Claude Desktop app</span> (download at <a href="https://claude.ai/download" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">claude.ai/download</a>)</span>
+            <span>Claude will ask for your license key — paste it when prompted</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs text-cyan-400">3</span>
-            <span>Paste the prompt — Claude will edit your config file</span>
+            <span>Quit Claude Desktop with <span className="text-white">Cmd+Q</span> (macOS) or right-click tray → Quit (Windows)</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs text-cyan-400">4</span>
-            <span>Quit (Cmd+Q) and reopen Claude Desktop</span>
+            <span>Reopen Claude Desktop — AccountingQB is now available</span>
           </li>
         </ol>
-        <p className="mt-3 text-xs text-gray-500">
-          Note: This works best in the Claude Desktop app or Claude Code.
-        </p>
       </div>
 
-      {/* Terminal alternative */}
+      {/* Alternative: Terminal command */}
       <div className="mt-4 rounded-xl bg-white/[0.03] p-4">
-        <h4 className="text-sm font-medium text-white mb-2">Or run in Terminal:</h4>
+        <h4 className="text-sm font-medium text-white mb-2">Alternative: Use Terminal</h4>
         <div className="flex items-center gap-2">
           <code className="flex-1 rounded-lg bg-black/40 px-3 py-2 text-sm text-cyan-400 font-mono overflow-x-auto">
             {terminalCommand}
@@ -196,7 +199,7 @@ Or give me manual instructions to edit the config file myself.`;
           </button>
         </div>
         <p className="mt-2 text-xs text-gray-500">
-          Requires <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">uv</a> installed. Run <code className="text-cyan-400">uvx accountingqb-setup --doctor</code> to troubleshoot.
+          Requires <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">uv</a>. Run <code className="text-cyan-400">uvx accountingqb-setup --doctor</code> to troubleshoot.
         </p>
       </div>
 
