@@ -70,6 +70,16 @@ export function getSupportLimiter(): Ratelimit {
   });
 }
 
+// Rate limiter for license verification: 10 requests per minute per IP
+export function getLicenseVerifyLimiter(): Ratelimit {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(10, "1 m"),
+    prefix: "ratelimit:license-verify",
+    analytics: true,
+  });
+}
+
 /**
  * Extracts client IP from request headers.
  * Vercel sets x-forwarded-for; falls back to x-real-ip or "unknown".
