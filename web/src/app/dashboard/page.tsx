@@ -280,6 +280,14 @@ function DashboardContent() {
           </a>
           <div className="flex items-center gap-4">
             <SignedIn>
+              {(clerkUser?.publicMetadata as { role?: string })?.role === "admin" && (
+                <a
+                  href="/admin"
+                  className="text-sm text-cyan-400 hover:text-cyan-300 transition font-medium"
+                >
+                  Admin
+                </a>
+              )}
               <UserButton
                 appearance={{
                   elements: {
