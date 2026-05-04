@@ -15,7 +15,7 @@ function generateLicenseKey(): string {
   return `${key.slice(0, 4)}-${key.slice(4, 8)}-${key.slice(8, 12)}-${key.slice(12, 16)}`;
 }
 
-function logRotation(
+async function logRotation(
   supabase: ReturnType<typeof getSupabase>,
   oldKey: string,
   newKey: string,
@@ -23,17 +23,17 @@ function logRotation(
   ip: string,
   reason?: string
 ) {
-  supabase
-    .from("event_logs")
-    .insert({
+  try {
+    await supabase.from("event_logs").insert({
       event_type: "license_rotation",
       license_key: newKey,
       action: "rotate",
       payload: { old_key: oldKey, ip, reason },
       success,
-    })
-    .then(() => {})
-    .catch(() => {});
+    });
+  } catch {
+    // Logging is non-critical
+  }
 }
 
 /**
