@@ -8,7 +8,7 @@ import {
 } from "@/lib/ratelimit";
 
 // Log status check (fire-and-forget)
-function logStatusCheck(
+async function logStatusCheck(
   supabase: ReturnType<typeof getSupabase>,
   licenseKey: string | null,
   action: string,
@@ -16,17 +16,17 @@ function logStatusCheck(
   ip: string,
   tier?: string
 ) {
-  supabase
-    .from("event_logs")
-    .insert({
+  try {
+    await supabase.from("event_logs").insert({
       event_type: "license_status",
       license_key: licenseKey,
       action,
       payload: { ip, tier },
       success,
-    })
-    .then(() => {})
-    .catch(() => {});
+    });
+  } catch {
+    // Logging is non-critical
+  }
 }
 
 /**
