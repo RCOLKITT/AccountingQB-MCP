@@ -53,7 +53,20 @@ function SetupWizardContent() {
 
   const effectiveKey = inputKey || licenseKey || "YOUR_LICENSE_KEY";
 
-  const configSnippet = `{
+  // Platform-specific config: Windows uses pip-installed python -m, Mac/Linux use uvx
+  const configSnippet = platform === "windows"
+    ? `{
+  "mcpServers": {
+    "accountingqb": {
+      "command": "python",
+      "args": ["-m", "accountingqb"],
+      "env": {
+        "QB_LICENSE_KEY": "${effectiveKey}"
+      }
+    }
+  }
+}`
+    : `{
   "mcpServers": {
     "accountingqb": {
       "command": "uvx",
@@ -292,12 +305,31 @@ function SetupWizardContent() {
 
               {/* One-time dependency */}
               <div className="mt-6 rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4">
-                <p className="text-sm text-gray-300">
-                  <strong className="text-yellow-400">First time?</strong> You&apos;ll need <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline">uv</a> installed. Run:
-                </p>
-                <code className="mt-2 block rounded bg-black/40 px-3 py-2 text-sm text-cyan-400">
-                  {platform === "windows" ? "winget install astral-sh.uv" : "curl -LsSf https://astral.sh/uv/install.sh | sh"}
-                </code>
+                {platform === "windows" ? (
+                  <>
+                    <p className="text-sm text-gray-300">
+                      <strong className="text-yellow-400">Windows Setup:</strong> First install AccountingQB via pip:
+                    </p>
+                    <code className="mt-2 block rounded bg-black/40 px-3 py-2 text-sm text-cyan-400">
+                      pip install accountingqb
+                    </code>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Don&apos;t have Python? Run <code className="text-cyan-400">winget install Python.Python.3.12</code> first, then restart PowerShell.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-300">
+                      <strong className="text-yellow-400">First time?</strong> You&apos;ll need <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline">uv</a> installed. Run:
+                    </p>
+                    <code className="mt-2 block rounded bg-black/40 px-3 py-2 text-sm text-cyan-400">
+                      curl -LsSf https://astral.sh/uv/install.sh | sh
+                    </code>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Then restart your terminal before continuing.
+                    </p>
+                  </>
+                )}
               </div>
 
               {/* Common Issues */}
@@ -312,15 +344,32 @@ function SetupWizardContent() {
                   </div>
                   <div>
                     <p className="font-medium text-white">Claude doesn&apos;t show AccountingQB tools</p>
-                    <p className="text-gray-400">Make sure you saved the config and completely restarted Claude Desktop (not just closed the window).</p>
+                    <p className="text-gray-400">Make sure you saved the config and completely restarted Claude Desktop (not just closed the window). On Windows, right-click the tray icon → Quit.</p>
                   </div>
-                  <div>
-                    <p className="font-medium text-white">&quot;uvx not found&quot; error</p>
-                    <p className="text-gray-400">Install uv using the command above, then restart your terminal and Claude Desktop.</p>
-                  </div>
+                  {platform === "windows" ? (
+                    <>
+                      <div>
+                        <p className="font-medium text-white">&quot;python not found&quot; error</p>
+                        <p className="text-gray-400">Install Python: <code className="text-cyan-400">winget install Python.Python.3.12</code> then restart PowerShell.</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-white">&quot;No module named accountingqb&quot; error</p>
+                        <p className="text-gray-400">Run <code className="text-cyan-400">pip install accountingqb</code> in PowerShell, then restart Claude Desktop.</p>
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <p className="font-medium text-white">&quot;uvx not found&quot; error</p>
+                      <p className="text-gray-400">Install uv using the command above, then restart your terminal and Claude Desktop.</p>
+                    </div>
+                  )}
                   <div>
                     <p className="font-medium text-white">JSON syntax error</p>
                     <p className="text-gray-400">Make sure you have proper commas between entries. Use a JSON validator like <a href="https://jsonlint.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">jsonlint.com</a>.</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-white">Claude asks if I want to &quot;Allow&quot; AccountingQB</p>
+                    <p className="text-gray-400">This is normal! Click <span className="text-green-400">Allow</span> to let Claude use the AccountingQB tools.</p>
                   </div>
                 </div>
               </details>
