@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { getSupabase } from "@/lib/supabase";
 
 /**
@@ -15,30 +15,48 @@ export async function GET() {
 
   const supabase = getSupabase();
 
-  // Get user's email from Clerk (stored when they linked their license)
+  // Get user's email directly from Clerk
+  const clerkUser = await currentUser();
+  const clerkEmail = clerkUser?.emailAddresses[0]?.emailAddress?.toLowerCase();
+
+  // Also check user_profiles for legacy linked accounts
   const { data: userProfile } = await supabase
     .from("user_profiles")
     .select("email")
     .eq("clerk_id", userId)
     .single();
 
-  if (!userProfile) {
-    // User hasn't linked any licenses yet
+  // Use Clerk email or fall back to user_profiles email
+  const userEmail = clerkEmail || userProfile?.email;
+
+  if (!userEmail) {
+    // No email found anywhere
     return NextResponse.json({ licenses: [] });
   }
 
-  // Get licenses linked to this user
+  // Auto-create user_profiles entry if it doesn't exist (for existing users)
+  if (!userProfile && clerkEmail) {
+    await supabase.from("user_profiles").upsert({
+      clerk_id: userId,
+      email: clerkEmail,
+      created_at: new Date().toISOString(),
+    }, { onConflict: "clerk_id" });
+  }
+
+  // Get licenses linked to this user via user_licenses table
   const { data: userLicenses } = await supabase
     .from("user_licenses")
     .select("license_key, role")
-    .eq("user_id", userProfile.email);
+    .eq("user_id", userEmail);
 
   if (!userLicenses || userLicenses.length === 0) {
-    // Try getting licenses by email directly
+    // Try getting licenses by email directly from licenses table
+    // This handles existing users who purchased before the dashboard existed
+    // Use ilike for case-insensitive matching
     const { data: licenses } = await supabase
       .from("licenses")
       .select("key, tier, status, trial_ends_at")
-      .eq("email", userProfile.email);
+      .ilike("email", userEmail);
 
     return NextResponse.json({
       licenses: (licenses || []).map((l) => ({

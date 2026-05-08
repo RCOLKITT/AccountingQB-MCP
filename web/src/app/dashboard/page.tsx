@@ -366,6 +366,58 @@ function DashboardContent() {
           </form>
         )}
 
+        {/* No License State - for signed in users without a license */}
+        {isSignedIn && !selectedLicense && !showLegacyInput && (
+          <div className="mt-8 rounded-2xl border border-yellow-500/20 bg-yellow-500/5 p-8">
+            <h2 className="text-xl font-semibold text-white">No License Found</h2>
+            <p className="mt-2 text-gray-400">
+              We couldn&apos;t find a license linked to your account ({clerkUser?.primaryEmailAddress?.emailAddress}).
+            </p>
+            <div className="mt-6 space-y-4">
+              <div className="rounded-xl bg-white/5 p-4">
+                <p className="text-sm font-medium text-white mb-2">Already purchased?</p>
+                <p className="text-sm text-gray-400 mb-3">
+                  Enter your license key below to link it to your account:
+                </p>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (legacyLicenseKey.trim()) {
+                      fetchCompanies(legacyLicenseKey.trim());
+                    }
+                  }}
+                  className="flex gap-2"
+                >
+                  <input
+                    type="text"
+                    value={legacyLicenseKey}
+                    onChange={(e) => setLegacyLicenseKey(e.target.value)}
+                    placeholder="LK-XXXXXXXX..."
+                    className="flex-1 rounded-lg bg-black/40 border border-white/10 px-4 py-2 font-mono text-cyan-400 placeholder:text-gray-600 focus:outline-none focus:border-cyan-500/50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={loading || !legacyLicenseKey.trim()}
+                    className="rounded-lg bg-cyan-500 px-4 py-2 font-medium hover:bg-cyan-600 transition disabled:opacity-50"
+                  >
+                    {loading ? "..." : "Link"}
+                  </button>
+                </form>
+                {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+              </div>
+              <div className="text-center">
+                <span className="text-gray-500">or</span>
+              </div>
+              <a
+                href="/#pricing"
+                className="block w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 text-center font-semibold shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition"
+              >
+                Start Free Trial
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* Main Dashboard Content */}
         {selectedLicense && (
           <div className="mt-8 space-y-6">
