@@ -1,6 +1,6 @@
-# AccountingQB Tools (91 Total)
+# AccountingQB Tools (94 Total)
 
-## Company & Entities (10 tools)
+## Company & Entities (12 tools)
 | Tool | Description |
 |------|-------------|
 | qb_company_info | Company name, EIN, address, fiscal year |
@@ -10,6 +10,8 @@
 | qb_list_items | Products and services |
 | qb_create_vendor | Create a new vendor |
 | qb_create_customer | Create a new customer |
+| qb_update_vendor | Update vendor details (email, phone, address) |
+| qb_update_customer | Update customer details (email, phone, address) |
 | qb_create_account | Add an account to chart of accounts |
 | qb_create_sub_account | Create a sub-account under a parent |
 | qb_inactivate_account | Hide unused accounts |
@@ -35,25 +37,31 @@
 | qb_transaction_detail | Full detail for any single transaction |
 | qb_account_transactions | All transactions hitting a specific account |
 
-## Create & Modify (16 tools)
+## Create & Modify (22 tools)
 | Tool | Description |
 |------|-------------|
 | qb_create_expense | Record a purchase/expense |
 | qb_create_invoice | Create a customer invoice |
 | qb_create_bill | Create a vendor bill |
+| qb_create_estimate | Create a customer estimate/quote |
 | qb_create_journal_entry | Record adjustments |
 | qb_create_deposit | Record a bank deposit |
 | qb_create_transfer | Transfer between accounts |
 | qb_create_credit_memo | Issue a customer credit memo |
 | qb_create_vendor_credit | Record a vendor credit |
-| qb_create_estimate | Create a customer estimate/quote |
 | qb_convert_estimate_to_invoice | Convert estimate into invoice |
+| qb_record_bill_payment | Record payment on a vendor bill |
+| qb_record_invoice_payment | Record customer payment on invoice |
 | qb_update_transaction | Update any transaction |
 | qb_void_transaction | Void a transaction |
-| qb_delete_transaction | Delete a transaction |
+| qb_delete_transaction | Delete a transaction permanently |
 | qb_delete_journal_entry | Permanently delete a JE |
 | qb_reclassify_transaction | Move transaction to different account |
+| qb_bulk_update_vendor | Bulk-assign vendor to multiple transactions |
+| qb_bulk_update_vendors_multi | Bulk-assign multiple vendors in one call |
 | qb_batch_create_expenses | Bulk expense import |
+| qb_batch_create_bills | Bulk bill import |
+| qb_batch_create_journal_entries | Bulk JE import |
 
 ## Reports & Analysis (17 tools)
 | Tool | Description |
@@ -89,7 +97,7 @@
 | qb_home_office_calculator | Form 8829 home office deduction |
 | qb_vehicle_depreciation_calculator | Vehicle depreciation with business use % |
 
-## Smart Features (6 tools)
+## Smart Features (9 tools)
 | Tool | Description |
 |------|-------------|
 | qb_uncategorized_transactions | Find uncategorized transactions |
@@ -98,6 +106,9 @@
 | qb_monthly_burn_rate | Monthly expense trends |
 | qb_runway_calculator | Months of cash runway |
 | qb_fiscal_year_close_checklist | Year-end close readiness check |
+| qb_books_health_audit | Comprehensive books health audit |
+| qb_month_end_close | Month-end close checklist with status checks |
+| qb_unknown_vendor_report | Find transactions with missing vendor names |
 
 ## Reconciliation & Attachments (5 tools)
 | Tool | Description |
@@ -108,13 +119,12 @@
 | qb_list_attachments | List attached documents |
 | qb_account_balance | Check any account balance |
 
-## Connection Tools (4 tools)
+## Connection & Multi-Company (3 tools)
 | Tool | Description |
 |------|-------------|
 | qb_list_companies | List connected QuickBooks companies |
 | qb_switch_company | Switch to a different company |
 | qb_refresh_connection | Refresh connection to AccountingQB |
-| qb_books_health_audit | Comprehensive books health audit |
 
 ---
 
@@ -132,3 +142,9 @@ Ask Claude naturally:
 - "Find potential duplicate transactions"
 - "What deductions am I missing?"
 - "Generate my 1099 contractor report"
+- "Run anomaly detection on last quarter's transactions"
+- "Show my profit margins by customer"
+- "Forecast my cash flow for the next 6 months"
+- "Create a vendor credit for $200 to Amazon"
+- "Run a books health audit"
+- "Do my month-end close for April"

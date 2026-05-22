@@ -2,7 +2,7 @@
 
 The most comprehensive QuickBooks Online MCP server for Claude. Built for sole proprietors and small businesses who want to manage their books, run reports, and prep taxes through natural conversation.
 
-**80 tools** covering transactions, reports, tax prep, reconciliation, smart bookkeeping, 1099 reporting, anomaly detection, credit memos, vendor credits, cash flow forecasting, and profit margin analysis — all from Claude Desktop.
+**94 tools** covering transactions, reports, tax prep, reconciliation, smart bookkeeping, 1099 reporting, anomaly detection, credit memos, vendor credits, cash flow forecasting, and profit margin analysis — all from Claude Desktop.
 
 > Built by [Vaspera Capital](https://vasperacapital.com) — because QuickBooks deserved a real MCP server.
 
@@ -76,7 +76,7 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 
 ---
 
-## Tools (80)
+## Tools (94)
 
 ### Company & Entities
 
@@ -89,6 +89,8 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 | `qb_list_items` | Products and services |
 | `qb_create_vendor` | Create a new vendor |
 | `qb_create_customer` | Create a new customer |
+| `qb_update_vendor` | Update vendor details (email, phone, address) |
+| `qb_update_customer` | Update customer details (email, phone, address) |
 | `qb_create_account` | Add an account to chart of accounts |
 | `qb_create_sub_account` | Create a sub-account under a parent |
 | `qb_inactivate_account` | Hide unused accounts |
@@ -122,16 +124,22 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 | `qb_create_expense` | Record a purchase/expense |
 | `qb_create_invoice` | Create a customer invoice |
 | `qb_create_bill` | Create a vendor bill |
+| `qb_create_estimate` | Create a customer estimate/quote |
 | `qb_create_journal_entry` | Record adjustments |
 | `qb_create_deposit` | Record a bank deposit |
 | `qb_create_transfer` | Transfer between accounts |
 | `qb_create_credit_memo` | Issue a customer credit memo |
 | `qb_create_vendor_credit` | Record a vendor credit |
 | `qb_convert_estimate_to_invoice` | Convert an estimate into an invoice |
+| `qb_record_bill_payment` | Record payment on a vendor bill |
+| `qb_record_invoice_payment` | Record customer payment on invoice |
 | `qb_update_transaction` | Update any transaction |
 | `qb_void_transaction` | Void a transaction |
+| `qb_delete_transaction` | Delete a transaction permanently |
 | `qb_delete_journal_entry` | Permanently delete a JE |
 | `qb_reclassify_transaction` | Move a transaction to a different account |
+| `qb_bulk_update_vendor` | Bulk-assign vendor to multiple transactions |
+| `qb_bulk_update_vendors_multi` | Bulk-assign multiple vendors in one call |
 | `qb_batch_create_expenses` | Bulk expense import |
 | `qb_batch_create_bills` | Bulk bill import |
 | `qb_batch_create_journal_entries` | Bulk JE import |
@@ -182,6 +190,9 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 | `qb_monthly_burn_rate` | Monthly expense trends |
 | `qb_runway_calculator` | Months of cash runway |
 | `qb_fiscal_year_close_checklist` | Year-end close readiness check |
+| `qb_books_health_audit` | Comprehensive books health audit |
+| `qb_month_end_close` | Month-end close checklist with status checks |
+| `qb_unknown_vendor_report` | Find transactions with missing vendor names |
 
 ### Reconciliation & Attachments
 
@@ -192,6 +203,14 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 | `qb_upload_receipt` | Attach receipts to transactions |
 | `qb_list_attachments` | List attached documents |
 | `qb_account_balance` | Check any account balance |
+
+### Connection & Multi-Company
+
+| Tool | Description |
+|------|-------------|
+| `qb_list_companies` | List all connected QuickBooks companies |
+| `qb_switch_company` | Switch to a different company |
+| `qb_refresh_connection` | Refresh connection to AccountingQB |
 
 ---
 
