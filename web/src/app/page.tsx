@@ -101,7 +101,7 @@ const faqs = [
   },
   {
     q: "What happens after the 14-day trial?",
-    a: "You keep access to 25 essential read-only tools for free. To continue using all 91 tools including writes, tax prep, and advanced analytics, choose a paid plan.",
+    a: "You keep access to 25 essential read-only tools for free. To continue using all 94 tools including writes, tax prep, and advanced analytics, choose a paid plan.",
   },
   {
     q: "Can I use this with QuickBooks Desktop?",
@@ -194,7 +194,7 @@ export default async function Home() {
 
             {/* Subhead */}
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-400 sm:text-xl">
-              91 tools connecting Claude to your QuickBooks Online. Run reports,
+              94 tools connecting Claude to your QuickBooks Online. Run reports,
               reconcile books, prep for taxes, detect anomalies — all through
               natural conversation.{" "}
               <span className="text-gray-300">Your financial data never leaves your machine.</span>
@@ -342,7 +342,7 @@ export default async function Home() {
               Features
             </div>
             <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
-              91 tools across every
+              94 tools across every
               <br />
               <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">accounting workflow</span>
             </h2>
@@ -487,7 +487,7 @@ export default async function Home() {
               {
                 step: "03",
                 title: "Start Talking to Your Books",
-                desc: "Ask Claude anything. \"What's my burn rate?\" \"Find missing deductions.\" 91 tools ready.",
+                desc: "Ask Claude anything. \"What's my burn rate?\" \"Find missing deductions.\" 94 tools ready.",
                 gradient: "from-indigo-500 to-purple-500",
               },
             ].map((s) => (
@@ -593,7 +593,7 @@ export default async function Home() {
               <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">in the first week</span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-gray-400">
-              91 tools means 91 tasks that used to be manual. Tax prep, invoice reconciliation, vendor cleanup, anomaly checks, month-end close — all in a conversation.
+              94 tools means 91 tasks that used to be manual. Tax prep, invoice reconciliation, vendor cleanup, anomaly checks, month-end close — all in a conversation.
             </p>
           </div>
 
@@ -693,7 +693,7 @@ export default async function Home() {
                 <p className="mt-3 text-gray-400">
                   If you&apos;re managing 20+ clients, your team is spending hundreds of hours a month on tasks
                   AccountingQB handles in minutes. Invoice reconciliation, month-end close, vendor cleanup,
-                  anomaly checks, tax prep — 91 tools covering every workflow that eats your margin.
+                  anomaly checks, tax prep — 94 tools covering every workflow that eats your margin.
                 </p>
               </div>
               <div className="rounded-xl bg-white/[0.03] p-6">

@@ -1,7 +1,7 @@
 [project]
 name = "accountingqb-mcp"
 version = "2.0.0"
-description = "The most comprehensive QuickBooks Online MCP server for Claude — 91 tools for transactions, reports, tax prep, and smart bookkeeping"
+description = "The most comprehensive QuickBooks Online MCP server for Claude — 94 tools for transactions, reports, tax prep, and smart bookkeeping"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
