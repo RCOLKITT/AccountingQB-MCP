@@ -3,6 +3,9 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
+// Prevent static generation - this page uses search params
+export const dynamic = "force-dynamic";
+
 function SuccessContent() {
   const searchParams = useSearchParams();
   const company = searchParams.get("company") || "your company";
