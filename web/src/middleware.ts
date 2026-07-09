@@ -15,6 +15,11 @@ const isPublicRoute = createRouteMatcher([
   "/api/license(.*)",
   "/api/cron(.*)",
   "/api/oauth(.*)",
+  // Remote MCP connector OAuth 2.1 AS: RFC 8414 metadata, DCR/token/client-info
+  // endpoints, and the consent page (which handles Clerk auth client-side).
+  "/.well-known(.*)",
+  "/api/oauth2(.*)",
+  "/oauth(.*)",
   "/api/setup(.*)",
   "/setup-wizard(.*)",
   "/setup(.*)",
