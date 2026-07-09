@@ -192,7 +192,10 @@ FREE_TOOLS = {
     "qb_list_companies",
     "qb_switch_company",
     "qb_refresh_connection",
-}  # ~28 read-only / reporting / management tools
+    # Tax-code discovery utilities (always free)
+    "qb_list_tax_codes",
+    "qb_list_tax_rates",
+}  # ~30 read-only / reporting / management tools
 
 async def _validate_license(key: str) -> dict:
     """Validate a license key against the remote API (with 24h cache)."""
@@ -820,6 +823,171 @@ def _parse_report_rows(rows, lines, indent=0):
 
 
 # ===================================================================
+# REGION / TAX EDITION DETECTION — Canada & global tax editions
+# ===================================================================
+# US companies use Automated Sales Tax (QBO computes tax; never send
+# GlobalTaxCalculation or inject TaxCodeRef). Canadian and other
+# global-tax companies REQUIRE a TaxCodeRef on every line of sales and
+# purchase documents and accept a GlobalTaxCalculation header.
+
+_US_REGION_INFO = {"region": "US", "home_currency": "USD", "multicurrency": False}
+
+_TAX_CODE_REQUIRED_MSG = (
+    "This company requires a sales tax code on every line. "
+    "Run qb_list_tax_codes to see available codes (e.g. \"HST ON\"), "
+    "then pass tax_code=..."
+)
+
+
+async def _get_region() -> dict:
+    """Detect this company's tax edition, cached per realm.
+
+    Returns {"region": "US" | "CA" | "OTHER_GLOBAL", "home_currency": str,
+    "multicurrency": bool}. Cached in the connection's region_cache keyed by
+    realm_id (switching companies therefore re-detects naturally). On any API
+    error falls back to the US defaults so existing users are never broken.
+    """
+    ctx = get_ctx()
+    key = ctx.realm_id or "_default"
+    cached = ctx.region_cache.get(key)
+    if cached:
+        return cached
+
+    if _DEMO_MODE:
+        info = dict(_US_REGION_INFO)
+        ctx.region_cache[key] = info
+        return info
+
+    try:
+        result = await qb_query("SELECT * FROM CompanyInfo")
+        company = result.get("QueryResponse", {}).get("CompanyInfo", [{}])[0]
+        country = (company.get("Country") or "").strip().upper()
+    except Exception as e:
+        logger.debug(f"Region detection failed (CompanyInfo): {e}")
+        return dict(_US_REGION_INFO)  # do not cache failures
+
+    info = {"region": "US", "home_currency": "", "multicurrency": False}
+    partner_tax = None
+    try:
+        prefs = (await qb_request("GET", "preferences")).get("Preferences", {})
+        # PartnerTaxEnabled=true means US Automated Sales Tax
+        partner_tax = (prefs.get("TaxPrefs") or {}).get("PartnerTaxEnabled")
+        currency = prefs.get("CurrencyPrefs") or {}
+        info["multicurrency"] = bool(currency.get("MultiCurrencyEnabled"))
+        info["home_currency"] = (currency.get("HomeCurrency") or {}).get("value") or ""
+    except Exception as e:
+        logger.debug(f"Region detection: preferences unavailable: {e}")
+
+    if country == "US" or partner_tax is True:
+        info["region"] = "US"
+    elif country == "CA":
+        info["region"] = "CA"
+    elif country:
+        info["region"] = "OTHER_GLOBAL"
+    else:
+        info["region"] = "US"  # indeterminate — safest default
+
+    if not info["home_currency"]:
+        info["home_currency"] = "CAD" if info["region"] == "CA" else "USD"
+
+    ctx.region_cache[key] = info
+    return info
+
+
+def require_region(region: str, alternative: str):
+    """Decorator factory gating a tool to one tax region (cf. require_license).
+
+    Apply between @mcp.tool and the function definition so the check runs on
+    every call, and license gating (_apply_license_gating wraps the registered
+    tool.fn at import time) still stacks on top.
+    """
+    def decorator(func):
+        tool_name = func.__name__
+
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            detected = (await _get_region())["region"]
+            if detected != region:
+                return (
+                    f"⚠️ {tool_name} is a US-tax tool and this QuickBooks "
+                    f"company is registered in {detected}. {alternative}"
+                )
+            return await func(*args, **kwargs)
+
+        return wrapper
+    return decorator
+
+
+async def _resolve_tax_code(name_or_id: str) -> tuple[str, str]:
+    """Resolve a tax code Name (or bare numeric Id) to (Id, Name).
+
+    Matches active TaxCodes case-insensitively on exact Name first, then by
+    substring. Raises ValueError listing available names when nothing matches.
+    """
+    result = await qb_query(
+        "SELECT Id, Name FROM TaxCode WHERE Active = true MAXRESULTS 1000"
+    )
+    codes = result.get("QueryResponse", {}).get("TaxCode", [])
+    wanted = (name_or_id or "").strip()
+
+    if wanted.isdigit():
+        for tc in codes:
+            if str(tc.get("Id", "")) == wanted:
+                return tc["Id"], tc.get("Name", wanted)
+
+    lowered = wanted.lower()
+    if lowered:
+        for tc in codes:
+            if tc.get("Name", "").lower() == lowered:
+                return tc["Id"], tc["Name"]
+        for tc in codes:
+            if lowered in tc.get("Name", "").lower():
+                return tc["Id"], tc["Name"]
+
+    names = ", ".join(sorted(tc.get("Name", "?") for tc in codes)) or "(none found)"
+    raise ValueError(
+        f"Tax code '{name_or_id}' not found. Available tax codes: {names}. "
+        "Run qb_list_tax_codes for rates and details."
+    )
+
+
+def _apply_global_tax(body: dict, lines_key: str, detail_key: str,
+                      tax_code_id, tax_inclusive: bool, region: str) -> dict:
+    """Add GlobalTaxCalculation + per-line TaxCodeRef for non-US tax editions.
+
+    US companies (Automated Sales Tax) are returned unchanged. Lines that
+    already carry a TaxCodeRef keep it (setdefault).
+    """
+    if region == "US":
+        return body
+    body["GlobalTaxCalculation"] = "TaxInclusive" if tax_inclusive else "TaxExcluded"
+    if tax_code_id:
+        for line in body.get(lines_key, []):
+            if line.get("DetailType") == detail_key and isinstance(line.get(detail_key), dict):
+                line[detail_key].setdefault("TaxCodeRef", {"value": str(tax_code_id)})
+    return body
+
+
+async def _line_tax_code_ref(item: dict, region: str, cache: dict):
+    """TaxCodeRef for one parsed JSON line item, or None.
+
+    Supports an explicit "TaxCodeRef" dict or a per-line "tax_code" name/Id
+    (each distinct name resolved once via `cache`). US region: always None.
+    """
+    if region == "US" or not isinstance(item, dict):
+        return None
+    explicit = item.get("TaxCodeRef")
+    if isinstance(explicit, dict) and explicit.get("value"):
+        return explicit
+    name = str(item.get("tax_code", "") or "").strip()
+    if not name:
+        return None
+    if name not in cache:
+        cache[name] = (await _resolve_tax_code(name))[0]
+    return {"value": cache[name]}
+
+
+# ===================================================================
 # HOSTED MODE — Company Management
 # ===================================================================
 
@@ -902,6 +1070,7 @@ async def qb_refresh_connection() -> str:
         return "No license key configured. This tool is only available in hosted mode."
 
     ctx = get_ctx()
+    ctx.region_cache.clear()  # force re-detection of tax edition per realm
     if _fetch_hosted_tokens(ctx):
         count = len(ctx.hosted_companies)
         return f"✓ Connection refreshed. {count} company(s) connected."
@@ -931,7 +1100,12 @@ async def qb_company_info() -> str:
         lines = ["## QuickBooks Company Info\n"]
     lines.append(f"- **Company:** {info.get('CompanyName', 'N/A')}")
     lines.append(f"- **Legal Name:** {info.get('LegalName', 'N/A')}")
-    lines.append(f"- **EIN:** {info.get('EmployerId', info.get('EIN', 'N/A'))}")
+    # Canadian companies call their federal tax id a Business Number (BN)
+    tax_id_label = (
+        "Business Number (BN)"
+        if (info.get("Country") or "").strip().upper() == "CA" else "EIN"
+    )
+    lines.append(f"- **{tax_id_label}:** {info.get('EmployerId', info.get('EIN', 'N/A'))}")
     lines.append(f"- **Industry:** {info.get('IndustryType', 'Consulting')}")
     lines.append(f"- **Fiscal Year Start:** {info.get('FiscalYearStartMonth', 'N/A')}")
     addr = info.get("CompanyAddr", {})
@@ -1695,6 +1869,7 @@ async def qb_ap_aging(as_of_date: str) -> str:
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "For Canadian books use qb_t2125_summary.")
 async def qb_tax_summary(start_date: str, end_date: str) -> str:
     """Generate a tax-oriented summary mapping QuickBooks data to Schedule C lines. Dates in YYYY-MM-DD."""
     report = await qb_request("GET", "reports/ProfitAndLoss", params={
@@ -1956,8 +2131,9 @@ async def qb_list_items(name: str = "", max_results: int = 100) -> str:
 # ===================================================================
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_expense(vendor_name: str, amount: float, account_name: str, date: str, description: str = "", payment_method: str = "") -> str:
-    """Create a new expense/purchase in QuickBooks. vendor_name: payee, amount: total, account_name: expense category, date: YYYY-MM-DD, description: memo, payment_method: bank/card account name."""
+async def qb_create_expense(vendor_name: str, amount: float, account_name: str, date: str, description: str = "", payment_method: str = "", tax_code: str = "", tax_inclusive: bool = False) -> str:
+    """Create a new expense/purchase in QuickBooks. vendor_name: payee, amount: total, account_name: expense category, date: YYYY-MM-DD, description: memo, payment_method: bank/card account name.
+    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; tax_inclusive=True when amount already includes tax."""
     # Demo mode: simulate success
     if _DEMO_MODE:
         return (
@@ -1997,6 +2173,17 @@ async def qb_create_expense(vendor_name: str, amount: float, account_name: str, 
     if description:
         purchase_body["PrivateNote"] = description
 
+    region = (await _get_region())["region"]
+    if region != "US":
+        if not tax_code:
+            return _TAX_CODE_REQUIRED_MSG
+        try:
+            tax_id, _ = await _resolve_tax_code(tax_code)
+        except ValueError as e:
+            return str(e)
+        _apply_global_tax(purchase_body, "Line", "AccountBasedExpenseLineDetail",
+                          tax_id, tax_inclusive, region)
+
     if payment_method:
         pay_accounts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{payment_method}%' MAXRESULTS 1")
         pay_list = pay_accounts.get("QueryResponse", {}).get("Account", [])
@@ -2020,8 +2207,9 @@ async def qb_create_expense(vendor_name: str, amount: float, account_name: str, 
 # ===================================================================
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_invoice(customer_name: str, line_items: str, due_date: str = "", memo: str = "") -> str:
-    """Create a customer invoice. line_items is a JSON string: [{"description": "...", "amount": 100}]. due_date in YYYY-MM-DD."""
+async def qb_create_invoice(customer_name: str, line_items: str, due_date: str = "", memo: str = "", tax_code: str = "", tax_inclusive: bool = False) -> str:
+    """Create a customer invoice. line_items is a JSON string: [{"description": "...", "amount": 100}]. due_date in YYYY-MM-DD.
+    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; per-line override via 'tax_code' key in line_items JSON; tax_inclusive=True when amounts already include tax."""
     # Demo mode: simulate success
     if _DEMO_MODE:
         items = json.loads(line_items) if isinstance(line_items, str) else line_items
@@ -2041,9 +2229,19 @@ async def qb_create_invoice(customer_name: str, line_items: str, due_date: str =
     customer = customer_list[0]
 
     items = json.loads(line_items) if isinstance(line_items, str) else line_items
+
+    region = (await _get_region())["region"]
+    default_tax_id = None
+    tax_cache: dict = {}
+    if region != "US" and tax_code:
+        try:
+            default_tax_id, _ = await _resolve_tax_code(tax_code)
+        except ValueError as e:
+            return str(e)
+
     inv_lines = []
     for item in items:
-        inv_lines.append({
+        line = {
             "DetailType": "SalesItemLineDetail",
             "Amount": item.get("amount", 0),
             "Description": item.get("description", ""),
@@ -2051,7 +2249,19 @@ async def qb_create_invoice(customer_name: str, line_items: str, due_date: str =
                 "Qty": item.get("quantity", 1),
                 "UnitPrice": item.get("amount", 0) / max(item.get("quantity", 1), 1),
             }
-        })
+        }
+        try:
+            line_tax = await _line_tax_code_ref(item, region, tax_cache)
+        except ValueError as e:
+            return str(e)
+        if line_tax:
+            line["SalesItemLineDetail"]["TaxCodeRef"] = line_tax
+        inv_lines.append(line)
+
+    if region != "US" and not default_tax_id and not any(
+        "TaxCodeRef" in l["SalesItemLineDetail"] for l in inv_lines
+    ):
+        return _TAX_CODE_REQUIRED_MSG
 
     invoice_body = {
         "CustomerRef": {"value": customer["Id"]},
@@ -2061,6 +2271,8 @@ async def qb_create_invoice(customer_name: str, line_items: str, due_date: str =
         invoice_body["DueDate"] = due_date
     if memo:
         invoice_body["CustomerMemo"] = {"value": memo}
+    _apply_global_tax(invoice_body, "Line", "SalesItemLineDetail",
+                      default_tax_id, tax_inclusive, region)
 
     result = await qb_request("POST", "invoice", json_body=invoice_body)
     inv = result.get("Invoice", {})
@@ -2139,8 +2351,9 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
 # ===================================================================
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str, memo: str = "") -> str:
-    """Create a bank deposit. date: YYYY-MM-DD. deposit_to_account: name of bank account receiving deposit. lines_json: JSON string [{"account_name": "...", "amount": 100.00, "description": "..."}]."""
+async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str, memo: str = "", tax_code: str = "") -> str:
+    """Create a bank deposit. date: YYYY-MM-DD. deposit_to_account: name of bank account receiving deposit. lines_json: JSON string [{"account_name": "...", "amount": 100.00, "description": "..."}].
+    Canada/global editions: optional tax_code applies a sales tax code to each deposit line, e.g. 'HST ON' (deposits do not require one)."""
     dep_accounts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{deposit_to_account}%' MAXRESULTS 1")
     dep_list = dep_accounts.get("QueryResponse", {}).get("Account", [])
     if not dep_list:
@@ -2175,6 +2388,16 @@ async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str,
     }
     if memo:
         deposit_body["PrivateNote"] = memo
+
+    if tax_code:
+        region = (await _get_region())["region"]
+        if region != "US":
+            try:
+                tax_id, _ = await _resolve_tax_code(tax_code)
+            except ValueError as e:
+                return str(e)
+            _apply_global_tax(deposit_body, "Line", "DepositLineDetail",
+                              tax_id, False, region)
 
     result = await qb_request("POST", "deposit", json_body=deposit_body)
     dep = result.get("Deposit", {})
@@ -2538,10 +2761,11 @@ async def qb_auto_categorize_suggestions(start_date: str, end_date: str, max_res
 # ===================================================================
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_batch_create_expenses(expenses_json: str) -> str:
+async def qb_batch_create_expenses(expenses_json: str, tax_code: str = "") -> str:
     """Create multiple expenses in one call. expenses_json is a JSON array of objects:
     [{"vendor_name": "...", "amount": 100, "account_name": "...", "date": "YYYY-MM-DD", "description": "..."}].
-    Useful for importing invoices or bulk expense entry."""
+    Useful for importing invoices or bulk expense entry.
+    Canada/global editions: tax_code applies a sales tax code to every expense, e.g. 'HST ON'; per-item override via a 'tax_code' key in the JSON objects."""
     try:
         expenses = json.loads(expenses_json)
     except json.JSONDecodeError:
@@ -2549,6 +2773,15 @@ async def qb_batch_create_expenses(expenses_json: str) -> str:
 
     if not isinstance(expenses, list):
         return "Error: expenses_json must be a JSON array."
+
+    region = (await _get_region())["region"]
+    default_tax_id = None
+    tax_cache: dict = {}
+    if region != "US" and tax_code:
+        try:
+            default_tax_id, _ = await _resolve_tax_code(tax_code)
+        except ValueError as e:
+            return str(e)
 
     results = []
     errors = []
@@ -2560,6 +2793,18 @@ async def qb_batch_create_expenses(expenses_json: str) -> str:
             date = exp.get("date", datetime.now().strftime("%Y-%m-%d"))
             description = exp.get("description", "")
             payment_method = exp.get("payment_method", "")
+
+            # Resolve this item's tax code before any create calls
+            item_tax_id = default_tax_id
+            if region != "US":
+                item_code = str(exp.get("tax_code", "") or "").strip()
+                if item_code:
+                    if item_code not in tax_cache:
+                        tax_cache[item_code] = (await _resolve_tax_code(item_code))[0]
+                    item_tax_id = tax_cache[item_code]
+                if not item_tax_id:
+                    errors.append(f"#{i+1}: ❌ {vendor_name} — {_TAX_CODE_REQUIRED_MSG}")
+                    continue
 
             # Look up vendor
             vendors = await qb_query(f"SELECT Id, DisplayName FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1")
@@ -2600,6 +2845,8 @@ async def qb_batch_create_expenses(expenses_json: str) -> str:
             }
             if pay_ref:
                 body["AccountRef"] = pay_ref
+            _apply_global_tax(body, "Line", "AccountBasedExpenseLineDetail",
+                              item_tax_id, False, region)
 
             resp = await qb_request("POST", "purchase", json_body=body)
             txn_id = resp.get("Purchase", {}).get("Id", "?")
@@ -2620,14 +2867,24 @@ async def qb_batch_create_expenses(expenses_json: str) -> str:
 
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_batch_create_bills(bills_json: str) -> str:
+async def qb_batch_create_bills(bills_json: str, tax_code: str = "") -> str:
     """Create multiple bills (accounts payable) in one call. bills_json is a JSON array:
     [{"vendor_name": "...", "amount": 100, "account_name": "...", "date": "YYYY-MM-DD", "due_date": "YYYY-MM-DD", "description": "..."}].
-    Useful for importing vendor invoices from email extraction."""
+    Useful for importing vendor invoices from email extraction.
+    Canada/global editions: tax_code applies a sales tax code to every bill, e.g. 'HST ON'; per-item override via a 'tax_code' key in the JSON objects."""
     try:
         bills = json.loads(bills_json)
     except json.JSONDecodeError:
         return "Error: Invalid JSON. Provide a JSON array of bill objects."
+
+    region = (await _get_region())["region"]
+    default_tax_id = None
+    tax_cache: dict = {}
+    if region != "US" and tax_code:
+        try:
+            default_tax_id, _ = await _resolve_tax_code(tax_code)
+        except ValueError as e:
+            return str(e)
 
     results = []
     errors = []
@@ -2639,6 +2896,18 @@ async def qb_batch_create_bills(bills_json: str) -> str:
             date = bill.get("date", datetime.now().strftime("%Y-%m-%d"))
             due_date = bill.get("due_date", date)
             description = bill.get("description", "")
+
+            # Resolve this item's tax code before any create calls
+            item_tax_id = default_tax_id
+            if region != "US":
+                item_code = str(bill.get("tax_code", "") or "").strip()
+                if item_code:
+                    if item_code not in tax_cache:
+                        tax_cache[item_code] = (await _resolve_tax_code(item_code))[0]
+                    item_tax_id = tax_cache[item_code]
+                if not item_tax_id:
+                    errors.append(f"#{i+1}: ❌ {vendor_name} — {_TAX_CODE_REQUIRED_MSG}")
+                    continue
 
             # Look up or create vendor
             vendors = await qb_query(f"SELECT Id, DisplayName FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1")
@@ -2668,6 +2937,8 @@ async def qb_batch_create_bills(bills_json: str) -> str:
                     "Description": description,
                 }],
             }
+            _apply_global_tax(body, "Line", "AccountBasedExpenseLineDetail",
+                              item_tax_id, False, region)
 
             resp = await qb_request("POST", "bill", json_body=body)
             bill_id = resp.get("Bill", {}).get("Id", "?")
@@ -2912,6 +3183,7 @@ async def qb_runway_calculator(current_cash: float = 0, monthly_revenue: float =
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "For Canadian books use qb_t2125_summary.")
 async def qb_schedule_c(tax_year: str = "2024") -> str:
     """Generate IRS Schedule C (Profit or Loss from Business) line-by-line mapping.
     Maps QuickBooks expense categories to Schedule C lines for tax filing. tax_year: YYYY format."""
@@ -3050,6 +3322,7 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "Use qb_estimate_instalments for CRA instalments + CPP.")
 async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str = "single", state: str = "MA") -> str:
     """Estimate quarterly tax payments (federal + state) based on YTD P&L.
     filing_status: single, married_joint, married_separate. state: two-letter code (MA, CA, etc.)."""
@@ -3152,6 +3425,7 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "CA deduction guidance will come from qb_t2125_summary.")
 async def qb_deduction_finder(tax_year: str = "2024") -> str:
     """Analyze books for commonly missed tax deductions. Checks for home office,
     vehicle expenses, health insurance, retirement contributions, startup costs,
@@ -3320,6 +3594,7 @@ async def qb_deduction_finder(tax_year: str = "2024") -> str:
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "Use qb_cca_schedule for CCA classes.")
 async def qb_depreciation_schedule(tax_year: str = "2024") -> str:
     """Generate a depreciation schedule for all fixed assets. Shows Section 179,
     MACRS, and accumulated depreciation for tax year. Pulls from QB asset accounts."""
@@ -3558,10 +3833,11 @@ async def qb_vendor_summary(start_date: str, end_date: str, top_n: int = 20) -> 
 
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_bill(vendor_name: str, amount: float, account_name: str, date: str, due_date: str = "", description: str = "") -> str:
+async def qb_create_bill(vendor_name: str, amount: float, account_name: str, date: str, due_date: str = "", description: str = "", tax_code: str = "", tax_inclusive: bool = False) -> str:
     """Create a single bill (accounts payable) in QuickBooks.
     vendor_name: payee, amount: total, account_name: expense category, date: YYYY-MM-DD.
-    due_date: when payment is due (defaults to date if empty)."""
+    due_date: when payment is due (defaults to date if empty).
+    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; tax_inclusive=True when amount already includes tax."""
     if not due_date:
         due_date = date
 
@@ -3592,6 +3868,17 @@ async def qb_create_bill(vendor_name: str, amount: float, account_name: str, dat
             "Description": description,
         }],
     }
+
+    region = (await _get_region())["region"]
+    if region != "US":
+        if not tax_code:
+            return _TAX_CODE_REQUIRED_MSG
+        try:
+            tax_id, _ = await _resolve_tax_code(tax_code)
+        except ValueError as e:
+            return str(e)
+        _apply_global_tax(body, "Line", "AccountBasedExpenseLineDetail",
+                          tax_id, tax_inclusive, region)
 
     resp = await qb_request("POST", "bill", json_body=body)
     bill = resp.get("Bill", {})
@@ -4109,6 +4396,7 @@ async def qb_batch_create_journal_entries(entries_json: str) -> str:
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "CRA business-use-of-home rules differ; see qb_t2125_summary.")
 async def qb_home_office_calculator(
     home_sqft: float,
     office_sqft: float,
@@ -4179,6 +4467,7 @@ async def qb_home_office_calculator(
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "Use qb_cca_schedule (Class 10/10.1).")
 async def qb_vehicle_depreciation_calculator(
     purchase_price: float,
     purchase_date: str,
@@ -4481,6 +4770,7 @@ async def qb_account_transactions(account_name: str, start_date: str, end_date: 
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "For Canadian books use qb_t2125_summary.")
 async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
     """Generate a detailed Schedule C (Profit or Loss from Business) mapping with
     QuickBooks account-level detail for each line. More granular than qb_schedule_c —
@@ -4766,6 +5056,7 @@ async def qb_delete_journal_entry(journal_entry_id: str, confirm: bool = False) 
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "Use qb_t4a_contractor_report.")
 async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 600.0) -> str:
     """Generate 1099-NEC contractor reporting data for a tax year.
     Lists all vendors paid >= threshold (default $600) via non-employee compensation.
@@ -5199,11 +5490,12 @@ async def qb_list_credit_memos(start_date: str, end_date: str, customer_name: st
 
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_credit_memo(customer_name: str, line_items: str, date: str = "", memo: str = "") -> str:
+async def qb_create_credit_memo(customer_name: str, line_items: str, date: str = "", memo: str = "", tax_code: str = "", tax_inclusive: bool = False) -> str:
     """Create a credit memo for a customer. Reduces what the customer owes.
     customer_name: customer to credit. line_items: JSON string array
     [{\"description\": \"Returned item\", \"amount\": 50.00}].
-    date: YYYY-MM-DD (defaults to today). memo: internal note."""
+    date: YYYY-MM-DD (defaults to today). memo: internal note.
+    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; per-line override via 'tax_code' key in line_items JSON; tax_inclusive=True when amounts already include tax."""
     customer_name = _sanitize_input(customer_name, "customer_name")
     import json as _json
 
@@ -5222,17 +5514,38 @@ async def qb_create_credit_memo(customer_name: str, line_items: str, date: str =
     except _json.JSONDecodeError:
         return "Invalid line_items JSON. Use format: [{\"description\": \"...\", \"amount\": 100}]"
 
+    region = (await _get_region())["region"]
+    default_tax_id = None
+    tax_cache: dict = {}
+    if region != "US" and tax_code:
+        try:
+            default_tax_id, _ = await _resolve_tax_code(tax_code)
+        except ValueError as e:
+            return str(e)
+
     cm_lines = []
     for item in items:
         amt = _validate_amount(float(item.get("amount", 0)), "line amount")
-        cm_lines.append({
+        line = {
             "Amount": amt,
             "Description": item.get("description", ""),
             "DetailType": "SalesItemLineDetail",
             "SalesItemLineDetail": {
                 "ItemRef": {"value": "1", "name": "Services"},
             },
-        })
+        }
+        try:
+            line_tax = await _line_tax_code_ref(item, region, tax_cache)
+        except ValueError as e:
+            return str(e)
+        if line_tax:
+            line["SalesItemLineDetail"]["TaxCodeRef"] = line_tax
+        cm_lines.append(line)
+
+    if region != "US" and not default_tax_id and not any(
+        "TaxCodeRef" in l["SalesItemLineDetail"] for l in cm_lines
+    ):
+        return _TAX_CODE_REQUIRED_MSG
 
     body = {
         "CustomerRef": {"value": customer["Id"]},
@@ -5242,6 +5555,8 @@ async def qb_create_credit_memo(customer_name: str, line_items: str, date: str =
         body["TxnDate"] = _validate_date(date, "date")
     if memo:
         body["PrivateNote"] = memo
+    _apply_global_tax(body, "Line", "SalesItemLineDetail",
+                      default_tax_id, tax_inclusive, region)
 
     result = await qb_request("POST", "creditmemo", json_body=body)
     cm = result.get("CreditMemo", {})
@@ -5308,10 +5623,11 @@ async def qb_list_vendor_credits(start_date: str, end_date: str, vendor_name: st
 
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_vendor_credit(vendor_name: str, amount: float, account_name: str, date: str = "", description: str = "") -> str:
+async def qb_create_vendor_credit(vendor_name: str, amount: float, account_name: str, date: str = "", description: str = "", tax_code: str = "", tax_inclusive: bool = False) -> str:
     """Create a vendor credit. Reduces what you owe a vendor (e.g., refund, return, pricing adjustment).
     vendor_name: vendor issuing the credit. amount: credit amount.
-    account_name: expense account to reduce. date: YYYY-MM-DD (defaults to today)."""
+    account_name: expense account to reduce. date: YYYY-MM-DD (defaults to today).
+    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; tax_inclusive=True when amount already includes tax."""
     vendor_name = _sanitize_input(vendor_name, "vendor_name")
     account_name = _sanitize_input(account_name, "account_name")
     amount = _validate_amount(amount, "amount")
@@ -5346,6 +5662,17 @@ async def qb_create_vendor_credit(vendor_name: str, amount: float, account_name:
     }
     if date:
         body["TxnDate"] = _validate_date(date, "date")
+
+    region = (await _get_region())["region"]
+    if region != "US":
+        if not tax_code:
+            return _TAX_CODE_REQUIRED_MSG
+        try:
+            tax_id, _ = await _resolve_tax_code(tax_code)
+        except ValueError as e:
+            return str(e)
+        _apply_global_tax(body, "Line", "AccountBasedExpenseLineDetail",
+                          tax_id, tax_inclusive, region)
 
     result = await qb_request("POST", "vendorcredit", json_body=body)
     vc = result.get("VendorCredit", {})
@@ -5470,6 +5797,112 @@ async def qb_sales_tax_summary(start_date: str, end_date: str) -> str:
     ])
 
     _audit_log("SALES_TAX_SUMMARY", f"period={start_date}/{end_date} tax_collected={fmt(total_tax)}")
+    return "\n".join(lines)
+
+
+# ===================================================================
+# SALES TAX CODES & RATES — discovery (Canada / global tax editions)
+# ===================================================================
+
+async def _tax_agency_names() -> dict:
+    """Map TaxAgency Id -> DisplayName (best effort; names are cosmetic)."""
+    names = {}
+    try:
+        result = await qb_query("SELECT * FROM TaxAgency MAXRESULTS 1000")
+        for ta in result.get("QueryResponse", {}).get("TaxAgency", []):
+            names[str(ta.get("Id", ""))] = ta.get("DisplayName", "?")
+    except Exception as e:
+        logger.debug(f"TaxAgency lookup failed: {e}")
+    return names
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_list_tax_codes() -> str:
+    """List this company's sales tax codes: name, Id, combined sales rate, and agency.
+    In Canada/global editions, pass a code's name (e.g. 'HST ON') as tax_code= to
+    create tools (qb_create_invoice, qb_create_expense, qb_create_bill, ...)."""
+    region_info = await _get_region()
+
+    tc_result = await qb_query("SELECT * FROM TaxCode MAXRESULTS 1000")
+    tax_codes = [
+        tc for tc in tc_result.get("QueryResponse", {}).get("TaxCode", [])
+        if tc.get("Active", True)
+    ]
+    if not tax_codes:
+        return "No tax codes found for this company."
+
+    tr_result = await qb_query("SELECT * FROM TaxRate MAXRESULTS 1000")
+    tax_rates = tr_result.get("QueryResponse", {}).get("TaxRate", [])
+    agency_names = await _tax_agency_names()
+
+    rate_map = {}
+    for tr in tax_rates:
+        agency_ref = tr.get("AgencyRef") or {}
+        rate_map[str(tr.get("Id", ""))] = {
+            "rate": float(tr.get("RateValue", 0) or 0),
+            "agency": agency_ref.get("name")
+                      or agency_names.get(str(agency_ref.get("value", "")), ""),
+        }
+
+    taxable, zero = [], []
+    for tc in tax_codes:
+        details = (tc.get("SalesTaxRateList") or {}).get("TaxRateDetail") or []
+        combined = 0.0
+        agencies = []
+        for d in details:
+            rid = str((d.get("TaxRateRef") or {}).get("value", ""))
+            info = rate_map.get(rid)
+            if info:
+                combined += info["rate"]
+                if info["agency"] and info["agency"] not in agencies:
+                    agencies.append(info["agency"])
+        entry = f"- **{tc.get('Name', '?')}** (Id {tc.get('Id', '?')}) — {combined:g}%"
+        if agencies:
+            entry += f" — Agency: {', '.join(agencies)}"
+        (taxable if combined > 0 else zero).append(entry)
+
+    lines = ["## Sales Tax Codes\n"]
+    if region_info["region"] == "US":
+        lines.append(
+            "*This company uses US Automated Sales Tax — QuickBooks applies "
+            "sales tax automatically; you normally don't need to pass tax_code.*\n"
+        )
+    if taxable:
+        lines.append("### Taxable")
+        lines.extend(taxable)
+    if zero:
+        lines.append("\n### Zero-rated / Exempt (0%)")
+        lines.extend(zero)
+    lines.append(
+        "\n*Hint: pass tax_code=\"<Name>\" (e.g. tax_code=\"HST ON\") to create "
+        "tools like qb_create_invoice, qb_create_expense, or qb_create_bill to "
+        "apply a code to every line; JSON line_items also accept a per-line "
+        "\"tax_code\" key.*"
+    )
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_list_tax_rates() -> str:
+    """List this company's individual sales tax rates (rate % and tax agency).
+    Tax codes (see qb_list_tax_codes) combine one or more of these rates."""
+    tr_result = await qb_query("SELECT * FROM TaxRate MAXRESULTS 1000")
+    tax_rates = tr_result.get("QueryResponse", {}).get("TaxRate", [])
+    if not tax_rates:
+        return "No tax rates found for this company."
+
+    agency_names = await _tax_agency_names()
+
+    lines = ["## Sales Tax Rates\n"]
+    for tr in sorted(tax_rates, key=lambda r: r.get("Name", "")):
+        agency_ref = tr.get("AgencyRef") or {}
+        agency = (agency_ref.get("name")
+                  or agency_names.get(str(agency_ref.get("value", "")), ""))
+        entry = (f"- **{tr.get('Name', '?')}** (Id {tr.get('Id', '?')}): "
+                 f"{float(tr.get('RateValue', 0) or 0):g}%")
+        if agency:
+            entry += f" — {agency}"
+        lines.append(entry)
     return "\n".join(lines)
 
 
@@ -7008,11 +7441,12 @@ async def qb_record_invoice_payment(customer_name: str, amount: float, invoice_i
 
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_estimate(customer_name: str, line_items: str, expiration_date: str = "",
-                              memo: str = "") -> str:
+                              memo: str = "", tax_code: str = "", tax_inclusive: bool = False) -> str:
     """Create a customer estimate/quote.
     customer_name: customer to quote. line_items: JSON string array
     [{"description": "Consulting", "amount": 5000}]. expiration_date: YYYY-MM-DD (optional).
-    memo: internal note."""
+    memo: internal note.
+    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; per-line override via 'tax_code' key in line_items JSON; tax_inclusive=True when amounts already include tax."""
     # Find customer
     safe_name = customer_name.replace("'", "")
     customers = (await qb_query(
@@ -7030,12 +7464,21 @@ async def qb_create_estimate(customer_name: str, line_items: str, expiration_dat
     if not isinstance(items, list) or not items:
         return "Error: line_items must be a non-empty array."
 
+    region = (await _get_region())["region"]
+    default_tax_id = None
+    tax_cache: dict = {}
+    if region != "US" and tax_code:
+        try:
+            default_tax_id, _ = await _resolve_tax_code(tax_code)
+        except ValueError as e:
+            return str(e)
+
     lines = []
     total = 0.0
     for i, item in enumerate(items):
         amt = float(item.get("amount", 0))
         total += amt
-        lines.append({
+        line = {
             "DetailType": "SalesItemLineDetail",
             "Amount": amt,
             "Description": item.get("description", f"Line item {i+1}"),
@@ -7043,7 +7486,19 @@ async def qb_create_estimate(customer_name: str, line_items: str, expiration_dat
                 "UnitPrice": amt,
                 "Qty": 1,
             }
-        })
+        }
+        try:
+            line_tax = await _line_tax_code_ref(item, region, tax_cache)
+        except ValueError as e:
+            return str(e)
+        if line_tax:
+            line["SalesItemLineDetail"]["TaxCodeRef"] = line_tax
+        lines.append(line)
+
+    if region != "US" and not default_tax_id and not any(
+        "TaxCodeRef" in l["SalesItemLineDetail"] for l in lines
+    ):
+        return _TAX_CODE_REQUIRED_MSG
 
     estimate = {
         "CustomerRef": {"value": customer["Id"], "name": customer.get("DisplayName", "")},
@@ -7055,6 +7510,8 @@ async def qb_create_estimate(customer_name: str, line_items: str, expiration_dat
         estimate["ExpirationDate"] = _validate_date(expiration_date, "expiration_date")
     if memo:
         estimate["PrivateNote"] = memo
+    _apply_global_tax(estimate, "Line", "SalesItemLineDetail",
+                      default_tax_id, tax_inclusive, region)
 
     result = await qb_request("POST", "estimate", json_body=estimate)
     est = result.get("Estimate", {})

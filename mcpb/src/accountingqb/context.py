@@ -41,8 +41,12 @@ class QBContext:
     # from the offline cache) — hosted-company fetching is lazy.
     hosted_loaded: bool = False
 
-    # realm_id -> region/country code cache (reserved for future use, e.g.
-    # per-region tax handling)
+    # realm_id -> tax-edition info cache, populated lazily by
+    # server._get_region(). Values look like:
+    #   {"region": "US" | "CA" | "OTHER_GLOBAL",
+    #    "home_currency": "CAD", "multicurrency": True}
+    # Keyed by realm so switching companies re-detects naturally; cleared by
+    # qb_refresh_connection.
     region_cache: dict = field(default_factory=dict)
 
     # Whether tokens may be cached (encrypted) on local disk. True for the
