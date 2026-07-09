@@ -18,7 +18,8 @@ export type EmailType =
   | "trial_warning_1day"
   | "trial_expired"
   | "payment_failed"
-  | "subscription_renewed";
+  | "subscription_renewed"
+  | "reengagement";
 
 interface EmailData {
   to: string;

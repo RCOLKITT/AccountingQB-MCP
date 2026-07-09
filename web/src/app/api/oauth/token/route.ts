@@ -90,43 +90,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Refresh any expired tokens
-    const refreshedTokens = await Promise.all(
-      tokens.map(async (token) => {
-        const expiresAt = new Date(token.token_expires_at);
-        const now = new Date();
-
-        // Refresh if token expires in less than 5 minutes
-        if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
-          const refreshed = await refreshAccessToken(token);
-          if (refreshed) {
-            // Update in database
-            await supabase
-              .from("oauth_tokens")
-              .update({
-                access_token: refreshed.access_token,
-                refresh_token: refreshed.refresh_token,
-                token_expires_at: refreshed.token_expires_at,
-              })
-              .eq("id", token.id);
-
-            // Log successful token refresh
-            await logOAuthRefresh(licenseKey, token.realm_id, true);
-
-            return {
-              ...token,
-              access_token: refreshed.access_token,
-              refresh_token: refreshed.refresh_token,
-              token_expires_at: refreshed.token_expires_at,
-            };
-          } else {
-            // Log failed token refresh
-            await logOAuthRefresh(licenseKey, token.realm_id, false, "Refresh request failed");
-          }
-        }
-        return token;
-      })
-    );
+    // Refresh any expired tokens (single-flight per row via a DB lock)
+    const refreshedTokens: OAuthTokenRow[] = [];
+    for (const token of tokens as OAuthTokenRow[]) {
+      refreshedTokens.push(
+        await refreshTokenIfNeeded(supabase, licenseKey, token)
+      );
+    }
 
     // Return tokens (strip internal fields)
     const companies = refreshedTokens.map((t) => ({
@@ -152,6 +122,121 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+interface OAuthTokenRow {
+  id: string;
+  license_key: string;
+  realm_id: string;
+  company_name: string | null;
+  access_token: string;
+  refresh_token: string;
+  token_expires_at: string;
+  refresh_locked_at?: string | null;
+}
+
+const REFRESH_WINDOW_MS = 5 * 60 * 1000; // Refresh if token expires within 5 minutes
+const LOCK_POLL_ATTEMPTS = 3;
+const LOCK_POLL_INTERVAL_MS = 700;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Refreshes a token if it's close to expiry, coordinating across concurrent
+ * requests via the claim_token_refresh() Postgres function (single-flight):
+ * only the request that claims the row lock hits Intuit; other requests
+ * poll for the refreshed row instead of firing duplicate refresh calls.
+ *
+ * Requires migrations/2026-07-oauth-refresh-lock.sql to be applied.
+ */
+async function refreshTokenIfNeeded(
+  supabase: ReturnType<typeof getSupabase>,
+  licenseKey: string,
+  token: OAuthTokenRow
+): Promise<OAuthTokenRow> {
+  const expiresAt = new Date(token.token_expires_at);
+
+  // Token is still fresh — nothing to do
+  if (expiresAt.getTime() - Date.now() >= REFRESH_WINDOW_MS) {
+    return token;
+  }
+
+  // Try to claim the refresh lock (stale locks > 30s are re-claimable)
+  let claimed = true;
+  const { data: claimResult, error: claimError } = await supabase.rpc(
+    "claim_token_refresh",
+    { p_id: token.id }
+  );
+
+  if (claimError) {
+    // Function missing or RPC failure — fall back to refreshing directly
+    console.error("claim_token_refresh RPC failed, refreshing without lock:", claimError);
+  } else {
+    claimed = claimResult === true;
+  }
+
+  if (claimed) {
+    const refreshed = await refreshAccessToken(token);
+    if (refreshed) {
+      // Write back new tokens and release the lock
+      await supabase
+        .from("oauth_tokens")
+        .update({
+          access_token: refreshed.access_token,
+          refresh_token: refreshed.refresh_token,
+          token_expires_at: refreshed.token_expires_at,
+          refresh_locked_at: null,
+        })
+        .eq("id", token.id);
+
+      // Log successful token refresh
+      await logOAuthRefresh(licenseKey, token.realm_id, true);
+
+      return {
+        ...token,
+        access_token: refreshed.access_token,
+        refresh_token: refreshed.refresh_token,
+        token_expires_at: refreshed.token_expires_at,
+      };
+    }
+
+    // Refresh failed — release the lock so another request can retry
+    await supabase
+      .from("oauth_tokens")
+      .update({ refresh_locked_at: null })
+      .eq("id", token.id);
+
+    // Log failed token refresh
+    await logOAuthRefresh(licenseKey, token.realm_id, false, "Refresh request failed");
+
+    return token;
+  }
+
+  // Another request holds the lock — poll for the refreshed row
+  let latest: OAuthTokenRow = token;
+  for (let attempt = 0; attempt < LOCK_POLL_ATTEMPTS; attempt++) {
+    await sleep(LOCK_POLL_INTERVAL_MS);
+
+    const { data: row } = await supabase
+      .from("oauth_tokens")
+      .select("*")
+      .eq("id", token.id)
+      .maybeSingle();
+
+    if (row) {
+      latest = row as OAuthTokenRow;
+      // If the stored token now expires in the future, the other request
+      // finished refreshing — return the stored tokens
+      if (new Date(latest.token_expires_at).getTime() > Date.now()) {
+        return latest;
+      }
+    }
+  }
+
+  // Lock holder didn't finish in time — return the stored row as-is
+  return latest;
 }
 
 /**
