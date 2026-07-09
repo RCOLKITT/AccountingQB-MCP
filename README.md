@@ -2,7 +2,9 @@
 
 The most comprehensive QuickBooks Online MCP server for Claude. Built for sole proprietors and small businesses who want to manage their books, run reports, and prep taxes through natural conversation.
 
-**94 tools** covering transactions, reports, tax prep, reconciliation, smart bookkeeping, 1099 reporting, anomaly detection, credit memos, vendor credits, cash flow forecasting, and profit margin analysis — all from Claude Desktop.
+**101 tools** covering transactions, reports, tax prep (US **and** Canada), reconciliation, smart bookkeeping, 1099/T4A reporting, GST/HST returns, anomaly detection, credit memos, vendor credits, cash flow forecasting, and profit margin analysis — all from Claude Desktop.
+
+**Canada support:** works with Canadian QuickBooks Online companies out of the box — the server auto-detects the company's tax edition, applies sales tax codes (GST/HST/PST) on created transactions, and ships a full Canadian tax suite: GST/HST (GST34) return workpapers with the 50% meals ITC restriction, T2125 line mapping, CCA schedules (half-year rule + Accelerated Investment Incentive), T4A/T5018 contractor reporting, and CRA instalment + CPP estimates. Multicurrency companies see per-transaction currency and exchange rates.
 
 > Built by [Vaspera Capital](https://vasperacapital.com) — because QuickBooks deserved a real MCP server.
 
@@ -76,7 +78,7 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 
 ---
 
-## Tools (94)
+## Tools (101)
 
 ### Company & Entities
 
@@ -180,6 +182,18 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 | `qb_home_office_calculator` | Form 8829 home office deduction calculator |
 | `qb_vehicle_depreciation_calculator` | Vehicle depreciation with business use % |
 
+### Canadian Tax (GST/HST, T2125)
+
+| Tool | Description |
+|------|-------------|
+| `qb_gst_hst_return` | GST34 return workpaper — lines 101/103/105/106/108/109 with 50% meals ITC restriction, TaxSummary report, tax payments, and Quick Method note |
+| `qb_t2125_summary` | CRA T2125 line-by-line mapping (8521 Advertising, 8523 Meals at 50%, 8910 Rent, ...) |
+| `qb_cca_schedule` | Capital Cost Allowance by class — half-year rule, Accelerated Investment Incentive, Class 10.1/54 ceilings |
+| `qb_t4a_contractor_report` | T4A box 048 contractor reporting with BN/address validation (T5018 note for construction) |
+| `qb_estimate_instalments` | CRA instalments (Mar/Jun/Sep/Dec 15) + exact CPP/CPP2, with approximate federal/provincial tax |
+| `qb_list_tax_codes` | Sales tax codes (name, combined rate, agency) — pass as `tax_code=` to create tools |
+| `qb_list_tax_rates` | Individual sales tax rates and agencies |
+
 ### Smart Features
 
 | Tool | Description |
@@ -234,6 +248,8 @@ Once connected, just ask Claude naturally:
 - *"Forecast my cash flow for the next 6 months"*
 - *"Create a vendor credit for $200 to Amazon"*
 - *"Convert estimate #1042 to an invoice"*
+- *"Build my GST/HST return workpaper for Q2"* (Canada)
+- *"Map my books to the T2125 and estimate my CRA instalments"* (Canada)
 
 ---
 
