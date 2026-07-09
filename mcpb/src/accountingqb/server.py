@@ -197,6 +197,15 @@ FREE_TOOLS = {
     "qb_list_tax_rates",
 }  # ~30 read-only / reporting / management tools
 
+def _effective_license_key() -> str:
+    """License key for the current connection.
+
+    Single-tenant deployments use the QB_LICENSE_KEY environment value; the
+    remote multi-tenant service sets QBContext.license_key per request from
+    the verified JWT claim, which takes precedence.
+    """
+    return get_ctx().license_key or LICENSE_KEY
+
 async def _validate_license(key: str) -> dict:
     """Validate a license key against the remote API (with 24h cache)."""
     if not key:
@@ -246,10 +255,10 @@ def require_license(func):
         if tool_name in FREE_TOOLS:
             return await func(*args, **kwargs)
         # No license system configured = dev/self-hosted mode = all unlocked
-        if not LICENSE_KEY and not _LICENSE_VALIDATION_URL:
+        if not _effective_license_key() and not _LICENSE_VALIDATION_URL:
             return await func(*args, **kwargs)
         # Validate license
-        result = await _validate_license(LICENSE_KEY)
+        result = await _validate_license(_effective_license_key())
         if result.get("valid"):
             return await func(*args, **kwargs)
         return (
@@ -270,7 +279,8 @@ def require_license(func):
 async def _track_usage(tool_name: str) -> None:
     """Report tool usage to AccountingQB API (non-blocking, fire-and-forget).
     Silently fails if license key is not set or API is unreachable."""
-    if not LICENSE_KEY:
+    license_key = _effective_license_key()
+    if not license_key:
         return
 
     try:
@@ -278,7 +288,7 @@ async def _track_usage(tool_name: str) -> None:
             await client.post(
                 USAGE_API_URL,
                 json={
-                    "licenseKey": LICENSE_KEY,
+                    "licenseKey": license_key,
                     "toolName": tool_name,
                     "realmId": get_ctx().realm_id or None,
                 },
@@ -369,14 +379,15 @@ def _fetch_hosted_tokens(ctx: Optional["QBContext"] = None) -> bool:
     if ctx is None:
         ctx = get_ctx()
 
-    if not LICENSE_KEY:
+    license_key = ctx.license_key or LICENSE_KEY
+    if not license_key:
         return False
 
     try:
         with httpx.Client(timeout=15.0) as client:
             resp = client.post(
                 f"{QB_API_URL}/api/oauth/token",
-                json={"licenseKey": LICENSE_KEY}
+                json={"licenseKey": license_key}
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -646,7 +657,10 @@ async def get_access_token() -> str:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.post(
                     f"{QB_API_URL}/api/oauth/token",
-                    json={"licenseKey": LICENSE_KEY, "realmId": ctx.realm_id or None}
+                    json={
+                        "licenseKey": ctx.license_key or LICENSE_KEY,
+                        "realmId": ctx.realm_id or None,
+                    }
                 )
                 if resp.status_code == 200:
                     data = resp.json()
@@ -909,7 +923,7 @@ def require_region(region: str, alternative: str):
             detected = (await _get_region())["region"]
             if detected != region:
                 return (
-                    f"⚠️ {tool_name} is a US-tax tool and this QuickBooks "
+                    f"⚠️ {tool_name} is a {region}-tax tool and this QuickBooks "
                     f"company is registered in {detected}. {alternative}"
                 )
             return await func(*args, **kwargs)
@@ -987,6 +1001,36 @@ async def _line_tax_code_ref(item: dict, region: str, cache: dict):
     return {"value": cache[name]}
 
 
+async def _multicurrency_enabled() -> bool:
+    """True when this company has multicurrency turned on.
+
+    Reads the per-realm region cache when populated; otherwise detects lazily
+    via _get_region() (which caches), so this costs at most one detection per
+    session and nothing extra for companies already detected."""
+    ctx = get_ctx()
+    cached = ctx.region_cache.get(ctx.realm_id or "_default")
+    if cached is not None:
+        return bool(cached.get("multicurrency"))
+    try:
+        return bool((await _get_region()).get("multicurrency"))
+    except Exception:
+        return False
+
+
+def _txn_currency_tag(txn: dict) -> str:
+    """Compact currency suffix (e.g. ' [USD @1.37]') for multicurrency books."""
+    code = ((txn.get("CurrencyRef") or {}).get("value") or "").strip()
+    if not code:
+        return ""
+    rate = txn.get("ExchangeRate")
+    try:
+        if rate not in (None, "") and float(rate) != 1.0:
+            return f" [{code} @{float(rate):g}]"
+    except (ValueError, TypeError):
+        pass
+    return f" [{code}]"
+
+
 # ===================================================================
 # HOSTED MODE — Company Management
 # ===================================================================
@@ -1057,6 +1101,22 @@ async def qb_switch_company(realm_id: str) -> str:
             else:
                 ctx.token_expiry = None
             name = company.get("companyName") or realm_id
+            # Remote (stateless) mode: persist the choice so the next request
+            # — which gets a fresh QBContext — resumes on the same company.
+            if not ctx.persist_tokens and ctx.license_key:
+                try:
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        await client.post(
+                            f"{QB_API_URL}/api/license/default-realm",
+                            json={"license_key": ctx.license_key, "realmId": realm_id},
+                        )
+                except Exception as e:
+                    logger.warning(f"Could not persist default realm: {e}")
+                    return (
+                        f"✓ Switched to **{name}** (Realm ID: `{realm_id}`) for this "
+                        f"request, but the choice could not be saved — it may reset "
+                        f"on your next message."
+                    )
             return f"✓ Switched to **{name}** (Realm ID: `{realm_id}`)"
 
     return f"Company with realm ID `{realm_id}` not found. Use `qb_list_companies` to see available companies."
@@ -1066,7 +1126,7 @@ async def qb_switch_company(realm_id: str) -> str:
 async def qb_refresh_connection() -> str:
     """Refresh the connection to AccountingQB servers. Use this if you've connected
     new QuickBooks companies or if you're having connection issues."""
-    if not LICENSE_KEY:
+    if not _effective_license_key():
         return "No license key configured. This tool is only available in hosted mode."
 
     ctx = get_ctx()
@@ -1141,6 +1201,7 @@ async def qb_list_transactions(start_date: str, end_date: str, vendor_name: str 
     if not purchases:
         return f"No transactions found between {start_date} and {end_date}."
 
+    show_currency = await _multicurrency_enabled()
     lines = [f"## Transactions: {start_date} to {end_date}\n"]
     total = 0.0
     count = 0
@@ -1167,7 +1228,8 @@ async def qb_list_transactions(start_date: str, end_date: str, vendor_name: str 
                 cat = line.get("AccountBasedExpenseLineDetail", {}).get("AccountRef", {}).get("name", "")
                 detail_lines.append(f"  - {cat}: {fmt(line.get('Amount'))}")
 
-        lines.append(f"**{date}** | {vendor} | {fmt(amt)} | ID: {p.get('Id', '')}")
+        cur = _txn_currency_tag(p) if show_currency else ""
+        lines.append(f"**{date}** | {vendor} | {fmt(amt)}{cur} | ID: {p.get('Id', '')}")
         if pay_type or acct:
             lines.append(f"  Payment: {pay_type} via {acct}")
         if memo:
@@ -1322,6 +1384,7 @@ async def qb_list_bills(start_date: str, end_date: str, vendor_name: str = "", m
     if not bills:
         return f"No bills found between {start_date} and {end_date}."
 
+    show_currency = await _multicurrency_enabled()
     lines = [f"## Bills: {start_date} to {end_date}\n"]
     total = 0.0
     total_balance = 0.0
@@ -1336,7 +1399,8 @@ async def qb_list_bills(start_date: str, end_date: str, vendor_name: str = "", m
         total_balance += balance
 
         status = "PAID" if balance == 0 else f"DUE: {fmt(balance)}"
-        lines.append(f"**{date}** | {vendor} | {fmt(amt)} | {status} | Due: {due} | ID: {b.get('Id', '')}")
+        cur = _txn_currency_tag(b) if show_currency else ""
+        lines.append(f"**{date}** | {vendor} | {fmt(amt)}{cur} | {status} | Due: {due} | ID: {b.get('Id', '')}")
         if memo:
             lines.append(f"  Memo: {memo}")
 
@@ -1479,6 +1543,7 @@ async def qb_list_invoices(start_date: str, end_date: str, customer_name: str = 
     if not invoices:
         return f"No invoices found between {start_date} and {end_date}."
 
+    show_currency = await _multicurrency_enabled()
     lines = [f"## Invoices: {start_date} to {end_date}\n"]
     total = 0.0
     total_balance = 0.0
@@ -1509,7 +1574,8 @@ async def qb_list_invoices(start_date: str, end_date: str, customer_name: str = 
         total_balance += balance
         count += 1
 
-        lines.append(f"**{date}** | #{doc} | {customer} | {fmt(amt)} | {inv_status} | Due: {due} | ID: {inv.get('Id', '')}")
+        cur = _txn_currency_tag(inv) if show_currency else ""
+        lines.append(f"**{date}** | #{doc} | {customer} | {fmt(amt)}{cur} | {inv_status} | Due: {due} | ID: {inv.get('Id', '')}")
         lines.append("")
 
     lines.append(f"\n**Total Invoiced: {fmt(total)} | Outstanding: {fmt(total_balance)} ({count} invoices)**")
@@ -4946,6 +5012,9 @@ async def qb_transaction_detail(entity_type: str, entity_id: str) -> str:
 
     lines = [f"## {entity_type} #{entity_id} — Full Detail\n"]
 
+    # Multicurrency books: show the transaction currency + exchange rate
+    cur_tag = _txn_currency_tag(entity_data) if await _multicurrency_enabled() else ""
+
     # Common fields
     for field, label in [
         ("TxnDate", "Date"), ("TotalAmt", "Total"), ("PrivateNote", "Memo"),
@@ -4954,7 +5023,7 @@ async def qb_transaction_detail(entity_type: str, entity_id: str) -> str:
         val = entity_data.get(field)
         if val is not None:
             if field == "TotalAmt":
-                lines.append(f"**{label}:** {fmt(float(val))}")
+                lines.append(f"**{label}:** {fmt(float(val))}{cur_tag}")
             else:
                 lines.append(f"**{label}:** {val}")
 
@@ -5700,6 +5769,16 @@ async def qb_sales_tax_summary(start_date: str, end_date: str) -> str:
     start_date = _validate_date(start_date, "start_date")
     end_date = _validate_date(end_date, "end_date")
 
+    # Canadian companies get return-ready GST34 numbers from qb_gst_hst_return;
+    # this tool stays useful as the generic by-jurisdiction TxnTaxDetail view.
+    ca_note = []
+    if (await _get_region())["region"] == "CA":
+        ca_note = [
+            "*Canadian company detected — run qb_gst_hst_return for return-ready "
+            "GST34 line numbers (101/103/106/109) and ITC restrictions. The "
+            "breakdown below is the by-jurisdiction detail.*\n"
+        ]
+
     # Get invoices and sales receipts with tax
     inv_result = await qb_query(
         f"SELECT * FROM Invoice WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
@@ -5765,7 +5844,7 @@ async def qb_sales_tax_summary(start_date: str, end_date: str) -> str:
                 tax_by_rate[key]["taxable_amount"] += tax_on
                 tax_by_rate[key]["tax_collected"] += tax_charged
 
-    lines = [
+    lines = ca_note + [
         f"## Sales Tax Summary",
         f"**Period:** {start_date} to {end_date}",
         f"**Invoices:** {len(invoices)} | **Sales Receipts:** {len(sales_receipts)}\n",
@@ -7527,6 +7606,831 @@ async def qb_create_estimate(customer_name: str, line_items: str, expiration_dat
             f"  → Convert to invoice with `qb_convert_estimate_to_invoice` when accepted."
         )
     return "Error: Estimate creation failed."
+
+
+# ===================================================================
+# CANADA TAX SUITE — GST/HST, T2125, CCA, T4A, CRA INSTALMENTS
+# ===================================================================
+# Canadian counterparts to the US tax tools above (qb_schedule_c,
+# qb_estimate_quarterly_tax, qb_depreciation_schedule,
+# qb_1099_contractor_report). All amounts render in home currency (CAD).
+# Sources for the constants below:
+# - GST34 return lines (CRA): 101 total sales & revenue; 103/105 GST/HST
+#   collected + adjustments; 106/108 input tax credits (ITCs);
+#   109 net tax = line 105 - line 108.
+# - ITA s.67.1: only 50% of the GST/HST on meals & entertainment is
+#   claimable as an ITC.
+# - Quick Method eligibility: taxable supplies (tax-included) <= $400,000
+#   over the prior four fiscal quarters; accountants/bookkeepers/financial
+#   consultants are ineligible. Remittance rates vary (e.g. ~3.6% for
+#   services in 5% GST provinces, 8.8% for Ontario services) with a 1%
+#   credit on the first $30,000 of eligible supplies.
+# - T2125 Part 4 expense line numbers (CRA form T2125).
+# - CCA classes/rates: Schedule II, Income Tax Regulations. Accelerated
+#   Investment Incentive & immediate expensing: Budget 2025 / Bill C-15 —
+#   property acquired on/after Jan 1 2025 and available for use before
+#   2030 gets 1.5x the first-year rate with no half-year rule (some
+#   M&P/clean-energy/ZEV property gets 100% immediate expensing);
+#   phase-out 2030-2033.
+# - CPP/CPP2: CRA payroll tables. 2026: 5.95% each (11.9% self-employed)
+#   between the $3,500 exemption and YMPE $74,600; CPP2 4% each (8%
+#   self-employed) between YMPE and YAMPE $85,000. 2025: YMPE $71,300,
+#   YAMPE $81,200. Self-employed pay both halves; half of base CPP is
+#   deductible.
+# - CRA instalments (individuals): due Mar 15 / Jun 15 / Sep 15 / Dec 15;
+#   required when net tax owing > $3,000 in the current year AND either
+#   of the two prior years. GST/HST annual filers owing >= $3,000 pay
+#   quarterly instalments one month after each fiscal quarter end.
+
+_GST_QUICK_METHOD_LIMIT = 400_000.0   # taxable supplies (tax incl.), prior 4 quarters
+_GST_QUICK_METHOD_CREDIT_BASE = 30_000.0  # 1% credit on first $30k of supplies
+_MEALS_ITC_FACTOR = 0.5               # ITA s.67.1 — 50% of GST/HST on meals claimable
+
+_GST_WORKPAPER_FOOTER = (
+    "This is a workpaper, not a filing. Verify against QuickBooks' "
+    "Sales Tax Centre before filing with CRA."
+)
+
+# T2125 Part 4 line numbers — QB account-name keyword -> (line, description).
+# Insertion order matters: more specific keywords must precede generic ones
+# (e.g. "property tax" before "business tax", "stationery" before "office").
+_T2125_LINE_MAP = {
+    "advertis": ("8521", "Advertising"),
+    "marketing": ("8521", "Advertising"),
+    "meal": ("8523", "Meals & entertainment (50% deductible)"),
+    "entertain": ("8523", "Meals & entertainment (50% deductible)"),
+    "bad debt": ("8590", "Bad debts"),
+    "insurance": ("8690", "Insurance"),
+    "interest": ("8710", "Interest & bank charges"),
+    "bank": ("8710", "Interest & bank charges"),
+    "property tax": ("9180", "Property taxes"),
+    "business tax": ("8760", "Business taxes, licences & memberships"),
+    "licence": ("8760", "Business taxes, licences & memberships"),
+    "license": ("8760", "Business taxes, licences & memberships"),
+    "membership": ("8760", "Business taxes, licences & memberships"),
+    "due": ("8760", "Business taxes, licences & memberships"),
+    "stationery": ("8811", "Office stationery & supplies"),
+    "supplies": ("8811", "Office stationery & supplies"),
+    "office": ("8810", "Office expenses"),
+    "legal": ("8860", "Professional fees (incl. legal & accounting)"),
+    "accounting": ("8860", "Professional fees (incl. legal & accounting)"),
+    "bookkeep": ("8860", "Professional fees (incl. legal & accounting)"),
+    "professional": ("8860", "Professional fees (incl. legal & accounting)"),
+    "management fee": ("8871", "Management & administration fees"),
+    "admin": ("8871", "Management & administration fees"),
+    "rent": ("8910", "Rent"),
+    "repair": ("8960", "Repairs & maintenance"),
+    "maintenance": ("8960", "Repairs & maintenance"),
+    "salar": ("9060", "Salaries, wages & benefits"),
+    "wage": ("9060", "Salaries, wages & benefits"),
+    "payroll": ("9060", "Salaries, wages & benefits"),
+    "travel": ("9200", "Travel expenses"),
+    "utilit": ("9220", "Utilities"),
+    "phone": ("9220", "Utilities"),
+    "telephone": ("9220", "Utilities"),
+    "internet": ("9220", "Utilities"),
+    "fuel": ("9224", "Fuel costs (except motor vehicles)"),
+    "delivery": ("9275", "Delivery, freight & express"),
+    "freight": ("9275", "Delivery, freight & express"),
+    "shipping": ("9275", "Delivery, freight & express"),
+    "vehicle": ("9281", "Motor vehicle expenses"),
+    "automobile": ("9281", "Motor vehicle expenses"),
+    "auto": ("9281", "Motor vehicle expenses"),
+    "mileage": ("9281", "Motor vehicle expenses"),
+    "motor": ("9281", "Motor vehicle expenses"),
+    "software": ("9270", "Other expenses"),
+    "subscription": ("9270", "Other expenses"),
+    "hosting": ("9270", "Other expenses"),
+    "education": ("9270", "Other expenses"),
+    "training": ("9270", "Other expenses"),
+}
+
+# CCA declining-balance classes (Schedule II, Income Tax Regulations)
+_CCA_CLASSES = {
+    "8": (0.20, "Furniture, appliances, tools >= $500, misc. equipment"),
+    "10": (0.30, "Motor vehicles / passenger vehicles within the cost ceiling"),
+    "10.1": (0.30, "Passenger vehicles over the cost ceiling (one per class; "
+                   "no terminal loss; half-year CCA allowed in year of sale)"),
+    "12": (1.00, "Tools < $500, application software"),
+    "14.1": (0.05, "Goodwill & intangibles"),
+    "50": (0.55, "Computer hardware & systems software"),
+    "53": (0.50, "Manufacturing & processing machinery"),
+    "54": (0.30, "Zero-emission vehicles (ceiling $61,000 + tax)"),
+}
+# Class 10.1 passenger-vehicle cost ceiling by acquisition year (plus sales tax)
+_CLASS_10_1_CEILING = {2025: 38_000.0, 2026: 39_000.0}
+_CLASS_54_ZEV_CEILING = 61_000.0
+_AII_START_YEAR = 2025       # Budget 2025 / Bill C-15 reinstatement
+_AII_FIRST_YEAR_FACTOR = 1.5  # 1.5x first-year rate, half-year rule suspended
+
+# T4A administrative practice: CRA commonly expects slips for service fees
+# >= $500/vendor (box 048 has no legislated minimum).
+_T4A_ADMIN_THRESHOLD = 500.0
+
+# CPP self-employed parameters by year (CRA payroll tables)
+_CPP_PARAMS = {
+    2025: {"ympe": 71_300.0, "yampe": 81_200.0},
+    2026: {"ympe": 74_600.0, "yampe": 85_000.0},
+}
+_CPP_BASIC_EXEMPTION = 3_500.0
+_CPP_RATE_SELF = 0.119   # 5.95% employee + 5.95% employer
+_CPP2_RATE_SELF = 0.08   # 4% employee + 4% employer
+
+# APPROXIMATE federal brackets (2025 threshold values; Bill C-4 lowered the
+# first rate — 14.5% blended for 2025, 14% for 2026; labelled approximate).
+_CA_FED_BRACKETS_APPROX = [
+    (57_375.0, 0.145),
+    (114_750.0, 0.205),
+    (177_882.0, 0.26),
+    (253_414.0, 0.29),
+    (float("inf"), 0.33),
+]
+_CA_BPA_APPROX = 16_000.0  # federal basic personal amount, rough
+
+# APPROXIMATE flat provincial effective rates for planning only
+_CA_PROV_FLAT_APPROX = {
+    "ON": 0.07, "BC": 0.07, "AB": 0.10, "QC": 0.15, "MB": 0.12,
+    "SK": 0.10, "NS": 0.13, "NB": 0.12, "PE": 0.13, "NL": 0.12,
+    "YT": 0.07, "NT": 0.08, "NU": 0.06,
+}
+
+_CRA_INSTALMENT_DATES = ["Mar 15", "Jun 15", "Sep 15", "Dec 15"]
+_CRA_INSTALMENT_THRESHOLD = 3_000.0  # net tax owing (QC: $1,800 federal)
+
+
+def _purchase_meals_split(txn: dict) -> tuple:
+    """(meals_amount, other_amount) across a purchase/bill's expense lines.
+
+    Meals/entertainment lines are detected by AccountRef name (ITA s.67.1
+    restricts the ITC on these to 50%)."""
+    meals = other = 0.0
+    for line in txn.get("Line", []):
+        try:
+            amt = float(line.get("Amount", 0) or 0)
+        except (ValueError, TypeError):
+            amt = 0.0
+        detail = line.get("AccountBasedExpenseLineDetail") or {}
+        name = ((detail.get("AccountRef") or {}).get("name") or "").lower()
+        if "meal" in name or "entertain" in name:
+            meals += amt
+        else:
+            other += amt
+    return meals, other
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+@require_region("CA", "Use qb_sales_tax_summary / qb_schedule_c for US sales tax and income tax prep.")
+async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "") -> str:
+    """Build a GST/HST (GST34) return workpaper for a filing period.
+    Computes lines 101 (sales & revenue), 103/105 (GST/HST collected),
+    106/108 (input tax credits, with the 50% meals & entertainment
+    restriction), and 109 (net tax) from QuickBooks transactions, and also
+    pulls the QuickBooks TaxSummary report when available.
+    start_date/end_date: YYYY-MM-DD filing period. agency_name: tax agency
+    (defaults to the Canada Revenue Agency entry)."""
+    start_date = _validate_date(start_date, "start_date")
+    end_date = _validate_date(end_date, "end_date")
+
+    lines = [
+        f"## GST/HST Return Workpaper (GST34)",
+        f"**Filing period:** {start_date} to {end_date}\n",
+    ]
+
+    # ---- Resolve the tax agency for the reports/TaxSummary endpoint ----
+    try:
+        agencies = (await qb_query("SELECT * FROM TaxAgency MAXRESULTS 1000")) \
+            .get("QueryResponse", {}).get("TaxAgency", [])
+    except Exception as e:
+        logger.debug(f"TaxAgency query failed: {e}")
+        agencies = []
+
+    agency = None
+    if agency_name:
+        wanted = agency_name.lower()
+        matches = [a for a in agencies if wanted in (a.get("DisplayName") or "").lower()]
+        if not matches:
+            names = ", ".join(a.get("DisplayName", "?") for a in agencies) or "(none)"
+            return f"Tax agency '{agency_name}' not found. Available agencies: {names}"
+        agency = matches[0]
+    elif len(agencies) == 1:
+        agency = agencies[0]
+    else:
+        cra = [a for a in agencies
+               if any(k in (a.get("DisplayName") or "").lower()
+                      for k in ("canada revenue", "cra", "receiver general"))]
+        if cra:
+            agency = cra[0]
+        elif agencies:
+            names = ", ".join(a.get("DisplayName", "?") for a in agencies)
+            lines.append(f"*Multiple tax agencies found ({names}) — pass agency_name= "
+                         f"to pull the QuickBooks TaxSummary report for one of them.*\n")
+
+    # ---- QuickBooks TaxSummary report (non-US editions only) ----
+    if agency is not None:
+        try:
+            rep = await qb_request("GET", "reports/TaxSummary", params={
+                "start_date": start_date, "end_date": end_date,
+                "agency_id": agency.get("Id"),
+            })
+            rep_rows = rep.get("Rows", {}).get("Row", [])
+            if rep_rows:
+                lines.append(f"### QuickBooks TaxSummary report — {agency.get('DisplayName', '?')}")
+                _parse_report_rows(rep_rows, lines)
+                lines.append("")
+        except Exception as e:
+            logger.debug(f"reports/TaxSummary failed: {e}")
+            lines.append("*QuickBooks TaxSummary report unavailable for this "
+                         "period/agency — using transaction-derived figures below.*\n")
+
+    # ---- Transaction-derived workpaper (always computed) ----
+    line_101 = 0.0  # sales & revenue (net of GST/HST)
+    line_103 = 0.0  # GST/HST collected (TxnTaxDetail.TotalTax on sales docs)
+    sales_count = 0
+    for entity in ("Invoice", "SalesReceipt"):
+        result = await qb_query(
+            f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' "
+            f"AND TxnDate <= '{end_date}' MAXRESULTS 1000"
+        )
+        for txn in result.get("QueryResponse", {}).get(entity, []):
+            total = float(txn.get("TotalAmt", 0) or 0)
+            tax = float((txn.get("TxnTaxDetail") or {}).get("TotalTax", 0) or 0)
+            line_101 += total - tax
+            line_103 += tax
+            sales_count += 1
+
+    line_106 = 0.0        # ITCs (tax on purchases, after meals restriction)
+    meals_restricted = 0.0  # disallowed half of meals & entertainment GST/HST
+    purchase_count = 0
+    for entity in ("Purchase", "Bill"):
+        result = await qb_query(
+            f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' "
+            f"AND TxnDate <= '{end_date}' MAXRESULTS 1000"
+        )
+        for txn in result.get("QueryResponse", {}).get(entity, []):
+            tax = float((txn.get("TxnTaxDetail") or {}).get("TotalTax", 0) or 0)
+            if tax == 0:
+                continue
+            purchase_count += 1
+            meals, other = _purchase_meals_split(txn)
+            if meals > 0 and (meals + other) > 0:
+                # ITA s.67.1: only 50% of GST/HST on the meals portion is claimable
+                claimable = tax * ((other + _MEALS_ITC_FACTOR * meals) / (meals + other))
+                meals_restricted += tax - claimable
+            else:
+                claimable = tax
+            line_106 += claimable
+
+    line_105 = line_103  # 103 + adjustments (104) — none derived here
+    line_108 = line_106  # 106 + adjustments (107) — none derived here
+    line_109 = line_105 - line_108
+
+    lines.append("### Transaction-derived return lines")
+    lines.append(f"  Line 101 — Sales and other revenue (net of GST/HST): {fmt(line_101)}")
+    lines.append(f"  Line 103 — GST/HST collected or collectible: {fmt(line_103)}")
+    lines.append(f"  Line 105 — Total GST/HST and adjustments: {fmt(line_105)}")
+    lines.append(f"  Line 106 — Input tax credits (ITCs): {fmt(line_106)}")
+    lines.append(f"  Line 108 — Total ITCs and adjustments: {fmt(line_108)}")
+    lines.append(f"  **Line 109 — Net tax (105 − 108): {fmt(line_109)}**")
+    lines.append(f"\n  Derived from {sales_count} sales documents and "
+                 f"{purchase_count} taxed purchase documents.")
+    if meals_restricted > 0:
+        lines.append(f"  Meals & entertainment ITC restriction applied (50% of "
+                     f"GST/HST disallowed): {fmt(meals_restricted)} excluded from line 106.")
+
+    # ---- Tax payments recorded against filed returns ----
+    # Filed returns aren't exposed by the API; TaxPayment (CA/AU/UK) records
+    # payments against them.
+    tax_payments = []
+    try:
+        tp_result = await qb_query("SELECT * FROM TaxPayment MAXRESULTS 300")
+        for tp in tp_result.get("QueryResponse", {}).get("TaxPayment", []):
+            pay_date = tp.get("PaymentDate") or tp.get("TxnDate") or ""
+            if start_date <= pay_date <= end_date:
+                tax_payments.append(tp)
+    except Exception as e:
+        logger.debug(f"TaxPayment query failed: {e}")
+
+    if tax_payments:
+        lines.append("\n### Tax payments in period")
+        for tp in tax_payments:
+            amt = tp.get("PaymentAmount", tp.get("TotalAmt", 0))
+            date = tp.get("PaymentDate") or tp.get("TxnDate") or "?"
+            refund = " (refund)" if tp.get("Refund") else ""
+            lines.append(f"  - {date}: {fmt(float(amt or 0))}{refund}")
+
+    # ---- Quick Method eligibility note ----
+    lines.append("\n### Quick Method note")
+    if line_101 + line_103 <= _GST_QUICK_METHOD_LIMIT:
+        lines.append(
+            f"  Taxable supplies in this period ({fmt(line_101 + line_103)} tax-included) are "
+            f"within the {fmt(_GST_QUICK_METHOD_LIMIT)} Quick Method limit (measured over the "
+            f"prior four fiscal quarters) — you may be eligible to elect the Quick Method "
+            f"(e.g. ~3.6% remittance for services in 5% GST provinces, 8.8% for Ontario "
+            f"services, with a 1% credit on the first {fmt(_GST_QUICK_METHOD_CREDIT_BASE)} of "
+            f"supplies). Accountants, bookkeepers, and financial consultants are ineligible."
+        )
+    else:
+        lines.append(
+            f"  Taxable supplies exceed the {fmt(_GST_QUICK_METHOD_LIMIT)} Quick Method "
+            f"eligibility limit — regular method applies."
+        )
+
+    lines.append(f"\n---\n⚠️ {_GST_WORKPAPER_FOOTER}")
+    _audit_log("GST_HST_RETURN", f"period={start_date}/{end_date} net_tax={fmt(line_109)}")
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+@require_region("CA", "Use qb_schedule_c / qb_schedule_c_detailed for the IRS Schedule C.")
+async def qb_t2125_summary(year: int) -> str:
+    """Generate a CRA T2125 (Statement of Business or Professional Activities)
+    line-by-line mapping for a tax year. Maps QuickBooks expense accounts to
+    T2125 Part 4 lines (8521 Advertising, 8523 Meals at 50%, 8910 Rent, ...)
+    the way qb_schedule_c maps to Schedule C. year: e.g. 2025."""
+    start = f"{year}-01-01"
+    end = f"{year}-12-31"
+
+    result = await qb_request("GET", "reports/ProfitAndLoss", params={
+        "start_date": start, "end_date": end,
+        "summarize_column_by": "Total",
+    })
+
+    # Parse P&L rows into account -> amount (same shape as qb_schedule_c)
+    def extract_expenses(rows, result_dict):
+        for section in rows:
+            col_data = section.get("ColData", [])
+            if len(col_data) >= 2:
+                name = col_data[0].get("value", "")
+                try:
+                    val = float(col_data[-1].get("value", "0"))
+                except (ValueError, TypeError):
+                    val = 0
+                if val != 0:
+                    result_dict[name] = val
+            nested = section.get("Rows", {}).get("Row", [])
+            if nested:
+                extract_expenses(nested, result_dict)
+
+    expense_dict = {}
+    total_income = 0.0
+    report_rows = result.get("Rows", {}).get("Row", [])
+    for section in report_rows:
+        header = section.get("Header", {}).get("ColData", [{}])
+        if header and "expense" in header[0].get("value", "").lower():
+            nested = section.get("Rows", {}).get("Row", [])
+            if nested:
+                extract_expenses(nested, expense_dict)
+        summary = section.get("Summary", {})
+        cols = summary.get("ColData", [])
+        if len(cols) >= 2:
+            label = cols[0].get("value", "").lower()
+            try:
+                val = float(cols[-1].get("value", "0"))
+            except (ValueError, TypeError):
+                val = 0
+            if "income" in label and "net" not in label:
+                total_income = val
+
+    # Map expense accounts to T2125 lines by keyword
+    from collections import defaultdict
+    t_lines = defaultdict(lambda: {"amount": 0.0, "accounts": []})
+    unmapped = []
+    for acct_name, amount in expense_dict.items():
+        amount = abs(amount)
+        if amount == 0:
+            continue
+        mapped = False
+        for keyword, (line_no, desc) in _T2125_LINE_MAP.items():
+            if keyword in acct_name.lower():
+                key = f"Line {line_no} — {desc}"
+                deductible = amount * 0.5 if line_no == "8523" else amount
+                t_lines[key]["amount"] += deductible
+                note = f" (50% of {fmt(amount)})" if line_no == "8523" else ""
+                t_lines[key]["accounts"].append(f"{acct_name}: {fmt(deductible)}{note}")
+                mapped = True
+                break
+        if not mapped:
+            key = "Line 9270 — Other expenses (unmapped — review)"
+            t_lines[key]["amount"] += amount
+            t_lines[key]["accounts"].append(f"{acct_name}: {fmt(amount)}")
+            unmapped.append(acct_name)
+
+    lines = [f"## CRA T2125 — Statement of Business Activities — {year}\n"]
+    lines.append("### Income")
+    lines.append(f"  Line 8000 — Gross sales, commissions or fees: {fmt(total_income)}")
+    lines.append(f"  Line 8299 — Gross business income: {fmt(total_income)}")
+    lines.append(
+        "  *GST/HST registrants: report revenue net of GST/HST collected "
+        "(QuickBooks sales figures above exclude tax when tax codes are used).*\n"
+    )
+
+    lines.append("### Part 4 — Expenses")
+    total_expenses = 0.0
+    for key in sorted(t_lines.keys()):
+        data = t_lines[key]
+        lines.append(f"\n**{key}: {fmt(data['amount'])}**")
+        for acct in data["accounts"]:
+            lines.append(f"  - {acct}")
+        total_expenses += data["amount"]
+
+    lines.append(
+        "\n**Line 9936 — Capital cost allowance (CCA):** not computed here — "
+        "run qb_cca_schedule for the class-by-class UCC schedule."
+    )
+    lines.append(
+        "**Line 9945 — Business-use-of-home:** compute separately — must be your "
+        "principal place of business OR used exclusively and regularly to meet "
+        "clients; prorate by area; cannot create or increase a loss (excess "
+        "carries forward)."
+    )
+
+    net = total_income - total_expenses
+    lines.append(f"\n**Line 9368 — Total expenses: {fmt(total_expenses)}**")
+    lines.append(f"**Line 9369 — Net income (loss) before adjustments: {fmt(net)}**")
+
+    if unmapped:
+        lines.append(f"\n*Unmapped accounts placed on line 9270 — review: "
+                     f"{', '.join(unmapped)}*")
+
+    lines.extend([
+        "\n### Filing deadlines",
+        "  - T1 return (self-employed): June 15",
+        "  - Balance owing due: April 30",
+        "  - Meals & entertainment: only 50% deductible (line 8523, ITA s.67.1)",
+        "\n*Workpaper only — verify mappings with your accountant before filing.*",
+    ])
+
+    _audit_log("T2125_SUMMARY", f"year={year} income={fmt(total_income)} expenses={fmt(total_expenses)}")
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+@require_region("CA", "Use qb_depreciation_schedule for Section 179 / MACRS.")
+async def qb_cca_schedule(assets_json: str = "", year: int = 0) -> str:
+    """Compute a Capital Cost Allowance (CCA) schedule by class (T2125 Area A).
+    Declining-balance CCA with the half-year rule, Accelerated Investment
+    Incentive (1.5x first-year rate, no half-year, for property acquired on or
+    after Jan 1 2025), and the Class 10.1 / Class 54 cost ceilings.
+    assets_json: JSON array [{"name": "MacBook", "cost": 3000, "class": "50",
+    "acquired": "YYYY-MM-DD", "ucc_opening": 1200 (optional)}].
+    Call with no arguments first to list fixed-asset accounts as candidates.
+    year: CCA claim year (defaults to the current year)."""
+    if not year:
+        year = datetime.now().year
+
+    if not assets_json.strip():
+        # Pull fixed-asset accounts as candidates (mirrors qb_depreciation_schedule)
+        result = await qb_query(
+            "SELECT * FROM Account WHERE AccountType = 'Fixed Asset' MAXRESULTS 200"
+        )
+        acct_list = result.get("QueryResponse", {}).get("Account", [])
+        lines = [f"## CCA Schedule — {year} (setup)\n"]
+        if acct_list:
+            lines.append("Fixed-asset accounts found in QuickBooks (candidates):")
+            for a in acct_list:
+                bal = float(a.get("CurrentBalance", 0) or 0)
+                lines.append(f"  - {a.get('Name', '?')}: {fmt(bal)}")
+        else:
+            lines.append("No fixed-asset accounts found in QuickBooks.")
+        lines.append(
+            "\nQuickBooks doesn't track CCA class or acquisition dates, so pass "
+            "assets_json to compute the schedule, e.g.:\n"
+            '`[{"name": "MacBook Pro", "cost": 3000, "class": "50", '
+            '"acquired": "2026-02-01"}, {"name": "Car", "cost": 45000, '
+            '"class": "10.1", "acquired": "2025-06-15"}]`\n'
+            "Optional `ucc_opening` overrides the opening UCC for assets "
+            "acquired in earlier years.\n\n### CCA classes"
+        )
+        for cls, (rate, desc) in _CCA_CLASSES.items():
+            lines.append(f"  - Class {cls} ({rate * 100:g}%): {desc}")
+        return "\n".join(lines)
+
+    try:
+        assets = json.loads(assets_json)
+        assert isinstance(assets, list) and assets
+    except (json.JSONDecodeError, AssertionError):
+        return ('Error: assets_json must be a non-empty JSON array like '
+                '[{"name": "MacBook", "cost": 3000, "class": "50", '
+                '"acquired": "2026-02-01"}]')
+
+    from collections import defaultdict
+    by_class = defaultdict(list)
+    for a in assets:
+        cls = str(a.get("class", "")).strip()
+        if cls not in _CCA_CLASSES:
+            return (f"Error: unknown CCA class '{cls}'. Supported classes: "
+                    f"{', '.join(_CCA_CLASSES)}")
+        by_class[cls].append(a)
+
+    lines = [f"## CCA Schedule — {year}\n"]
+    lines.append("| Class | Asset | Cost (capped) | Opening UCC | CCA {0} | Closing UCC |".format(year))
+    lines.append("|---|---|---|---|---|---|")
+
+    total_cca = 0.0
+    ceiling_notes = []
+    for cls in sorted(by_class, key=float):
+        rate, _desc = _CCA_CLASSES[cls]
+        for a in by_class[cls]:
+            name = a.get("name", "?")
+            try:
+                cost = float(a.get("cost", 0))
+                acq_year = int(str(a.get("acquired", ""))[:4])
+            except (ValueError, TypeError):
+                return f"Error: asset '{name}' needs numeric cost and acquired=YYYY-MM-DD."
+            if acq_year > year:
+                continue
+
+            # Cost ceilings
+            capped_cost = cost
+            if cls == "10.1":
+                ceiling = _CLASS_10_1_CEILING.get(
+                    acq_year, 38_000.0 if acq_year <= 2025 else 39_000.0)
+                if cost > ceiling:
+                    capped_cost = ceiling
+                    ceiling_notes.append(
+                        f"{name}: Class 10.1 cost capped at {fmt(ceiling)} "
+                        f"({acq_year} ceiling, plus GST/HST/PST on that amount).")
+            elif cls == "54" and cost > _CLASS_54_ZEV_CEILING:
+                capped_cost = _CLASS_54_ZEV_CEILING
+                ceiling_notes.append(
+                    f"{name}: Class 54 ZEV cost capped at {fmt(_CLASS_54_ZEV_CEILING)}.")
+
+            # UCC simulation from acquisition year to the claim year.
+            # Year 1: AII (1.5x rate, no half-year) for property acquired on or
+            # after Jan 1 2025 (and available for use before 2030); otherwise
+            # the half-year rule (half the net addition gets the rate).
+            if a.get("ucc_opening") is not None:
+                opening = float(a["ucc_opening"])
+                cca = opening * rate
+            else:
+                ucc = capped_cost
+                cca = 0.0
+                opening = capped_cost
+                for y in range(acq_year, year + 1):
+                    opening = ucc
+                    if y == acq_year:
+                        if acq_year >= _AII_START_YEAR:
+                            cca = ucc * rate * _AII_FIRST_YEAR_FACTOR
+                        else:
+                            cca = ucc * rate * 0.5  # half-year rule
+                        cca = min(cca, ucc)
+                    else:
+                        cca = ucc * rate
+                    ucc -= cca
+            closing = opening - cca
+            total_cca += cca
+
+            lines.append(
+                f"| {cls} ({rate * 100:g}%) | {name} | {fmt(capped_cost)} | "
+                f"{fmt(opening)} | {fmt(cca)} | {fmt(closing)} |"
+            )
+
+    lines.append(f"\n**Total CCA claim (line 9936): {fmt(total_cca)}**")
+    if ceiling_notes:
+        lines.append("")
+        for n in ceiling_notes:
+            lines.append(f"  - {n}")
+
+    lines.extend([
+        "\n### Rules applied",
+        f"  - Half-year rule: half the net addition gets the class rate in year 1 "
+        f"(pre-{_AII_START_YEAR} acquisitions).",
+        f"  - Accelerated Investment Incentive (Budget 2025 / Bill C-15): property "
+        f"acquired on/after Jan 1 {_AII_START_YEAR} and available for use before 2030 "
+        f"gets {_AII_FIRST_YEAR_FACTOR}x the first-year rate with no half-year rule; "
+        f"phase-out 2030-2033.",
+        "  - Class 10.1: no terminal loss; half-year CCA allowed in the year of sale.",
+        "\n*Verify with your accountant — 100% immediate expensing may apply to "
+        "eligible manufacturing & processing, clean-energy, and zero-emission "
+        "vehicle property.*",
+    ])
+
+    _audit_log("CCA_SCHEDULE", f"year={year} assets={len(assets)} cca={fmt(total_cca)}")
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+@require_region("CA", "Use qb_1099_contractor_report for IRS 1099-NEC prep.")
+async def qb_t4a_contractor_report(year: int) -> str:
+    """Generate T4A (box 048 — fees for services) contractor reporting data for
+    a calendar year. Lists vendors paid for services, flags missing business
+    numbers (BN) and addresses, and notes the T5018 regime for construction.
+    year: calendar year, e.g. 2025."""
+    start = f"{year}-01-01"
+    end = f"{year}-12-31"
+
+    vendor_result = await qb_query("SELECT * FROM Vendor MAXRESULTS 500")
+    vendors = vendor_result.get("QueryResponse", {}).get("Vendor", [])
+    if not vendors:
+        return "No vendors found."
+
+    purchase_result = await qb_query(
+        f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
+    )
+    purchases = purchase_result.get("QueryResponse", {}).get("Purchase", [])
+
+    bill_result = await qb_query(
+        f"SELECT * FROM Bill WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
+    )
+    bills = bill_result.get("QueryResponse", {}).get("Bill", [])
+
+    vendor_map = {}
+    for v in vendors:
+        vid = v.get("Id", "")
+        addr = v.get("BillAddr", {})
+        parts = [addr.get("Line1", ""), addr.get("City", ""),
+                 addr.get("CountrySubDivisionCode", ""), addr.get("PostalCode", "")]
+        vendor_map[vid] = {
+            "name": v.get("DisplayName", "?"),
+            "company": v.get("CompanyName", ""),
+            "bn": v.get("TaxIdentifier", ""),
+            "email": v.get("PrimaryEmailAddr", {}).get("Address", ""),
+            "address": ", ".join(p for p in parts if p),
+            "total_paid": 0.0,
+            "payment_count": 0,
+        }
+
+    for p in purchases:
+        vid = p.get("EntityRef", {}).get("value", "")
+        if vid in vendor_map:
+            vendor_map[vid]["total_paid"] += float(p.get("TotalAmt", 0) or 0)
+            vendor_map[vid]["payment_count"] += 1
+
+    for b in bills:
+        vid = b.get("VendorRef", {}).get("value", "")
+        if vid in vendor_map:
+            vendor_map[vid]["total_paid"] += float(b.get("TotalAmt", 0) or 0)
+            vendor_map[vid]["payment_count"] += 1
+
+    reportable = [v for v in vendor_map.values() if v["total_paid"] >= _T4A_ADMIN_THRESHOLD]
+    below = [v for v in vendor_map.values() if 0 < v["total_paid"] < _T4A_ADMIN_THRESHOLD]
+    reportable.sort(key=lambda x: x["total_paid"], reverse=True)
+
+    lines = [
+        f"## T4A Contractor Report (box 048 — fees for services) — {year}",
+        f"**Threshold shown:** {fmt(_T4A_ADMIN_THRESHOLD)} (no legislated minimum for "
+        f"box 048 — the {fmt(_T4A_ADMIN_THRESHOLD)} cutoff is common CRA administrative practice)",
+        f"**Vendors at/above threshold:** {len(reportable)}\n",
+    ]
+
+    grand_total = 0.0
+    missing_bn = missing_addr = 0
+    for i, v in enumerate(reportable, 1):
+        grand_total += v["total_paid"]
+        if not v["bn"]:
+            missing_bn += 1
+        if not v["address"]:
+            missing_addr += 1
+        lines.append(f"### {i}. {v['name']}")
+        lines.append(f"  **Total Paid:** {fmt(v['total_paid'])} ({v['payment_count']} payments)")
+        lines.append(f"  **BN/SIN Status:** {'✅ On file' if v['bn'] else '⚠️ MISSING'}")
+        if v["company"]:
+            lines.append(f"  **Company:** {v['company']}")
+        lines.append(f"  **Address:** {v['address'] or '⚠️ MISSING — needed for the T4A slip'}")
+        if v["email"]:
+            lines.append(f"  **Email:** {v['email']}")
+        lines.append("")
+
+    lines.extend([
+        "---",
+        "### Summary",
+        f"  Total reportable payments: {fmt(grand_total)}",
+        f"  Vendors needing a T4A slip: {len(reportable)}",
+        f"  Missing BN/SIN: {missing_bn} | Missing address: {missing_addr}",
+        f"  Vendors below {fmt(_T4A_ADMIN_THRESHOLD)} (usually not slipped): {len(below)}",
+        "",
+        "### Filing notes",
+        "  - Report fees for services in **box 048** of the T4A (amounts exclude GST/HST).",
+        f"  - T4A slips and summary are due the **last day of February {year + 1}**.",
+        "  - Construction businesses: file **T5018** slips instead — report ALL "
+        "subcontractor payments with no minimum threshold.",
+        "  - Exclude payments for goods only; box 048 covers services.",
+        "\n*Verify recipient details and slip requirements with your accountant.*",
+    ])
+
+    _audit_log("T4A_REPORT", f"year={year} vendors={len(reportable)} total={fmt(grand_total)}")
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+@require_region("CA", "Use qb_estimate_quarterly_tax for US federal/state estimates.")
+async def qb_estimate_instalments(year: int = 0, province: str = "") -> str:
+    """Estimate CRA tax instalments and CPP for a self-employed Canadian based
+    on YTD P&L. CPP/CPP2 (2025/2026 YMPE/YAMPE) is exact; income tax uses
+    approximate 2025/2026 brackets plus a flat provincial factor — a rough
+    planning estimate only. province: two-letter code (ON, BC, AB, QC, ...)."""
+    from datetime import date
+    today = date.today()
+    if not year:
+        year = today.year
+    province = (province or "ON").strip().upper()
+
+    start = f"{year}-01-01"
+    end = min(today.strftime("%Y-%m-%d"), f"{year}-12-31")
+
+    result = await qb_request("GET", "reports/ProfitAndLoss", params={
+        "start_date": start, "end_date": end,
+    })
+
+    total_income = total_expenses = 0.0
+    for section in result.get("Rows", {}).get("Row", []):
+        cols = section.get("Summary", {}).get("ColData", [])
+        if len(cols) >= 2:
+            label = cols[0].get("value", "").lower()
+            try:
+                val = float(cols[-1].get("value", "0"))
+            except (ValueError, TypeError):
+                val = 0
+            if "income" in label and "net" not in label:
+                total_income = val
+            elif "expense" in label:
+                total_expenses = abs(val)
+
+    net_income = total_income - total_expenses
+
+    # ---- CPP (exact for 2025/2026) ----
+    params = _CPP_PARAMS.get(year)
+    cpp_year_note = ""
+    if params is None:
+        params = _CPP_PARAMS[max(_CPP_PARAMS)]
+        cpp_year_note = f" (using {max(_CPP_PARAMS)} ceilings — {year} not tabulated)"
+    ympe, yampe = params["ympe"], params["yampe"]
+
+    pensionable = max(0.0, net_income)
+    base_cpp = max(0.0, min(pensionable, ympe) - _CPP_BASIC_EXEMPTION) * _CPP_RATE_SELF
+    cpp2 = max(0.0, min(pensionable, yampe) - ympe) * _CPP2_RATE_SELF
+    cpp_total = base_cpp + cpp2
+
+    # ---- Income tax (APPROXIMATE) ----
+    # Rough: deduct half of base CPP (employer share) and the basic personal
+    # amount, then run approximate federal brackets + a flat provincial factor.
+    taxable = max(0.0, net_income - base_cpp / 2 - _CA_BPA_APPROX)
+    federal_tax = 0.0
+    prev_cap = 0.0
+    for cap, rate in _CA_FED_BRACKETS_APPROX:
+        if taxable <= prev_cap:
+            break
+        federal_tax += (min(taxable, cap) - prev_cap) * rate
+        prev_cap = cap
+
+    prov_rate = _CA_PROV_FLAT_APPROX.get(province, 0.10)
+    prov_tax = taxable * prov_rate
+
+    total_annual = federal_tax + prov_tax + cpp_total
+    quarterly = total_annual / 4
+
+    lines = [f"## CRA Instalment Estimate — {year}\n"]
+    lines.append(f"**YTD Net self-employment income:** {fmt(net_income)} ({start} to {end})")
+    lines.append(f"**Province:** {province}\n")
+
+    lines.append(f"### CPP (self-employed — both halves){cpp_year_note}")
+    lines.append(f"  Base CPP: {fmt(base_cpp)} — 11.9% on earnings between "
+                 f"{fmt(_CPP_BASIC_EXEMPTION)} and YMPE {fmt(ympe)}")
+    lines.append(f"  CPP2: {fmt(cpp2)} — 8% on earnings between YMPE {fmt(ympe)} "
+                 f"and YAMPE {fmt(yampe)}")
+    lines.append(f"  **Total CPP: {fmt(cpp_total)}** (half of base CPP — "
+                 f"{fmt(base_cpp / 2)} — is deductible)\n")
+
+    lines.append("### Income tax (approximate 2025/2026 brackets)")
+    lines.append(f"  Federal (approx.): {fmt(federal_tax)}")
+    lines.append(f"  {province} provincial (flat ~{prov_rate * 100:g}%, approx.): {fmt(prov_tax)}")
+    if province == "QC":
+        lines.append("  *Québec: Revenu Québec collects its own tax and requires "
+                     "separate provincial instalments; QPP replaces CPP.*")
+
+    lines.append(f"\n**Total estimated annual tax + CPP: {fmt(total_annual)}**")
+    lines.append(f"**Each quarterly instalment: {fmt(quarterly)}**\n")
+
+    lines.append("### Instalment schedule (individuals)")
+    for due in _CRA_INSTALMENT_DATES:
+        lines.append(f"  {due}, {year}: {fmt(quarterly)}")
+
+    if total_annual > _CRA_INSTALMENT_THRESHOLD:
+        lines.append(
+            f"\nInstalments are required when net tax owing exceeds "
+            f"{fmt(_CRA_INSTALMENT_THRESHOLD)} in the current year AND either of the "
+            f"two prior years — this estimate exceeds the threshold."
+        )
+    else:
+        lines.append(
+            f"\nEstimated net tax owing is at or below {fmt(_CRA_INSTALMENT_THRESHOLD)} — "
+            f"instalments likely not required (threshold applies to the current "
+            f"year and either of the two prior years)."
+        )
+
+    lines.append(
+        "\n### GST/HST instalments\n"
+        f"  Annual GST/HST filers owing {fmt(_CRA_INSTALMENT_THRESHOLD)} or more pay "
+        f"quarterly GST/HST instalments due one month after each fiscal quarter end."
+    )
+    lines.append(
+        "\n---\n*Rough planning estimate — income tax uses approximate 2025/2026 "
+        "brackets and a flat provincial factor. CPP amounts and instalment dates "
+        "are exact. Confirm with CRA My Account and your accountant.*"
+    )
+
+    _audit_log("ESTIMATE_INSTALMENTS", f"year={year} net={fmt(net_income)} total={fmt(total_annual)}")
+    return "\n".join(lines)
 
 
 # ===================================================================

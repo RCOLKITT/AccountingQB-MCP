@@ -36,6 +36,10 @@ class QBContext:
 
     # Hosted mode (tokens brokered by the AccountingQB API)
     hosted_mode: bool = False
+    # License key for broker calls. Empty means "use the module-level
+    # QB_LICENSE_KEY from the environment" (single-tenant default). The
+    # remote service sets this per request from the verified JWT claim.
+    license_key: str = ""
     hosted_companies: list = field(default_factory=list)
     # True once the company list has been fetched from the broker (or loaded
     # from the offline cache) — hosted-company fetching is lazy.
