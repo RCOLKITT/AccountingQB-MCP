@@ -9,5 +9,6 @@ export {
 export { trialExpiredEmail } from "./trial-expired";
 export { paymentFailedEmail } from "./payment-failed";
 export { subscriptionRenewedEmail } from "./subscription-renewed";
+export { reengagementEmail } from "./reengagement";
 
 export * from "./base";

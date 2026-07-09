@@ -1,6 +1,13 @@
 -- ============================================================
 -- QuickBooks Accounting MCP — Supabase Schema
 -- Run this in the Supabase SQL Editor to set up the database.
+--
+-- NOTE: This file reflects the LIVE production schema as of 2026-07.
+-- Notable divergences from earlier versions:
+--   * user_profiles.id is a standalone uuid (no FK to auth.users);
+--     auth is handled by Clerk via user_profiles.clerk_id.
+--   * user_licenses.user_id is TEXT and stores user_profiles.id as text.
+--   * oauth_tokens.refresh_locked_at supports single-flight token refresh.
 -- ============================================================
 
 -- Licenses table: stores subscription and trial information
@@ -72,6 +79,10 @@ CREATE TABLE IF NOT EXISTS oauth_tokens (
   access_token      TEXT NOT NULL,
   refresh_token     TEXT NOT NULL,
   token_expires_at  TIMESTAMPTZ NOT NULL,
+
+  -- Single-flight refresh lock (claimed via claim_token_refresh();
+  -- see migrations/2026-07-oauth-refresh-lock.sql)
+  refresh_locked_at TIMESTAMPTZ,
 
   -- Timestamps
   created_at        TIMESTAMPTZ DEFAULT NOW(),
@@ -145,11 +156,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_event_logs_stripe_idempotent
 ALTER TABLE event_logs ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- User Profiles: linked to Supabase Auth for magic link login
+-- User Profiles: linked to Clerk via clerk_id (no auth.users FK)
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS user_profiles (
-  id            UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  clerk_id      TEXT UNIQUE,    -- Clerk user ID (nullable for legacy rows)
   email         TEXT NOT NULL,
   display_name  TEXT,
 
@@ -162,16 +174,8 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 CREATE INDEX IF NOT EXISTS idx_user_profiles_email
   ON user_profiles (email);
 
--- Row-Level Security (users can only see their own profile)
+-- Row-Level Security (service role only — all access goes through API routes)
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view own profile"
-  ON user_profiles FOR SELECT
-  USING (auth.uid() = id);
-
-CREATE POLICY "Users can update own profile"
-  ON user_profiles FOR UPDATE
-  USING (auth.uid() = id);
 
 -- Updated-at trigger for user_profiles
 CREATE TRIGGER set_user_profiles_updated_at
@@ -186,7 +190,8 @@ CREATE TRIGGER set_user_profiles_updated_at
 
 CREATE TABLE IF NOT EXISTS user_licenses (
   id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id       UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+  -- Stores user_profiles.id as text (live prod uses TEXT, no FK)
+  user_id       TEXT NOT NULL,
   license_key   TEXT NOT NULL REFERENCES licenses(key) ON DELETE CASCADE,
   role          TEXT NOT NULL DEFAULT 'owner'
                   CHECK (role IN ('owner', 'member')),
@@ -206,12 +211,8 @@ CREATE INDEX IF NOT EXISTS idx_user_licenses_user_id
 CREATE INDEX IF NOT EXISTS idx_user_licenses_license_key
   ON user_licenses (license_key);
 
--- Row-Level Security (users can only see their own license links)
+-- Row-Level Security (service role only — all access goes through API routes)
 ALTER TABLE user_licenses ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view own license links"
-  ON user_licenses FOR SELECT
-  USING (auth.uid() = user_id);
 
 -- ============================================================
 -- Tool Usage: tracks MCP tool invocations for analytics
