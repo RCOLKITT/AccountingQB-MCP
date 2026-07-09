@@ -13,7 +13,7 @@ from typing import Any
 # Paths
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent
-SERVER_PY = PROJECT_ROOT / "mcpb" / "src" / "server.py"
+SERVER_PY = PROJECT_ROOT / "mcpb" / "src" / "accountingqb" / "server.py"
 MANIFEST_JSON = PROJECT_ROOT / "mcpb" / "manifest.json"
 
 

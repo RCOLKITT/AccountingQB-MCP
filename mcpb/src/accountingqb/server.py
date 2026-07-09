@@ -19,10 +19,15 @@ import hashlib
 import logging
 import functools
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
+
+try:
+    from .context import QBContext, get_ctx, set_ctx, reset_ctx, _default_ctx
+except ImportError:  # pragma: no cover — direct script execution (no package)
+    from context import QBContext, get_ctx, set_ctx, reset_ctx, _default_ctx
 
 mcp = FastMCP("quickbooks")
 
@@ -247,7 +252,7 @@ def require_license(func):
         return (
             f"⚠️ This tool ({tool_name}) requires a paid license.\n\n"
             f"Your current plan: **{result.get('tier', 'free')}**\n"
-            f"Upgrade at: https://yourapp.com/pricing\n\n"
+            f"Upgrade at: https://accountingqb.com/pricing\n\n"
             f"Free tools available: {', '.join(sorted(FREE_TOOLS))}"
         )
     return wrapper
@@ -272,7 +277,7 @@ async def _track_usage(tool_name: str) -> None:
                 json={
                     "licenseKey": LICENSE_KEY,
                     "toolName": tool_name,
-                    "realmId": QB_REALM_ID or None,
+                    "realmId": get_ctx().realm_id or None,
                 },
             )
     except Exception as e:
@@ -299,23 +304,71 @@ QB_REDIRECT_URI = os.environ.get("QB_REDIRECT_URI", "http://localhost:8080/callb
 QB_REALM_ID = os.environ.get("QB_REALM_ID", "")
 QB_REFRESH_TOKEN = os.environ.get("QB_REFRESH_TOKEN", "")
 
-# Hosted mode: fetch tokens from AccountingQB API instead of local storage
+# Hosted mode: fetch tokens from AccountingQB API instead of local storage.
+# Per-connection state (tokens, active realm, company list) lives in
+# QBContext (see context.py); only configuration inputs stay module-level.
 QB_API_URL = os.environ.get("QB_API_URL", "https://accountingqb.com")
-_hosted_mode = False  # True if tokens are managed by AccountingQB API
-_hosted_companies: list[dict] = []  # List of connected companies from API
 
 # Usage tracking: report tool invocations back to AccountingQB for analytics
 USAGE_API_URL = os.environ.get("QB_USAGE_API_URL", f"{QB_API_URL}/api/usage/track")
 
-def _fetch_hosted_tokens() -> bool:
+# Friendly error for hosted users whose license has no connected company yet.
+_NO_COMPANY_CONNECTED_MSG = (
+    "No QuickBooks company is connected to your AccountingQB account yet. "
+    "Connect one at https://accountingqb.com/dashboard, then run "
+    "qb_refresh_connection."
+)
+
+
+def _utcnow() -> datetime:
+    """Timezone-aware UTC now. All token-expiry math uses aware datetimes."""
+    return datetime.now(timezone.utc)
+
+
+def _as_aware_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    """Coerce a datetime to timezone-aware UTC (naive values are assumed UTC)."""
+    if dt is not None and dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _parse_token_expiry(expires_at: Optional[str]) -> datetime:
+    """Parse the broker's ISO-8601 expiresAt into aware UTC (1h fallback)."""
+    if expires_at:
+        try:
+            parsed = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+            return _as_aware_utc(parsed)
+        except ValueError:
+            logger.warning(f"Unparseable token expiry {expires_at!r}; assuming 1h")
+    return _utcnow() + timedelta(hours=1)
+
+
+def _adopt_hosted_companies(ctx: "QBContext", companies: list) -> None:
+    """Install a freshly fetched hosted-company list into the context.
+
+    Selects the first company as active (matching historic behavior of the
+    company-list fetch) and caches the list on disk when allowed.
+    """
+    ctx.hosted_companies = companies
+    ctx.hosted_mode = True
+    ctx.hosted_loaded = True
+    first = companies[0]
+    ctx.realm_id = first["realmId"]
+    ctx.refresh_token = first["refreshToken"]
+    if ctx.persist_tokens:
+        # Cache tokens locally for offline resilience
+        _save_hosted_tokens(companies)
+
+
+def _fetch_hosted_tokens(ctx: Optional["QBContext"] = None) -> bool:
     """Fetch OAuth tokens from AccountingQB API using license key.
     Returns True if successful, False otherwise."""
-    global QB_REALM_ID, QB_REFRESH_TOKEN, _hosted_mode, _hosted_companies
+    if ctx is None:
+        ctx = get_ctx()
 
     if not LICENSE_KEY:
         return False
 
-    import httpx
     try:
         with httpx.Client(timeout=15.0) as client:
             resp = client.post(
@@ -326,28 +379,23 @@ def _fetch_hosted_tokens() -> bool:
                 data = resp.json()
                 companies = data.get("companies", [])
                 if companies:
-                    _hosted_companies = companies
-                    _hosted_mode = True
-                    # Use first company by default
-                    first = companies[0]
-                    QB_REALM_ID = first["realmId"]
-                    QB_REFRESH_TOKEN = first["refreshToken"]
-                    # Cache tokens locally for offline resilience
-                    _save_hosted_tokens(companies)
+                    _adopt_hosted_companies(ctx, companies)
                     logger.info(f"Loaded {len(companies)} company(s) from AccountingQB API (hosted mode)")
                     return True
+                ctx.hosted_loaded = True  # broker reachable; simply no companies
             elif resp.status_code == 404:
+                ctx.hosted_loaded = True
                 logger.info("No QuickBooks companies connected yet")
             else:
                 logger.warning(f"Failed to fetch tokens from API: {resp.status_code}")
     except Exception as e:
         logger.warning(f"Could not fetch hosted tokens: {e}")
         # Try loading cached hosted tokens
-        if _load_hosted_tokens():
+        if _load_hosted_tokens(ctx):
             return True
     return False
 
-def _save_hosted_tokens(companies: list[dict]) -> None:
+def _save_hosted_tokens(companies: list) -> None:
     """Cache hosted tokens locally for offline use."""
     cache_path = _DATA_DIR / "hosted_tokens.json"
     try:
@@ -359,9 +407,12 @@ def _save_hosted_tokens(companies: list[dict]) -> None:
     except Exception as e:
         logger.warning(f"Could not cache hosted tokens: {e}")
 
-def _load_hosted_tokens() -> bool:
+def _load_hosted_tokens(ctx: Optional["QBContext"] = None) -> bool:
     """Load cached hosted tokens for offline resilience."""
-    global QB_REALM_ID, QB_REFRESH_TOKEN, _hosted_mode, _hosted_companies
+    if ctx is None:
+        ctx = get_ctx()
+    if not ctx.persist_tokens:
+        return False
 
     cache_path = _DATA_DIR / "hosted_tokens.json"
     if not cache_path.exists():
@@ -371,26 +422,39 @@ def _load_hosted_tokens() -> bool:
         decrypted = _decrypt_token(encrypted)
         companies = json.loads(decrypted)
         if companies:
-            _hosted_companies = companies
-            _hosted_mode = True
+            ctx.hosted_companies = companies
+            ctx.hosted_mode = True
+            ctx.hosted_loaded = True
             first = companies[0]
-            QB_REALM_ID = first["realmId"]
-            QB_REFRESH_TOKEN = first["refreshToken"]
+            ctx.realm_id = first["realmId"]
+            ctx.refresh_token = first["refreshToken"]
             logger.info(f"Loaded {len(companies)} cached company(s) (offline mode)")
             return True
     except Exception as e:
         logger.warning(f"Could not load cached hosted tokens: {e}")
     return False
 
-# Try hosted mode first if license key is set
-if LICENSE_KEY and not QB_REFRESH_TOKEN:
-    _fetch_hosted_tokens()
+# ---------------------------------------------------------------------------
+# Default context initialization (single-tenant startup)
+# ---------------------------------------------------------------------------
+# The default QBContext is seeded from the environment. Hosted mode is now
+# LAZY: no network calls happen at import time — the first tool call that
+# needs a token fetches the company list from the AccountingQB API.
 
-# Fallback: Prefer persisted encrypted token, then legacy plaintext, then env var
-if not _hosted_mode:
+_default_ctx.realm_id = QB_REALM_ID
+_default_ctx.refresh_token = QB_REFRESH_TOKEN
+
+_key_upper = LICENSE_KEY.upper()
+_IS_DEMO_KEY = _key_upper == "DEMO" or _key_upper.startswith("LK-DEMO-")
+
+if LICENSE_KEY and not QB_REFRESH_TOKEN and not _IS_DEMO_KEY:
+    # Hosted mode: tokens are brokered by the AccountingQB API (lazily).
+    _default_ctx.hosted_mode = True
+else:
+    # Fallback: Prefer persisted encrypted token, then legacy plaintext, then env var
     _encrypted_token = _load_token("refresh_token.enc")
     if _encrypted_token:
-        QB_REFRESH_TOKEN = _encrypted_token
+        _default_ctx.refresh_token = _encrypted_token
         logger.info("Loaded encrypted refresh token from disk")
     else:
         # Check for legacy plaintext token file and migrate it
@@ -400,7 +464,7 @@ if not _hosted_mode:
                 with open(_legacy_token_file) as _f:
                     _saved = _f.read().strip()
                 if _saved:
-                    QB_REFRESH_TOKEN = _saved
+                    _default_ctx.refresh_token = _saved
                     # Migrate to encrypted storage
                     _save_token(_saved)
                     logger.info("Migrated legacy token to encrypted storage")
@@ -418,9 +482,6 @@ BASE_URL = (
     else "https://sandbox-quickbooks.api.intuit.com"
 )
 AUTH_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
-
-_access_token = None
-_token_expiry = None
 
 # ---------------------------------------------------------------------------
 # Demo Mode
@@ -567,47 +628,61 @@ if _DEMO_MODE:
 # Auth & HTTP helpers
 # ---------------------------------------------------------------------------
 async def get_access_token() -> str:
-    global _access_token, _token_expiry, QB_REFRESH_TOKEN, _hosted_companies
+    ctx = get_ctx()
 
     # Return cached token if still valid
-    if _access_token and _token_expiry and datetime.now() < _token_expiry:
-        return _access_token
+    if ctx.access_token and ctx.token_expiry and _utcnow() < _as_aware_utc(ctx.token_expiry):
+        return ctx.access_token
 
-    # Hosted mode: fetch fresh tokens from AccountingQB API
-    if _hosted_mode:
+    # Hosted mode: fetch fresh tokens from AccountingQB API (lazily on first
+    # use — nothing is fetched at import time)
+    if ctx.hosted_mode:
         logger.debug("Refreshing access token via AccountingQB API...")
+        no_companies_connected = False
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.post(
                     f"{QB_API_URL}/api/oauth/token",
-                    json={"licenseKey": LICENSE_KEY, "realmId": QB_REALM_ID}
+                    json={"licenseKey": LICENSE_KEY, "realmId": ctx.realm_id or None}
                 )
                 if resp.status_code == 200:
                     data = resp.json()
                     companies = data.get("companies", [])
-                    for company in companies:
-                        if company["realmId"] == QB_REALM_ID:
-                            _access_token = company["accessToken"]
-                            QB_REFRESH_TOKEN = company["refreshToken"]
-                            expires_at = company.get("expiresAt")
-                            if expires_at:
-                                _token_expiry = datetime.fromisoformat(
-                                    expires_at.replace("Z", "+00:00")
-                                ).replace(tzinfo=None)
-                            else:
-                                _token_expiry = datetime.now() + timedelta(hours=1)
-                            # Update cache
-                            _hosted_companies = companies
+                    if companies:
+                        ctx.hosted_companies = companies
+                        ctx.hosted_loaded = True
+                        if not ctx.realm_id:
+                            # First use: default to the first connected company
+                            ctx.realm_id = companies[0]["realmId"]
+                        if ctx.persist_tokens:
                             _save_hosted_tokens(companies)
-                            return _access_token
-                raise ValueError("Could not refresh token from AccountingQB API")
+                        for company in companies:
+                            if company["realmId"] == ctx.realm_id:
+                                ctx.access_token = company["accessToken"]
+                                ctx.refresh_token = company["refreshToken"]
+                                ctx.token_expiry = _parse_token_expiry(company.get("expiresAt"))
+                                return ctx.access_token
+                    else:
+                        # Broker reachable, license valid, but nothing connected
+                        ctx.hosted_loaded = True
+                        no_companies_connected = True
+                elif resp.status_code == 404:
+                    ctx.hosted_loaded = True
+                    no_companies_connected = True
+                if not no_companies_connected:
+                    raise ValueError("Could not refresh token from AccountingQB API")
         except Exception as e:
             logger.warning(f"Hosted token refresh failed: {e}")
-            # Fall through to local refresh if we have credentials
+            # Offline resilience: fall back to cached hosted tokens, then to
+            # local refresh if we have credentials
+            if not ctx.hosted_companies:
+                _load_hosted_tokens(ctx)
+        if no_companies_connected:
+            raise RuntimeError(_NO_COMPANY_CONNECTED_MSG)
 
     # Local mode: refresh directly with Intuit
-    if not QB_CLIENT_ID or not QB_CLIENT_SECRET or not QB_REFRESH_TOKEN:
-        if _hosted_mode:
+    if not QB_CLIENT_ID or not QB_CLIENT_SECRET or not ctx.refresh_token:
+        if ctx.hosted_mode:
             raise ValueError(
                 "QuickBooks connection expired. Please reconnect at accountingqb.com"
             )
@@ -620,28 +695,56 @@ async def get_access_token() -> str:
     async with httpx.AsyncClient(timeout=15.0) as client:
         resp = await client.post(AUTH_URL, data={
             "grant_type": "refresh_token",
-            "refresh_token": QB_REFRESH_TOKEN,
+            "refresh_token": ctx.refresh_token,
             "client_id": QB_CLIENT_ID,
             "client_secret": QB_CLIENT_SECRET,
         }, headers={"Accept": "application/json"})
         resp.raise_for_status()
         data = resp.json()
 
-    _access_token = data["access_token"]
-    _token_expiry = datetime.now() + timedelta(seconds=data.get("expires_in", 3600) - 60)
+    ctx.access_token = data["access_token"]
+    ctx.token_expiry = _utcnow() + timedelta(seconds=data.get("expires_in", 3600) - 60)
     new_refresh = data.get("refresh_token")
-    if new_refresh and new_refresh != QB_REFRESH_TOKEN:
-        QB_REFRESH_TOKEN = new_refresh
-        os.environ["QB_REFRESH_TOKEN"] = new_refresh
-        _save_token(new_refresh)
-        logger.info("Refresh token rotated and saved (encrypted)")
-    return _access_token
+    if new_refresh and new_refresh != ctx.refresh_token:
+        ctx.refresh_token = new_refresh
+        if ctx.persist_tokens:
+            os.environ["QB_REFRESH_TOKEN"] = new_refresh
+            _save_token(new_refresh)
+            logger.info("Refresh token rotated and saved (encrypted)")
+    return ctx.access_token
+
+
+def _raise_qb_fault(resp: httpx.Response) -> None:
+    """Translate a QBO Fault payload into a friendly RuntimeError.
+
+    Returns silently when the body isn't a recognizable QuickBooks Fault so
+    the caller can fall back to raise_for_status().
+    """
+    try:
+        fault = resp.json().get("Fault") or {}
+        errors = fault.get("Error") or []
+        first = errors[0]
+        code = str(first.get("code", "")).strip()
+        message = (first.get("Message") or "").strip()
+        detail = (first.get("Detail") or "").strip()
+    except Exception:
+        return
+    friendly = f"QuickBooks error {code}: {message} — {detail}"
+    detail_upper = detail.upper()
+    if code == "6000" and ("GST" in detail_upper or "HST" in detail_upper):
+        friendly += (
+            " Every line on this transaction needs a sales tax code. "
+            "Use qb_list_tax_codes to see this company's codes, then pass "
+            "tax_code to the create tool."
+        )
+    raise RuntimeError(friendly)
 
 
 async def qb_request(method: str, endpoint: str, params: dict = None, json_body: dict = None) -> dict:
     _check_rate_limit()
+    ctx = get_ctx()
     token = await get_access_token()
-    url = f"{BASE_URL}/v3/company/{QB_REALM_ID}/{endpoint}"
+    url = f"{BASE_URL}/v3/company/{ctx.realm_id}/{endpoint}"
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
@@ -651,8 +754,7 @@ async def qb_request(method: str, endpoint: str, params: dict = None, json_body:
         resp = await client.request(method, url, params=params, json=json_body, headers=headers)
         if resp.status_code == 401:
             logger.warning("Got 401 — refreshing access token")
-            global _access_token
-            _access_token = None
+            ctx.access_token = None
             token = await get_access_token()
             headers["Authorization"] = f"Bearer {token}"
             resp = await client.request(method, url, params=params, json=json_body, headers=headers)
@@ -661,6 +763,8 @@ async def qb_request(method: str, endpoint: str, params: dict = None, json_body:
             raise RuntimeError(
                 "QuickBooks API rate limit reached. Please wait a moment and try again."
             )
+        if resp.status_code >= 400:
+            _raise_qb_fault(resp)
         resp.raise_for_status()
         return resp.json()
 
@@ -733,22 +837,27 @@ async def qb_list_companies() -> str:
             "*This is a demo account with sample data.*"
         )
 
-    if not _hosted_mode:
+    ctx = get_ctx()
+    if not ctx.hosted_mode:
         return (
             "This tool is only available in hosted mode.\n\n"
             "If you're using the AccountingQB Desktop Extension, make sure you've "
             "connected your QuickBooks account at accountingqb.com"
         )
 
-    if not _hosted_companies:
+    # Lazy hosted mode: fetch the company list on first use
+    if not ctx.hosted_loaded:
+        _fetch_hosted_tokens(ctx)
+
+    if not ctx.hosted_companies:
         return (
             "No QuickBooks companies connected yet.\n\n"
             "Visit accountingqb.com to connect your QuickBooks account."
         )
 
     lines = ["## Connected QuickBooks Companies\n"]
-    for i, company in enumerate(_hosted_companies):
-        current = " ✓ (active)" if company["realmId"] == QB_REALM_ID else ""
+    for i, company in enumerate(ctx.hosted_companies):
+        current = " ✓ (active)" if company["realmId"] == ctx.realm_id else ""
         name = company.get("companyName") or company["realmId"]
         lines.append(f"{i + 1}. **{name}**{current}")
         lines.append(f"   - Realm ID: `{company['realmId']}`")
@@ -761,26 +870,24 @@ async def qb_list_companies() -> str:
 async def qb_switch_company(realm_id: str) -> str:
     """Switch to a different QuickBooks company. Use qb_list_companies to see available companies.
     Only available in hosted mode (when using AccountingQB Desktop Extension)."""
-    global QB_REALM_ID, QB_REFRESH_TOKEN, _access_token, _token_expiry
-
-    if not _hosted_mode:
+    ctx = get_ctx()
+    if not ctx.hosted_mode:
         return "This tool is only available in hosted mode."
 
+    # Lazy hosted mode: fetch the company list on first use
+    if not ctx.hosted_loaded:
+        _fetch_hosted_tokens(ctx)
+
     # Find the company
-    for company in _hosted_companies:
+    for company in ctx.hosted_companies:
         if company["realmId"] == realm_id:
-            QB_REALM_ID = company["realmId"]
-            QB_REFRESH_TOKEN = company["refreshToken"]
-            _access_token = company.get("accessToken")
-            if _access_token:
-                from datetime import datetime, timedelta
-                expires_at = company.get("expiresAt")
-                if expires_at:
-                    _token_expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-                else:
-                    _token_expiry = datetime.now() + timedelta(hours=1)
+            ctx.realm_id = company["realmId"]
+            ctx.refresh_token = company["refreshToken"]
+            ctx.access_token = company.get("accessToken")
+            if ctx.access_token:
+                ctx.token_expiry = _parse_token_expiry(company.get("expiresAt"))
             else:
-                _token_expiry = None
+                ctx.token_expiry = None
             name = company.get("companyName") or realm_id
             return f"✓ Switched to **{name}** (Realm ID: `{realm_id}`)"
 
@@ -794,8 +901,9 @@ async def qb_refresh_connection() -> str:
     if not LICENSE_KEY:
         return "No license key configured. This tool is only available in hosted mode."
 
-    if _fetch_hosted_tokens():
-        count = len(_hosted_companies)
+    ctx = get_ctx()
+    if _fetch_hosted_tokens(ctx):
+        count = len(ctx.hosted_companies)
         return f"✓ Connection refreshed. {count} company(s) connected."
     else:
         return (
@@ -3660,7 +3768,7 @@ async def qb_upload_receipt(entity_type: str, entity_id: str, file_name: str, fi
     entity_type: Purchase, Bill, Invoice, etc. entity_id: transaction ID.
     file_url: public URL of the receipt image/PDF. content_type: MIME type."""
     token = await get_access_token()
-    url = f"{BASE_URL}/v3/company/{QB_REALM_ID}/upload"
+    url = f"{BASE_URL}/v3/company/{get_ctx().realm_id}/upload"
 
     # Download the file first
     async with httpx.AsyncClient(timeout=30.0) as client:
