@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
     // Check if this license has any tokens (connected companies)
     const { data: tokens, error } = await supabase
-      .from("tokens")
+      .from("oauth_tokens")
       .select("realm_id, company_name")
       .eq("license_key", licenseKey)
       .limit(1);
