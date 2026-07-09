@@ -13,10 +13,14 @@ const isPublicRoute = createRouteMatcher([
   "/api/auth(.*)",
   "/api/debug(.*)",
   "/api/license(.*)",
+  "/api/cron(.*)",
   "/api/oauth(.*)",
   "/api/setup(.*)",
   "/setup-wizard(.*)",
   "/setup(.*)",
+  // Dashboard supports a signed-out "legacy license key" mode (?key=LK-...);
+  // the page itself renders sign-in prompts for visitors without a key.
+  "/dashboard(.*)",
 ]);
 
 const isAdminRoute = createRouteMatcher([
