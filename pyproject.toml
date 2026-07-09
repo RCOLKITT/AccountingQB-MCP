@@ -31,5 +31,9 @@ Issues = "https://github.com/RCOLKITT/AccountingQB-MCP/issues"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+# Note: the published PyPI package is built from mcpb/pyproject.toml (which
+# exposes `accountingqb = "accountingqb.__main__:main"`). This root project
+# is for local/dev installs; `python server.py` is the primary OSS entry
+# point. The root server.py is a thin shim over mcpb/src/accountingqb.
 [project.scripts]
-accountingqb = "server:mcp.run"
+accountingqb = "server:main"
