@@ -1,0 +1,35 @@
+# AccountingQB
+
+> AccountingQB connects Claude (and any MCP-compatible AI) to QuickBooks
+> Online with 101 tools for reports, bookkeeping cleanup, transaction
+> creation, and tax preparation for the United States (Schedule C, 1099,
+> quarterly estimates) and Canada (GST/HST return workpapers, T2125, CCA,
+> T4A, CRA instalments). Built by Vaspera Capital.
+
+## What it does
+
+- Financial reports: P&L, balance sheet, cash flow, trial balance, general
+  ledger, AR/AP aging, budget vs actual, margins, burn rate, runway
+- Bookkeeping: find uncategorized transactions, detect duplicates and
+  anomalies, bulk vendor assignment, reconciliation, month-end close
+- Transactions: create/update invoices, expenses, bills, estimates, credit
+  memos, journal entries — with Canadian GST/HST tax codes where applicable
+- Tax prep (workpapers, not filings): US Schedule C and 1099; Canadian
+  GST/HST returns, T2125, CCA schedules, T4A, CPP/instalment estimates
+
+## How to connect
+
+- Remote connector (no install; Claude web, desktop, mobile, Cowork):
+  https://accountingqb.com/setup-wizard
+- Claude Desktop extension (.mcpb — books never touch our servers):
+  https://accountingqb.com/dashboard
+- Open source (self-host, bring your own Intuit app):
+  https://github.com/RCOLKITT/AccountingQB-MCP
+
+## Key pages
+
+- Home & pricing: https://accountingqb.com/
+- Setup guide: https://accountingqb.com/setup-wizard
+- Privacy (data locality & zero-retention details): https://accountingqb.com/privacy
+- Terms: https://accountingqb.com/terms
+- Support: support@vasperacapital.com
