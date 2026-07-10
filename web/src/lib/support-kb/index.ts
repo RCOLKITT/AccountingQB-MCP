@@ -40,9 +40,9 @@ export function loadKnowledgeBase(): string {
  */
 export function getKBTopics(): string[] {
   return [
-    "Installation & Setup (Claude Desktop config, uv, license key)",
+    "Installation & Setup (remote connector, desktop extension, Claude Desktop config, uv, license key)",
     "QuickBooks OAuth & Connection (authorization, token refresh, multiple companies)",
-    "91 QuickBooks Tools (reports, transactions, tax prep, smart features)",
+    "101 QuickBooks Tools (reports, transactions, US & Canadian tax prep, smart features)",
     "Common Issues & Troubleshooting (errors, fixes, FAQ)",
     "Account & Billing (pricing, plans, cancel, refunds)",
   ];
@@ -71,9 +71,9 @@ export function buildSupportSystemPrompt(context?: {
   }
 
   return `You are the AccountingQB Support Agent. You help users with:
-- Installing AccountingQB in Claude Desktop
+- Installing AccountingQB in Claude Desktop or connecting via the remote connector (Claude web/desktop/mobile)
 - Connecting QuickBooks Online accounts
-- Understanding the 91 available MCP tools
+- Understanding the 101 available MCP tools (US & Canadian tax prep included)
 - Troubleshooting common issues
 - Account and billing questions
 

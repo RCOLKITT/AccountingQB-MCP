@@ -19,8 +19,8 @@ They're case-sensitive and must be entered exactly as shown.
 ## Pricing Plans
 
 ### Solopreneur - $39/month
-- All 91 QuickBooks tools
-- Schedule C tax prep
+- All 101 QuickBooks tools
+- US & Canadian tax prep (Schedule C / T2125)
 - Deduction finder
 - Anomaly detection
 - 1 QuickBooks company
@@ -29,7 +29,7 @@ They're case-sensitive and must be entered exactly as shown.
 ### Business - $99/month
 - Everything in Solopreneur
 - Up to 3 companies
-- 1099 contractor reporting
+- 1099 & T4A contractor reporting
 - Budget vs actual analysis
 - Cash flow forecasting
 - Priority support
@@ -46,7 +46,7 @@ They're case-sensitive and must be entered exactly as shown.
 
 ## Free Trial
 
-All plans include a 14-day free trial with full access to all 94 tools.
+All plans include a 14-day free trial with full access to all 101 tools.
 
 ### After Trial Ends
 - You keep access to 25 essential read-only tools free forever
@@ -119,9 +119,9 @@ When contacting support, include:
 ## Security & Privacy
 
 ### Data Privacy
-- Financial data flows directly between your machine and QuickBooks
-- Data never passes through AccountingQB servers
-- Zero-knowledge architecture
+- Local extension / self-hosted setup: financial data flows directly between your machine and QuickBooks and never passes through AccountingQB servers (zero-knowledge)
+- Hosted remote connector: data transits our service per-request and is never stored, logged, or used for analytics (zero retention)
+- Either way, we never store your books
 
 ### Token Storage
 - OAuth tokens are encrypted at rest
@@ -129,4 +129,4 @@ When contacting support, include:
 - You can revoke access anytime from your dashboard
 
 ### Compliance
-AccountingQB is designed with privacy-first principles. We don't store, process, or have access to your QuickBooks financial data.
+AccountingQB is designed with privacy-first principles. We never store your QuickBooks financial data — and with the local setup, it never even reaches us.

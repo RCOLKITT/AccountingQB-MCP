@@ -1,4 +1,4 @@
-# AccountingQB Tools (94 Total)
+# AccountingQB Tools (101 Total)
 
 ## Company & Entities (12 tools)
 | Tool | Description |
@@ -84,7 +84,7 @@
 | qb_budget_vs_actual | Compare budget to actual spending |
 | qb_anomaly_detection | Statistical anomaly and fraud detection |
 
-## Tax Preparation (9 tools)
+## Tax Preparation (16 tools)
 | Tool | Description |
 |------|-------------|
 | qb_tax_summary | Expenses mapped to Schedule C lines |
@@ -96,6 +96,17 @@
 | qb_1099_contractor_report | 1099-NEC contractor reporting |
 | qb_home_office_calculator | Form 8829 home office deduction |
 | qb_vehicle_depreciation_calculator | Vehicle depreciation with business use % |
+
+### Canadian Tax
+| Tool | Description |
+|------|-------------|
+| qb_gst_hst_return | GST/HST return workpaper (Canada) |
+| qb_t2125_summary | CRA T2125 statement of business activities mapping (Canada) |
+| qb_cca_schedule | CCA (capital cost allowance) depreciation schedule (Canada) |
+| qb_t4a_contractor_report | T4A/T5018 contractor report (Canada) |
+| qb_estimate_instalments | CRA instalments + CPP estimator (Canada) |
+| qb_list_tax_codes | List sales tax codes (GST/HST/PST) |
+| qb_list_tax_rates | List sales tax rates |
 
 ## Smart Features (9 tools)
 | Tool | Description |
@@ -142,6 +153,8 @@ Ask Claude naturally:
 - "Find potential duplicate transactions"
 - "What deductions am I missing?"
 - "Generate my 1099 contractor report"
+- "Prepare my GST/HST return workpaper for Q2"
+- "Run my T2125 summary for this fiscal year"
 - "Run anomaly detection on last quarter's transactions"
 - "Show my profit margins by customer"
 - "Forecast my cash flow for the next 6 months"

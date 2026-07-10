@@ -132,7 +132,7 @@ function SetupContent() {
             <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-8">
               <h2 className="text-xl font-semibold">Step 1: Save Your License Key</h2>
               <p className="mt-2 text-gray-400">
-                This key unlocks all 91 QuickBooks tools. Keep it somewhere safe — you&apos;ll paste it into your config in Step 4.
+                This key unlocks all 101 QuickBooks tools. Keep it somewhere safe — you&apos;ll paste it into your config in Step 4.
               </p>
               {licenseKey ? (
                 <div className="mt-5 flex items-center gap-3">
@@ -231,7 +231,7 @@ function SetupContent() {
             <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
               <h2 className="text-xl font-semibold">Step 3: Connect Your QuickBooks Company</h2>
               <p className="mt-2 text-gray-400">
-                Authorize AccountingQB to access your QuickBooks data. Your data stays on your machine — we never store it on our servers.
+                Authorize AccountingQB to access your QuickBooks data. With this self-hosted setup, your data stays on your machine — we never store it on our servers.
               </p>
 
               <div className="mt-6 rounded-xl border border-green-400/20 bg-green-400/5 p-5">
@@ -239,13 +239,13 @@ function SetupContent() {
                   <span className="mt-0.5 text-green-400 text-lg">🔒</span>
                   <div className="text-sm text-gray-300">
                     <p className="font-medium text-green-400">Privacy-first architecture</p>
-                    <p className="mt-1">OAuth tokens are stored locally on your computer only. QuickBooks data is fetched directly from your machine to Intuit&apos;s API — it never passes through our servers.</p>
+                    <p className="mt-1">With this setup, OAuth tokens are stored locally on your computer only. QuickBooks data is fetched directly from your machine to Intuit&apos;s API — it never passes through our servers.</p>
                   </div>
                 </div>
               </div>
 
               <div className="mt-6 space-y-4">
-                <p className="text-gray-300">Once you have the MCP server installed (next step), connect by running the OAuth flow. The server will guide you through authorizing access and will automatically save your tokens locally.</p>
+                <p className="text-gray-300">Once you have the MCP server installed (next step), connect by running the OAuth flow. With this setup, the server will guide you through authorizing access and will automatically save your tokens locally.</p>
                 <p className="text-gray-300">You&apos;ll need your <strong className="text-white">Company ID (Realm ID)</strong> — find it in your QuickBooks URL after <code className="rounded bg-white/10 px-1.5 py-0.5 text-sm">app.qbo.intuit.com/app/</code>.</p>
               </div>
             </div>

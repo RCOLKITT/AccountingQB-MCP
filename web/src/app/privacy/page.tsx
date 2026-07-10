@@ -24,7 +24,7 @@ export default function PrivacyPolicy() {
           Privacy Policy
         </h1>
         <p className="mt-2 text-sm text-gray-500">
-          Last updated: March 12, 2026
+          Last updated: July 2026
         </p>
 
         <div className="prose prose-invert mt-12 max-w-none">
@@ -38,10 +38,18 @@ export default function PrivacyPolicy() {
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">2. Zero-Knowledge Architecture</h2>
           <p className="text-gray-400 leading-relaxed">
-            AccountingQB is built with a zero-knowledge architecture. The MCP server runs locally on your
-            machine and communicates directly with QuickBooks Online using your OAuth credentials. Your
-            financial data — transactions, reports, account balances, and all QuickBooks content — never
-            passes through our servers. We cannot see, access, or store your QuickBooks data.
+            When you run AccountingQB locally (via the desktop extension or a self-hosted install), it
+            operates with a zero-knowledge architecture. The MCP server runs locally on your machine and
+            communicates directly with QuickBooks Online using your OAuth credentials. Your financial
+            data — transactions, reports, account balances, and all QuickBooks content — never passes
+            through our servers. We cannot see, access, or store your QuickBooks data.
+          </p>
+          <h3 className="text-lg font-semibold mt-6 mb-3 text-gray-100">Hosted Connector (mcp.accountingqb.com)</h3>
+          <p className="text-gray-400 leading-relaxed">
+            If you connect through our hosted remote connector instead, your QuickBooks OAuth tokens are
+            held encrypted server-side so the connector can act on your behalf. QuickBooks data transits
+            our service per-request and is never stored, logged, or used for analytics (&ldquo;zero
+            retention&rdquo;). In both modes, we never store your books.
           </p>
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">3. What We Collect</h2>
@@ -63,10 +71,10 @@ export default function PrivacyPolicy() {
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">4. What We Do NOT Collect</h2>
           <p className="text-gray-400 leading-relaxed">
-            We do not collect, store, transmit, or have access to: your QuickBooks data (transactions,
-            reports, balances, vendor or customer information), your QuickBooks OAuth tokens (stored locally
-            on your machine with Fernet encryption), or any financial data that flows between the MCP server
-            and QuickBooks Online.
+            We never store your QuickBooks data (transactions, reports, balances, vendor or customer
+            information) or any financial data that flows between the MCP server and QuickBooks Online.
+            On the local tier, that data never even reaches us; on the hosted connector, it transits
+            per-request with zero retention. We never use your QuickBooks data for analytics.
           </p>
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">5. How We Use Your Information</h2>
@@ -85,9 +93,11 @@ export default function PrivacyPolicy() {
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">7. Data Security</h2>
           <p className="text-gray-400 leading-relaxed">
-            QuickBooks OAuth tokens are encrypted at rest using Fernet symmetric encryption and stored locally
-            on your machine with restricted file permissions (0600). License validation uses HTTPS for all
-            API calls. We follow industry best practices for securing our infrastructure.
+            On the local tier, QuickBooks OAuth tokens are encrypted at rest using Fernet symmetric
+            encryption and stored locally on your machine with restricted file permissions (0600). On the
+            hosted connector tier, OAuth tokens are held encrypted at rest on our servers and used only to
+            fulfill your requests. License validation uses HTTPS for all API calls. We follow industry
+            best practices for securing our infrastructure.
           </p>
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">8. Data Retention</h2>

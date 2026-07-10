@@ -41,8 +41,8 @@ const tiers = [
     description: "For freelancers & sole proprietors",
     savings: "Save ~5 hrs/mo on bookkeeping & tax prep",
     features: [
-      "All 91 QuickBooks tools",
-      "Schedule C tax prep",
+      "All 101 QuickBooks tools",
+      "US & Canadian tax prep (Schedule C / T2125)",
       "Deduction finder",
       "Anomaly detection",
       "1 QuickBooks company",
@@ -61,7 +61,7 @@ const tiers = [
     features: [
       "Everything in Solopreneur",
       "Up to 3 companies",
-      "1099 contractor reporting",
+      "1099 & T4A contractor reporting",
       "Budget vs actual analysis",
       "Cash flow forecasting",
       "Priority support",
@@ -93,7 +93,7 @@ const tiers = [
 const faqs = [
   {
     q: "Is my financial data safe?",
-    a: "Absolutely. AccountingQB runs entirely on your machine. Financial data flows directly between your computer and QuickBooks — it never touches our servers. Zero-knowledge by design.",
+    a: "Absolutely. Run AccountingQB locally — the desktop extension runs entirely on your machine and your financial data flows directly between your computer and QuickBooks, never touching our servers. Or connect through our hosted connector, where data passes through with zero retention — it is never stored, logged, or used for analytics. Either way, we never store your books.",
   },
   {
     q: "Do I need to know how to code?",
@@ -101,7 +101,7 @@ const faqs = [
   },
   {
     q: "What happens after the 14-day trial?",
-    a: "You keep access to 25 essential read-only tools for free. To continue using all 94 tools including writes, tax prep, and advanced analytics, choose a paid plan.",
+    a: "You keep access to 25 essential read-only tools for free. To continue using all 101 tools including writes, tax prep, and advanced analytics, choose a paid plan.",
   },
   {
     q: "Can I use this with QuickBooks Desktop?",
@@ -109,7 +109,7 @@ const faqs = [
   },
   {
     q: "What Claude apps does this work with?",
-    a: "AccountingQB works with Claude Desktop (via MCP extension) and Cowork (via plugin). Any app that supports MCP servers can use it.",
+    a: "AccountingQB works with Claude on the web, desktop, and mobile via our remote connector (add it as a custom connector — no install needed), with Claude Desktop via the MCP extension, and with Cowork via our plugin. Any app that supports MCP servers can use it.",
   },
   {
     q: "Can I cancel anytime?",
@@ -180,7 +180,7 @@ export default async function Home() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-400" />
               </span>
-              Now available for Claude Desktop &amp; Cowork
+              Now on Claude Desktop, Cowork &amp; the web
             </div>
 
             {/* Headline */}
@@ -194,10 +194,10 @@ export default async function Home() {
 
             {/* Subhead */}
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-400 sm:text-xl">
-              94 tools connecting Claude to your QuickBooks Online. Run reports,
+              101 tools connecting Claude to your QuickBooks Online. Run reports,
               reconcile books, prep for taxes, detect anomalies — all through
               natural conversation.{" "}
-              <span className="text-gray-300">Your financial data never leaves your machine.</span>
+              <span className="text-gray-300">Run it locally or connect instantly — we never store your books.</span>
             </p>
 
             {/* CTAs */}
@@ -319,7 +319,7 @@ export default async function Home() {
           <div className="flex flex-col items-center justify-center gap-8 sm:flex-row sm:gap-16">
             {[
               { icon: "shield", label: "Zero-knowledge architecture" },
-              { icon: "lock", label: "Local-first. Your data stays yours." },
+              { icon: "lock", label: "Local-first, zero-retention cloud optional." },
               { icon: "check", label: "QuickBooks OAuth 2.0 secured" },
             ].map((item) => (
               <div key={item.label} className="flex items-center gap-2.5 text-sm text-gray-400">
@@ -342,7 +342,7 @@ export default async function Home() {
               Features
             </div>
             <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
-              94 tools across every
+              101 tools across every
               <br />
               <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">accounting workflow</span>
             </h2>
@@ -356,7 +356,7 @@ export default async function Home() {
           <div className="mt-16 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {[
               { count: "15", label: "Reports & Analysis", color: "text-cyan-400 border-cyan-500/20 bg-cyan-500/[0.06]" },
-              { count: "9", label: "Tax & Compliance", color: "text-amber-400 border-amber-500/20 bg-amber-500/[0.06]" },
+              { count: "16", label: "Tax & Compliance", color: "text-amber-400 border-amber-500/20 bg-amber-500/[0.06]" },
               { count: "15", label: "Create & Write", color: "text-blue-400 border-blue-500/20 bg-blue-500/[0.06]" },
               { count: "16", label: "Transactions & Search", color: "text-purple-400 border-purple-500/20 bg-purple-500/[0.06]" },
               { count: "8", label: "Smart Bookkeeping", color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/[0.06]" },
@@ -365,6 +365,7 @@ export default async function Home() {
               { count: "3", label: "Reconciliation", color: "text-rose-400 border-rose-500/20 bg-rose-500/[0.06]" },
               { count: "3", label: "Close & Audit", color: "text-orange-400 border-orange-500/20 bg-orange-500/[0.06]" },
               { count: "10", label: "Modify, Delete & Bulk", color: "text-gray-400 border-gray-500/20 bg-gray-500/[0.06]" },
+              { count: "3", label: "Connection & Multi-Company", color: "text-teal-400 border-teal-500/20 bg-teal-500/[0.06]" },
             ].map((cat) => (
               <div key={cat.label} className={`rounded-xl border p-4 text-center ${cat.color}`}>
                 <div className="text-2xl font-bold">{cat.count}</div>
@@ -402,13 +403,13 @@ export default async function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-white">Your Data Stays Local</h3>
+              <h3 className="text-xl font-semibold text-white">We Never Store Your Books</h3>
               <p className="mt-2 text-gray-400">
-                Zero cloud routing. The MCP server runs on your machine and talks directly to QuickBooks. We never see your financial data.
+                Run it 100% locally — the MCP server runs on your machine and talks directly to QuickBooks, so your books never touch our servers. Or connect instantly through our zero-retention cloud connector — data transits, never stored.
               </p>
               <div className="mt-6 rounded-lg border border-green-500/10 bg-green-500/[0.04] px-3 py-2 text-xs text-green-400/80">
-                Your machine → QuickBooks API<br />
-                Our servers? Not in the loop.
+                Local: your machine → QuickBooks API<br />
+                Cloud: pass-through only. Zero retention.
               </div>
             </div>
 
@@ -432,9 +433,9 @@ export default async function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-white">9 Tax Prep Tools</h3>
+              <h3 className="text-xl font-semibold text-white">16 Tax Prep Tools</h3>
               <p className="mt-2 text-gray-400">
-                Schedule C mapping (basic + detailed), quarterly estimates, deduction finder, depreciation schedules, 1099 reports, home office &amp; vehicle calculators.
+                US &amp; Canada: Schedule C mapping, quarterly estimates, deduction finder, 1099 reports, home office &amp; vehicle calculators — plus GST/HST return workpapers, T2125, CCA schedules, T4A reports, and CRA instalments.
               </p>
             </div>
 
@@ -474,8 +475,8 @@ export default async function Home() {
             {[
               {
                 step: "01",
-                title: "Install the Extension",
-                desc: "One-click install in Claude Desktop or add the Cowork plugin. No terminal commands needed.",
+                title: "Connect or Install",
+                desc: "Add AccountingQB as a connector in Claude instantly, or one-click install the Claude Desktop extension / Cowork plugin. No terminal commands needed.",
                 gradient: "from-cyan-500 to-blue-500",
               },
               {
@@ -487,7 +488,7 @@ export default async function Home() {
               {
                 step: "03",
                 title: "Start Talking to Your Books",
-                desc: "Ask Claude anything. \"What's my burn rate?\" \"Find missing deductions.\" 94 tools ready.",
+                desc: "Ask Claude anything. \"What's my burn rate?\" \"Find missing deductions.\" 101 tools ready.",
                 gradient: "from-indigo-500 to-purple-500",
               },
             ].map((s) => (
@@ -525,7 +526,7 @@ export default async function Home() {
             {[
               {
                 title: "Tax Prep in Minutes",
-                desc: "Schedule C (basic + detailed), deduction finder, quarterly estimates, 1099 reports, home office calc, vehicle depreciation — the full tax package from one prompt.",
+                desc: "Schedule C (basic + detailed), deduction finder, quarterly estimates, 1099 reports, home office calc, vehicle depreciation — the full tax package from one prompt. Canadian business? GST/HST return workpapers, T2125, CCA, and T4A reports too.",
                 tag: "Tax Season",
                 tagColor: "text-amber-400 bg-amber-500/10 border-amber-500/20",
                 example: "\"Generate my Schedule C and find any deductions I missed this year.\"",
@@ -593,7 +594,7 @@ export default async function Home() {
               <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">in the first week</span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-gray-400">
-              94 tools means 91 tasks that used to be manual. Tax prep, invoice reconciliation, vendor cleanup, anomaly checks, month-end close — all in a conversation.
+              101 tools means 101 tasks that used to be manual. Tax prep, invoice reconciliation, vendor cleanup, anomaly checks, month-end close — all in a conversation.
             </p>
           </div>
 
@@ -602,7 +603,7 @@ export default async function Home() {
               {
                 metric: "10 min",
                 label: "full tax package",
-                detail: "Schedule C, deductions, 1099s, quarterly estimates, depreciation, home office — all from one prompt",
+                detail: "Schedule C, deductions, 1099s, quarterly estimates, depreciation, home office, GST/HST, T2125, CCA — all from one prompt",
                 icon: (
                   <svg className="h-6 w-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
@@ -658,11 +659,11 @@ export default async function Home() {
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
                   {[
-                    { task: "Categorize & map expenses to Schedule C lines", manual: "3–5 hours", fast: "~2 seconds" },
+                    { task: "Categorize & map expenses to Schedule C / T2125 lines", manual: "3–5 hours", fast: "~2 seconds" },
                     { task: "Scan for missed deductions across all categories", manual: "2–3 hours", fast: "~2 seconds" },
-                    { task: "Pull vendor payments, identify 1099-eligible, flag missing W-9s", manual: "2–4 hours", fast: "~2 seconds" },
-                    { task: "Calculate quarterly estimates (federal + state)", manual: "1–2 hours", fast: "~2 seconds" },
-                    { task: "Depreciation schedule (MACRS tables, Section 179 analysis)", manual: "1–2 hours", fast: "~2 seconds" },
+                    { task: "1099 / T4A contractor prep — pull payments, flag missing W-9s", manual: "2–4 hours", fast: "~2 seconds" },
+                    { task: "Calculate quarterly estimates & CRA instalments", manual: "1–2 hours", fast: "~2 seconds" },
+                    { task: "MACRS & CCA depreciation schedules (Section 179 analysis)", manual: "1–2 hours", fast: "~2 seconds" },
                     { task: "Extract invoices from email/Drive & reconcile against QB", manual: "2–4 hours", fast: "~30 seconds" },
                   ].map((row) => (
                     <tr key={row.task} className="bg-[#0f1629] transition hover:bg-white/[0.02]">
@@ -693,7 +694,7 @@ export default async function Home() {
                 <p className="mt-3 text-gray-400">
                   If you&apos;re managing 20+ clients, your team is spending hundreds of hours a month on tasks
                   AccountingQB handles in minutes. Invoice reconciliation, month-end close, vendor cleanup,
-                  anomaly checks, tax prep — 94 tools covering every workflow that eats your margin.
+                  anomaly checks, tax prep — 101 tools covering every workflow that eats your margin.
                 </p>
               </div>
               <div className="rounded-xl bg-white/[0.03] p-6">

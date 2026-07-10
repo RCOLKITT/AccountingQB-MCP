@@ -24,7 +24,7 @@ export default function TermsOfService() {
           Terms of Service
         </h1>
         <p className="mt-2 text-sm text-gray-500">
-          Last updated: March 12, 2026
+          Last updated: July 2026
         </p>
 
         <div className="prose prose-invert mt-12 max-w-none">
@@ -39,8 +39,9 @@ export default function TermsOfService() {
           <p className="text-gray-400 leading-relaxed">
             AccountingQB is a software tool that provides AI-powered tools for interacting with
             QuickBooks Online through the Model Context Protocol (MCP). The Service includes a
-            locally-installed MCP server, a cloud-hosted license validation system, and a website
-            for account management and documentation.
+            locally-installed MCP server, a hosted remote MCP connector and OAuth service, a
+            cloud-hosted license validation system, and a website for account management and
+            documentation.
           </p>
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">3. Eligibility</h2>
@@ -86,9 +87,11 @@ export default function TermsOfService() {
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">8. Your Data and Privacy</h2>
           <p className="text-gray-400 leading-relaxed">
-            AccountingQB uses a zero-knowledge architecture. Your QuickBooks data is processed
-            locally on your machine and never transmitted to our servers. You retain full ownership
-            of your data. Our handling of information is described in our{" "}
+            When run locally, AccountingQB uses a zero-knowledge architecture: your QuickBooks data
+            is processed locally on your machine and never transmitted to our servers. When you use
+            the hosted remote connector, your QuickBooks data transits our service per-request and
+            is never stored (zero retention). In both cases, you retain full ownership of your data.
+            Our handling of information is described in our{" "}
             <a href="/privacy" className="text-cyan-400 hover:underline">
               Privacy Policy
             </a>
