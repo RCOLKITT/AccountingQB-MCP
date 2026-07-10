@@ -10,6 +10,7 @@ import {
   trialExpiredEmail,
   paymentFailedEmail,
   subscriptionRenewedEmail,
+  reengagementEmail,
 } from "@/lib/emails/templates";
 
 // Verify cron secret to prevent unauthorized access
@@ -258,6 +259,9 @@ function generateEmailContent(
         cardBrand: license.card_brand,
         attemptCount: (metadata.attemptCount as number) || 1,
       });
+
+    case "reengagement":
+      return reengagementEmail(baseParams);
 
     case "subscription_renewed":
       return subscriptionRenewedEmail({

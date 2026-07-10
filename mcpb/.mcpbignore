@@ -1,8 +1,17 @@
 __pycache__/
 *.pyc
+*.pyo
 .git/
 .DS_Store
 .qb_data/
 .env
 *.log
 .venv/
+venv/
+tests/
+test_*.py
+*.mcpb
+# Remote-service-only dependency list — the desktop extension must not
+# pull in remote (HTTP/OAuth) deps. remote.py itself is tiny and ships,
+# but its extra requirements are never installed into server/lib.
+remote-requirements.txt

@@ -70,6 +70,36 @@ export function getSupportLimiter(): Ratelimit {
   });
 }
 
+// Rate limiter for OAuth2 dynamic client registration (RFC 7591): 5/min per IP
+export function getOAuth2RegisterLimiter(): Ratelimit {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(5, "1 m"),
+    prefix: "ratelimit:oauth2-register",
+    analytics: true,
+  });
+}
+
+// Rate limiter for the OAuth2 token endpoint: 20 requests per minute per IP
+export function getOAuth2TokenLimiter(): Ratelimit {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(20, "1 m"),
+    prefix: "ratelimit:oauth2-token",
+    analytics: true,
+  });
+}
+
+// Rate limiter for default-realm lookups (remote MCP service): 30/min per IP
+export function getDefaultRealmLimiter(): Ratelimit {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(30, "1 m"),
+    prefix: "ratelimit:default-realm",
+    analytics: true,
+  });
+}
+
 // Rate limiter for license verification: 10 requests per minute per IP
 export function getLicenseVerifyLimiter(): Ratelimit {
   return new Ratelimit({

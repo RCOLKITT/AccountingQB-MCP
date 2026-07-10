@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
+import { ensureLicenseForSession } from "@/lib/license-issuance";
 
 /**
  * GET /api/stripe/session?id=cs_test_...
@@ -35,14 +36,33 @@ export async function GET(req: NextRequest) {
         ? session.subscription
         : session.subscription.id;
 
+    const supabase = getSupabase();
+
     // Look up the license in Supabase by subscription ID
-    const { data: license, error } = await getSupabase()
+    let { data: license } = await supabase
       .from("licenses")
       .select("key, email, tier")
       .eq("stripe_subscription_id", subscriptionId)
-      .single();
+      .maybeSingle();
 
-    if (error || !license) {
+    // Reconciliation: if the webhook was missed but the session is actually
+    // complete/paid, issue the license here (idempotent) and re-query.
+    if (
+      !license &&
+      (session.status === "complete" || session.payment_status === "paid")
+    ) {
+      await ensureLicenseForSession(getStripe(), supabase, session);
+
+      const { data: reconciled } = await supabase
+        .from("licenses")
+        .select("key, email, tier")
+        .eq("stripe_subscription_id", subscriptionId)
+        .maybeSingle();
+
+      license = reconciled;
+    }
+
+    if (!license) {
       // License may not be created yet (webhook still processing)
       return NextResponse.json(
         { licenseKey: null, email: session.customer_email, tier: session.metadata?.tier },

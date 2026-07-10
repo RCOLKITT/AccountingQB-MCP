@@ -9,10 +9,8 @@ import {
 import { randomBytes } from "crypto";
 
 function generateLicenseKey(): string {
-  const bytes = randomBytes(16);
-  const key = bytes.toString("hex").toUpperCase();
-  // Format: XXXX-XXXX-XXXX-XXXX
-  return `${key.slice(0, 4)}-${key.slice(4, 8)}-${key.slice(8, 12)}-${key.slice(12, 16)}`;
+  // Same format as issuance in api/stripe/webhook: LK-<32 hex chars>
+  return `LK-${randomBytes(16).toString("hex").toUpperCase()}`;
 }
 
 async function logRotation(
@@ -88,7 +86,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (license.status !== "active" && license.status !== "trial") {
+  if (license.status !== "active" && license.status !== "trialing") {
     logRotation(supabase, license_key, "", false, ip, "inactive_license");
     return NextResponse.json(
       { error: "Cannot rotate inactive license" },
@@ -104,8 +102,7 @@ export async function POST(req: NextRequest) {
     .from("licenses")
     .update({
       key: newKey,
-      rotated_at: new Date().toISOString(),
-      previous_key: license_key,
+      updated_at: new Date().toISOString(),
     })
     .eq("id", license.id);
 

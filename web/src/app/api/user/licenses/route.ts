@@ -5,6 +5,12 @@ import { getSupabase } from "@/lib/supabase";
 /**
  * GET /api/user/licenses
  * Get licenses linked to the authenticated Clerk user.
+ *
+ * Resolution order:
+ * 1. Resolve (or create) the user_profiles row by clerk_id.
+ * 2. Look up user_licenses by user_id = profile.id.
+ * 3. Fall back to matching licenses by email — and persist any matches
+ *    into user_licenses so they're durable for future requests.
  */
 export async function GET() {
   const { userId } = await auth();
@@ -19,37 +25,53 @@ export async function GET() {
   const clerkUser = await currentUser();
   const clerkEmail = clerkUser?.emailAddresses[0]?.emailAddress?.toLowerCase();
 
-  // Also check user_profiles for legacy linked accounts
-  const { data: userProfile } = await supabase
+  // Resolve the user profile by clerk_id
+  let { data: userProfile } = await supabase
     .from("user_profiles")
-    .select("email")
+    .select("id, email")
     .eq("clerk_id", userId)
-    .single();
-
-  // Use Clerk email or fall back to user_profiles email
-  const userEmail = clerkEmail || userProfile?.email;
-
-  if (!userEmail) {
-    // No email found anywhere
-    return NextResponse.json({ licenses: [] });
-  }
+    .maybeSingle();
 
   // Auto-create user_profiles entry if it doesn't exist (for existing users)
   if (!userProfile && clerkEmail) {
-    await supabase.from("user_profiles").upsert({
-      clerk_id: userId,
-      email: clerkEmail,
-      created_at: new Date().toISOString(),
-    }, { onConflict: "clerk_id" });
+    const { data: created } = await supabase
+      .from("user_profiles")
+      .upsert(
+        {
+          clerk_id: userId,
+          email: clerkEmail,
+        },
+        { onConflict: "clerk_id" }
+      )
+      .select("id, email")
+      .single();
+
+    userProfile = created;
+  }
+
+  const userEmail = clerkEmail || userProfile?.email;
+
+  if (!userProfile && !userEmail) {
+    // No profile and no email found anywhere
+    return NextResponse.json({ licenses: [] });
   }
 
   // Get licenses linked to this user via user_licenses table
-  const { data: userLicenses } = await supabase
-    .from("user_licenses")
-    .select("license_key, role")
-    .eq("user_id", userEmail);
+  // (user_licenses.user_id stores user_profiles.id as text)
+  let userLicenses: { license_key: string; role: string }[] = [];
+  if (userProfile) {
+    const { data } = await supabase
+      .from("user_licenses")
+      .select("license_key, role")
+      .eq("user_id", String(userProfile.id));
+    userLicenses = data || [];
+  }
 
-  if (!userLicenses || userLicenses.length === 0) {
+  if (userLicenses.length === 0) {
+    if (!userEmail) {
+      return NextResponse.json({ licenses: [] });
+    }
+
     // Try getting licenses by email directly from licenses table
     // This handles existing users who purchased before the dashboard existed
     // Use ilike for case-insensitive matching
@@ -57,6 +79,18 @@ export async function GET() {
       .from("licenses")
       .select("key, tier, status, trial_ends_at")
       .ilike("email", userEmail);
+
+    // Persist fallback matches into user_licenses so they're durable
+    if (userProfile && licenses && licenses.length > 0) {
+      await supabase.from("user_licenses").upsert(
+        licenses.map((l) => ({
+          user_id: String(userProfile.id),
+          license_key: l.key,
+          role: "owner",
+        })),
+        { onConflict: "user_id,license_key" }
+      );
+    }
 
     return NextResponse.json({
       licenses: (licenses || []).map((l) => ({

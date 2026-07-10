@@ -37,7 +37,7 @@ function SetupContent() {
   "mcpServers": {
     "quickbooks-accounting": {
       "command": "uvx",
-      "args": ["accountingqb-mcp"],
+      "args": ["accountingqb"],
       "env": {
         "QB_LICENSE_KEY": "${licenseKey || "YOUR_LICENSE_KEY"}",
         "QB_CLIENT_ID": "YOUR_INTUIT_CLIENT_ID",
@@ -203,7 +203,7 @@ function SetupContent() {
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-blue-400 text-sm font-bold">e</span>
                   <div>
                     <p>Under <strong className="text-white">Redirect URIs</strong>, add:</p>
-                    <code className="mt-1 block rounded-lg bg-black/40 px-3 py-2 text-sm text-cyan-400">https://accountingqb.com/api/qb/callback</code>
+                    <code className="mt-1 block rounded-lg bg-black/40 px-3 py-2 text-sm text-cyan-400">https://accountingqb.com/api/oauth/callback</code>
                   </div>
                 </li>
               </ol>

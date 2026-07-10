@@ -66,57 +66,49 @@ export async function POST(req: NextRequest) {
 
     const displayName = [first_name, last_name].filter(Boolean).join(" ") || null;
 
-    // Check if profile already exists (idempotent)
-    const { data: existing } = await supabase
+    // Create the user profile if missing (idempotent — never set id explicitly,
+    // the DB default gen_random_uuid() assigns it)
+    const { data: profile, error: upsertError } = await supabase
       .from("user_profiles")
-      .select("id")
-      .eq("clerk_id", clerkId)
-      .maybeSingle();
-
-    if (!existing) {
-      // Create user profile
-      const { error: insertError } = await supabase
-        .from("user_profiles")
-        .insert({
+      .upsert(
+        {
           clerk_id: clerkId,
           email,
           display_name: displayName,
-        });
+        },
+        { onConflict: "clerk_id" }
+      )
+      .select("id")
+      .single();
 
-      if (insertError) {
-        console.error("Failed to create user profile:", insertError);
-        return NextResponse.json({ error: "Database error" }, { status: 500 });
-      }
+    if (upsertError || !profile) {
+      console.error("Failed to create user profile:", upsertError);
+      return NextResponse.json({ error: "Database error" }, { status: 500 });
+    }
 
-      console.log(`Created user profile for ${email} (clerk_id: ${clerkId})`);
+    console.log(`Created user profile for ${email} (clerk_id: ${clerkId})`);
 
-      // Check if there's an existing license with this email and auto-link
-      const { data: license } = await supabase
-        .from("licenses")
-        .select("key")
-        .eq("email", email)
-        .maybeSingle();
+    // Check for existing licenses with this email and auto-link
+    // (case-insensitive; there may be more than one license per email)
+    const { data: licenses } = await supabase
+      .from("licenses")
+      .select("key")
+      .ilike("email", email);
 
-      if (license) {
-        // Get the newly created profile ID
-        const { data: profile } = await supabase
-          .from("user_profiles")
-          .select("id")
-          .eq("clerk_id", clerkId)
-          .single();
+    if (licenses && licenses.length > 0) {
+      // user_licenses.user_id stores user_profiles.id as text
+      await supabase.from("user_licenses").upsert(
+        licenses.map((license) => ({
+          user_id: String(profile.id),
+          license_key: license.key,
+          role: "owner",
+        })),
+        { onConflict: "user_id,license_key" }
+      );
 
-        if (profile) {
-          await supabase
-            .from("user_licenses")
-            .upsert({
-              user_id: profile.id,
-              license_key: license.key,
-              role: "owner",
-            }, { onConflict: "user_id,license_key" });
-
-          console.log(`Auto-linked user ${email} to license ${license.key}`);
-        }
-      }
+      console.log(
+        `Auto-linked user ${email} to license(s) ${licenses.map((l) => l.key).join(", ")}`
+      );
     }
   }
 

@@ -5,7 +5,18 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 type Platform = "mac" | "windows" | "linux" | "unknown";
-type Step = "detect" | "install-claude" | "install-extension" | "connect-qb" | "done";
+type Step =
+  | "detect"
+  | "choose"
+  | "connector"
+  | "install-claude"
+  | "install-extension"
+  | "connect-qb"
+  | "done";
+
+// Remote MCP endpoint (e.g. https://mcp.accountingqb.com/mcp). When unset,
+// the "Connect instantly" option is hidden and the wizard behaves as before.
+const REMOTE_MCP_URL = process.env.NEXT_PUBLIC_REMOTE_MCP_URL || "";
 
 function detectPlatform(): Platform {
   if (typeof window === "undefined") return "unknown";
@@ -29,6 +40,7 @@ function SetupWizardContent() {
   const [platform, setPlatform] = useState<Platform>("unknown");
   const [step, setStep] = useState<Step>("detect");
   const [copied, setCopied] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
   const [hasClaudeDesktop, setHasClaudeDesktop] = useState<boolean | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -38,8 +50,11 @@ function SetupWizardContent() {
 
   useEffect(() => {
     setPlatform(detectPlatform());
-    // Check if they came with a license key
-    if (licenseKey) {
+    // With a remote connector available, start on the connect-vs-install
+    // choice; otherwise fall through to the classic install flow.
+    if (REMOTE_MCP_URL) {
+      setStep("choose");
+    } else if (licenseKey) {
       setStep("install-claude");
     }
   }, [licenseKey]);
@@ -82,6 +97,12 @@ function SetupWizardContent() {
     navigator.clipboard.writeText(configSnippet);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyConnectorUrl = () => {
+    navigator.clipboard.writeText(REMOTE_MCP_URL);
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 2000);
   };
 
   const handleConnectQB = () => {
@@ -145,7 +166,8 @@ function SetupWizardContent() {
       </nav>
 
       <div className="mx-auto max-w-2xl px-6 py-12">
-        {/* Progress */}
+        {/* Progress (local install flow only) */}
+        {step !== "choose" && step !== "connector" && (
         <div className="flex items-center justify-center gap-3 mb-10">
           {["Install Claude", "Add Extension", "Connect QB", "Done"].map((label, i) => {
             const stepIndex = i + 1;
@@ -170,9 +192,10 @@ function SetupWizardContent() {
             );
           })}
         </div>
+        )}
 
-        {/* License Key Input (if not provided) */}
-        {!licenseKey && step !== "done" && (
+        {/* License Key Input (if not provided; not needed for the connector path) */}
+        {!licenseKey && step !== "done" && step !== "choose" && step !== "connector" && (
           <div className="mb-8 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-6">
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Enter your license key
@@ -187,6 +210,119 @@ function SetupWizardContent() {
             <p className="mt-2 text-xs text-gray-500">
               Check your email or <a href="/dashboard" className="text-cyan-400 hover:underline">dashboard</a> for your license key
             </p>
+          </div>
+        )}
+
+        {/* Step 0: Choose how to connect (only when the remote connector is live) */}
+        {step === "choose" && REMOTE_MCP_URL && (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold">How do you want to connect?</h2>
+              <p className="mt-2 text-gray-400">Both options give you the full AccountingQB toolset.</p>
+            </div>
+
+            <button
+              onClick={() => setStep("connector")}
+              className="w-full text-left rounded-2xl border border-cyan-400/40 bg-cyan-400/5 p-6 hover:bg-cyan-400/10 transition"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-semibold">Connect instantly</span>
+                    <span className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 px-2 py-0.5 text-xs font-semibold">
+                      Recommended
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-gray-400">
+                    Works in Claude web, desktop and mobile — no install. Sign in,
+                    approve access, done.
+                  </p>
+                </div>
+                <span className="text-2xl">⚡</span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setStep("install-claude")}
+              className="w-full text-left rounded-2xl border border-white/10 bg-white/5 p-6 hover:bg-white/10 transition"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-semibold">Install locally</span>
+                    <span className="rounded-full border border-white/20 px-2 py-0.5 text-xs text-gray-400">
+                      Private
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-gray-400">
+                    Runs inside Claude Desktop on your machine — your books never
+                    touch our servers.
+                  </p>
+                </div>
+                <span className="text-2xl">🔒</span>
+              </div>
+            </button>
+          </div>
+        )}
+
+        {/* Step 0b: Remote connector instructions */}
+        {step === "connector" && REMOTE_MCP_URL && (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
+              <h2 className="text-2xl font-bold">Add AccountingQB as a connector</h2>
+              <p className="mt-3 text-gray-400">
+                Add a custom connector in Claude and sign in with your AccountingQB
+                account — it works in Claude web, desktop and mobile.
+              </p>
+
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm text-gray-400">Connector URL</span>
+                  <button
+                    onClick={copyConnectorUrl}
+                    className="px-3 py-1 text-xs rounded border border-white/10 hover:bg-white/10 transition"
+                  >
+                    {copiedUrl ? "✓ Copied!" : "Copy"}
+                  </button>
+                </div>
+                <code className="block rounded-lg bg-black/40 px-4 py-3 text-sm text-cyan-400 overflow-x-auto">
+                  {REMOTE_MCP_URL}
+                </code>
+              </div>
+
+              <div className="mt-6 space-y-3 text-sm text-gray-300">
+                <p><strong className="text-white">Instructions:</strong></p>
+                <ol className="list-decimal list-inside space-y-2 text-gray-400">
+                  <li>In Claude, open <span className="text-white">Settings → Connectors</span></li>
+                  <li>Click <span className="text-white">Add custom connector</span></li>
+                  <li>Paste the URL above and click <span className="text-white">Add</span></li>
+                  <li>Click <span className="text-white">Connect</span> and sign in with your AccountingQB account</li>
+                  <li>Approve access for your license — that&apos;s it</li>
+                </ol>
+              </div>
+
+              <div className="mt-6 rounded-xl border border-blue-400/20 bg-blue-400/5 p-4">
+                <p className="text-sm text-gray-300">
+                  <strong className="text-blue-400">Coming soon:</strong> one-click
+                  install from the Claude connector directory.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setStep("choose")}
+                className="rounded-xl border border-white/10 px-6 py-4 font-medium hover:bg-white/10 transition"
+              >
+                ← Back
+              </button>
+              <a
+                href="/dashboard"
+                className="flex-1 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 text-center font-semibold shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition"
+              >
+                Done → Go to Dashboard
+              </a>
+            </div>
           </div>
         )}
 

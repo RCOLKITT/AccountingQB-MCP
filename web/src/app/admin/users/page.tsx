@@ -23,6 +23,10 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState(initialFilter);
   const [search, setSearch] = useState(initialSearch);
+  const [campaignLoading, setCampaignLoading] = useState(false);
+
+  // Cohorts the campaign endpoint supports
+  const campaignFilter = filter === "stuck" || filter === "canceled" ? filter : null;
 
   useEffect(() => {
     fetchUsers();
@@ -48,6 +52,61 @@ export default function AdminUsersPage() {
     }
   };
 
+  const sendCampaign = async () => {
+    if (!campaignFilter) return;
+
+    setCampaignLoading(true);
+    try {
+      // Dry run first to get the recipient count
+      const dryRes = await fetch("/api/admin/campaign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emailType: "reengagement",
+          filter: campaignFilter,
+          dryRun: true,
+        }),
+      });
+      const dryData = await dryRes.json();
+
+      if (!dryRes.ok) {
+        alert(dryData.error || "Failed to preview campaign");
+        return;
+      }
+
+      if (!dryData.count) {
+        alert("No eligible recipients (users who already received this email are skipped).");
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `Send the re-engagement email to ${dryData.count} user${dryData.count === 1 ? "" : "s"} in the "${campaignFilter}" cohort?`
+      );
+      if (!confirmed) return;
+
+      const res = await fetch("/api/admin/campaign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emailType: "reengagement",
+          filter: campaignFilter,
+        }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        alert(`Re-engagement email scheduled for ${data.scheduled} user${data.scheduled === 1 ? "" : "s"}.`);
+      } else {
+        alert(data.error || "Failed to send campaign");
+      }
+    } catch (err) {
+      console.error("Failed to send campaign:", err);
+      alert("Failed to send campaign");
+    } finally {
+      setCampaignLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -55,6 +114,15 @@ export default function AdminUsersPage() {
           <h1 className="text-2xl font-bold text-white">Users</h1>
           <p className="text-gray-400 mt-1">Manage all AccountingQB users</p>
         </div>
+        {campaignFilter && (
+          <button
+            onClick={sendCampaign}
+            disabled={campaignLoading}
+            className="rounded-lg bg-cyan-500/10 border border-cyan-500/40 px-4 py-2 text-sm font-medium text-cyan-400 hover:bg-cyan-500/20 transition disabled:opacity-50"
+          >
+            {campaignLoading ? "Working..." : "Send re-engagement campaign"}
+          </button>
+        )}
       </div>
 
       {/* Filters */}

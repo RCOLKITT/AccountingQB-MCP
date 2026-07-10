@@ -13,10 +13,19 @@ const isPublicRoute = createRouteMatcher([
   "/api/auth(.*)",
   "/api/debug(.*)",
   "/api/license(.*)",
+  "/api/cron(.*)",
   "/api/oauth(.*)",
+  // Remote MCP connector OAuth 2.1 AS: RFC 8414 metadata, DCR/token/client-info
+  // endpoints, and the consent page (which handles Clerk auth client-side).
+  "/.well-known(.*)",
+  "/api/oauth2(.*)",
+  "/oauth(.*)",
   "/api/setup(.*)",
   "/setup-wizard(.*)",
   "/setup(.*)",
+  // Dashboard supports a signed-out "legacy license key" mode (?key=LK-...);
+  // the page itself renders sign-in prompts for visitors without a key.
+  "/dashboard(.*)",
 ]);
 
 const isAdminRoute = createRouteMatcher([
