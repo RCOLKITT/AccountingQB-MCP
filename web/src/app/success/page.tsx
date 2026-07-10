@@ -249,11 +249,11 @@ function SuccessContent() {
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="rounded-lg bg-white/[0.04] p-3 text-center text-gray-400">
-                    <span className="block text-2xl mb-1">91</span>
+                    <span className="block text-2xl mb-1">101</span>
                     QuickBooks tools
                   </div>
                   <div className="rounded-lg bg-white/[0.04] p-3 text-center text-gray-400">
-                    <span className="block text-2xl mb-1">9</span>
+                    <span className="block text-2xl mb-1">16</span>
                     Tax prep tools
                   </div>
                 </div>
@@ -290,7 +290,7 @@ function SuccessContent() {
         </div>
 
         <p className="mt-8 text-sm text-gray-500">
-          Your trial includes full access to all 91 QuickBooks tools.
+          Your trial includes full access to all 101 QuickBooks tools.
           <br />
           No credit card was charged. Cancel anytime.
         </p>

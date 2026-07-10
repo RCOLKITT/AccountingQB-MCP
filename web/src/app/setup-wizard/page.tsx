@@ -668,11 +668,11 @@ function SetupWizardContent() {
 
               <div className="mt-8 grid grid-cols-3 gap-4 text-center">
                 <div className="rounded-lg bg-white/[0.04] p-4">
-                  <div className="text-2xl font-bold text-cyan-400">91</div>
+                  <div className="text-2xl font-bold text-cyan-400">101</div>
                   <div className="text-xs text-gray-500">QuickBooks tools</div>
                 </div>
                 <div className="rounded-lg bg-white/[0.04] p-4">
-                  <div className="text-2xl font-bold text-blue-400">9</div>
+                  <div className="text-2xl font-bold text-blue-400">16</div>
                   <div className="text-xs text-gray-500">Tax prep tools</div>
                 </div>
                 <div className="rounded-lg bg-white/[0.04] p-4">

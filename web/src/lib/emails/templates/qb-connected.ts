@@ -25,7 +25,7 @@ export function qbConnectedEmail(params: QbConnectedEmailParams): {
 
     ${paragraph(`Great news! <strong>${params.companyName}</strong> is now connected to AccountingQB. You're ready to start using AI-powered accounting.`)}
 
-    ${infoBox("Your connection is secure and your data stays local. Claude accesses QuickBooks directly from your machine.", "success")}
+    ${infoBox("Your connection is secure and we never store your books. Run locally and Claude accesses QuickBooks directly from your machine; use our hosted connector and data passes through with zero retention.", "success")}
 
     ${paragraph("Here are some things to try in Claude:")}
 
@@ -35,11 +35,12 @@ export function qbConnectedEmail(params: QbConnectedEmailParams): {
       '"Reconcile my bank account"',
       '"Help me categorize these transactions"',
       '"Generate a Schedule C summary for taxes"',
+      '"Prepare my GST/HST return workpaper for last quarter"',
     ])}
 
     ${primaryButton("View Dashboard", dashboardUrl)}
 
-    ${paragraph("Just open Claude Desktop and start asking questions about your books. AccountingQB gives Claude 94 tools to help with everything from reports to reconciliation.")}
+    ${paragraph("Just open Claude Desktop and start asking questions about your books. AccountingQB gives Claude 101 tools to help with everything from reports to reconciliation.")}
 
     ${paragraph("Questions? Reply to this email anytime.")}
 

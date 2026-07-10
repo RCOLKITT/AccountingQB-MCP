@@ -71,13 +71,16 @@ export async function sendLicenseEmail({
               <!-- Trial Info -->
               <div style="background: rgba(99, 102, 241, 0.1); border-radius: 8px; padding: 16px; margin-bottom: 32px;">
                 <p style="margin: 0; font-size: 14px; color: #a5b4fc;">
-                  <strong style="color: #ffffff;">14-day free trial</strong> — full access to all 94 tools.<br>
+                  <strong style="color: #ffffff;">14-day free trial</strong> — full access to all 101 tools.<br>
                   Trial ends: ${trialEndDate}
                 </p>
               </div>
 
               <!-- Getting Started -->
               <h2 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600; color: #ffffff;">Getting Started (3 Easy Steps)</h2>
+              <p style="margin: 0 0 12px 0; font-size: 13px; color: #22d3ee;">
+                <strong>Fastest:</strong> add AccountingQB as a connector in Claude (Settings &rarr; Connectors) — no install needed.
+              </p>
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
@@ -85,8 +88,8 @@ export async function sendLicenseEmail({
                       <tr>
                         <td style="width: 32px; height: 32px; background: linear-gradient(135deg, #22d3ee, #3b82f6); border-radius: 50%; text-align: center; vertical-align: middle; color: #ffffff; font-weight: 600; font-size: 14px;">1</td>
                         <td style="padding-left: 16px; color: #d1d5db; font-size: 15px;">
-                          <strong style="color: #ffffff;">Install the extension</strong><br>
-                          <span style="font-size: 13px; color: #9ca3af;">Click the button below to install in Claude Desktop (one click!)</span>
+                          <strong style="color: #ffffff;">Install the extension</strong> (local &amp; private option)<br>
+                          <span style="font-size: 13px; color: #9ca3af;">Click the button below to install in Claude Desktop (one click!) — runs on your machine, your books never touch our servers</span>
                         </td>
                       </tr>
                     </table>

@@ -1,5 +1,11 @@
 # Installation Guide
 
+## Three Ways to Connect
+
+1. **Remote connector (no install):** Add AccountingQB as a custom connector in Claude on the web, desktop, or mobile — nothing to install.
+2. **Desktop extension (.mcpb):** One file with bundled dependencies — download from your dashboard and open with Claude Desktop.
+3. **Manual uvx/pip install:** The self-hosted setup, documented below.
+
 ## Prerequisites
 - Claude Desktop installed (download from https://claude.ai/download)
 - QuickBooks Online account (any plan)

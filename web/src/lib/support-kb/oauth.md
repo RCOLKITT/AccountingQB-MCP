@@ -57,6 +57,6 @@ If you're seeing test data in Claude:
 ## Security
 
 - OAuth tokens are stored securely and encrypted
-- Your financial data flows directly between Claude and QuickBooks
-- Data never passes through AccountingQB servers (zero-knowledge design)
+- With the local extension, data flows directly between your machine and QuickBooks — it never passes through AccountingQB servers (zero-knowledge design)
+- With the hosted connector, data passes through our service per-request but is never stored (zero retention)
 - Tokens automatically rotate for security

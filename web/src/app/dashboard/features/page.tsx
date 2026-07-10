@@ -103,7 +103,7 @@ const TOOL_CATEGORIES = [
   {
     name: "Tax Preparation",
     icon: "📋",
-    description: "Prepare for tax season with Schedule C, deductions, and 1099 reporting",
+    description: "Prepare for tax season in the US and Canada — Schedule C, T2125, GST/HST, 1099 & T4A reporting",
     tools: [
       { name: "qb_tax_summary", desc: "Expenses mapped to Schedule C lines" },
       { name: "qb_schedule_c", desc: "Full IRS Schedule C line-by-line" },
@@ -114,6 +114,13 @@ const TOOL_CATEGORIES = [
       { name: "qb_1099_contractor_report", desc: "1099-NEC contractor reporting" },
       { name: "qb_home_office_calculator", desc: "Form 8829 home office deduction" },
       { name: "qb_vehicle_depreciation_calculator", desc: "Vehicle depreciation with business use %" },
+      { name: "qb_gst_hst_return", desc: "GST/HST return workpaper (Canada)" },
+      { name: "qb_t2125_summary", desc: "CRA T2125 mapping (Canada)" },
+      { name: "qb_cca_schedule", desc: "CCA depreciation schedule (Canada)" },
+      { name: "qb_t4a_contractor_report", desc: "T4A/T5018 contractor report (Canada)" },
+      { name: "qb_estimate_instalments", desc: "CRA instalments + CPP estimator (Canada)" },
+      { name: "qb_list_tax_codes", desc: "List sales tax codes (GST/HST/PST)" },
+      { name: "qb_list_tax_rates", desc: "List sales tax rates" },
     ],
   },
   {
@@ -262,6 +269,8 @@ export default function FeaturesPage() {
               "Show me all expenses over $500 from last month",
               "Create an expense for $49.99 to GitHub",
               "Run my Schedule C for tax year 2024",
+              "Prepare my GST/HST return for Q2",
+              "Run my T2125 summary",
               "Find any uncategorized transactions",
               "What's my monthly burn rate?",
               "How much runway do I have?",

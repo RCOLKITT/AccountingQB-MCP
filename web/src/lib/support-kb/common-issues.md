@@ -16,6 +16,8 @@ The uv package manager needs to be installed:
 
 Then restart your terminal AND Claude Desktop.
 
+Alternatively: install the one-file desktop extension (.mcpb) from your dashboard — no uv needed — or skip installs entirely with the remote connector.
+
 ### Config file location
 - **macOS:** ~/Library/Application Support/Claude/claude_desktop_config.json
 - **Windows:** %APPDATA%\Claude\claude_desktop_config.json
@@ -66,7 +68,7 @@ If you see test/fake data:
 Go to https://accountingqb.com/dashboard and enter the email you used to purchase. Your key will be displayed.
 
 ### Trial expired
-After 14 days, you keep access to 25 essential read-only tools for free. To unlock all 94 tools, choose a paid plan.
+After 14 days, you keep access to 25 essential read-only tools for free. To unlock all 101 tools, choose a paid plan.
 
 ### How to cancel subscription
 1. Go to https://accountingqb.com/dashboard
@@ -95,19 +97,19 @@ If you have multiple companies connected, ask Claude: "Switch to [company name]"
 ## Frequently Asked Questions
 
 ### Is my financial data safe?
-Yes. AccountingQB runs entirely on your machine. Data flows directly between your computer and QuickBooks - never through our servers. Zero-knowledge by design.
+Yes. With the local extension or self-hosted setup, AccountingQB runs entirely on your machine — data flows directly between your computer and QuickBooks and never touches our servers. With the hosted remote connector, data passes through our service per-request but is never stored, logged, or used for analytics (zero retention). Either way, we never store your books.
 
 ### Do I need to know how to code?
 No. Install the extension, connect your QuickBooks, and ask questions in plain English.
 
 ### What happens after the 14-day trial?
-You keep 25 essential read-only tools free. For all 94 tools including writes and tax prep, choose a paid plan.
+You keep 25 essential read-only tools free. For all 101 tools including writes and tax prep, choose a paid plan.
 
 ### Does this work with QuickBooks Desktop?
 AccountingQB currently supports QuickBooks Online only. Desktop support is on our roadmap.
 
 ### What Claude apps does this work with?
-Claude Desktop (via MCP extension) and any app that supports MCP servers.
+Claude on the web, desktop, and mobile via the remote connector (add it as a custom connector), Claude Desktop via the MCP extension, Cowork via our plugin, and any app that supports MCP servers.
 
 ### Can I use multiple QuickBooks companies?
 Yes, depending on your plan:
