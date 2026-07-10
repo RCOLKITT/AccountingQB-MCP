@@ -13,6 +13,7 @@ const VALID_EMAIL_TYPES: EmailType[] = [
   "trial_expired",
   "payment_failed",
   "subscription_renewed",
+  "reengagement",
 ];
 
 /**

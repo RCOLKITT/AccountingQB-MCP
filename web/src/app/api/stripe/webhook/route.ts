@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
-import { sendLicenseEmail } from "@/lib/resend";
 import { createStripeEventLogger, logEvent } from "@/lib/event-logger";
-import { scheduleOnboardingEmails } from "@/lib/emails/schedule-email";
 import { scheduleEmail } from "@/lib/emails/schedule-email";
-import crypto from "crypto";
+import { ensureLicenseForSession } from "@/lib/license-issuance";
 import Stripe from "stripe";
 
 /**
@@ -42,73 +40,23 @@ export async function POST(req: NextRequest) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
-      const tier = session.metadata?.tier || "solopreneur";
-      const email = session.customer_email || session.customer_details?.email || "";
-      const licenseKey = `LK-${crypto.randomBytes(16).toString("hex").toUpperCase()}`;
-      const trialEndsAt = new Date(
-        Date.now() + 14 * 24 * 60 * 60 * 1000
-      ).toISOString();
 
-      // Check if license already exists (idempotent — safe for replayed webhook events)
-      const { data: existing } = await supabase
-        .from("licenses")
-        .select("key")
-        .eq("stripe_subscription_id", session.subscription as string)
-        .maybeSingle();
+      // Idempotent license issuance (keyed on stripe_subscription_id)
+      const result = await ensureLicenseForSession(getStripe(), supabase, session);
 
-      if (!existing) {
-        await supabase.from("licenses").insert({
-          key: licenseKey,
-          email,
-          tier,
-          stripe_customer_id: session.customer as string,
-          stripe_subscription_id: session.subscription as string,
-          status: "trialing",
-          trial_ends_at: trialEndsAt,
-        });
-
-        // Track signup milestone
-        await supabase.from("user_milestones").insert({
-          license_key: licenseKey,
-          milestone: "signup",
-          metadata: { email, tier },
-        });
-
-        // Schedule onboarding email sequence
-        try {
-          await scheduleOnboardingEmails(
-            licenseKey,
-            email,
-            tier,
-            new Date(trialEndsAt)
-          );
-          console.log(`Onboarding emails scheduled for ${email}`);
-        } catch (emailErr) {
-          console.error("Failed to schedule onboarding emails:", emailErr);
-        }
-
-        // Send license email (immediate)
-        if (email) {
-          try {
-            await sendLicenseEmail({
-              to: email,
-              licenseKey,
-              tier,
-              trialEndsAt,
-            });
-            console.log(`License email sent to ${email}`);
-          } catch (emailErr) {
-            console.error("Failed to send license email:", emailErr);
-          }
-        }
-
-        console.log(`New license created: ${licenseKey} for ${email} (${tier})`);
-
+      if (!result) {
+        await eventLogger.failure("License issuance failed");
+      } else if (result.created) {
         // Log successful license creation
-        await eventLogger.success(licenseKey, { email, tier });
+        await eventLogger.success(result.licenseKey, {
+          email: result.email,
+          tier: result.tier,
+        });
       } else {
         // Log duplicate event (idempotent)
-        await eventLogger.success(existing.key, { note: "Duplicate event - already processed" });
+        await eventLogger.success(result.licenseKey, {
+          note: "Duplicate event - already processed",
+        });
       }
       break;
     }

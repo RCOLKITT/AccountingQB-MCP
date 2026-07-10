@@ -183,6 +183,36 @@ function DashboardContent() {
     }
   };
 
+  const handleLinkLicense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const key = legacyLicenseKey.trim();
+    if (!key) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/user/link-license", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ licenseKey: key }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        // Re-fetch licenses so the newly linked license appears durably
+        await checkAuth();
+      } else {
+        setError(data.error || "Failed to link license");
+      }
+    } catch {
+      setError("Failed to connect to server");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const copyKey = () => {
     if (selectedLicense?.key) {
       navigator.clipboard.writeText(selectedLicense.key);
@@ -385,15 +415,7 @@ function DashboardContent() {
                 <p className="text-sm text-gray-400 mb-3">
                   Enter your license key below to link it to your account:
                 </p>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (legacyLicenseKey.trim()) {
-                      fetchCompanies(legacyLicenseKey.trim());
-                    }
-                  }}
-                  className="flex gap-2"
-                >
+                <form onSubmit={handleLinkLicense} className="flex gap-2">
                   <input
                     type="text"
                     value={legacyLicenseKey}

@@ -1,9 +1,9 @@
 [project]
 name = "accountingqb"
-version = "3.0.0"
-description = "AccountingQB — 91 AI tools connecting Claude to QuickBooks Online"
+version = "3.1.0"
+description = "AccountingQB — 101 AI tools connecting Claude to QuickBooks Online (US + Canada tax support)"
 readme = "README.md"
-license = "MIT"
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 authors = [
     { name = "AccountingQB", email = "support@accountingqb.com" }
@@ -13,7 +13,7 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
+    "License :: Other/Proprietary License",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",

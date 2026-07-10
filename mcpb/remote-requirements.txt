@@ -1,0 +1,8 @@
+# Dependencies for the remote MCP service (accountingqb.remote).
+# The local extension's own deps (mcp, httpx, pydantic) are repeated here so
+# the remote image can be built without relying on mcpb/pyproject.toml extras.
+mcp>=1.10.0
+httpx>=0.27.0
+pydantic>=2.0.0
+PyJWT>=2.8.0
+uvicorn>=0.30.0

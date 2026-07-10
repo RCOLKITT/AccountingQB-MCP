@@ -13,7 +13,7 @@ from typing import Any
 # Paths
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent
-SERVER_PY = PROJECT_ROOT / "mcpb" / "src" / "server.py"
+SERVER_PY = PROJECT_ROOT / "mcpb" / "src" / "accountingqb" / "server.py"
 MANIFEST_JSON = PROJECT_ROOT / "mcpb" / "manifest.json"
 
 
@@ -150,46 +150,64 @@ def generate_input_schema(tool: dict) -> dict | None:
     return schema
 
 
+def short_description(docstring: str, max_len: int = 200) -> str:
+    """First line of the docstring, trimmed for the manifest tools array."""
+    first_line = docstring.strip().splitlines()[0].strip() if docstring.strip() else ""
+    if len(first_line) > max_len:
+        first_line = first_line[: max_len - 1].rstrip() + "…"
+    return first_line
+
+
 def update_manifest(tools: list[dict], strip_schemas: bool = False) -> None:
-    """Update manifest.json with inputSchema for each tool."""
+    """Regenerate the manifest.json tools array from the tools extracted
+    out of server.py. Existing descriptions are preserved when present;
+    new tools get the first line of their docstring as description.
+
+    With strip_schemas=True (--strip), only name/description are written
+    (mcpb pack compatibility); otherwise inputSchema and annotations are
+    included as well.
+    """
     with open(MANIFEST_JSON, "r") as f:
         manifest = json.load(f)
 
-    # Create lookup from extracted tools
-    tool_lookup = {t["name"]: t for t in tools}
+    # Preserve hand-written short descriptions already in the manifest
+    existing_descriptions = {
+        t.get("name"): t.get("description")
+        for t in manifest.get("tools", [])
+        if t.get("name") and t.get("description")
+    }
 
-    # Update each tool in manifest
-    updated_count = 0
-    for manifest_tool in manifest.get("tools", []):
-        tool_name = manifest_tool.get("name")
+    new_tools = []
+    for tool in tools:
+        entry = {
+            "name": tool["name"],
+            "description": existing_descriptions.get(tool["name"])
+            or short_description(tool["docstring"]),
+        }
 
-        # Strip schemas if requested (for mcpb compatibility)
-        if strip_schemas:
-            manifest_tool.pop("inputSchema", None)
-            manifest_tool.pop("annotations", None)
-            updated_count += 1
-            continue
-
-        if tool_name in tool_lookup:
-            extracted = tool_lookup[tool_name]
-
-            # Generate and add inputSchema
-            schema = generate_input_schema(extracted)
+        if not strip_schemas:
+            schema = generate_input_schema(tool)
             if schema:
-                manifest_tool["inputSchema"] = schema
+                entry["inputSchema"] = schema
+            if tool["annotations"]:
+                entry["annotations"] = tool["annotations"]
 
-            # Add annotations if present
-            if extracted["annotations"]:
-                manifest_tool["annotations"] = extracted["annotations"]
+        new_tools.append(entry)
 
-            updated_count += 1
+    manifest["tools"] = new_tools
+    manifest["tools_generated"] = True
 
     # Write updated manifest
     with open(MANIFEST_JSON, "w") as f:
         json.dump(manifest, f, indent=2)
+        f.write("\n")
 
-    action = "stripped schemas from" if strip_schemas else "updated with inputSchema"
-    print(f"{action.capitalize()} {updated_count} tools")
+    action = (
+        "wrote name/description only (schemas stripped) for"
+        if strip_schemas
+        else "wrote inputSchema for"
+    )
+    print(f"Regenerated tools array: {action} {len(new_tools)} tools")
     print(f"Manifest written to: {MANIFEST_JSON}")
 
 
