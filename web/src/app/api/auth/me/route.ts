@@ -8,6 +8,15 @@ import { getSupabase } from "@/lib/supabase";
  */
 export async function GET() {
   try {
+    // Supabase auth is a legacy login path; when it isn't configured,
+    // visitors are simply not authenticated this way.
+    if (
+      !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    ) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
     const supabase = await createServerComponentClient();
     const {
       data: { user },
