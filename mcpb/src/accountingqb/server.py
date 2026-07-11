@@ -852,7 +852,8 @@ def _parse_report_rows(rows, lines, indent=0):
 # global-tax companies REQUIRE a TaxCodeRef on every line of sales and
 # purchase documents and accept a GlobalTaxCalculation header.
 
-_US_REGION_INFO = {"region": "US", "home_currency": "USD", "multicurrency": False}
+_US_REGION_INFO = {"region": "US", "home_currency": "USD", "multicurrency": False,
+                   "subdivision": ""}
 
 _TAX_CODE_REQUIRED_MSG = (
     "This company requires a sales tax code on every line. "
@@ -865,9 +866,11 @@ async def _get_region() -> dict:
     """Detect this company's tax edition, cached per realm.
 
     Returns {"region": "US" | "CA" | "OTHER_GLOBAL", "home_currency": str,
-    "multicurrency": bool}. Cached in the connection's region_cache keyed by
-    realm_id (switching companies therefore re-detects naturally). On any API
-    error falls back to the US defaults so existing users are never broken.
+    "multicurrency": bool, "subdivision": str}. "subdivision" is the
+    province/state code from the company address ("ON", "TX", ...) or "".
+    Cached in the connection's region_cache keyed by realm_id (switching
+    companies therefore re-detects naturally). On any API error falls back
+    to the US defaults so existing users are never broken.
     """
     ctx = get_ctx()
     key = ctx.realm_id or "_default"
@@ -888,7 +891,14 @@ async def _get_region() -> dict:
         logger.debug(f"Region detection failed (CompanyInfo): {e}")
         return dict(_US_REGION_INFO)  # do not cache failures
 
-    info = {"region": "US", "home_currency": "", "multicurrency": False}
+    addr = company.get("CompanyAddr") or company.get("LegalAddr") or {}
+    subdivision = (
+        (company.get("CountrySubDivisionCode") or addr.get("CountrySubDivisionCode") or "")
+        .strip().upper()
+    )
+
+    info = {"region": "US", "home_currency": "", "multicurrency": False,
+            "subdivision": subdivision}
     partner_tax = None
     try:
         prefs = (await qb_request("GET", "preferences")).get("Preferences", {})
@@ -3395,11 +3405,46 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
     return "\n".join(lines)
 
 
+# APPROXIMATE state income tax on pass-through/self-employment income, for
+# quarterly planning only. (rate, kind): kind "none" = no tax on earned
+# income, "flat" = statutory flat rate, "progressive_approx" = rough
+# effective rate for a bracketed state. 2025 tax-year values — review
+# annually (several flat states step their rate down each January).
+# Source: Tax Foundation, "2025 State Income Tax Rates and Brackets".
+_US_STATE_TAX = {
+    "TX": (0.0, "none"), "FL": (0.0, "none"), "WA": (0.0, "none"),
+    "NV": (0.0, "none"), "TN": (0.0, "none"), "SD": (0.0, "none"),
+    "WY": (0.0, "none"), "AK": (0.0, "none"),
+    "NH": (0.0, "none"),  # no tax on earned income (interest/dividends tax repealed 2025)
+    "AZ": (0.025, "flat"), "CO": (0.044, "flat"), "GA": (0.0519, "flat"),
+    "ID": (0.053, "flat"), "IL": (0.0495, "flat"), "IN": (0.03, "flat"),
+    "IA": (0.038, "flat"), "KY": (0.04, "flat"), "MA": (0.05, "flat"),
+    "MI": (0.0425, "flat"), "MS": (0.044, "flat"), "NC": (0.0425, "flat"),
+    "PA": (0.0307, "flat"), "UT": (0.045, "flat"),
+    "AL": (0.05, "progressive_approx"), "AR": (0.039, "progressive_approx"),
+    "CA": (0.093, "progressive_approx"), "CT": (0.055, "progressive_approx"),
+    "DE": (0.055, "progressive_approx"), "DC": (0.065, "progressive_approx"),
+    "HI": (0.079, "progressive_approx"), "KS": (0.0558, "progressive_approx"),
+    "LA": (0.03, "progressive_approx"), "MD": (0.0475, "progressive_approx"),
+    "ME": (0.0715, "progressive_approx"), "MN": (0.0785, "progressive_approx"),
+    "MO": (0.047, "progressive_approx"), "MT": (0.059, "progressive_approx"),
+    "ND": (0.025, "progressive_approx"), "NE": (0.052, "progressive_approx"),
+    "NJ": (0.0637, "progressive_approx"), "NM": (0.049, "progressive_approx"),
+    "NY": (0.065, "progressive_approx"), "OH": (0.035, "progressive_approx"),
+    "OK": (0.0475, "progressive_approx"), "OR": (0.0875, "progressive_approx"),
+    "RI": (0.0475, "progressive_approx"), "SC": (0.062, "progressive_approx"),
+    "VA": (0.0575, "progressive_approx"), "VT": (0.066, "progressive_approx"),
+    "WI": (0.053, "progressive_approx"), "WV": (0.0482, "progressive_approx"),
+}
+
+
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("US", "Use qb_estimate_instalments for CRA instalments + CPP.")
-async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str = "single", state: str = "MA") -> str:
+async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str = "single", state: str = "") -> str:
     """Estimate quarterly tax payments (federal + state) based on YTD P&L.
-    filing_status: single, married_joint, married_separate. state: two-letter code (MA, CA, etc.)."""
+    filing_status: single, married_joint, married_separate. state: two-letter
+    code (MA, CA, ...); auto-detected from the QuickBooks company address
+    when omitted."""
     from datetime import date
     today = date.today()
     year = int(tax_year)
@@ -3455,17 +3500,23 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
         remaining -= amount
 
     # State tax estimate
-    state_tax = 0
-    state_rate_desc = ""
-    if state.upper() == "MA":
-        state_tax = max(0, net_income) * 0.05  # MA flat 5% income tax
-        state_rate_desc = "MA flat 5% income tax"
-    elif state.upper() == "CA":
-        state_tax = max(0, net_income) * 0.093  # CA rough avg
-        state_rate_desc = "CA ~9.3% avg rate"
+    state = state.strip().upper()
+    if not state:
+        state = (await _get_region()).get("subdivision", "")
+    entry = _US_STATE_TAX.get(state)
+    if entry:
+        rate, kind = entry
+        state_tax = max(0, net_income) * rate
+        if kind == "none":
+            state_rate_desc = f"{state} — no state income tax on earned income"
+        elif kind == "flat":
+            state_rate_desc = f"{state} flat {rate * 100:g}% income tax"
+        else:
+            state_rate_desc = f"{state} progressive — ~{rate * 100:g}% effective-rate approximation"
     else:
         state_tax = max(0, net_income) * 0.05  # Generic estimate
-        state_rate_desc = f"{state} estimated ~5%"
+        state_rate_desc = (f"{state or 'state unknown'} — generic ~5% estimate "
+                           f"(pass state=XX for a better one)")
 
     total_annual = federal_tax + se_tax + state_tax
     quarterly = total_annual / 4
@@ -3477,7 +3528,7 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
     lines = [f"## Estimated Quarterly Tax — {tax_year}\n"]
     lines.append(f"**YTD Net Income:** {fmt(net_income)} ({start} to {end})")
     lines.append(f"**Filing Status:** {filing_status}")
-    lines.append(f"**State:** {state.upper()}\n")
+    lines.append(f"**State:** {state or '(unknown)'}\n")
 
     lines.append("### Tax Breakdown:")
     lines.append(f"- Federal income tax: {fmt(federal_tax)}")
@@ -3486,6 +3537,8 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
     lines.append(f"- {state_rate_desc}: {fmt(state_tax)}")
     lines.append(f"\n**Total estimated annual tax: {fmt(total_annual)}**")
     lines.append(f"**Each quarterly payment: {fmt(quarterly)}**")
+    lines.append("\n*State tax is a planning approximation — flat-state rates "
+                 "are statutory; progressive states use a rough effective rate.*")
 
     lines.append(f"\n### Quarterly Due Dates:")
     for q, due in quarter_due.items():
@@ -5954,6 +6007,13 @@ async def qb_list_tax_codes() -> str:
             "*This company uses US Automated Sales Tax — QuickBooks applies "
             "sales tax automatically; you normally don't need to pass tax_code.*\n"
         )
+    elif region_info["region"] == "CA":
+        prov_desc = _ca_regime_describe(region_info.get("subdivision", ""))
+        if prov_desc:
+            lines.append(
+                f"*Detected province: {prov_desc} — codes whose combined rate "
+                f"differs may be for other provinces or out of date.*\n"
+            )
     if taxable:
         lines.append("### Taxable")
         lines.extend(taxable)
@@ -7659,6 +7719,64 @@ _GST_WORKPAPER_FOOTER = (
     "Sales Tax Centre before filing with CRA."
 )
 
+# Provincial sales-tax regimes — rates in effect 2026. Review annually
+# (CRA "GST/HST rates" table; NS dropped 15% -> 14% effective Apr 1, 2025).
+# HST provinces file one GST34 with CRA; GST+PST/QST provinces file the
+# provincial tax separately (QC files GST *and* QST with Revenu Québec).
+_CA_SALES_TAX_REGIME = {
+    "ON": {"regime": "HST", "hst": 0.13},
+    "NB": {"regime": "HST", "hst": 0.15},
+    "NL": {"regime": "HST", "hst": 0.15},
+    "PE": {"regime": "HST", "hst": 0.15},
+    "NS": {"regime": "HST", "hst": 0.14},
+    "BC": {"regime": "GST_PST", "gst": 0.05, "pst": 0.07, "pst_name": "PST",
+           "pst_agency": "BC Ministry of Finance"},
+    "SK": {"regime": "GST_PST", "gst": 0.05, "pst": 0.06, "pst_name": "PST",
+           "pst_agency": "Saskatchewan Ministry of Finance"},
+    "MB": {"regime": "GST_PST", "gst": 0.05, "pst": 0.07, "pst_name": "RST",
+           "pst_agency": "Manitoba Finance"},
+    "QC": {"regime": "GST_QST", "gst": 0.05, "pst": 0.09975, "pst_name": "QST",
+           "pst_agency": "Revenu Québec"},
+    "AB": {"regime": "GST_ONLY", "gst": 0.05},
+    "YT": {"regime": "GST_ONLY", "gst": 0.05},
+    "NT": {"regime": "GST_ONLY", "gst": 0.05},
+    "NU": {"regime": "GST_ONLY", "gst": 0.05},
+}
+
+# Keywords identifying provincial (non-GST34) tax agencies in TaxAgency
+# DisplayNames, matched lowercased. " pst"/" qst"/" rst" keep the leading
+# space so agency names like "BC PST" match without hitting substrings.
+_CA_PROVINCIAL_AGENCY_HINTS = (
+    "revenu québec", "revenu quebec", "ministère du revenu",
+    "ministry of finance", "minister of finance", "manitoba finance",
+    " pst", " qst", " rst",
+)
+
+
+def _ca_regime(prov: str) -> dict | None:
+    return _CA_SALES_TAX_REGIME.get((prov or "").strip().upper())
+
+
+def _ca_regime_describe(prov: str) -> str:
+    """One-line description of a province's sales-tax regime, or ""."""
+    r = _ca_regime(prov)
+    if not r:
+        return ""
+    if r["regime"] == "HST":
+        return f"{prov} — HST {r['hst'] * 100:g}% (single CRA GST34 filing)"
+    if r["regime"] in ("GST_PST", "GST_QST"):
+        return (
+            f"{prov} — GST {r['gst'] * 100:g}% + {r['pst_name']} "
+            f"{r['pst'] * 100:g}% ({r['pst_name']} filed separately with "
+            f"{r['pst_agency']})"
+        )
+    return f"{prov} — GST {r['gst'] * 100:g}% only (no provincial sales tax)"
+
+
+def _ca_agency_is_provincial(display_name: str) -> bool:
+    name = f" {(display_name or '').lower()}"
+    return any(hint in name for hint in _CA_PROVINCIAL_AGENCY_HINTS)
+
 # T2125 Part 4 line numbers — QB account-name keyword -> (line, description).
 # Insertion order matters: more specific keywords must precede generic ones
 # (e.g. "property tax" before "business tax", "stationery" before "office").
@@ -7799,10 +7917,16 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
     start_date = _validate_date(start_date, "start_date")
     end_date = _validate_date(end_date, "end_date")
 
+    prov = (await _get_region()).get("subdivision", "")
+    regime = _ca_regime(prov)
+
     lines = [
         f"## GST/HST Return Workpaper (GST34)",
-        f"**Filing period:** {start_date} to {end_date}\n",
+        f"**Filing period:** {start_date} to {end_date}",
     ]
+    if regime:
+        lines.append(f"**Province:** {_ca_regime_describe(prov)}")
+    lines.append("")
 
     # ---- Resolve the tax agency for the reports/TaxSummary endpoint ----
     try:
@@ -7812,6 +7936,10 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
         logger.debug(f"TaxAgency query failed: {e}")
         agencies = []
 
+    provincial_agencies = [a for a in agencies
+                           if _ca_agency_is_provincial(a.get("DisplayName") or "")]
+    pst_name = (regime or {}).get("pst_name", "PST/QST")
+
     agency = None
     if agency_name:
         wanted = agency_name.lower()
@@ -7820,7 +7948,7 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
             names = ", ".join(a.get("DisplayName", "?") for a in agencies) or "(none)"
             return f"Tax agency '{agency_name}' not found. Available agencies: {names}"
         agency = matches[0]
-    elif len(agencies) == 1:
+    elif len(agencies) == 1 and not provincial_agencies:
         agency = agencies[0]
     else:
         cra = [a for a in agencies
@@ -7832,6 +7960,12 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
             names = ", ".join(a.get("DisplayName", "?") for a in agencies)
             lines.append(f"*Multiple tax agencies found ({names}) — pass agency_name= "
                          f"to pull the QuickBooks TaxSummary report for one of them.*\n")
+
+    for pa in provincial_agencies:
+        lines.append(
+            f"⚠️ {pst_name} amounts owed to {pa.get('DisplayName', '?')} are filed "
+            f"separately with that agency — they do not belong on your GST34.\n"
+        )
 
     # ---- QuickBooks TaxSummary report (non-US editions only) ----
     if agency is not None:
@@ -7905,6 +8039,24 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
         lines.append(f"  Meals & entertainment ITC restriction applied (50% of "
                      f"GST/HST disallowed): {fmt(meals_restricted)} excluded from line 106.")
 
+    if regime and regime["regime"] in ("GST_PST", "GST_QST"):
+        lines.append(
+            f"\n⚠️ Transaction-derived line 103 sums each document's TotalTax, "
+            f"which includes {regime['pst_name']} — only the GST portion belongs "
+            f"on the GST34. Use the CRA-agency TaxSummary report figures above "
+            f"for filing."
+        )
+    elif regime and sales_count >= 3 and line_101 > 0:
+        expected = regime["hst"] if regime["regime"] == "HST" else regime["gst"]
+        effective = line_103 / line_101
+        if abs(effective - expected) > 0.2 * expected:
+            label = "HST" if regime["regime"] == "HST" else "GST"
+            lines.append(
+                f"\n⚠️ Collected tax averages {effective * 100:.1f}% of sales but "
+                f"{prov} {label} is {expected * 100:g}% — check the tax codes on "
+                f"your sales documents (run qb_list_tax_codes)."
+            )
+
     # ---- Tax payments recorded against filed returns ----
     # Filed returns aren't exposed by the API; TaxPayment (CA/AU/UK) records
     # payments against them.
@@ -7941,6 +8093,13 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
         lines.append(
             f"  Taxable supplies exceed the {fmt(_GST_QUICK_METHOD_LIMIT)} Quick Method "
             f"eligibility limit — regular method applies."
+        )
+
+    if regime and regime["regime"] == "GST_QST":
+        lines.append(
+            "\n*Québec: the GST is administered by Revenu Québec — file the "
+            "combined GST/QST return (FPZ-500). The line mapping above still "
+            "applies to the GST portion.*"
         )
 
     lines.append(f"\n---\n⚠️ {_GST_WORKPAPER_FOOTER}")
@@ -8404,7 +8563,10 @@ async def qb_estimate_instalments(year: int = 0, province: str = "") -> str:
     lines.append(f"  {province} provincial (flat ~{prov_rate * 100:g}%, approx.): {fmt(prov_tax)}")
     if province == "QC":
         lines.append("  *Québec: Revenu Québec collects its own tax and requires "
-                     "separate provincial instalments; QPP replaces CPP.*")
+                     "separate provincial instalments (form TP-1026.A-V; the "
+                     "federal instalment threshold is $1,800 for Québec residents); "
+                     "QPP replaces CPP — QPP rates differ slightly from the CPP "
+                     "shown above.*")
 
     lines.append(f"\n**Total estimated annual tax + CPP: {fmt(total_annual)}**")
     lines.append(f"**Each quarterly instalment: {fmt(quarterly)}**\n")

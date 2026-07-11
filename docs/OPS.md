@@ -47,4 +47,16 @@
   qb_gst_hst_return / tax-code regression matrix in tests/test_ca_suite.py.
 - CA rate tables live as constants in mcpb/src/accountingqb/server.py
   (CPP YMPE/YAMPE, CCA ceilings, CRA km rates) — review annually (December
-  CRA announcements).
+  CRA announcements). Also review annually:
+  - `_CA_SALES_TAX_REGIME` (per-province HST/GST/PST/QST rates; NS changed
+    to 14% Apr 2025 — provinces do move these).
+  - `_US_STATE_TAX` (state income tax table; several flat states step
+    their rate down each January — Tax Foundation publishes the list).
+
+## Pricing (CAD)
+
+- The three live Stripe prices carry `currency_options.cad` (CA$49/129/399,
+  added 2026-07-11). Canadian-IP visitors geo-default to CAD at checkout
+  (`x-vercel-ip-country`), and `/canada` links pass `?currency=cad`
+  explicitly; `?currency=usd` opts out. If prices are ever recreated,
+  re-add the CAD options or CAD checkouts will 500.

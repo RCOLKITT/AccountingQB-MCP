@@ -29,6 +29,7 @@
 ## Key pages
 
 - Home & pricing: https://accountingqb.com/
+- For Canadian businesses (GST/HST, T2125, CRA, CAD pricing): https://accountingqb.com/canada
 - Setup guide: https://accountingqb.com/setup-wizard
 - Privacy (data locality & zero-retention details): https://accountingqb.com/privacy
 - Terms: https://accountingqb.com/terms

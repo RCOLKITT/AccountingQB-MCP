@@ -97,19 +97,24 @@ PL_REPORT_200K = {"Rows": {"Row": [
 ]}}
 
 
-def _query_dispatcher(country="CA", vendors=None, purchases=None, bills=None):
+def _query_dispatcher(country="CA", vendors=None, purchases=None, bills=None,
+                      province=None, agencies=None):
     vendors = T4A_VENDORS if vendors is None else vendors
     purchases = PURCHASES if purchases is None else purchases
     bills = BILLS if bills is None else bills
+    if agencies is None:
+        agencies = [{"Id": "1", "DisplayName": "Canada Revenue Agency"}]
+
+    company = {"CompanyName": "Maple Co", "Country": country}
+    if province:
+        company["CompanyAddr"] = {"CountrySubDivisionCode": province}
 
     def handler(request):
         q = request.url.params.get("query", "")
         if "FROM CompanyInfo" in q:
-            return Response(200, json={"QueryResponse": {"CompanyInfo": [
-                {"CompanyName": "Maple Co", "Country": country}]}})
+            return Response(200, json={"QueryResponse": {"CompanyInfo": [company]}})
         if "FROM TaxAgency" in q:
-            return Response(200, json={"QueryResponse": {"TaxAgency": [
-                {"Id": "1", "DisplayName": "Canada Revenue Agency"}]}})
+            return Response(200, json={"QueryResponse": {"TaxAgency": agencies}})
         if "FROM Invoice" in q:
             return Response(200, json={"QueryResponse": {"Invoice": INVOICES}})
         if "FROM SalesReceipt" in q:
@@ -197,6 +202,82 @@ def test_gst_hst_return_renders_taxsummary_report_rows(qb_ctx):
     # Workpaper is still always computed alongside the report
     assert "Transaction-derived return lines" in result
     assert "$28.75" in result
+
+
+def test_gst_hst_return_ontario_regime_header(qb_ctx):
+    _prime_ctx(qb_ctx)
+    with respx.mock(assert_all_called=False) as router:
+        _ca_router(router, province="ON")
+        router.get(TAX_SUMMARY_URL).mock(return_value=Response(400, json={}))
+
+        result = asyncio.run(qb_server.qb_gst_hst_return("2026-01-01", "2026-03-31"))
+
+    assert "ON — HST 13% (single CRA GST34 filing)" in result
+    # Existing workpaper math unchanged
+    assert "Line 109" in result and "$28.75" in result
+
+
+def test_gst_hst_return_bc_pst_excluded_warning(qb_ctx):
+    _prime_ctx(qb_ctx)
+    with respx.mock(assert_all_called=False) as router:
+        _ca_router(router, province="BC", agencies=[
+            {"Id": "1", "DisplayName": "Canada Revenue Agency"},
+            {"Id": "2", "DisplayName": "BC Ministry of Finance"},
+        ])
+        router.get(TAX_SUMMARY_URL).mock(return_value=Response(200, json={
+            "Rows": {"Row": [
+                {"ColData": [{"value": "GST collected"}, {"value": "15.00"}]},
+            ]},
+        }))
+
+        result = asyncio.run(qb_server.qb_gst_hst_return("2026-01-01", "2026-03-31"))
+
+    # PST filed separately with the provincial agency, not on the GST34
+    assert "PST amounts owed to BC Ministry of Finance are filed separately" in result
+    # CRA still selected for the TaxSummary report
+    assert "QuickBooks TaxSummary report — Canada Revenue Agency" in result
+    # TotalTax-includes-PST caveat on the transaction-derived line 103
+    assert "includes PST" in result and "only the GST portion" in result
+
+
+def test_gst_hst_return_quebec_fpz500_note(qb_ctx):
+    _prime_ctx(qb_ctx)
+    with respx.mock(assert_all_called=False) as router:
+        _ca_router(router, province="QC", agencies=[
+            {"Id": "1", "DisplayName": "Revenu Québec"},
+        ])
+        router.get(TAX_SUMMARY_URL).mock(return_value=Response(400, json={}))
+
+        result = asyncio.run(qb_server.qb_gst_hst_return("2026-01-01", "2026-03-31"))
+
+    assert "FPZ-500" in result
+    assert "QST amounts owed to Revenu Québec are filed separately" in result
+    # A lone provincial agency must not be silently used as the CRA agency
+    assert "QuickBooks TaxSummary report — Revenu Québec" not in result
+
+
+def test_gst_hst_return_nova_scotia_14_pct(qb_ctx):
+    # Regression pin: NS HST dropped 15% -> 14% effective Apr 1, 2025
+    _prime_ctx(qb_ctx)
+    with respx.mock(assert_all_called=False) as router:
+        _ca_router(router, province="NS")
+        router.get(TAX_SUMMARY_URL).mock(return_value=Response(400, json={}))
+
+        result = asyncio.run(qb_server.qb_gst_hst_return("2026-01-01", "2026-03-31"))
+
+    assert "NS — HST 14%" in result
+
+
+def test_gst_hst_return_no_province_still_works(qb_ctx):
+    _prime_ctx(qb_ctx)
+    with respx.mock(assert_all_called=False) as router:
+        _ca_router(router)  # no CompanyAddr in the mocked CompanyInfo
+        router.get(TAX_SUMMARY_URL).mock(return_value=Response(400, json={}))
+
+        result = asyncio.run(qb_server.qb_gst_hst_return("2026-01-01", "2026-03-31"))
+
+    assert "**Province:**" not in result
+    assert "Line 109" in result and "$28.75" in result
 
 
 def test_gst_hst_return_redirects_for_us_company(qb_ctx):

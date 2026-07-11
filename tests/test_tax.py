@@ -28,13 +28,16 @@ def _prime_ctx(ctx):
     ctx.refresh_token = "rt-1"
 
 
-def _query_dispatcher(country="CA"):
+def _query_dispatcher(country="CA", province=None):
     """Answer QBO SELECT queries by entity, regardless of call order."""
+    company = {"CompanyName": "Maple Co", "Country": country}
+    if province:
+        company["CompanyAddr"] = {"CountrySubDivisionCode": province}
+
     def handler(request):
         q = request.url.params.get("query", "")
         if "FROM CompanyInfo" in q:
-            return Response(200, json={"QueryResponse": {"CompanyInfo": [
-                {"CompanyName": "Maple Co", "Country": country}]}})
+            return Response(200, json={"QueryResponse": {"CompanyInfo": [company]}})
         if "FROM TaxCode" in q:
             return Response(200, json={"QueryResponse": {"TaxCode": [
                 {"Id": "3", "Name": "HST ON", "Active": True,
@@ -216,7 +219,8 @@ def test_get_region_detects_ca_and_caches_per_realm(qb_ctx):
         info1 = asyncio.run(qb_server._get_region())
         info2 = asyncio.run(qb_server._get_region())
 
-    assert info1 == {"region": "CA", "home_currency": "CAD", "multicurrency": False}
+    assert info1 == {"region": "CA", "home_currency": "CAD", "multicurrency": False,
+                     "subdivision": ""}
     assert info2 is info1  # served from region_cache
     assert query.call_count == 1
     assert qb_ctx.region_cache[REALM]["region"] == "CA"
@@ -263,6 +267,18 @@ def test_qb_list_tax_codes_shows_rates_and_agency(qb_ctx):
     assert "tax_code=" in result  # usage hint
 
 
+def test_qb_list_tax_codes_annotates_detected_province(qb_ctx):
+    _prime_ctx(qb_ctx)
+    with respx.mock(assert_all_called=False) as router:
+        router.get(QUERY_URL).mock(side_effect=_query_dispatcher("CA", province="ON"))
+        router.get(PREFS_URL).mock(return_value=_prefs_response())
+
+        result = asyncio.run(qb_server.qb_list_tax_codes())
+
+    assert "Detected province: ON — HST 13%" in result
+    assert "HST ON" in result
+
+
 def test_qb_list_tax_rates_lists_rate_values(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
@@ -273,3 +289,75 @@ def test_qb_list_tax_rates_lists_rate_values(qb_ctx):
     assert "GST" in result and "5%" in result
     assert "HST ON" in result and "13%" in result
     assert "Canada Revenue Agency" in result
+
+
+# ---------------------------------------------------------------------------
+# qb_estimate_quarterly_tax — US state income tax table
+# ---------------------------------------------------------------------------
+
+PL_URL = f"{BASE}/reports/ProfitAndLoss"
+
+PL_100K = {"Rows": {"Row": [
+    {"Summary": {"ColData": [{"value": "Total Income"}, {"value": "100000.00"}]}},
+    {"Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "0.00"}]}},
+]}}
+
+
+def _us_router(router, province=None):
+    router.get(QUERY_URL).mock(side_effect=_query_dispatcher("US", province=province))
+    router.get(PREFS_URL).mock(
+        return_value=_prefs_response(partner_tax=True, currency="USD"))
+    router.get(PL_URL).mock(return_value=Response(200, json=PL_100K))
+
+
+def test_quarterly_tax_no_income_tax_state(qb_ctx):
+    _prime_ctx(qb_ctx)
+    with respx.mock(assert_all_called=False) as router:
+        _us_router(router)
+
+        result = asyncio.run(qb_server.qb_estimate_quarterly_tax(state="TX"))
+
+    assert "TX — no state income tax on earned income: $0.00" in result
+
+
+def test_quarterly_tax_flat_state_pa(qb_ctx):
+    _prime_ctx(qb_ctx)
+    with respx.mock(assert_all_called=False) as router:
+        _us_router(router)
+
+        result = asyncio.run(qb_server.qb_estimate_quarterly_tax(state="PA"))
+
+    # 3.07% of $100,000 net income
+    assert "PA flat 3.07% income tax: $3,070.00" in result
+
+
+def test_quarterly_tax_progressive_ca_disclaimer(qb_ctx):
+    _prime_ctx(qb_ctx)
+    with respx.mock(assert_all_called=False) as router:
+        _us_router(router)
+
+        result = asyncio.run(qb_server.qb_estimate_quarterly_tax(state="CA"))
+
+    assert "CA progressive — ~9.3% effective-rate approximation" in result
+    assert "planning approximation" in result
+
+
+def test_quarterly_tax_unknown_state_generic(qb_ctx):
+    _prime_ctx(qb_ctx)
+    with respx.mock(assert_all_called=False) as router:
+        _us_router(router)
+
+        result = asyncio.run(qb_server.qb_estimate_quarterly_tax(state="ZZ"))
+
+    assert "generic ~5% estimate" in result and "pass state=XX" in result
+
+
+def test_quarterly_tax_autodetects_state_from_company_addr(qb_ctx):
+    _prime_ctx(qb_ctx)
+    with respx.mock(assert_all_called=False) as router:
+        _us_router(router, province="MA")
+
+        result = asyncio.run(qb_server.qb_estimate_quarterly_tax())
+
+    assert "**State:** MA" in result
+    assert "MA flat 5% income tax" in result

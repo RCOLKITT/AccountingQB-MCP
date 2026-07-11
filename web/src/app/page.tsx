@@ -3,6 +3,7 @@
    Design: Stripe/Linear/Vercel inspired. Navy + cyan-blue-indigo gradient.
    ============================================================================ */
 
+import { headers } from "next/headers";
 import { getSupabase } from "@/lib/supabase";
 import LandingNav from "@/components/nav/LandingNav";
 
@@ -37,6 +38,7 @@ const tiers = [
   {
     name: "Solopreneur",
     price: "$39",
+    priceCad: "CA$49",
     period: "/mo",
     description: "For freelancers & sole proprietors",
     savings: "Save ~5 hrs/mo on bookkeeping & tax prep",
@@ -55,6 +57,7 @@ const tiers = [
   {
     name: "Business",
     price: "$99",
+    priceCad: "CA$129",
     period: "/mo",
     description: "For growing small businesses",
     savings: "Save ~12 hrs/mo across 3 companies",
@@ -73,6 +76,7 @@ const tiers = [
   {
     name: "Firm",
     price: "$299",
+    priceCad: "CA$399",
     period: "/mo",
     description: "For accounting firms & bookkeepers",
     savings: "Save ~3 hrs/client/mo — pays for itself at 3 clients",
@@ -155,6 +159,7 @@ function CheckIcon() {
 
 export default async function Home() {
   const publicStats = await getPublicStats();
+  const isCA = (await headers()).get("x-vercel-ip-country") === "CA";
 
   return (
     <main className="min-h-screen overflow-x-hidden">
@@ -759,14 +764,17 @@ export default async function Home() {
                 <h3 className="text-lg font-semibold text-white">{t.name}</h3>
                 <p className="mt-1 text-sm text-gray-500">{t.description}</p>
                 <div className="mt-6 flex items-baseline gap-1">
-                  <span className="text-5xl font-bold text-white">{t.price}</span>
+                  <span className="text-5xl font-bold text-white">{isCA ? t.priceCad : t.price}</span>
                   <span className="text-gray-500">{t.period}</span>
                 </div>
+                {isCA && (
+                  <p className="mt-1 text-xs text-gray-500">Billed in CAD</p>
+                )}
                 {t.savings && (
                   <p className="mt-2 text-xs font-medium text-cyan-400/80">{t.savings}</p>
                 )}
                 <a
-                  href={t.href}
+                  href={isCA ? `${t.href}&currency=cad` : t.href}
                   className={`mt-8 block w-full rounded-xl py-3 text-center text-sm font-semibold transition ${
                     t.highlight
                       ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-blue-600/20 hover:shadow-blue-500/30 hover:brightness-110"
@@ -866,6 +874,7 @@ export default async function Home() {
                 <li><a href="#features" className="transition hover:text-white">Features</a></li>
                 <li><a href="#pricing" className="transition hover:text-white">Pricing</a></li>
                 <li><a href="#faq" className="transition hover:text-white">FAQ</a></li>
+                <li><a href="/canada" className="transition hover:text-white">For Canadian businesses</a></li>
                 <li><a href="/dashboard" className="transition hover:text-white">Dashboard</a></li>
                 <li><a href="/sign-in" className="transition hover:text-white">Sign In</a></li>
               </ul>
