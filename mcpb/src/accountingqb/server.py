@@ -518,6 +518,17 @@ def _is_demo_mode() -> bool:
 
 _DEMO_MODE = _is_demo_mode()
 
+
+def _demo_active() -> bool:
+    """Per-request demo check. Local mode: the QB_LICENSE_KEY env var
+    (module-level _DEMO_MODE). Hosted mode: the per-request ctx.license_key
+    set by remote.py — a reviewer signing in with an LK-DEMO- license gets
+    mock data through the remote connector too."""
+    if _DEMO_MODE:
+        return True
+    key = (getattr(get_ctx(), "license_key", "") or "").upper()
+    return key == "DEMO" or key.startswith("LK-DEMO-")
+
 # Demo company info
 DEMO_COMPANY = {
     "CompanyName": "Acme Consulting LLC",
@@ -639,6 +650,77 @@ DEMO_BALANCE_SHEET = {
         ]
     }
 }
+
+# Demo bills (A/P side, so aging/vendor tools have data)
+DEMO_BILLS = [
+    {"Id": "301", "TxnDate": "2026-03-01", "DueDate": "2026-03-31",
+     "VendorRef": {"name": "Amazon Web Services", "value": "1"},
+     "TotalAmt": 2847.50, "Balance": 2847.50,
+     "Line": [{"Amount": 2847.50, "DetailType": "AccountBasedExpenseLineDetail",
+               "AccountBasedExpenseLineDetail": {"AccountRef": {"name": "Software & Subscriptions"}}}]},
+    {"Id": "302", "TxnDate": "2026-03-10", "DueDate": "2026-04-09",
+     "VendorRef": {"name": "WeWork", "value": "3"},
+     "TotalAmt": 1500.00, "Balance": 1500.00,
+     "Line": [{"Amount": 1500.00, "DetailType": "AccountBasedExpenseLineDetail",
+               "AccountBasedExpenseLineDetail": {"AccountRef": {"name": "Rent"}}}]},
+]
+
+# Entity -> demo rows for the data-layer fallback below
+_DEMO_QUERY_DATA = {
+    "CompanyInfo": [DEMO_COMPANY],
+    "Vendor": DEMO_VENDORS,
+    "Customer": DEMO_CUSTOMERS,
+    "Account": DEMO_ACCOUNTS,
+    "Purchase": DEMO_TRANSACTIONS,
+    "Invoice": DEMO_INVOICES,
+    "Bill": DEMO_BILLS,
+}
+
+_DEMO_REPORTS = {
+    "ProfitAndLoss": DEMO_PROFIT_LOSS,
+    "BalanceSheet": DEMO_BALANCE_SHEET,
+}
+
+
+def _demo_response(method: str, endpoint: str, params: dict = None,
+                   json_body: dict = None) -> dict:
+    """Data-layer demo fallback: serve mock QBO responses so every tool works
+    in demo mode, not just the ones with a hand-written demo branch (those
+    short-circuit before reaching qb_request). WHERE clauses are ignored —
+    each entity returns its full sample set.
+    """
+    import re as _re
+
+    if endpoint == "query":
+        m = _re.search(r"FROM (\w+)", (params or {}).get("query", ""))
+        entity = m.group(1) if m else ""
+        return {"QueryResponse": {entity: _DEMO_QUERY_DATA[entity]}
+                if entity in _DEMO_QUERY_DATA else {}}
+
+    if endpoint == "preferences":
+        return {"Preferences": {
+            "TaxPrefs": {"PartnerTaxEnabled": True},
+            "CurrencyPrefs": {"MultiCurrencyEnabled": False,
+                              "HomeCurrency": {"value": "USD"}},
+        }}
+
+    if endpoint.startswith("reports/"):
+        name = endpoint.split("/", 1)[1]
+        return _DEMO_REPORTS.get(name) or {
+            "Header": {"ReportName": name, "Currency": "USD"},
+            "Rows": {"Row": []},
+        }
+
+    entity = endpoint.split("/")[0].split("?")[0]
+    entity_key = entity[:1].upper() + entity[1:]
+    if method == "GET":  # entity read
+        rows = _DEMO_QUERY_DATA.get(entity_key) or [{"Id": "9999"}]
+        return {entity_key: rows[0]}
+
+    # Writes: echo the payload back with demo identifiers
+    return {entity_key: {**(json_body or {}), "Id": "9999",
+                         "DocNumber": "DEMO-9999"}}
+
 
 if _DEMO_MODE:
     logger.info("🎭 Running in DEMO MODE — returning mock data for all tools")
@@ -764,6 +846,8 @@ def _raise_qb_fault(resp: httpx.Response) -> None:
 
 
 async def qb_request(method: str, endpoint: str, params: dict = None, json_body: dict = None) -> dict:
+    if _demo_active():
+        return _demo_response(method, endpoint, params, json_body)
     _check_rate_limit()
     ctx = get_ctx()
     token = await get_access_token()
@@ -878,8 +962,9 @@ async def _get_region() -> dict:
     if cached:
         return cached
 
-    if _DEMO_MODE:
+    if _demo_active():
         info = dict(_US_REGION_INFO)
+        info["subdivision"] = DEMO_COMPANY["CompanyAddr"]["CountrySubDivisionCode"]
         ctx.region_cache[key] = info
         return info
 
@@ -1058,7 +1143,7 @@ async def qb_list_companies() -> str:
     """List all QuickBooks companies connected to your AccountingQB license.
     Only available in hosted mode (when using AccountingQB Desktop Extension)."""
     # Demo mode: show demo company
-    if _DEMO_MODE:
+    if _demo_active():
         return (
             "## Connected QuickBooks Companies\n\n"
             "🎭 *Demo Mode — Sample Data*\n\n"
@@ -1169,7 +1254,7 @@ async def qb_refresh_connection() -> str:
 async def qb_company_info() -> str:
     """Get QuickBooks company information including name, address, fiscal year, and subscription status."""
     # Demo mode: return mock company data
-    if _DEMO_MODE:
+    if _demo_active():
         info = DEMO_COMPANY
         lines = ["## QuickBooks Company Info\n", "🎭 *Demo Mode — Sample Data*\n"]
     else:
@@ -1206,7 +1291,7 @@ async def qb_company_info() -> str:
 async def qb_list_transactions(start_date: str, end_date: str, vendor_name: str = "", min_amount: float = 0, max_amount: float = 0, max_results: int = 100) -> str:
     """List QuickBooks transactions (purchases, expenses) within a date range. Dates in YYYY-MM-DD format. Optionally filter by vendor_name, min_amount, max_amount."""
     # Demo mode: return mock transactions
-    if _DEMO_MODE:
+    if _demo_active():
         purchases = DEMO_TRANSACTIONS[:max_results]
     else:
         query = (
@@ -1550,7 +1635,7 @@ async def qb_list_payments(start_date: str, end_date: str, max_results: int = 10
 async def qb_list_invoices(start_date: str, end_date: str, customer_name: str = "", status: str = "", max_results: int = 100) -> str:
     """List invoices within a date range. Dates in YYYY-MM-DD. Filter by customer_name and/or status (Paid, Unpaid, Overdue). Shows accounts receivable."""
     # Demo mode: return mock invoices
-    if _DEMO_MODE:
+    if _demo_active():
         invoices = DEMO_INVOICES[:max_results]
     else:
         query = f"SELECT * FROM Invoice WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
@@ -1761,7 +1846,7 @@ async def qb_expense_summary(start_date: str, end_date: str) -> str:
 async def qb_profit_loss(start_date: str, end_date: str, summarize_by: str = "Total") -> str:
     """Generate a Profit & Loss (Income Statement) report. Dates in YYYY-MM-DD. summarize_by: Total, Month, Quarter, Year."""
     # Demo mode: return mock P&L
-    if _DEMO_MODE:
+    if _demo_active():
         return (
             f"## Profit & Loss: {start_date} to {end_date}\n\n"
             "🎭 *Demo Mode — Sample Data*\n\n"
@@ -1805,7 +1890,7 @@ async def qb_profit_loss(start_date: str, end_date: str, summarize_by: str = "To
 async def qb_balance_sheet(as_of_date: str) -> str:
     """Generate a Balance Sheet report as of a specific date. Date in YYYY-MM-DD format."""
     # Demo mode: return mock balance sheet
-    if _DEMO_MODE:
+    if _demo_active():
         return (
             f"## Balance Sheet as of {as_of_date}\n\n"
             "🎭 *Demo Mode — Sample Data*\n\n"
@@ -2040,7 +2125,7 @@ async def qb_tax_summary(start_date: str, end_date: str) -> str:
 async def qb_list_accounts(max_results: int = 100) -> str:
     """List all chart of accounts (expense categories, income accounts, etc.) in QuickBooks."""
     # Demo mode: return mock accounts
-    if _DEMO_MODE:
+    if _demo_active():
         accounts = DEMO_ACCOUNTS[:max_results]
     else:
         query = f"SELECT * FROM Account MAXRESULTS {max_results}"
@@ -2075,7 +2160,7 @@ async def qb_list_accounts(max_results: int = 100) -> str:
 async def qb_list_vendors(name: str = "", max_results: int = 50) -> str:
     """List vendors/suppliers in QuickBooks. Optionally filter by name."""
     # Demo mode: return mock vendors
-    if _DEMO_MODE:
+    if _demo_active():
         vendors = DEMO_VENDORS[:max_results]
         if name:
             vendors = [v for v in vendors if name.lower() in v.get("DisplayName", "").lower()]
@@ -2129,7 +2214,7 @@ async def qb_create_vendor(display_name: str, email: str = "", phone: str = "", 
 async def qb_list_customers(name: str = "", max_results: int = 50) -> str:
     """List customers in QuickBooks. Optionally filter by name."""
     # Demo mode: return mock customers
-    if _DEMO_MODE:
+    if _demo_active():
         customers = DEMO_CUSTOMERS[:max_results]
         if name:
             customers = [c for c in customers if name.lower() in c.get("DisplayName", "").lower()]
@@ -2219,7 +2304,7 @@ async def qb_create_expense(vendor_name: str, amount: float, account_name: str, 
     """Create a new expense/purchase in QuickBooks. vendor_name: payee, amount: total, account_name: expense category, date: YYYY-MM-DD, description: memo, payment_method: bank/card account name.
     Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; tax_inclusive=True when amount already includes tax."""
     # Demo mode: simulate success
-    if _DEMO_MODE:
+    if _demo_active():
         return (
             f"🎭 *Demo Mode* — Expense simulated!\n\n"
             f"- ID: DEMO-{hash(vendor_name + date) % 10000}\n"
@@ -2295,7 +2380,7 @@ async def qb_create_invoice(customer_name: str, line_items: str, due_date: str =
     """Create a customer invoice. line_items is a JSON string: [{"description": "...", "amount": 100}]. due_date in YYYY-MM-DD.
     Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; per-line override via 'tax_code' key in line_items JSON; tax_inclusive=True when amounts already include tax."""
     # Demo mode: simulate success
-    if _DEMO_MODE:
+    if _demo_active():
         items = json.loads(line_items) if isinstance(line_items, str) else line_items
         total = sum(item.get("amount", 0) for item in items)
         return (
@@ -2608,7 +2693,11 @@ async def qb_reconcile_invoices(start_date: str, end_date: str, invoice_data: st
             "id": p.get("Id", ""),
         })
 
-    invoices = json.loads(invoice_data) if isinstance(invoice_data, str) else invoice_data
+    try:
+        invoices = json.loads(invoice_data) if isinstance(invoice_data, str) else invoice_data
+    except json.JSONDecodeError:
+        return ('invoice_data must be a JSON array like '
+                '[{"vendor": "Acme", "amount": 100.00, "date": "2026-01-15"}].')
     matched = []
     missing = []
     mismatched = []
@@ -4181,6 +4270,12 @@ async def qb_upload_receipt(entity_type: str, entity_id: str, file_name: str, fi
     """Attach a receipt or document to a QuickBooks transaction.
     entity_type: Purchase, Bill, Invoice, etc. entity_id: transaction ID.
     file_url: public URL of the receipt image/PDF. content_type: MIME type."""
+    if _demo_active():
+        # This tool uploads via a raw multipart request, so the qb_request
+        # demo fallback never sees it — simulate here instead.
+        return (f"🎭 *Demo Mode* — Attachment simulated!\n\n- File: {file_name}\n"
+                f"- Attached to: {entity_type} #{entity_id}\n"
+                f"- (No real upload was performed.)")
     token = await get_access_token()
     url = f"{BASE_URL}/v3/company/{get_ctx().realm_id}/upload"
 
