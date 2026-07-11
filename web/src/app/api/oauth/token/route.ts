@@ -84,8 +84,18 @@ export async function POST(req: NextRequest) {
     }
 
     if (!tokens || tokens.length === 0) {
+      // Include the validated license so the dashboard can show the
+      // "no companies connected yet" state instead of a dead form.
       return NextResponse.json(
-        { error: "No QuickBooks companies connected", companies: [] },
+        {
+          error: "No QuickBooks companies connected",
+          companies: [],
+          license: {
+            key: license.key,
+            tier: license.tier,
+            status: license.status,
+          },
+        },
         { status: 404 }
       );
     }
