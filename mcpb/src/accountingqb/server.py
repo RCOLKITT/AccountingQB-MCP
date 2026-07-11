@@ -491,6 +491,12 @@ else:
 
 QB_ENVIRONMENT = os.environ.get("QB_ENVIRONMENT", "production")
 
+# Intuit is migrating all report responses to a modernized service on
+# Aug 31, 2026. Setting QB_REPORTS_V2_TEST=1 routes report requests
+# through it today (via Intuit's temporary _testing_migration parameter)
+# so parsing drift can be caught before the forced cutover.
+QB_REPORTS_V2_TEST = os.environ.get("QB_REPORTS_V2_TEST", "").lower() in ("1", "true", "yes")
+
 BASE_URL = (
     "https://quickbooks.api.intuit.com" if QB_ENVIRONMENT == "production"
     else "https://sandbox-quickbooks.api.intuit.com"
@@ -761,6 +767,8 @@ async def qb_request(method: str, endpoint: str, params: dict = None, json_body:
     _check_rate_limit()
     ctx = get_ctx()
     token = await get_access_token()
+    if QB_REPORTS_V2_TEST and endpoint.startswith("reports/"):
+        params = {**(params or {}), "_testing_migration": "true"}
     url = f"{BASE_URL}/v3/company/{ctx.realm_id}/{endpoint}"
     headers = {
         "Authorization": f"Bearer {token}",

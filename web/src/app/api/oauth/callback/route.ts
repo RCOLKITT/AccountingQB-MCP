@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
   let companyName = null;
   try {
     const companyRes = await fetch(
-      `https://quickbooks.api.intuit.com/v3/company/${realmId}/companyinfo/${realmId}?minorversion=65`,
+      `https://quickbooks.api.intuit.com/v3/company/${realmId}/companyinfo/${realmId}?minorversion=75`,
       {
         headers: {
           "Authorization": `Bearer ${tokenData.access_token}`,
