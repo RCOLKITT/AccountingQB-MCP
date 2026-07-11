@@ -24,6 +24,15 @@ export async function GET(req: NextRequest) {
   const tier = req.nextUrl.searchParams.get("tier") || "solopreneur";
   const email = req.nextUrl.searchParams.get("email") || undefined;
 
+  // CAD for Canadian visitors (the prices carry currency_options.cad);
+  // an explicit ?currency= always wins over IP-based detection.
+  const currencyParam = req.nextUrl.searchParams.get("currency")?.toLowerCase();
+  const isCanadianIP = req.headers.get("x-vercel-ip-country") === "CA";
+  const currency =
+    currencyParam === "cad" || (!currencyParam && isCanadianIP)
+      ? "cad"
+      : undefined;
+
   let priceId: string;
   try {
     priceId = getTierPrice(tier);
@@ -38,6 +47,7 @@ export async function GET(req: NextRequest) {
       mode: "subscription",
       payment_method_types: ["card"],
       customer_email: email,
+      ...(currency ? { currency } : {}),
       subscription_data: {
         trial_period_days: 14,
         metadata: { tier },
