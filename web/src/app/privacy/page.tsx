@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "AccountingQB privacy policy — how we handle your data.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPolicy() {

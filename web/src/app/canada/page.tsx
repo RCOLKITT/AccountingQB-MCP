@@ -13,7 +13,14 @@ export const metadata: Metadata = {
   title: "AccountingQB for Canadian Businesses — GST/HST, T2125 & CRA Tools for Claude",
   description:
     "AI-powered QuickBooks for Canadian books: GST/HST return workpapers, T2125 line mapping, CCA schedules, T4A reports, and CRA instalment estimates — all through Claude. Priced in CAD. 14-day free trial.",
-  alternates: { canonical: "/canada" },
+  alternates: {
+    canonical: "/canada",
+    languages: {
+      "en-US": "/",
+      "en-CA": "/canada",
+      "x-default": "/",
+    },
+  },
   openGraph: {
     type: "website",
     locale: "en_CA",
