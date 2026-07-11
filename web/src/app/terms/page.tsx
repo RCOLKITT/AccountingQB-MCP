@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Terms of Service",
   description: "AccountingQB terms of service — the rules governing use of our product.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsOfService() {

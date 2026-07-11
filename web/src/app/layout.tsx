@@ -29,9 +29,9 @@ export const metadata: Metadata = {
     "quickbooks claude integration",
   ],
   metadataBase: new URL(siteUrl),
-  alternates: {
-    canonical: "/",
-  },
+  // No canonical here: it would cascade to every page that doesn't set its
+  // own, telling Google they're duplicates of the homepage. Each page sets
+  // its own alternates (client pages via a segment layout.tsx).
   // Google Search Console ownership verification (Settings > Ownership >
   // HTML tag). Set the token via env; omitted from markup when unset.
   ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION

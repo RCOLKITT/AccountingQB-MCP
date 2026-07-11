@@ -3,9 +3,21 @@
    Design: Stripe/Linear/Vercel inspired. Navy + cyan-blue-indigo gradient.
    ============================================================================ */
 
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { getSupabase } from "@/lib/supabase";
 import LandingNav from "@/components/nav/LandingNav";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "/",
+    languages: {
+      "en-US": "/",
+      "en-CA": "/canada",
+      "x-default": "/",
+    },
+  },
+};
 
 interface PublicStats {
   totalHoursSaved: number;
