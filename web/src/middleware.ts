@@ -4,6 +4,11 @@ import { NextResponse } from "next/server";
 const isPublicRoute = createRouteMatcher([
   "/",
   "/pricing",
+  "/privacy",
+  "/terms",
+  "/login",
+  // Stripe redirects new purchasers here before they have an account
+  "/success",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhooks(.*)",
