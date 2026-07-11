@@ -6,6 +6,19 @@
   responses (P&L, balance sheet, TaxSummary, agings, GL) will be served by
   the modernized service. Re-run the report tools against a US and a CA
   sandbox before that date and fix any parsing drift.
+  - Test v2 today: run the server with `QB_REPORTS_V2_TEST=1` — report
+    requests are routed through the modernized service via Intuit's
+    temporary `_testing_migration` parameter.
+  - **BudgetVsActual is NOT among the 29 reports v2 supports** and will
+    stop working at cutover. `qb_budget_vs_actual` already falls back to
+    a manual Budget-query + P&L comparison, so it degrades gracefully;
+    consider making the fallback the primary path before Aug 31.
+  - v2 response drift to watch for: empty values return "" (not 0),
+    row ordering changes, child accounts always nest under parents,
+    ColTitle is Title Case, StartPeriod/EndPeriod always present,
+    summarize_column_by=Days capped at 200 columns.
+  - Minorversions 1–74 were retired Aug 1, 2025; everything serves v75
+    semantics regardless of the parameter.
 
 ## Recurring maintenance
 
