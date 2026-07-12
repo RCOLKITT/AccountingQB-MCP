@@ -46,11 +46,15 @@ Three example prompts to include with the submission:
 
 ## B. Claude Desktop extension directory (.mcpb)
 
+- **Submission form (no Team plan needed):** https://clau.de/desktop-extention-submission
+  (Anthropic's short-link, typo theirs; linked from claude.com/docs/connectors/building/submission).
 - Build: `scripts/build-mcpb.sh` (bundles Python deps into server/lib; no uv
   required; user needs Python 3.10+ on PATH — stated in the listing).
-- Manifest: mcpb/manifest.json v3.1.0, 101 tools, privacy_policies set.
+- Manifest: mcpb/manifest.json v3.2.0, 101 tools, privacy_policies set.
 - Same demo license + example prompts. Install-test on clean macOS and
   Windows (no uv, system Python only) before submitting.
+- Note (2026-07-12): the remote-connector directory (section A) requires a
+  Team/Enterprise org for its portal; the desktop extension form does not.
 
 ## C. ChatGPT (no directory submission this cycle)
 
@@ -61,6 +65,13 @@ the AccountingQB OAuth sign-in. Same OAuth AS (DCR) serves ChatGPT.
 
 ## D. Open-source tail
 
-Publish the repo server to the MCP registry (`mcp-publisher`, registry.modelcontextprotocol.io)
-and Smithery/PulseMCP for backlinks. Developer audience only; keep the
-README quick-start accurate (`pip install -r requirements.txt && python server.py`).
+- **DONE (2026-07-12):** published to the official MCP registry as
+  `com.accountingqb/accountingqb` v3.2.0 (remote streamable-http endpoint).
+  Manifest lives at server.registry.json; auth is DNS-based — the ed25519
+  private key is in Doppler prd as MCP_REGISTRY_PRIVATE_KEY and the public
+  key is a TXT record on accountingqb.com (`v=MCPv1; k=ed25519; ...`).
+  Republish after version bumps:
+  `mcp-publisher login dns --domain accountingqb.com --private-key $(doppler secrets get MCP_REGISTRY_PRIVATE_KEY -p accountingqb-mcp -c prd --plain) && mcp-publisher publish` (from the dir holding server.registry.json renamed to server.json).
+- PulseMCP auto-indexes the official registry; Smithery accepts submissions
+  at smithery.ai (GitHub sign-in). Developer audience only; keep the README
+  quick-start accurate (`pip install -r requirements.txt && python server.py`).
