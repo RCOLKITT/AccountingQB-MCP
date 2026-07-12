@@ -35,3 +35,7 @@ Thumbs.db
 # Logs
 *.log
 .qb_refresh_token
+
+# Build artifacts
+*.mcpb
+mcpb/server/
