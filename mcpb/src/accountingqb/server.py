@@ -883,7 +883,28 @@ async def qb_query(query: str) -> dict:
 
 
 async def qb_read(entity: str, entity_id: str) -> dict:
-    return await qb_request("GET", f"{entity}/{entity_id}")
+    # QBO resource paths are lowercase; "JournalEntry/1" returns a 400.
+    return await qb_request("GET", f"{entity.lower()}/{entity_id}")
+
+
+async def _resolve_account(acct_name: str) -> dict | None:
+    """Find an Account by name, accepting fully-qualified names.
+
+    "Travel:Hotels" only matches FullyQualifiedName (Name holds the leaf),
+    so try an exact FullyQualifiedName match first, then fall back to a
+    LIKE on the leaf Name. Returns the Account dict or None."""
+    safe = acct_name.replace("'", "\\'")
+    if ":" in acct_name:
+        result = await qb_query(
+            f"SELECT * FROM Account WHERE FullyQualifiedName = '{safe}' MAXRESULTS 1")
+        found = result.get("QueryResponse", {}).get("Account", [])
+        if found:
+            return found[0]
+        safe = acct_name.rsplit(":", 1)[-1].replace("'", "\\'")
+    result = await qb_query(
+        f"SELECT * FROM Account WHERE Name LIKE '%{safe}%' MAXRESULTS 1")
+    found = result.get("QueryResponse", {}).get("Account", [])
+    return found[0] if found else None
 
 
 def fmt(amount) -> str:
@@ -2472,11 +2493,23 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
         amount = float(entry.get("amount", 0))
         posting_type = entry.get("type", "Debit")
 
-        accounts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{acct_name}%' MAXRESULTS 1")
-        acct_list = accounts.get("QueryResponse", {}).get("Account", [])
-        if not acct_list:
+        acct = await _resolve_account(acct_name)
+        if not acct:
             return f"Account '{acct_name}' not found. Use qb_list_accounts to see available accounts."
-        acct = acct_list[0]
+
+        # Depreciation must credit an Accumulated Depreciation contra
+        # account — crediting the asset itself corrupts its cost basis.
+        text = f"{entry.get('description', '')} {memo}".lower()
+        if (posting_type == "Credit" and acct.get("AccountType") == "Fixed Asset"
+                and acct.get("AccountSubType") != "AccumulatedDepreciation"
+                and "deprec" in text):
+            return (
+                f"This looks like a depreciation entry, but it credits the fixed "
+                f"asset '{acct.get('Name')}' directly — that reduces the asset's "
+                f"cost basis instead of accumulating depreciation. Use "
+                f"qb_record_depreciation, which credits an Accumulated "
+                f"Depreciation contra account (created automatically if needed)."
+            )
 
         if posting_type == "Debit":
             total_debit += amount
@@ -2512,6 +2545,98 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
         f"- Total: {fmt(je.get('TotalAmt'))}\n"
         f"- Lines: {len(je_lines)}" +
         (f"\n- Memo: {memo}" if memo else "")
+    )
+
+
+@mcp.tool(annotations={"destructiveHint": True})
+async def qb_record_depreciation(asset_account: str, amount: float, date: str, memo: str = "") -> str:
+    """Record period depreciation for a fixed asset the CORRECT way:
+    debit Depreciation Expense, credit an Accumulated Depreciation contra
+    account (auto-created as a sub-account of the asset if missing) — never
+    the asset itself. Requires the asset's cost basis to already be on the
+    books. asset_account: fixed-asset account name. date: YYYY-MM-DD."""
+    amount = _validate_amount(amount, "amount")
+    date = _validate_date(date, "date")
+
+    asset = await _resolve_account(asset_account)
+    if not asset:
+        return f"Asset account '{asset_account}' not found. Use qb_list_accounts."
+    if asset.get("AccountType") != "Fixed Asset":
+        return (f"'{asset.get('Name')}' is a {asset.get('AccountType')} account, "
+                f"not a Fixed Asset — depreciation applies to fixed assets only.")
+    if asset.get("AccountSubType") == "AccumulatedDepreciation":
+        return (f"'{asset.get('Name')}' is itself an Accumulated Depreciation "
+                f"account — pass the asset's cost account instead.")
+
+    # Cost basis must be on the books before depreciating against it
+    basis = float(asset.get("CurrentBalance", 0) or 0)
+    if basis <= 0:
+        return (
+            f"'{asset.get('Name')}' has no cost basis on the books (balance "
+            f"{fmt(basis)}). Record the asset purchase first (qb_create_expense "
+            f"or a journal entry debiting the asset account), then depreciate."
+        )
+
+    # Find or create the Accumulated Depreciation contra sub-account
+    accum_name = f"Accumulated Depreciation - {asset.get('Name')}"
+    accum = await _resolve_account(accum_name)
+    created_accum = False
+    if not accum or accum.get("AccountSubType") != "AccumulatedDepreciation":
+        result = await qb_request("POST", "account", json_body={
+            "Name": accum_name,
+            "AccountType": "Fixed Asset",
+            "AccountSubType": "AccumulatedDepreciation",
+            "SubAccount": True,
+            "ParentRef": {"value": asset["Id"]},
+        })
+        accum = result.get("Account", {})
+        if not accum.get("Id"):
+            return "Failed to create the Accumulated Depreciation sub-account."
+        created_accum = True
+
+    # Find or create Depreciation Expense
+    expense = await _resolve_account("Depreciation Expense")
+    created_exp = False
+    if not expense or expense.get("AccountType") != "Expense":
+        result = await qb_request("POST", "account", json_body={
+            "Name": "Depreciation Expense",
+            "AccountType": "Other Expense",
+            "AccountSubType": "Depreciation",
+        })
+        expense = result.get("Account", {})
+        if not expense.get("Id"):
+            return "Failed to create the Depreciation Expense account."
+        created_exp = True
+
+    je_body = {
+        "TxnDate": date,
+        "PrivateNote": memo or f"Depreciation — {asset.get('Name')}",
+        "Line": [
+            {"DetailType": "JournalEntryLineDetail", "Amount": amount,
+             "Description": f"Depreciation expense — {asset.get('Name')}",
+             "JournalEntryLineDetail": {"PostingType": "Debit",
+                                        "AccountRef": {"value": expense["Id"]}}},
+            {"DetailType": "JournalEntryLineDetail", "Amount": amount,
+             "Description": f"Accumulated depreciation — {asset.get('Name')}",
+             "JournalEntryLineDetail": {"PostingType": "Credit",
+                                        "AccountRef": {"value": accum["Id"]}}},
+        ],
+    }
+    result = await qb_request("POST", "journalentry", json_body=je_body)
+    je = result.get("JournalEntry", {})
+
+    _audit_log("RECORD_DEPRECIATION", f"asset={asset.get('Name')} amount={fmt(amount)} je={je.get('Id')}")
+    notes = []
+    if created_accum:
+        notes.append(f"created contra account '{accum_name}'")
+    if created_exp:
+        notes.append("created 'Depreciation Expense' account")
+    return (
+        f"Depreciation recorded (JE #{je.get('Id')}, {date})\n"
+        f"- Debit: Depreciation Expense {fmt(amount)}\n"
+        f"- Credit: {accum_name} {fmt(amount)}\n"
+        f"- Asset cost basis untouched: {fmt(basis)}"
+        + (f"\n- Setup: {'; '.join(notes)}" if notes else "")
     )
 
 
@@ -3563,22 +3688,42 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
 
     net_income = total_income - total_expenses
 
-    # Self-employment tax (15.3% on 92.35% of net income)
+    # Self-employment tax (15.3% on 92.35% of net income). Social Security
+    # wage base: 2025 $176,100; 2026 $184,500.
+    _SS_WAGE_BASE = {2025: 176_100, 2026: 184_500}
+    ss_wage_base = _SS_WAGE_BASE.get(year, _SS_WAGE_BASE[2026])
     se_base = net_income * 0.9235 if net_income > 0 else 0
-    se_tax = se_base * 0.153
+    se_tax = min(se_base, ss_wage_base) * 0.124 + se_base * 0.029
 
-    # Federal income tax (rough brackets for 2024/2025)
+    # Federal income tax — bracket thresholds per Rev. Proc. 2024-40 (2025)
+    # and Rev. Proc. 2025-32 (2026, post-OBBBA). Review annually.
+    _FED_BRACKETS = {
+        2025: {
+            "single": [11_925, 48_475, 103_350, 197_300, 250_525, 626_350],
+            "married_joint": [23_850, 96_950, 206_700, 394_600, 501_050, 752_600],
+            "std_single": 15_750, "std_married": 31_500,  # OBBBA amounts
+        },
+        2026: {
+            "single": [12_400, 50_400, 105_700, 201_775, 256_225, 640_600],
+            "married_joint": [24_800, 100_800, 211_400, 403_550, 512_450, 768_700],
+            "std_single": 16_100, "std_married": 32_200,
+        },
+    }
+    _RATES = [0.10, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37]
+    params = _FED_BRACKETS.get(year, _FED_BRACKETS[2026])
+
     adjusted_income = net_income - (se_tax / 2)  # SE deduction
-    standard_deduction = 14600 if filing_status == "single" else 29200
+    standard_deduction = (params["std_single"]
+                          if filing_status in ("single", "married_separate")
+                          else params["std_married"])
 
     taxable = max(0, adjusted_income - standard_deduction)
+    thresholds = (params["single"] if filing_status in ("single", "married_separate")
+                  else params["married_joint"])
+    sizes = [thresholds[0]] + [thresholds[i] - thresholds[i - 1]
+                               for i in range(1, len(thresholds))] + [float("inf")]
+    brackets = list(zip(sizes, _RATES))
     federal_tax = 0
-    if filing_status in ("single", "married_separate"):
-        brackets = [(11600, 0.10), (47150 - 11600, 0.12), (100525 - 47150, 0.22),
-                     (191950 - 100525, 0.24), (243725 - 191950, 0.32), (609350 - 243725, 0.35), (float('inf'), 0.37)]
-    else:
-        brackets = [(23200, 0.10), (94300 - 23200, 0.12), (201050 - 94300, 0.22),
-                     (383900 - 201050, 0.24), (487450 - 383900, 0.32), (731200 - 487450, 0.35), (float('inf'), 0.37)]
 
     remaining = taxable
     for bracket_size, rate in brackets:
@@ -3622,7 +3767,7 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
     lines.append("### Tax Breakdown:")
     lines.append(f"- Federal income tax: {fmt(federal_tax)}")
     lines.append(f"- Self-employment tax: {fmt(se_tax)}")
-    lines.append(f"  (Social Security: {fmt(min(se_base, 168600) * 0.124)}, Medicare: {fmt(se_base * 0.029)})")
+    lines.append(f"  (Social Security: {fmt(min(se_base, ss_wage_base) * 0.124)}, Medicare: {fmt(se_base * 0.029)})")
     lines.append(f"- {state_rate_desc}: {fmt(state_tax)}")
     lines.append(f"\n**Total estimated annual tax: {fmt(total_annual)}**")
     lines.append(f"**Each quarterly payment: {fmt(quarterly)}**")
@@ -3711,7 +3856,7 @@ async def qb_deduction_finder(tax_year: str = "2024") -> str:
         findings.append({
             "deduction": "Vehicle Expenses (Standard Mileage or Actual)",
             "status": "🔴 NOT CLAIMED",
-            "details": "2024 rate: 67¢/mile. Track business miles for meetings, supply runs, etc.",
+            "details": "Standard mileage: 70¢/mile (2025), 72.5¢/mile (2026). Track business miles for meetings, supply runs, etc.",
             "estimate": 1000,
         })
         estimated_savings += 1000
@@ -3742,9 +3887,9 @@ async def qb_deduction_finder(tax_year: str = "2024") -> str:
     if not has_depreciation:
         # Check if there are asset purchases
         findings.append({
-            "deduction": "Section 179 / Depreciation",
+            "deduction": "Section 179 / Bonus Depreciation",
             "status": "🟡 CHECK ASSETS",
-            "details": "Equipment, computers, furniture purchased for business can be expensed immediately under Section 179.",
+            "details": "Equipment, computers, furniture can be expensed immediately: §179 up to $2.56M (2026, active business required) or 100% bonus depreciation (permanent under OBBBA for property acquired after Jan 19, 2025; no income limit).",
             "estimate": 0,
         })
 
@@ -3765,7 +3910,7 @@ async def qb_deduction_finder(tax_year: str = "2024") -> str:
         findings.append({
             "deduction": "Section 195 Startup Costs",
             "status": "🟡 MAY APPLY",
-            "details": "First $5,000 of startup costs deductible in year 1 (if total < $50K). Remainder amortized over 180 months.",
+            "details": "First $5,000 of startup costs deductible in year 1 (phased out dollar-for-dollar above $50K). Remainder amortized over 180 months from commencement — run qb_startup_cost_analysis for the schedule.",
             "estimate": 5000,
         })
         estimated_savings += 5000
@@ -3781,6 +3926,12 @@ async def qb_deduction_finder(tax_year: str = "2024") -> str:
             "estimate": sw_total * 0.10,
         })
         estimated_savings += sw_total * 0.10
+        findings.append({
+            "deduction": "§174A Domestic R&E Expensing",
+            "status": "🟢 RESTORED",
+            "details": "OBBBA restored 100% immediate expensing of domestic research & software development costs (§174A), ending the 5-year amortization required for 2022–2024. Small businesses may amend/elect to accelerate remaining unamortized 2022–2024 R&E. Foreign R&E remains 15-year.",
+            "estimate": 0,
+        })
 
     # NOL carryforward
     if net_income < 0:
@@ -3858,7 +4009,13 @@ async def qb_depreciation_schedule(tax_year: str = "2024") -> str:
         total_depreciation += annual
 
     lines.append(f"\n**Total Annual Depreciation: {fmt(total_depreciation)}**")
-    lines.append(f"\nNote: Section 179 allows full first-year deduction for qualifying assets up to $1,220,000 (2024 limit).")
+    lines.append(
+        "\nNote: Section 179 allows full first-year expensing of qualifying assets "
+        "up to $2,560,000 for 2026 (phase-out begins at $4,090,000 of purchases; "
+        "OBBBA raised both, indexed annually). Requires an active trade or business "
+        "and can't create a loss — 100% bonus depreciation (permanent for property "
+        "acquired after Jan 19, 2025) has no income limit."
+    )
 
     return "\n".join(lines)
 
@@ -4711,6 +4868,7 @@ async def qb_vehicle_depreciation_calculator(
 
     biz_basis = purchase_price * business_use_pct
     is_heavy_suv = vehicle_weight_lbs > 6000
+    year = int(tax_year)
 
     lines = [
         f"## Vehicle Depreciation — {tax_year}\n",
@@ -4722,14 +4880,44 @@ async def qb_vehicle_depreciation_calculator(
         f"**New/Used:** {'New' if is_new else 'Used'}",
     ]
 
+    # §280F listed-property gate: vehicles used <= 50% for business get no
+    # §179 and no bonus — straight-line ADS only.
+    if business_use_pct <= 0.5:
+        sl_yr1 = biz_basis / 5 / 2  # ADS 5-yr straight line, half-year convention
+        lines.extend([
+            f"\n### ⚠️ Business use is not more than 50%",
+            f"  Listed-property rules (§280F(b)) disallow Section 179 AND bonus",
+            f"  depreciation at ≤50% business use. Straight-line (ADS, 5-year,",
+            f"  half-year convention) applies:",
+            f"  Year 1: **{fmt(sl_yr1)}**  |  Years 2–5: {fmt(biz_basis / 5)}/yr  |  Year 6: {fmt(sl_yr1)}",
+            f"\n*If business use later exceeds 50%, regular MACRS becomes available "
+            f"prospectively; if it drops to ≤50% after claiming §179/bonus, recapture applies.*",
+            f"\n*⚠️ CPA should verify. Mileage log required to support business use percentage.*",
+        ])
+        _audit_log("VEHICLE_DEPR_CALC", f"year={tax_year} price={fmt(purchase_price)} biz_pct={business_use_pct} sl_only")
+        return "\n".join(lines)
+
+    # OBBBA (2025): 100% bonus is PERMANENT for property acquired AND placed
+    # in service after Jan 19, 2025 (new or used, so long as new-to-you).
+    # Property acquired on/before 1/19/2025 keeps the TCJA phase-down by
+    # placed-in-service year: 2025 40%, 2026 20%, 2027+ 0%.
+    _TCJA_PHASE_DOWN = {2023: 0.80, 2024: 0.60, 2025: 0.40, 2026: 0.20}
+    if purchase_date > "2025-01-19":
+        bonus_rate = 1.00
+        bonus_note = "100% — permanent under OBBBA (acquired after Jan 19, 2025)"
+    else:
+        bonus_rate = _TCJA_PHASE_DOWN.get(year, 0.0)
+        bonus_note = (f"{bonus_rate*100:.0f}% — TCJA phase-down (acquired on/before "
+                      f"Jan 19, 2025; rate set by placed-in-service year)")
+
     if is_heavy_suv:
-        # Heavy SUV: Section 179 up to $30,500 (2025), then bonus depreciation, then MACRS
-        sec179_limit = 30500  # 2025 limit for heavy SUVs
+        # Heavy SUV (GVWR 6,001–14,000 lbs): §179 up to the SUV cap, then
+        # bonus, then MACRS. SUV cap: $31,300 (2025), $32,000 (2026).
+        _SUV_179_CAP = {2025: 31_300.0, 2026: 32_000.0}
+        sec179_limit = _SUV_179_CAP.get(year, _SUV_179_CAP[2026])
         sec179 = min(biz_basis, sec179_limit)
         remaining_after_179 = biz_basis - sec179
 
-        # Bonus depreciation (40% for 2025 under phase-down)
-        bonus_rate = 0.40 if is_new else 0.0
         bonus = remaining_after_179 * bonus_rate
         remaining_after_bonus = remaining_after_179 - bonus
 
@@ -4739,10 +4927,13 @@ async def qb_vehicle_depreciation_calculator(
 
         lines.extend([
             f"\n### First-Year Deduction Breakdown",
-            f"  Section 179: **{fmt(sec179)}** (heavy SUV limit: {fmt(sec179_limit)})",
-            f"  Bonus depreciation ({bonus_rate*100:.0f}%): **{fmt(bonus)}**",
+            f"  Section 179: **{fmt(sec179)}** (heavy SUV cap: {fmt(sec179_limit)})",
+            f"  Bonus depreciation: **{fmt(bonus)}** ({bonus_note})",
             f"  MACRS Year 1 (20%): **{fmt(macrs_yr1)}**",
             f"  **TOTAL FIRST-YEAR DEDUCTION: {fmt(total_yr1)}**",
+            f"\n  §179 also requires an active trade or business with sufficient",
+            f"  taxable income (the deduction can't create a business loss;",
+            f"  bonus depreciation can).",
             f"\n### Remaining MACRS Schedule (5-year property)",
         ])
 
@@ -4751,32 +4942,106 @@ async def qb_vehicle_depreciation_calculator(
         remaining_macrs = remaining_after_bonus
         for yr, rate in enumerate(macrs_rates):
             yr_deduction = remaining_macrs * rate
-            year_num = int(tax_year) + yr
+            year_num = year + yr
             marker = " ← (included above)" if yr == 0 else ""
             lines.append(f"  Year {yr+1} ({year_num}): {fmt(yr_deduction)} ({rate*100:.1f}%){marker}")
 
     else:
-        # Standard vehicle: IRS annual limits apply
-        # 2025 limits (estimated)
-        limits = {1: 20200, 2: 19500, 3: 11700, 4: 6960}
-        yr1_deduction = min(biz_basis, limits[1])
+        # Standard vehicle: §280F luxury-auto caps apply (Rev. Proc. values;
+        # first-year cap shown is the with-bonus number).
+        _280F_LIMITS = {
+            2025: {1: 20_200, 2: 19_600, 3: 11_800, 4: 7_060, "no_bonus_1": 12_200},
+            2026: {1: 20_300, 2: 19_800, 3: 11_900, 4: 7_160, "no_bonus_1": 12_300},
+        }
+        limits = _280F_LIMITS.get(year, _280F_LIMITS[2026])
+        yr1_cap = limits[1] if bonus_rate > 0 else limits["no_bonus_1"]
+        yr1_deduction = min(biz_basis, yr1_cap)
 
         lines.extend([
-            f"\n### Standard Vehicle (≤ 6,000 lbs GVWR)",
-            f"  Year 1 limit: **{fmt(yr1_deduction)}** (IRS max: {fmt(limits[1])})",
-            f"  Year 2 limit: {fmt(limits[2])}",
-            f"  Year 3 limit: {fmt(limits[3])}",
+            f"\n### Standard Vehicle (≤ 6,000 lbs GVWR) — §280F caps",
+            f"  Bonus depreciation: {bonus_note}",
+            f"  Year 1: **{fmt(yr1_deduction)}** (cap: {fmt(yr1_cap)}"
+            f"{' with bonus' if bonus_rate > 0 else ' without bonus'})",
+            f"  Year 2 cap: {fmt(limits[2])}",
+            f"  Year 3 cap: {fmt(limits[3])}",
             f"  Year 4+: {fmt(limits[4])}/year until fully depreciated",
         ])
 
     lines.extend([
         f"\n### Schedule C Mapping",
         f"  Line 13 (Depreciation / Form 4562): report vehicle depreciation",
-        f"\n*⚠️ CPA should verify: bonus depreciation rate, Section 179 limits, and business use substantiation.*",
+        f"\n*To put this on the books, use qb_record_depreciation — it credits an "
+        f"Accumulated Depreciation contra account, never the asset itself.*",
+        f"\n*⚠️ CPA should verify: bonus eligibility (acquisition vs. placed-in-service "
+        f"dates), Section 179 limits, and business use substantiation.*",
         f"*Mileage log required to support business use percentage.*",
     ])
 
     _audit_log("VEHICLE_DEPR_CALC", f"year={tax_year} price={fmt(purchase_price)} biz_pct={business_use_pct}")
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "CRA treats most startup costs as ordinary expenses once the business has commenced; see qb_t2125_summary.")
+async def qb_startup_cost_analysis(total_startup_costs: float, commencement_date: str, tax_year: str = "") -> str:
+    """Compute the §195 startup-cost deduction and amortization schedule.
+    Up to $5,000 is deductible in the year the business commences, phased
+    out dollar-for-dollar once total startup costs exceed $50,000; the
+    remainder amortizes straight-line over 180 months starting the month
+    the active trade or business begins. commencement_date: YYYY-MM-DD the
+    business actually commenced (not when costs were paid)."""
+    total_startup_costs = _validate_amount(total_startup_costs, "total_startup_costs")
+    commencement_date = _validate_date(commencement_date, "commencement_date")
+
+    c_year = int(commencement_date[:4])
+    c_month = int(commencement_date[5:7])
+    year = int(tax_year) if tax_year else c_year
+    if year < c_year:
+        return (f"tax_year {year} is before the commencement date "
+                f"{commencement_date} — no §195 deduction until the business "
+                f"actually commences.")
+
+    immediate = max(0.0, min(5_000.0, 5_000.0 - max(0.0, total_startup_costs - 50_000.0)))
+    immediate = min(immediate, total_startup_costs)
+    amortizable = total_startup_costs - immediate
+    monthly = amortizable / 180 if amortizable > 0 else 0.0
+
+    # Months of amortization falling in the requested tax year
+    if year == c_year:
+        months_this_year = 13 - c_month
+    else:
+        months_used_before = (13 - c_month) + (year - c_year - 1) * 12
+        months_this_year = max(0, min(12, 180 - months_used_before))
+    amort_this_year = monthly * months_this_year
+
+    lines = [
+        f"## §195 Startup Cost Analysis — {year}\n",
+        f"**Total startup costs:** {fmt(total_startup_costs)}",
+        f"**Business commenced:** {commencement_date}",
+        f"\n### Year-{1 + (year - c_year)} treatment",
+    ]
+    if year == c_year:
+        lines.append(f"  Immediate deduction: **{fmt(immediate)}**"
+                     + (f" (reduced — costs exceed $50,000)" if total_startup_costs > 50_000 else ""))
+        if total_startup_costs >= 55_000:
+            lines.append("  ⚠️ Costs ≥ $55,000: the immediate deduction is fully "
+                         "phased out; everything amortizes over 180 months.")
+    lines.append(f"  Amortization ({months_this_year} month(s) × {fmt(monthly)}): "
+                 f"**{fmt(amort_this_year)}**")
+    total_ded = amort_this_year + (immediate if year == c_year else 0)
+    lines.append(f"  **Total {year} deduction: {fmt(total_ded)}**")
+    lines.extend([
+        f"\n### Ongoing",
+        f"  Amortizable balance: {fmt(amortizable)} over 180 months "
+        f"({fmt(monthly * 12)}/full year) beginning {c_year}-{c_month:02d}.",
+        f"\n*Schedule C: immediate portion on line 27a (other expenses); "
+        f"amortization via Form 4562 Part VI. Costs paid before commencement "
+        f"are capitalized until the business starts — the commencement date, "
+        f"not the payment date, starts the clock.*",
+        f"\n*⚠️ Organizational costs (entity formation) have a separate, "
+        f"parallel $5,000/§248 allowance. CPA should verify.*",
+    ])
+    _audit_log("STARTUP_COST_ANALYSIS", f"total={fmt(total_startup_costs)} year={year}")
     return "\n".join(lines)
 
 
