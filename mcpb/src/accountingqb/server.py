@@ -26,8 +26,50 @@ from mcp.server.fastmcp import FastMCP
 
 try:
     from .context import QBContext, get_ctx, set_ctx, reset_ctx, _default_ctx
+    from . import tax_tables as _tt
+    from .tax_tables import (  # noqa: F401 — the tax-data registry (L2)
+        TAX_DATA_VERSION, TAX_DATA_VERIFIED, TABLES, TaxDataError,
+        tax_value, tax_value_or_latest, tax_data_footer,
+        load_ledger, verify_ledger_chain,
+        _US_STATE_TAX, _FED_BRACKETS, _RATES, _SS_WAGE_BASE,
+        _SE_NET_EARNINGS_FACTOR, _SE_SS_RATE, _SE_MEDICARE_RATE,
+        _TCJA_PHASE_DOWN, _SUV_179_CAP, _280F_LIMITS, _MACRS_5YR,
+        _SEC_179_LIMITS, _SEC_195, _HOME_OFFICE_SIMPLIFIED,
+        _STD_MILEAGE_CENTS, _RETIREMENT_LIMITS, _1099_NEC_THRESHOLD,
+        _GST_QUICK_METHOD_LIMIT, _GST_QUICK_METHOD_CREDIT_BASE,
+        _MEALS_ITC_FACTOR, _GST_WORKPAPER_FOOTER,
+        _CA_SALES_TAX_REGIME, _CA_PROVINCIAL_AGENCY_HINTS,
+        _ca_regime, _ca_regime_describe, _ca_agency_is_provincial,
+        _T2125_LINE_MAP, _CCA_CLASSES, _CLASS_10_1_CEILING,
+        _CLASS_54_ZEV_CEILING, _AII_START_YEAR, _AII_FIRST_YEAR_FACTOR,
+        _T4A_ADMIN_THRESHOLD, _CPP_PARAMS, _CPP_BASIC_EXEMPTION,
+        _CPP_RATE_SELF, _CPP2_RATE_SELF, _CA_FED_BRACKETS_APPROX,
+        _CA_BPA_APPROX, _CA_PROV_FLAT_APPROX, _CRA_INSTALMENT_DATES,
+        _CRA_INSTALMENT_THRESHOLD, _QUICK_METHOD_REMITTANCE,
+    )
 except ImportError:  # pragma: no cover — direct script execution (no package)
     from context import QBContext, get_ctx, set_ctx, reset_ctx, _default_ctx
+    import tax_tables as _tt
+    from tax_tables import (  # noqa: F401
+        TAX_DATA_VERSION, TAX_DATA_VERIFIED, TABLES, TaxDataError,
+        tax_value, tax_value_or_latest, tax_data_footer,
+        load_ledger, verify_ledger_chain,
+        _US_STATE_TAX, _FED_BRACKETS, _RATES, _SS_WAGE_BASE,
+        _SE_NET_EARNINGS_FACTOR, _SE_SS_RATE, _SE_MEDICARE_RATE,
+        _TCJA_PHASE_DOWN, _SUV_179_CAP, _280F_LIMITS, _MACRS_5YR,
+        _SEC_179_LIMITS, _SEC_195, _HOME_OFFICE_SIMPLIFIED,
+        _STD_MILEAGE_CENTS, _RETIREMENT_LIMITS, _1099_NEC_THRESHOLD,
+        _GST_QUICK_METHOD_LIMIT, _GST_QUICK_METHOD_CREDIT_BASE,
+        _MEALS_ITC_FACTOR, _GST_WORKPAPER_FOOTER,
+        _CA_SALES_TAX_REGIME, _CA_PROVINCIAL_AGENCY_HINTS,
+        _ca_regime, _ca_regime_describe, _ca_agency_is_provincial,
+        _T2125_LINE_MAP, _CCA_CLASSES, _CLASS_10_1_CEILING,
+        _CLASS_54_ZEV_CEILING, _AII_START_YEAR, _AII_FIRST_YEAR_FACTOR,
+        _T4A_ADMIN_THRESHOLD, _CPP_PARAMS, _CPP_BASIC_EXEMPTION,
+        _CPP_RATE_SELF, _CPP2_RATE_SELF, _CA_FED_BRACKETS_APPROX,
+        _CA_BPA_APPROX, _CA_PROV_FLAT_APPROX, _CRA_INSTALMENT_DATES,
+        _CRA_INSTALMENT_THRESHOLD, _QUICK_METHOD_REMITTANCE,
+    )
 
 mcp = FastMCP("quickbooks")
 
@@ -3619,37 +3661,6 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
     return "\n".join(lines)
 
 
-# APPROXIMATE state income tax on pass-through/self-employment income, for
-# quarterly planning only. (rate, kind): kind "none" = no tax on earned
-# income, "flat" = statutory flat rate, "progressive_approx" = rough
-# effective rate for a bracketed state. 2025 tax-year values — review
-# annually (several flat states step their rate down each January).
-# Source: Tax Foundation, "2025 State Income Tax Rates and Brackets".
-_US_STATE_TAX = {
-    "TX": (0.0, "none"), "FL": (0.0, "none"), "WA": (0.0, "none"),
-    "NV": (0.0, "none"), "TN": (0.0, "none"), "SD": (0.0, "none"),
-    "WY": (0.0, "none"), "AK": (0.0, "none"),
-    "NH": (0.0, "none"),  # no tax on earned income (interest/dividends tax repealed 2025)
-    "AZ": (0.025, "flat"), "CO": (0.044, "flat"), "GA": (0.0519, "flat"),
-    "ID": (0.053, "flat"), "IL": (0.0495, "flat"), "IN": (0.03, "flat"),
-    "IA": (0.038, "flat"), "KY": (0.04, "flat"), "MA": (0.05, "flat"),
-    "MI": (0.0425, "flat"), "MS": (0.044, "flat"), "NC": (0.0425, "flat"),
-    "PA": (0.0307, "flat"), "UT": (0.045, "flat"),
-    "AL": (0.05, "progressive_approx"), "AR": (0.039, "progressive_approx"),
-    "CA": (0.093, "progressive_approx"), "CT": (0.055, "progressive_approx"),
-    "DE": (0.055, "progressive_approx"), "DC": (0.065, "progressive_approx"),
-    "HI": (0.079, "progressive_approx"), "KS": (0.0558, "progressive_approx"),
-    "LA": (0.03, "progressive_approx"), "MD": (0.0475, "progressive_approx"),
-    "ME": (0.0715, "progressive_approx"), "MN": (0.0785, "progressive_approx"),
-    "MO": (0.047, "progressive_approx"), "MT": (0.059, "progressive_approx"),
-    "ND": (0.025, "progressive_approx"), "NE": (0.052, "progressive_approx"),
-    "NJ": (0.0637, "progressive_approx"), "NM": (0.049, "progressive_approx"),
-    "NY": (0.065, "progressive_approx"), "OH": (0.035, "progressive_approx"),
-    "OK": (0.0475, "progressive_approx"), "OR": (0.0875, "progressive_approx"),
-    "RI": (0.0475, "progressive_approx"), "SC": (0.062, "progressive_approx"),
-    "VA": (0.0575, "progressive_approx"), "VT": (0.066, "progressive_approx"),
-    "WI": (0.053, "progressive_approx"), "WV": (0.0482, "progressive_approx"),
-}
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -3688,29 +3699,19 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
 
     net_income = total_income - total_expenses
 
-    # Self-employment tax (15.3% on 92.35% of net income). Social Security
-    # wage base: 2025 $176,100; 2026 $184,500.
-    _SS_WAGE_BASE = {2025: 176_100, 2026: 184_500}
-    ss_wage_base = _SS_WAGE_BASE.get(year, _SS_WAGE_BASE[2026])
-    se_base = net_income * 0.9235 if net_income > 0 else 0
-    se_tax = min(se_base, ss_wage_base) * 0.124 + se_base * 0.029
+    # Self-employment tax + federal brackets from the tax-data registry.
+    # Future years fall back to the latest tables WITH a visible note
+    # (Constitution: never silently reuse stale rates).
+    try:
+        ss_wage_base, _ss_note = tax_value_or_latest("SS_WAGE_BASE", year)
+        params, _fed_note = tax_value_or_latest("FED_BRACKETS", year)
+    except TaxDataError as e:
+        return str(e)
+    vintage_notes = [n for n in (_ss_note, _fed_note) if n]
 
-    # Federal income tax — bracket thresholds per Rev. Proc. 2024-40 (2025)
-    # and Rev. Proc. 2025-32 (2026, post-OBBBA). Review annually.
-    _FED_BRACKETS = {
-        2025: {
-            "single": [11_925, 48_475, 103_350, 197_300, 250_525, 626_350],
-            "married_joint": [23_850, 96_950, 206_700, 394_600, 501_050, 752_600],
-            "std_single": 15_750, "std_married": 31_500,  # OBBBA amounts
-        },
-        2026: {
-            "single": [12_400, 50_400, 105_700, 201_775, 256_225, 640_600],
-            "married_joint": [24_800, 100_800, 211_400, 403_550, 512_450, 768_700],
-            "std_single": 16_100, "std_married": 32_200,
-        },
-    }
-    _RATES = [0.10, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37]
-    params = _FED_BRACKETS.get(year, _FED_BRACKETS[2026])
+    se_base = net_income * _SE_NET_EARNINGS_FACTOR if net_income > 0 else 0
+    se_tax = (min(se_base, ss_wage_base) * _SE_SS_RATE
+              + se_base * _SE_MEDICARE_RATE)
 
     adjusted_income = net_income - (se_tax / 2)  # SE deduction
     standard_deduction = (params["std_single"]
@@ -3760,6 +3761,8 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
     current_quarter = (today.month - 1) // 3 + 1
 
     lines = [f"## Estimated Quarterly Tax — {tax_year}\n"]
+    for note in vintage_notes:
+        lines.append(f"⚠️ {note}")
     lines.append(f"**YTD Net Income:** {fmt(net_income)} ({start} to {end})")
     lines.append(f"**Filing Status:** {filing_status}")
     lines.append(f"**State:** {state or '(unknown)'}\n")
@@ -4900,21 +4903,25 @@ async def qb_vehicle_depreciation_calculator(
     # OBBBA (2025): 100% bonus is PERMANENT for property acquired AND placed
     # in service after Jan 19, 2025 (new or used, so long as new-to-you).
     # Property acquired on/before 1/19/2025 keeps the TCJA phase-down by
-    # placed-in-service year: 2025 40%, 2026 20%, 2027+ 0%.
-    _TCJA_PHASE_DOWN = {2023: 0.80, 2024: 0.60, 2025: 0.40, 2026: 0.20}
+    # placed-in-service year (terminal 0% for 2027+ is statute, not fallback).
+    vintage_notes = []
     if purchase_date > "2025-01-19":
         bonus_rate = 1.00
         bonus_note = "100% — permanent under OBBBA (acquired after Jan 19, 2025)"
     else:
-        bonus_rate = _TCJA_PHASE_DOWN.get(year, 0.0)
+        bonus_rate = tax_value("TCJA_PHASE_DOWN", year)
         bonus_note = (f"{bonus_rate*100:.0f}% — TCJA phase-down (acquired on/before "
                       f"Jan 19, 2025; rate set by placed-in-service year)")
 
     if is_heavy_suv:
         # Heavy SUV (GVWR 6,001–14,000 lbs): §179 up to the SUV cap, then
-        # bonus, then MACRS. SUV cap: $31,300 (2025), $32,000 (2026).
-        _SUV_179_CAP = {2025: 31_300.0, 2026: 32_000.0}
-        sec179_limit = _SUV_179_CAP.get(year, _SUV_179_CAP[2026])
+        # bonus, then MACRS.
+        try:
+            sec179_limit, _note = tax_value_or_latest("SUV_179_CAP", year)
+        except TaxDataError as e:
+            return str(e)
+        if _note:
+            vintage_notes.append(_note)
         sec179 = min(biz_basis, sec179_limit)
         remaining_after_179 = biz_basis - sec179
 
@@ -4937,8 +4944,7 @@ async def qb_vehicle_depreciation_calculator(
             f"\n### Remaining MACRS Schedule (5-year property)",
         ])
 
-        # MACRS 5-year rates: 20%, 32%, 19.2%, 11.52%, 11.52%, 5.76%
-        macrs_rates = [0.20, 0.32, 0.192, 0.1152, 0.1152, 0.0576]
+        macrs_rates = _MACRS_5YR
         remaining_macrs = remaining_after_bonus
         for yr, rate in enumerate(macrs_rates):
             yr_deduction = remaining_macrs * rate
@@ -4949,11 +4955,12 @@ async def qb_vehicle_depreciation_calculator(
     else:
         # Standard vehicle: §280F luxury-auto caps apply (Rev. Proc. values;
         # first-year cap shown is the with-bonus number).
-        _280F_LIMITS = {
-            2025: {1: 20_200, 2: 19_600, 3: 11_800, 4: 7_060, "no_bonus_1": 12_200},
-            2026: {1: 20_300, 2: 19_800, 3: 11_900, 4: 7_160, "no_bonus_1": 12_300},
-        }
-        limits = _280F_LIMITS.get(year, _280F_LIMITS[2026])
+        try:
+            limits, _note = tax_value_or_latest("280F_LIMITS", year)
+        except TaxDataError as e:
+            return str(e)
+        if _note:
+            vintage_notes.append(_note)
         yr1_cap = limits[1] if bonus_rate > 0 else limits["no_bonus_1"]
         yr1_deduction = min(biz_basis, yr1_cap)
 
@@ -4966,6 +4973,9 @@ async def qb_vehicle_depreciation_calculator(
             f"  Year 3 cap: {fmt(limits[3])}",
             f"  Year 4+: {fmt(limits[4])}/year until fully depreciated",
         ])
+
+    for note in vintage_notes:
+        lines.append(f"\n⚠️ {note}")
 
     lines.extend([
         f"\n### Schedule C Mapping",
@@ -8070,178 +8080,6 @@ async def qb_create_estimate(customer_name: str, line_items: str, expiration_dat
 #   of the two prior years. GST/HST annual filers owing >= $3,000 pay
 #   quarterly instalments one month after each fiscal quarter end.
 
-_GST_QUICK_METHOD_LIMIT = 400_000.0   # taxable supplies (tax incl.), prior 4 quarters
-_GST_QUICK_METHOD_CREDIT_BASE = 30_000.0  # 1% credit on first $30k of supplies
-_MEALS_ITC_FACTOR = 0.5               # ITA s.67.1 — 50% of GST/HST on meals claimable
-
-_GST_WORKPAPER_FOOTER = (
-    "This is a workpaper, not a filing. Verify against QuickBooks' "
-    "Sales Tax Centre before filing with CRA."
-)
-
-# Provincial sales-tax regimes — rates in effect 2026. Review annually
-# (CRA "GST/HST rates" table; NS dropped 15% -> 14% effective Apr 1, 2025).
-# HST provinces file one GST34 with CRA; GST+PST/QST provinces file the
-# provincial tax separately (QC files GST *and* QST with Revenu Québec).
-_CA_SALES_TAX_REGIME = {
-    "ON": {"regime": "HST", "hst": 0.13},
-    "NB": {"regime": "HST", "hst": 0.15},
-    "NL": {"regime": "HST", "hst": 0.15},
-    "PE": {"regime": "HST", "hst": 0.15},
-    "NS": {"regime": "HST", "hst": 0.14},
-    "BC": {"regime": "GST_PST", "gst": 0.05, "pst": 0.07, "pst_name": "PST",
-           "pst_agency": "BC Ministry of Finance"},
-    "SK": {"regime": "GST_PST", "gst": 0.05, "pst": 0.06, "pst_name": "PST",
-           "pst_agency": "Saskatchewan Ministry of Finance"},
-    "MB": {"regime": "GST_PST", "gst": 0.05, "pst": 0.07, "pst_name": "RST",
-           "pst_agency": "Manitoba Finance"},
-    "QC": {"regime": "GST_QST", "gst": 0.05, "pst": 0.09975, "pst_name": "QST",
-           "pst_agency": "Revenu Québec"},
-    "AB": {"regime": "GST_ONLY", "gst": 0.05},
-    "YT": {"regime": "GST_ONLY", "gst": 0.05},
-    "NT": {"regime": "GST_ONLY", "gst": 0.05},
-    "NU": {"regime": "GST_ONLY", "gst": 0.05},
-}
-
-# Keywords identifying provincial (non-GST34) tax agencies in TaxAgency
-# DisplayNames, matched lowercased. " pst"/" qst"/" rst" keep the leading
-# space so agency names like "BC PST" match without hitting substrings.
-_CA_PROVINCIAL_AGENCY_HINTS = (
-    "revenu québec", "revenu quebec", "ministère du revenu",
-    "ministry of finance", "minister of finance", "manitoba finance",
-    " pst", " qst", " rst",
-)
-
-
-def _ca_regime(prov: str) -> dict | None:
-    return _CA_SALES_TAX_REGIME.get((prov or "").strip().upper())
-
-
-def _ca_regime_describe(prov: str) -> str:
-    """One-line description of a province's sales-tax regime, or ""."""
-    r = _ca_regime(prov)
-    if not r:
-        return ""
-    if r["regime"] == "HST":
-        return f"{prov} — HST {r['hst'] * 100:g}% (single CRA GST34 filing)"
-    if r["regime"] in ("GST_PST", "GST_QST"):
-        return (
-            f"{prov} — GST {r['gst'] * 100:g}% + {r['pst_name']} "
-            f"{r['pst'] * 100:g}% ({r['pst_name']} filed separately with "
-            f"{r['pst_agency']})"
-        )
-    return f"{prov} — GST {r['gst'] * 100:g}% only (no provincial sales tax)"
-
-
-def _ca_agency_is_provincial(display_name: str) -> bool:
-    name = f" {(display_name or '').lower()}"
-    return any(hint in name for hint in _CA_PROVINCIAL_AGENCY_HINTS)
-
-# T2125 Part 4 line numbers — QB account-name keyword -> (line, description).
-# Insertion order matters: more specific keywords must precede generic ones
-# (e.g. "property tax" before "business tax", "stationery" before "office").
-_T2125_LINE_MAP = {
-    "advertis": ("8521", "Advertising"),
-    "marketing": ("8521", "Advertising"),
-    "meal": ("8523", "Meals & entertainment (50% deductible)"),
-    "entertain": ("8523", "Meals & entertainment (50% deductible)"),
-    "bad debt": ("8590", "Bad debts"),
-    "insurance": ("8690", "Insurance"),
-    "interest": ("8710", "Interest & bank charges"),
-    "bank": ("8710", "Interest & bank charges"),
-    "property tax": ("9180", "Property taxes"),
-    "business tax": ("8760", "Business taxes, licences & memberships"),
-    "licence": ("8760", "Business taxes, licences & memberships"),
-    "license": ("8760", "Business taxes, licences & memberships"),
-    "membership": ("8760", "Business taxes, licences & memberships"),
-    "due": ("8760", "Business taxes, licences & memberships"),
-    "stationery": ("8811", "Office stationery & supplies"),
-    "supplies": ("8811", "Office stationery & supplies"),
-    "office": ("8810", "Office expenses"),
-    "legal": ("8860", "Professional fees (incl. legal & accounting)"),
-    "accounting": ("8860", "Professional fees (incl. legal & accounting)"),
-    "bookkeep": ("8860", "Professional fees (incl. legal & accounting)"),
-    "professional": ("8860", "Professional fees (incl. legal & accounting)"),
-    "management fee": ("8871", "Management & administration fees"),
-    "admin": ("8871", "Management & administration fees"),
-    "rent": ("8910", "Rent"),
-    "repair": ("8960", "Repairs & maintenance"),
-    "maintenance": ("8960", "Repairs & maintenance"),
-    "salar": ("9060", "Salaries, wages & benefits"),
-    "wage": ("9060", "Salaries, wages & benefits"),
-    "payroll": ("9060", "Salaries, wages & benefits"),
-    "travel": ("9200", "Travel expenses"),
-    "utilit": ("9220", "Utilities"),
-    "phone": ("9220", "Utilities"),
-    "telephone": ("9220", "Utilities"),
-    "internet": ("9220", "Utilities"),
-    "fuel": ("9224", "Fuel costs (except motor vehicles)"),
-    "delivery": ("9275", "Delivery, freight & express"),
-    "freight": ("9275", "Delivery, freight & express"),
-    "shipping": ("9275", "Delivery, freight & express"),
-    "vehicle": ("9281", "Motor vehicle expenses"),
-    "automobile": ("9281", "Motor vehicle expenses"),
-    "auto": ("9281", "Motor vehicle expenses"),
-    "mileage": ("9281", "Motor vehicle expenses"),
-    "motor": ("9281", "Motor vehicle expenses"),
-    "software": ("9270", "Other expenses"),
-    "subscription": ("9270", "Other expenses"),
-    "hosting": ("9270", "Other expenses"),
-    "education": ("9270", "Other expenses"),
-    "training": ("9270", "Other expenses"),
-}
-
-# CCA declining-balance classes (Schedule II, Income Tax Regulations)
-_CCA_CLASSES = {
-    "8": (0.20, "Furniture, appliances, tools >= $500, misc. equipment"),
-    "10": (0.30, "Motor vehicles / passenger vehicles within the cost ceiling"),
-    "10.1": (0.30, "Passenger vehicles over the cost ceiling (one per class; "
-                   "no terminal loss; half-year CCA allowed in year of sale)"),
-    "12": (1.00, "Tools < $500, application software"),
-    "14.1": (0.05, "Goodwill & intangibles"),
-    "50": (0.55, "Computer hardware & systems software"),
-    "53": (0.50, "Manufacturing & processing machinery"),
-    "54": (0.30, "Zero-emission vehicles (ceiling $61,000 + tax)"),
-}
-# Class 10.1 passenger-vehicle cost ceiling by acquisition year (plus sales tax)
-_CLASS_10_1_CEILING = {2025: 38_000.0, 2026: 39_000.0}
-_CLASS_54_ZEV_CEILING = 61_000.0
-_AII_START_YEAR = 2025       # Budget 2025 / Bill C-15 reinstatement
-_AII_FIRST_YEAR_FACTOR = 1.5  # 1.5x first-year rate, half-year rule suspended
-
-# T4A administrative practice: CRA commonly expects slips for service fees
-# >= $500/vendor (box 048 has no legislated minimum).
-_T4A_ADMIN_THRESHOLD = 500.0
-
-# CPP self-employed parameters by year (CRA payroll tables)
-_CPP_PARAMS = {
-    2025: {"ympe": 71_300.0, "yampe": 81_200.0},
-    2026: {"ympe": 74_600.0, "yampe": 85_000.0},
-}
-_CPP_BASIC_EXEMPTION = 3_500.0
-_CPP_RATE_SELF = 0.119   # 5.95% employee + 5.95% employer
-_CPP2_RATE_SELF = 0.08   # 4% employee + 4% employer
-
-# APPROXIMATE federal brackets (2025 threshold values; Bill C-4 lowered the
-# first rate — 14.5% blended for 2025, 14% for 2026; labelled approximate).
-_CA_FED_BRACKETS_APPROX = [
-    (57_375.0, 0.145),
-    (114_750.0, 0.205),
-    (177_882.0, 0.26),
-    (253_414.0, 0.29),
-    (float("inf"), 0.33),
-]
-_CA_BPA_APPROX = 16_000.0  # federal basic personal amount, rough
-
-# APPROXIMATE flat provincial effective rates for planning only
-_CA_PROV_FLAT_APPROX = {
-    "ON": 0.07, "BC": 0.07, "AB": 0.10, "QC": 0.15, "MB": 0.12,
-    "SK": 0.10, "NS": 0.13, "NB": 0.12, "PE": 0.13, "NL": 0.12,
-    "YT": 0.07, "NT": 0.08, "NU": 0.06,
-}
-
-_CRA_INSTALMENT_DATES = ["Mar 15", "Jun 15", "Sep 15", "Dec 15"]
-_CRA_INSTALMENT_THRESHOLD = 3_000.0  # net tax owing (QC: $1,800 federal)
 
 
 def _purchase_meals_split(txn: dict) -> tuple:
@@ -8667,11 +8505,15 @@ async def qb_cca_schedule(assets_json: str = "", year: int = 0) -> str:
             if acq_year > year:
                 continue
 
-            # Cost ceilings
+            # Cost ceilings (full 2001+ acquisition-year history in the registry)
             capped_cost = cost
             if cls == "10.1":
-                ceiling = _CLASS_10_1_CEILING.get(
-                    acq_year, 38_000.0 if acq_year <= 2025 else 39_000.0)
+                try:
+                    ceiling, _c_note = tax_value_or_latest("CLASS_10_1_CEILING", acq_year)
+                except TaxDataError as e:
+                    return str(e)
+                if _c_note:
+                    ceiling_notes.append(_c_note)
                 if cost > ceiling:
                     capped_cost = ceiling
                     ceiling_notes.append(
