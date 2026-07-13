@@ -13,8 +13,8 @@ import hashlib
 import json
 import pathlib
 
-TAX_DATA_VERSION = "2026.2"       # bumped by every approved rates PR
-TAX_DATA_VERIFIED = "2026-07-12"  # date of the last full verification sweep
+TAX_DATA_VERSION = "2026.3"       # bumped by every approved rates PR
+TAX_DATA_VERIFIED = "2026-07-13"  # date of the last full verification sweep
 
 
 class TaxDataError(ValueError):
@@ -83,8 +83,12 @@ _SEC_195 = {"immediate": 5_000.0, "phaseout_start": 50_000.0, "months": 180}
 # Home office simplified method (Rev. Proc. 2013-13, stable)
 _HOME_OFFICE_SIMPLIFIED = {"rate_per_sqft": 5.0, "max_sqft": 300}
 
-# IRS standard business mileage, cents/mile (Notice 2026-10 for 2026)
-_STD_MILEAGE_CENTS = {2025: 70.0, 2026: 72.5}
+# IRS standard business mileage, cents/mile. 2026 is split: Notice 2026-10
+# set 72.5c for Jan 1–Jun 30; Announcement 2026-11 (IRB 2026-29, Jul 13, 2026)
+# raised it to 76.0c effective Jul 1 due to fuel-price increases. Table stores
+# the currently applicable rate (76.0c) for mid-year onward planning; tools
+# should note the H1 rate when computing full-year mileage costs.
+_STD_MILEAGE_CENTS = {2025: 70.0, 2026: 76.0}
 
 # Retirement plan limits (IRS COLA announcements)
 _RETIREMENT_LIMITS = {
@@ -104,33 +108,44 @@ _1099_NEC_THRESHOLD = {2025: 600.0, 2026: 2_000.0}
 # APPROXIMATE state income tax on pass-through/self-employment income, for
 # quarterly planning only. (rate, kind): kind "none" = no tax on earned
 # income, "flat" = statutory flat rate, "progressive_approx" = rough
-# effective rate for a bracketed state. 2025 tax-year values — review
+# effective rate for a bracketed state. 2026 tax-year values — review
 # annually (several flat states step their rate down each January).
-# Source: Tax Foundation, "2025 State Income Tax Rates and Brackets".
+# Source: Tax Foundation, "2026 State Income Tax Rates and Brackets".
 _US_STATE_TAX = {
     "TX": (0.0, "none"), "FL": (0.0, "none"), "WA": (0.0, "none"),
     "NV": (0.0, "none"), "TN": (0.0, "none"), "SD": (0.0, "none"),
     "WY": (0.0, "none"), "AK": (0.0, "none"),
     "NH": (0.0, "none"),  # no tax on earned income (interest/dividends tax repealed 2025)
-    "AZ": (0.025, "flat"), "CO": (0.044, "flat"), "GA": (0.0519, "flat"),
-    "ID": (0.053, "flat"), "IL": (0.0495, "flat"), "IN": (0.03, "flat"),
-    "IA": (0.038, "flat"), "KY": (0.04, "flat"), "MA": (0.05, "flat"),
-    "MI": (0.0425, "flat"), "MS": (0.044, "flat"), "NC": (0.0425, "flat"),
+    "AZ": (0.025, "flat"), "CO": (0.044, "flat"),
+    "GA": (0.0499, "flat"),  # HB 463 signed 2026-05-11; 4.99% retroactive Jan 1, 2026
+    "ID": (0.053, "flat"), "IL": (0.0495, "flat"),
+    "IN": (0.0295, "flat"),  # 2.95% flat effective Jan 1, 2026 (was 3.0%)
+    "IA": (0.038, "flat"),
+    "KY": (0.035, "flat"),   # 3.5% flat effective Jan 1, 2026 (was 4.0%)
+    "LA": (0.03, "flat"),    # 3.0% flat since Jan 1, 2025 (Constitutional Amendment 2)
+    "MA": (0.05, "flat"), "MI": (0.0425, "flat"),
+    "MS": (0.04, "flat"),    # 4.0% flat effective Jan 1, 2026 (was 4.4%)
+    "NC": (0.0399, "flat"),  # 3.99% flat effective Jan 1, 2026 (was 4.25%)
+    "OH": (0.0275, "flat"),  # 2.75% flat effective Jan 1, 2026 (was progressive ~3.5%)
     "PA": (0.0307, "flat"), "UT": (0.045, "flat"),
     "AL": (0.05, "progressive_approx"), "AR": (0.039, "progressive_approx"),
     "CA": (0.093, "progressive_approx"), "CT": (0.055, "progressive_approx"),
     "DE": (0.055, "progressive_approx"), "DC": (0.065, "progressive_approx"),
     "HI": (0.079, "progressive_approx"), "KS": (0.0558, "progressive_approx"),
-    "LA": (0.03, "progressive_approx"), "MD": (0.0475, "progressive_approx"),
+    "MD": (0.0475, "progressive_approx"),
     "ME": (0.0715, "progressive_approx"), "MN": (0.0785, "progressive_approx"),
-    "MO": (0.047, "progressive_approx"), "MT": (0.059, "progressive_approx"),
-    "ND": (0.025, "progressive_approx"), "NE": (0.052, "progressive_approx"),
+    "MO": (0.047, "progressive_approx"),
+    "MT": (0.0565, "progressive_approx"),  # top rate 5.65% effective Jan 1, 2026 (was 5.9%)
+    "ND": (0.025, "progressive_approx"),
+    "NE": (0.0455, "progressive_approx"),  # top rate 4.55% effective Jan 1, 2026 (was 5.2%)
     "NJ": (0.0637, "progressive_approx"), "NM": (0.049, "progressive_approx"),
-    "NY": (0.065, "progressive_approx"), "OH": (0.035, "progressive_approx"),
-    "OK": (0.0475, "progressive_approx"), "OR": (0.0875, "progressive_approx"),
+    "NY": (0.065, "progressive_approx"),
+    "OK": (0.045, "progressive_approx"),   # top rate 4.5% effective Jan 1, 2026 (was 4.75%)
+    "OR": (0.0875, "progressive_approx"),
     "RI": (0.0475, "progressive_approx"), "SC": (0.062, "progressive_approx"),
     "VA": (0.0575, "progressive_approx"), "VT": (0.066, "progressive_approx"),
-    "WI": (0.053, "progressive_approx"), "WV": (0.0482, "progressive_approx"),
+    "WI": (0.053, "progressive_approx"),
+    "WV": (0.0458, "progressive_approx"),  # all rates reduced; top 4.58% effective Jan 1, 2026 (was 4.82%)
 }
 
 
@@ -359,9 +374,9 @@ TABLES: dict = {
         sanity={"min": 0.0, "max": 1.0}),
     "US_STATE_TAX": dict(values=_US_STATE_TAX, year_keyed=False, jurisdiction="US-state",
         kind="approximation", description="State income tax on SE income (flat statutory or effective approx)",
-        source="Tax Foundation, State Individual Income Tax Rates and Brackets, 2025",
-        source_url="https://taxfoundation.org/data/all/state/state-income-tax-rates/",
-        verified="2026-07-12", review="annual-january", sanity={"min": 0.0, "max": 1.0}),
+        source="Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01)",
+        source_url="https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
+        verified="2026-07-13", review="annual-january", sanity={"min": 0.0, "max": 1.0}),
     "TCJA_PHASE_DOWN": dict(values=_TCJA_PHASE_DOWN, year_keyed=True, terminal_value=0.0,
         jurisdiction="US-federal", kind="stable_statute",
         description="Bonus depreciation phase-down (property acquired on/before 2025-01-19)",
@@ -403,10 +418,10 @@ TABLES: dict = {
         verified="2026-07-12", review="legislative-watch", sanity={}),
     "STD_MILEAGE_CENTS": dict(values=_STD_MILEAGE_CENTS, year_keyed=True,
         jurisdiction="US-federal", kind="exact",
-        description="IRS standard business mileage rate (cents/mile)",
-        source="IRS Notice 2026-10 (2026: 72.5c); Notice 2025-5 (2025: 70c)",
-        source_url="https://www.irs.gov/pub/irs-drop/n-26-10.pdf",
-        verified="2026-07-12", review="annual-december",
+        description="IRS standard business mileage rate (cents/mile); 2026 value is H2 rate (76.0c Jul 1+)",
+        source="Notice 2025-5 (2025: 70c); Notice 2026-10 (H1 2026: 72.5c); Announcement 2026-11 in IRB 2026-29 (H2 2026: 76.0c, effective Jul 1)",
+        source_url="https://www.irs.gov/pub/irs-irbs/irb26-29.pdf",
+        verified="2026-07-13", review="annual-december",
         sanity={"min": 30.0, "max": 150.0, "max_yoy_pct": 0.15}),
     "RETIREMENT_LIMITS": dict(values=_RETIREMENT_LIMITS, year_keyed=True,
         jurisdiction="US-federal", kind="exact",
