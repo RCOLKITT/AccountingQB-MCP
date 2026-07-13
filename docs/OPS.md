@@ -45,13 +45,19 @@
 - Intuit app must whitelist Canada under "countries you accept connections
   from"; keep a CA sandbox company connected to a test license for the
   qb_gst_hst_return / tax-code regression matrix in tests/test_ca_suite.py.
-- CA rate tables live as constants in mcpb/src/accountingqb/server.py
-  (CPP YMPE/YAMPE, CCA ceilings, CRA km rates) — review annually (December
-  CRA announcements). Also review annually:
-  - `_CA_SALES_TAX_REGIME` (per-province HST/GST/PST/QST rates; NS changed
-    to 14% Apr 2025 — provinces do move these).
-  - `_US_STATE_TAX` (state income tax table; several flat states step
-    their rate down each January — Tax Foundation publishes the list).
+- **Tax data control plane** (as of 2026-07-13): every jurisdictional tax
+  value lives in `mcpb/src/accountingqb/tax_tables.py` (the L2 registry —
+  per-table source, verified date, review cadence, sanity bounds) with an
+  append-only hash-chained history in `tax_ledger.jsonl` (L4). Policy
+  tests in `tests/test_tax_data_policy.py` (L3) gate every commit via CI:
+  the freshness tripwire fails every Jan 1 until the new year's tables
+  load; changed values without a ledger row fail; the chain must verify.
+  A monthly scheduled agent (L1) researches drift and opens draft PRs —
+  it never merges; human PR approval is the gate. Users see provenance
+  via the footer on every tax tool and `qb_tax_data_info`.
+  To update a value: edit tax_tables.py, append a ledger row (new row
+  with `supersedes:` — never edit lines), bump TAX_DATA_VERSION, update
+  pinned tests, PR.
 
 ## Pricing (CAD)
 
