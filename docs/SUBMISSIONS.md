@@ -50,7 +50,7 @@ Three example prompts to include with the submission:
   (Anthropic's short-link, typo theirs; linked from claude.com/docs/connectors/building/submission).
 - Build: `scripts/build-mcpb.sh` (bundles Python deps into server/lib; no uv
   required; user needs Python 3.10+ on PATH — stated in the listing).
-- Manifest: mcpb/manifest.json v3.2.0, 101 tools, privacy_policies set.
+- Manifest: mcpb/manifest.json v3.3.0, 104 tools, privacy_policies set.
 - Same demo license + example prompts. Install-test on clean macOS and
   Windows (no uv, system Python only) before submitting.
 - Note (2026-07-12): the remote-connector directory (section A) requires a

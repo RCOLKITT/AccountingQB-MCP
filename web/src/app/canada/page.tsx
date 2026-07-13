@@ -48,7 +48,7 @@ const caTiers = [
     description: "For freelancers & sole proprietors",
     savings: "Save ~5 hrs/mo on bookkeeping & tax prep",
     features: [
-      "All 101 QuickBooks tools",
+      "All 104 QuickBooks tools",
       "T2125 line mapping & GST/HST workpapers",
       "CRA instalment estimates (CPP + CPP2)",
       "Anomaly detection",
@@ -140,6 +140,10 @@ const caFaqs = [
   {
     q: "Is my financial data safe?",
     a: "Run AccountingQB locally — the desktop extension runs entirely on your machine and your data never touches our servers. Or use our hosted connector, where data passes through with zero retention. Either way, we never store your books.",
+  },
+  {
+    q: "How do I know the CRA numbers are current?",
+    a: "Every rate we use — GST/HST by province (including Nova Scotia's 2025 change to 14%), CPP/CPP2 ceilings, CCA vehicle limits, instalment thresholds — lives in a versioned registry citing its CRA source and verification date. Every tax answer shows its rate vintage in the footer, changes ship through a tamper-evident audit ledger reviewed by a human, and a research agent checks CRA announcements monthly. Ask Claude to run qb_tax_data_info to see the full provenance table.",
   },
   {
     q: "Am I billed in Canadian dollars?",
@@ -252,7 +256,7 @@ export default function CanadaPage() {
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-400">
             GST/HST return workpapers, T2125 line mapping, CCA schedules, T4A reports,
-            and CRA instalment estimates — 101 AI tools connecting Claude to your
+            and CRA instalment estimates — 104 AI tools connecting Claude to your
             QuickBooks Online, in plain English.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">

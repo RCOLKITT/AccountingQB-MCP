@@ -226,3 +226,33 @@ def test_terminal_value_honored():
     assert tt.tax_value("TCJA_PHASE_DOWN", 2030) == 0.0
     value, note = tt.tax_value_or_latest("TCJA_PHASE_DOWN", 2030)
     assert value == 0.0 and note == ""
+
+
+# ---------------------------------------------------------------------------
+# copy-count-consistency — marketing copy must match the shipped tool count
+# (this drifted 91 -> 101 -> 104 across three releases before this gate)
+# ---------------------------------------------------------------------------
+
+def test_tool_count_copy_matches_manifest():
+    import re
+    root = pathlib.Path(__file__).parent.parent
+    manifest = json.loads((root / "mcpb/manifest.json").read_text())
+    count = len(manifest["tools"])
+
+    pattern = re.compile(r"\b(\d{2,3}) (?:AI |QuickBooks )?[Tt]ools\b")
+    offenders = []
+    for path in list((root / "web/src").rglob("*.ts*")) + \
+            list((root / "web/src").rglob("*.md")) + \
+            [root / "web/public/llms.txt", root / "README.md",
+             root / "mcpb/manifest.json",
+             root / "mcpb/src/accountingqb/__init__.py"]:
+        if not path.is_file():
+            continue
+        for m in pattern.finditer(path.read_text(errors="ignore")):
+            n = int(m.group(1))
+            # GST34 "lines 101..." style references aren't tool counts
+            if n != count and n >= 25 and "line" not in m.group(0).lower():
+                offenders.append(f"{path.relative_to(root)}: '{m.group(0)}'")
+    assert not offenders, (
+        f"copy says a tool count != manifest ({count} tools): {offenders}"
+    )
