@@ -3658,7 +3658,7 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
     if net_profit < 0:
         lines.append(f"\n📋 **NOL:** This {fmt(abs(net_profit))} loss can be carried forward to offset future income.")
 
-    return "\n".join(lines)
+    return "\n".join(lines) + tax_data_footer(int(tax_year))
 
 
 
@@ -3785,7 +3785,7 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
     if net_income <= 0:
         lines.append(f"\n📋 **Note:** With a net loss, no estimated payments are due. You may carry forward this NOL.")
 
-    return "\n".join(lines)
+    return "\n".join(lines) + tax_data_footer(year)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -3960,7 +3960,7 @@ async def qb_deduction_finder(tax_year: str = "2024") -> str:
         # Rough tax savings at 30% effective rate
         lines.append(f"**Potential tax savings: ~{fmt(estimated_savings * 0.30)}** (at ~30% effective rate)")
 
-    return "\n".join(lines)
+    return "\n".join(lines) + tax_data_footer()
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -4020,7 +4020,7 @@ async def qb_depreciation_schedule(tax_year: str = "2024") -> str:
         "acquired after Jan 19, 2025) has no income limit."
     )
 
-    return "\n".join(lines)
+    return "\n".join(lines) + tax_data_footer()
 
 
 # ===================================================================
@@ -4841,7 +4841,7 @@ async def qb_home_office_calculator(
     ])
 
     _audit_log("HOME_OFFICE_CALC", f"year={tax_year} biz_pct={biz_pct_display} total={fmt(total)}")
-    return "\n".join(lines)
+    return "\n".join(lines) + tax_data_footer()
 
 
 # ===================================================================
@@ -4988,7 +4988,7 @@ async def qb_vehicle_depreciation_calculator(
     ])
 
     _audit_log("VEHICLE_DEPR_CALC", f"year={tax_year} price={fmt(purchase_price)} biz_pct={business_use_pct}")
-    return "\n".join(lines)
+    return "\n".join(lines) + tax_data_footer(year)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -5052,7 +5052,7 @@ async def qb_startup_cost_analysis(total_startup_costs: float, commencement_date
         f"parallel $5,000/§248 allowance. CPA should verify.*",
     ])
     _audit_log("STARTUP_COST_ANALYSIS", f"total={fmt(total_startup_costs)} year={year}")
-    return "\n".join(lines)
+    return "\n".join(lines) + tax_data_footer(year)
 
 
 # ===================================================================
@@ -5364,7 +5364,7 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
     ])
 
     _audit_log("SCHEDULE_C_DETAIL", f"year={tax_year} income={fmt(total_income)} expenses={fmt(total_expenses)}")
-    return "\n".join(lines)
+    return "\n".join(lines) + tax_data_footer(int(tax_year))
 
 
 # ===================================================================
@@ -5691,7 +5691,7 @@ async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 6
         lines.append(f"  - Use IRS FIRE system or approved e-file provider")
 
     _audit_log("1099_REPORT", f"year={tax_year} vendors={len(reportable)} total={fmt(grand_total)}")
-    return "\n".join(lines)
+    return "\n".join(lines) + tax_data_footer(year)
 
 
 # ===================================================================
@@ -6307,7 +6307,7 @@ async def qb_sales_tax_summary(start_date: str, end_date: str) -> str:
     ])
 
     _audit_log("SALES_TAX_SUMMARY", f"period={start_date}/{end_date} tax_collected={fmt(total_tax)}")
-    return "\n".join(lines)
+    return "\n".join(lines) + tax_data_footer()
 
 
 # ===================================================================
@@ -8302,7 +8302,7 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
 
     lines.append(f"\n---\n⚠️ {_GST_WORKPAPER_FOOTER}")
     _audit_log("GST_HST_RETURN", f"period={start_date}/{end_date} net_tax={fmt(line_109)}")
-    return "\n".join(lines)
+    return "\n".join(lines) + tax_data_footer()
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -8426,7 +8426,7 @@ async def qb_t2125_summary(year: int) -> str:
     ])
 
     _audit_log("T2125_SUMMARY", f"year={year} income={fmt(total_income)} expenses={fmt(total_expenses)}")
-    return "\n".join(lines)
+    return "\n".join(lines) + tax_data_footer(year)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -8575,7 +8575,7 @@ async def qb_cca_schedule(assets_json: str = "", year: int = 0) -> str:
     ])
 
     _audit_log("CCA_SCHEDULE", f"year={year} assets={len(assets)} cca={fmt(total_cca)}")
-    return "\n".join(lines)
+    return "\n".join(lines) + tax_data_footer(year)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -8678,7 +8678,7 @@ async def qb_t4a_contractor_report(year: int) -> str:
     ])
 
     _audit_log("T4A_REPORT", f"year={year} vendors={len(reportable)} total={fmt(grand_total)}")
-    return "\n".join(lines)
+    return "\n".join(lines) + tax_data_footer(year)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -8802,6 +8802,51 @@ async def qb_estimate_instalments(year: int = 0, province: str = "") -> str:
     )
 
     _audit_log("ESTIMATE_INSTALMENTS", f"year={year} net={fmt(net_income)} total={fmt(total_annual)}")
+    return "\n".join(lines) + tax_data_footer(year)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_tax_data_info() -> str:
+    """Show the provenance of every tax rate and threshold this server uses:
+    per-table sources, verified dates, review cadence, covered years, and
+    the append-only tax-data ledger status. This is the transparency layer —
+    every tax tool's footer points here."""
+    lines = [
+        "## Tax Data Registry",
+        f"**Version:** TAX_DATA v{TAX_DATA_VERSION} · verified {TAX_DATA_VERIFIED}",
+        "\nEvery value below carries a source and review date; changes ship "
+        "only through an append-only, hash-chained ledger reviewed by a "
+        "human. Future-year requests use the latest tables with a visible "
+        "note — never silently.",
+    ]
+
+    by_jur: dict = {}
+    for name, entry in TABLES.items():
+        by_jur.setdefault(entry["jurisdiction"], []).append((name, entry))
+
+    for jur in sorted(by_jur):
+        lines.append(f"\n### {jur}")
+        for name, e in sorted(by_jur[jur]):
+            years = _tt.table_year_keys(e) if e.get("year_keyed") else []
+            vintage = (f"{years[0]}–{years[-1]}" if years else
+                       {"stable_statute": "statutory", "approximation": "planning approx.",
+                        "exact": "current"}[e["kind"]])
+            lines.append(
+                f"- **{e['description']}** — {vintage} · {e['kind']} · "
+                f"verified {e['verified']} · review: {e['review']}\n"
+                f"  Source: {e['source']}"
+            )
+
+    rows = load_ledger()
+    superseded = {r["supersedes"] for r in rows if r.get("supersedes")}
+    chain_ok = verify_ledger_chain(rows)
+    lines.append(
+        f"\n### Ledger\n"
+        f"- {len(rows)} rows ({len(rows) - len(superseded)} live, "
+        f"{len(superseded)} superseded)\n"
+        f"- Hash chain: {'✓ verified' if chain_ok else '⚠️ FAILED VERIFICATION'}\n"
+        f"- Latest entry: {max(r['verified_date'] for r in rows) if rows else 'n/a'}"
+    )
     return "\n".join(lines)
 
 
