@@ -3859,7 +3859,9 @@ async def qb_deduction_finder(tax_year: str = "2024") -> str:
         findings.append({
             "deduction": "Vehicle Expenses (Standard Mileage or Actual)",
             "status": "🔴 NOT CLAIMED",
-            "details": "Standard mileage: 70¢/mile (2025), 72.5¢/mile (2026). Track business miles for meetings, supply runs, etc.",
+            "details": (f"Standard mileage: "
+                        + ", ".join(f"{c}¢/mile ({y})" for y, c in sorted(_STD_MILEAGE_CENTS.items()))
+                        + ". Track business miles for meetings, supply runs, etc."),
             "estimate": 1000,
         })
         estimated_savings += 1000
@@ -3878,10 +3880,14 @@ async def qb_deduction_finder(tax_year: str = "2024") -> str:
     # Check for retirement contributions
     has_retirement = any("retire" in k.lower() or "401k" in k.lower() or "sep" in k.lower() or "ira" in k.lower() for k in expense_dict)
     if not has_retirement:
+        ret_year = max(_RETIREMENT_LIMITS)
+        ret = _RETIREMENT_LIMITS[ret_year]
         findings.append({
             "deduction": "Retirement Contributions (SEP-IRA / Solo 401k)",
             "status": "🟡 OPPORTUNITY",
-            "details": "SEP-IRA: up to 25% of net SE income (max $69,000 for 2024). Solo 401k: $23,000 employee + 25% employer.",
+            "details": (f"SEP-IRA: up to 25% of net SE income (max ${ret['sep_max']:,} "
+                        f"for {ret_year}). Solo 401k: ${ret['solo_401k_deferral']:,} "
+                        f"employee + 25% employer."),
             "estimate": 0,
         })
 
@@ -5557,14 +5563,19 @@ async def qb_delete_journal_entry(journal_entry_id: str, confirm: bool = False) 
 
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("US", "Use qb_t4a_contractor_report.")
-async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 600.0) -> str:
+async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 0.0) -> str:
     """Generate 1099-NEC contractor reporting data for a tax year.
-    Lists all vendors paid >= threshold (default $600) via non-employee compensation.
-    Shows vendor name, total paid, TIN status, and address.
-    Useful for year-end tax filing prep and 1099-NEC generation.
-    tax_year: YYYY format. threshold: minimum payment amount to include (IRS default $600)."""
+    Lists all vendors paid at or above the IRS reporting threshold via
+    non-employee compensation ($600 through 2025; $2,000 from 2026 under
+    OBBBA, auto-selected by tax_year). Shows vendor name, total paid, TIN
+    status, and address. tax_year: YYYY. threshold: optional override."""
     start = f"{tax_year}-01-01"
     end = f"{tax_year}-12-31"
+    if not threshold:
+        try:
+            threshold, _t_note = tax_value_or_latest("NEC_1099_THRESHOLD", int(tax_year))
+        except TaxDataError as e:
+            return str(e)
     threshold = _validate_amount(threshold, "threshold")
 
     # Get all vendors
