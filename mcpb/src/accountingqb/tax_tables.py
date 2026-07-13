@@ -486,13 +486,14 @@ TABLES: dict = {
         source="CRA payroll deductions tables (2026: YMPE $74,600 / YAMPE $85,000)",
         source_url="https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/payroll/payroll-deductions-contributions/canada-pension-plan-cpp.html",
         verified="2026-07-12", review="annual-december",
-        sanity={"min": 50_000, "max": 200_000, "max_yoy_pct": 0.10}),
+        sanity={"max_yoy_pct": 0.10}),  # values mix rates and dollar ceilings
     "CA_FED_BRACKETS_APPROX": dict(values=_CA_FED_BRACKETS_APPROX, year_keyed=False,
         jurisdiction="CA-federal", kind="approximation",
         description="Approximate federal brackets for instalment planning (Bill C-4 blended first rate)",
         source="CRA 2025 thresholds; Bill C-4 (2025) rate cut",
         source_url="https://www.canada.ca/en/revenue-agency/services/tax/individuals/frequently-asked-questions-individuals/canadian-income-tax-rates-individuals-current-previous-years.html",
-        verified="2026-07-12", review="annual-december", sanity={"min": 0.0, "max": 1.0}),
+        verified="2026-07-12", review="annual-december",
+        sanity={}),  # values mix bracket thresholds (dollars) and rates
     "CA_BPA_APPROX": dict(values=_CA_BPA_APPROX, year_keyed=False,
         jurisdiction="CA-federal", kind="approximation",
         description="Federal basic personal amount (rough, indexed annually)",
@@ -574,6 +575,42 @@ def tax_data_footer(vintage_year=None) -> str:
 # =========================================================================
 
 _LEDGER_GENESIS_SEED = "accountingqb-tax-ledger-genesis-v1"
+
+
+def iter_table_rows(name: str, entry: dict):
+    """Yield (key, value) ledger-row pairs for one TABLES entry — the same
+    decomposition the genesis seeder used, shared so tests can't drift."""
+    v = entry["values"]
+    if entry.get("year_keyed") and isinstance(v, dict) and all(isinstance(k, int) for k in v):
+        for year in sorted(v):
+            yield str(year), v[year]
+    elif name == "CPP":
+        for year in sorted(v["params"]):
+            yield f"{year}:params", v["params"][year]
+        for k in ("basic_exemption", "rate_self", "cpp2_rate_self"):
+            yield k, v[k]
+    else:
+        yield "-", v
+
+
+def table_year_keys(entry: dict) -> list:
+    """Year keys covered by a year_keyed table (handles CPP-style nesting)."""
+    v = entry["values"]
+    if isinstance(v, dict) and all(isinstance(k, int) for k in v):
+        return sorted(v)
+    if isinstance(v, dict) and isinstance(v.get("params"), dict):
+        return sorted(v["params"])
+    return []
+
+
+def canonical_value(value):
+    """JSON-normalize a registry value for ledger storage/comparison:
+    dict keys become strings (JSON has no int keys), tuples become lists."""
+    if isinstance(value, dict):
+        return {str(k): canonical_value(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [canonical_value(v) for v in value]
+    return value
 
 
 def ledger_path() -> pathlib.Path:
