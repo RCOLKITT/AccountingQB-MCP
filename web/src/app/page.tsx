@@ -55,7 +55,7 @@ const tiers = [
     description: "For freelancers & sole proprietors",
     savings: "Save ~5 hrs/mo on bookkeeping & tax prep",
     features: [
-      "All 101 QuickBooks tools",
+      "All 104 QuickBooks tools",
       "US & Canadian tax prep (Schedule C / T2125)",
       "Deduction finder",
       "Anomaly detection",
@@ -112,12 +112,16 @@ const faqs = [
     a: "Absolutely. Run AccountingQB locally — the desktop extension runs entirely on your machine and your financial data flows directly between your computer and QuickBooks, never touching our servers. Or connect through our hosted connector, where data passes through with zero retention — it is never stored, logged, or used for analytics. Either way, we never store your books.",
   },
   {
+    q: "How do I know the tax numbers are current?",
+    a: "Every tax rate and threshold we use — IRS brackets, mileage rates, §179 and bonus depreciation limits, GST/HST rates, CPP ceilings — lives in a versioned registry where each value carries its official source (the actual Revenue Procedure or CRA page) and a verification date. Every tax answer shows its rate vintage in the footer, changes ship through a tamper-evident audit ledger reviewed by a human, and a research agent checks every source monthly for new legislation — that's how we caught the 2025 OBBBA changes. Ask Claude to run qb_tax_data_info to see the full provenance table.",
+  },
+  {
     q: "Do I need to know how to code?",
     a: "Not at all. Install the extension in Claude Desktop with one click, connect your QuickBooks account, and start asking questions in plain English.",
   },
   {
     q: "What happens after the 14-day trial?",
-    a: "You keep access to 25 essential read-only tools for free. To continue using all 101 tools including writes, tax prep, and advanced analytics, choose a paid plan.",
+    a: "You keep access to 25 essential read-only tools for free. To continue using all 104 tools including writes, tax prep, and advanced analytics, choose a paid plan.",
   },
   {
     q: "Can I use this with QuickBooks Desktop?",
@@ -211,7 +215,7 @@ export default async function Home() {
 
             {/* Subhead */}
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-400 sm:text-xl">
-              101 tools connecting Claude to your QuickBooks Online. Run reports,
+              104 tools connecting Claude to your QuickBooks Online. Run reports,
               reconcile books, prep for taxes, detect anomalies — all through
               natural conversation.{" "}
               <span className="text-gray-300">Run it locally or connect instantly — we never store your books.</span>
@@ -359,7 +363,7 @@ export default async function Home() {
               Features
             </div>
             <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
-              101 tools across every
+              104 tools across every
               <br />
               <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">accounting workflow</span>
             </h2>
@@ -505,7 +509,7 @@ export default async function Home() {
               {
                 step: "03",
                 title: "Start Talking to Your Books",
-                desc: "Ask Claude anything. \"What's my burn rate?\" \"Find missing deductions.\" 101 tools ready.",
+                desc: "Ask Claude anything. \"What's my burn rate?\" \"Find missing deductions.\" 104 tools ready.",
                 gradient: "from-indigo-500 to-purple-500",
               },
             ].map((s) => (
@@ -611,7 +615,7 @@ export default async function Home() {
               <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">in the first week</span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-gray-400">
-              101 tools means 101 tasks that used to be manual. Tax prep, invoice reconciliation, vendor cleanup, anomaly checks, month-end close — all in a conversation.
+              104 tools means 104 tasks that used to be manual. Tax prep, invoice reconciliation, vendor cleanup, anomaly checks, month-end close — all in a conversation.
             </p>
           </div>
 
@@ -711,7 +715,7 @@ export default async function Home() {
                 <p className="mt-3 text-gray-400">
                   If you&apos;re managing 20+ clients, your team is spending hundreds of hours a month on tasks
                   AccountingQB handles in minutes. Invoice reconciliation, month-end close, vendor cleanup,
-                  anomaly checks, tax prep — 101 tools covering every workflow that eats your margin.
+                  anomaly checks, tax prep — 104 tools covering every workflow that eats your margin.
                 </p>
               </div>
               <div className="rounded-xl bg-white/[0.03] p-6">
