@@ -718,9 +718,43 @@ _DEMO_QUERY_DATA = {
     "Bill": DEMO_BILLS,
 }
 
+# Demo aging reports (QBO AgedReceivables/AgedPayables row shape)
+DEMO_AGED_RECEIVABLES = {
+    "Header": {"ReportName": "AgedReceivables"},
+    "Rows": {"Row": [
+        {"Header": {"ColData": [{"value": "Current"}]}, "Rows": {"Row": [
+            {"ColData": [{"value": "Blue Ocean Media (Inv #1045)"}, {"value": "4200.00"}]},
+        ]}, "Summary": {"ColData": [{"value": "Total Current"}, {"value": "4200.00"}]}},
+        {"Header": {"ColData": [{"value": "31 - 60 days overdue"}]}, "Rows": {"Row": [
+            {"ColData": [{"value": "Green Valley Farms (Inv #1044)"}, {"value": "7500.00"}]},
+        ]}, "Summary": {"ColData": [{"value": "Total 31 - 60"}, {"value": "7500.00"}]}},
+        {"Header": {"ColData": [{"value": "61 - 90 days overdue"}]}, "Rows": {"Row": [
+            {"ColData": [{"value": "TechStart Inc (Inv #1042)"}, {"value": "15000.00"}]},
+            {"ColData": [{"value": "Sunrise Healthcare (Inv #1043)"}, {"value": "22500.00"}]},
+        ]}, "Summary": {"ColData": [{"value": "Total 61 - 90"}, {"value": "37500.00"}]}},
+        {"Summary": {"ColData": [{"value": "TOTAL RECEIVABLES"}, {"value": "49200.00"}]}},
+    ]},
+}
+DEMO_AGED_PAYABLES = {
+    "Header": {"ReportName": "AgedPayables"},
+    "Rows": {"Row": [
+        {"Header": {"ColData": [{"value": "Current"}]}, "Rows": {"Row": [
+            {"ColData": [{"value": "Amazon Web Services"}, {"value": "2847.50"}]},
+            {"ColData": [{"value": "Adobe Creative Cloud"}, {"value": "599.88"}]},
+        ]}, "Summary": {"ColData": [{"value": "Total Current"}, {"value": "3447.38"}]}},
+        {"Header": {"ColData": [{"value": "1 - 30 days overdue"}]}, "Rows": {"Row": [
+            {"ColData": [{"value": "WeWork"}, {"value": "1500.00"}]},
+            {"ColData": [{"value": "Zoom Communications"}, {"value": "149.90"}]},
+        ]}, "Summary": {"ColData": [{"value": "Total 1 - 30"}, {"value": "1649.90"}]}},
+        {"Summary": {"ColData": [{"value": "TOTAL PAYABLES"}, {"value": "5097.28"}]}},
+    ]},
+}
+
 _DEMO_REPORTS = {
     "ProfitAndLoss": DEMO_PROFIT_LOSS,
     "BalanceSheet": DEMO_BALANCE_SHEET,
+    "AgedReceivables": DEMO_AGED_RECEIVABLES,
+    "AgedPayables": DEMO_AGED_PAYABLES,
 }
 
 
@@ -1733,7 +1767,12 @@ async def qb_list_invoices(start_date: str, end_date: str, customer_name: str = 
             except ValueError:
                 pass
 
-        if status and status.lower() != inv_status.lower():
+        # "unpaid" means any open balance — overdue invoices are still unpaid
+        want = status.lower()
+        if want == "unpaid":
+            if balance <= 0:
+                continue
+        elif want and want != inv_status.lower():
             continue
 
         total += amt
@@ -3790,10 +3829,14 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
 
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("US", "CA deduction guidance will come from qb_t2125_summary.")
-async def qb_deduction_finder(tax_year: str = "2024") -> str:
+async def qb_deduction_finder(tax_year: str = "") -> str:
     """Analyze books for commonly missed tax deductions. Checks for home office,
     vehicle expenses, health insurance, retirement contributions, startup costs,
-    Section 179, and more. Returns suggestions with estimated savings."""
+    Section 179, and more. Returns suggestions with estimated savings.
+    tax_year defaults to the current year."""
+    from datetime import date as _date
+    if not tax_year:
+        tax_year = str(_date.today().year)
     start = f"{tax_year}-01-01"
     end = f"{tax_year}-12-31"
 
@@ -5322,9 +5365,18 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
         "Line 30 - Business use of home": [],
     }
 
+    # Company name from the connected QuickBooks company (never hardcoded)
+    company_name = ""
+    try:
+        _ci = await qb_query("SELECT * FROM CompanyInfo")
+        company_name = (_ci.get("QueryResponse", {})
+                        .get("CompanyInfo", [{}])[0].get("CompanyName", ""))
+    except Exception:
+        pass
+
     lines = [
         f"## Schedule C Detail — {tax_year}\n",
-        f"**Vaspera Capital LLC / NutriFitAI LLC**",
+        *( [f"**{company_name}**"] if company_name else [] ),
         f"**EIN:** Check QB Company Info",
         f"**Period:** {start} to {end}\n",
     ]
