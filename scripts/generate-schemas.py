@@ -189,8 +189,24 @@ def update_manifest(tools: list[dict], strip_schemas: bool = False) -> None:
             schema = generate_input_schema(tool)
             if schema:
                 entry["inputSchema"] = schema
-            if tool["annotations"]:
-                entry["annotations"] = tool["annotations"]
+            ann = tool["annotations"]
+            if ann:
+                entry["annotations"] = ann
+            # Also surface capability flags at the top level. MCP clients read
+            # hints from `annotations`, but security auditors expect explicit
+            # top-level declarations. Derive from the server's ground-truth
+            # annotations rather than guessing. We intentionally do NOT emit a
+            # blanket networkAccess flag: every tool speaks only to the single
+            # first-party QuickBooks API (BASE_URL) with the user's own OAuth
+            # token, so per-tool networkAccess:true misleads exfiltration-graph
+            # analysis into treating each tool as an arbitrary egress point.
+            # The real network posture (one allowlisted destination, no
+            # tool-to-tool flow, _audit_log on every call) is documented in
+            # CERTIFICATION.md. codeExecution is declared false — no tool
+            # evaluates arbitrary code.
+            entry["readOnlyHint"] = bool(ann.get("readOnlyHint"))
+            entry["destructiveHint"] = bool(ann.get("destructiveHint"))
+            entry["codeExecution"] = False
 
         new_tools.append(entry)
 

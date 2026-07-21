@@ -60,10 +60,13 @@ find "$LIB_DIR" -type d -name "__pycache__" -prune -exec rm -rf {} +
 find "$LIB_DIR" -type d -name "*.dist-info" -exec rm -rf {}/RECORD \; 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
-# 2. Refresh manifest tools array from server.py
-#    (--strip: name/description only, which is what `mcpb pack` expects)
+# 2. Refresh manifest tools array from server.py.
+#    `mcpb pack` expects name/description only, so strip IN PLACE just for the
+#    pack; the full manifest (inputSchema + annotations) is restored in step 5
+#    so the committed mcpb/manifest.json matches the running server — directory
+#    reviewers and security scanners see per-tool schemas + destructive hints.
 # ---------------------------------------------------------------------------
-echo "==> Regenerating manifest tools from server.py"
+echo "==> Regenerating manifest tools from server.py (stripped for pack)"
 python3 "$REPO_ROOT/scripts/generate-schemas.py" --strip
 
 # ---------------------------------------------------------------------------
@@ -127,6 +130,14 @@ else
     done < "$MCPB_DIR/.mcpbignore"
     (cd "$MCPB_DIR" && zip -qr "$OUT_FILE" . "${EXCLUDES[@]}")
 fi
+
+# ---------------------------------------------------------------------------
+# 5. Restore the FULL committed manifest (inputSchema + annotations). The
+#    packed .mcpb keeps the stripped tools it needs; the repo source of truth
+#    carries the metadata the security scan and directory review expect.
+# ---------------------------------------------------------------------------
+echo "==> Restoring full manifest (schemas + annotations) to the repo"
+python3 "$REPO_ROOT/scripts/generate-schemas.py"
 
 echo "==> Done: $OUT_FILE"
 ls -lh "$OUT_FILE" || true

@@ -114,435 +114,3326 @@
   "tools": [
     {
       "name": "qb_list_companies",
-      "description": "List connected QuickBooks companies"
+      "description": "List connected QuickBooks companies",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_switch_company",
-      "description": "Switch to a different company"
+      "description": "Switch to a different company",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "realm_id": {
+            "type": "string",
+            "description": "Realm Id"
+          }
+        },
+        "required": [
+          "realm_id"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_refresh_connection",
-      "description": "Refresh connection to AccountingQB"
+      "description": "Refresh connection to AccountingQB",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_company_info",
-      "description": "Get company details, address, EIN, fiscal year"
+      "description": "Get company details, address, EIN, fiscal year",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_transactions",
-      "description": "List purchases/expenses in a date range"
+      "description": "List purchases/expenses in a date range",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "vendor_name": {
+            "type": "string",
+            "description": "Vendor Name",
+            "default": ""
+          },
+          "min_amount": {
+            "type": "number",
+            "description": "Min Amount",
+            "default": 0
+          },
+          "max_amount": {
+            "type": "number",
+            "description": "Max Amount",
+            "default": 0
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_deposits",
-      "description": "List deposits and income"
+      "description": "List deposits and income",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_transfers",
-      "description": "List account transfers"
+      "description": "List account transfers",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_journal_entries",
-      "description": "List journal entries"
+      "description": "List journal entries",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_bills",
-      "description": "List accounts payable bills"
+      "description": "List accounts payable bills",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "vendor_name": {
+            "type": "string",
+            "description": "Vendor Name",
+            "default": ""
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_bill_payments",
-      "description": "List bill payments"
+      "description": "List bill payments",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_sales_receipts",
-      "description": "List sales receipts"
+      "description": "List sales receipts",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_payments",
-      "description": "List customer payments"
+      "description": "List customer payments",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_invoices",
-      "description": "List invoices with status filter"
+      "description": "List invoices with status filter",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "customer_name": {
+            "type": "string",
+            "description": "Customer Name",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "description": "Status",
+            "default": ""
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_search_transactions",
-      "description": "Search all transaction types"
+      "description": "Search all transaction types",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "search_term": {
+            "type": "string",
+            "description": "Search Term",
+            "default": ""
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 50
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_expense_summary",
-      "description": "Expenses by category"
+      "description": "Expenses by category",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_profit_loss",
-      "description": "P&L / Income Statement"
+      "description": "P&L / Income Statement",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "summarize_by": {
+            "type": "string",
+            "description": "Summarize By",
+            "default": "Total"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_balance_sheet",
-      "description": "Balance Sheet report"
+      "description": "Balance Sheet report",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "as_of_date": {
+            "type": "string",
+            "description": "As Of Date"
+          }
+        },
+        "required": [
+          "as_of_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_cash_flow",
-      "description": "Statement of Cash Flows"
+      "description": "Statement of Cash Flows",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_general_ledger",
-      "description": "General ledger by account"
+      "description": "General ledger by account",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "account_name": {
+            "type": "string",
+            "description": "Account Name",
+            "default": ""
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_trial_balance",
-      "description": "Trial balance report"
+      "description": "Trial balance report",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_reconciliation_status",
-      "description": "Bank and credit-card tie-out summary for CPA handoff: per-account book"
+      "description": "Bank and credit-card tie-out summary for CPA handoff: per-account book",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "as_of_date": {
+            "type": "string",
+            "description": "As Of Date",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_comparative_statements",
-      "description": "Two-year comparative statement \u2014 the format CPAs read first. Renders"
+      "description": "Two-year comparative statement \u2014 the format CPAs read first. Renders",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "statement": {
+            "type": "string",
+            "description": "Statement",
+            "default": "pl"
+          },
+          "year": {
+            "type": "integer",
+            "description": "Year",
+            "default": 0
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_tax_payments_made",
-      "description": "What you actually PAID the IRS/CRA this year \u2014 the first thing a CPA"
+      "description": "What you actually PAID the IRS/CRA this year \u2014 the first thing a CPA",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tax_year": {
+            "type": "string",
+            "description": "Tax Year",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_owner_draws",
-      "description": "Owner's draws and contributions for the year \u2014 equity movement a CPA"
+      "description": "Owner's draws and contributions for the year \u2014 equity movement a CPA",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "integer",
+            "description": "Year",
+            "default": 0
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_ar_aging",
-      "description": "Accounts receivable aging"
+      "description": "Accounts receivable aging",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "as_of_date": {
+            "type": "string",
+            "description": "As Of Date"
+          }
+        },
+        "required": [
+          "as_of_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_ap_aging",
-      "description": "Accounts payable aging"
+      "description": "Accounts payable aging",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "as_of_date": {
+            "type": "string",
+            "description": "As Of Date"
+          }
+        },
+        "required": [
+          "as_of_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_tax_summary",
-      "description": "Tax-oriented Schedule C mapping"
+      "description": "Tax-oriented Schedule C mapping",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_accounts",
-      "description": "Chart of accounts"
+      "description": "Chart of accounts",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_vendors",
-      "description": "List vendors/suppliers"
+      "description": "List vendors/suppliers",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name",
+            "default": ""
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 50
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_create_vendor",
-      "description": "Create a new vendor"
+      "description": "Create a new vendor",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "description": "Display Name"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email",
+            "default": ""
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone",
+            "default": ""
+          },
+          "company_name": {
+            "type": "string",
+            "description": "Company Name",
+            "default": ""
+          }
+        },
+        "required": [
+          "display_name"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_list_customers",
-      "description": "List customers"
+      "description": "List customers",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name",
+            "default": ""
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 50
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_create_customer",
-      "description": "Create a new customer"
+      "description": "Create a new customer",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "description": "Display Name"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email",
+            "default": ""
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone",
+            "default": ""
+          },
+          "company_name": {
+            "type": "string",
+            "description": "Company Name",
+            "default": ""
+          }
+        },
+        "required": [
+          "display_name"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_list_items",
-      "description": "List products and services"
+      "description": "List products and services",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name",
+            "default": ""
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_create_expense",
-      "description": "Create a new expense"
+      "description": "Create a new expense",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "vendor_name": {
+            "type": "string",
+            "description": "Vendor Name"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount"
+          },
+          "account_name": {
+            "type": "string",
+            "description": "Account Name"
+          },
+          "date": {
+            "type": "string",
+            "description": "Date"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description",
+            "default": ""
+          },
+          "payment_method": {
+            "type": "string",
+            "description": "Payment Method",
+            "default": ""
+          },
+          "tax_code": {
+            "type": "string",
+            "description": "Tax Code",
+            "default": ""
+          },
+          "tax_inclusive": {
+            "type": "boolean",
+            "description": "Tax Inclusive",
+            "default": false
+          }
+        },
+        "required": [
+          "vendor_name",
+          "amount",
+          "account_name",
+          "date"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_create_invoice",
-      "description": "Create a customer invoice"
+      "description": "Create a customer invoice",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "customer_name": {
+            "type": "string",
+            "description": "Customer Name"
+          },
+          "line_items": {
+            "type": "string",
+            "description": "Line Items"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "Due Date",
+            "default": ""
+          },
+          "memo": {
+            "type": "string",
+            "description": "Memo",
+            "default": ""
+          },
+          "tax_code": {
+            "type": "string",
+            "description": "Tax Code",
+            "default": ""
+          },
+          "tax_inclusive": {
+            "type": "boolean",
+            "description": "Tax Inclusive",
+            "default": false
+          }
+        },
+        "required": [
+          "customer_name",
+          "line_items"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_create_journal_entry",
-      "description": "Create a journal entry"
+      "description": "Create a journal entry",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Date"
+          },
+          "lines_json": {
+            "type": "string",
+            "description": "Lines Json"
+          },
+          "memo": {
+            "type": "string",
+            "description": "Memo",
+            "default": ""
+          }
+        },
+        "required": [
+          "date",
+          "lines_json"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_record_depreciation",
-      "description": "Record period depreciation for a fixed asset the CORRECT way:"
+      "description": "Record period depreciation for a fixed asset the CORRECT way:",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "asset_account": {
+            "type": "string",
+            "description": "Asset Account"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount"
+          },
+          "date": {
+            "type": "string",
+            "description": "Date"
+          },
+          "memo": {
+            "type": "string",
+            "description": "Memo",
+            "default": ""
+          }
+        },
+        "required": [
+          "asset_account",
+          "amount",
+          "date"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_create_deposit",
-      "description": "Create a bank deposit"
+      "description": "Create a bank deposit",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Date"
+          },
+          "deposit_to_account": {
+            "type": "string",
+            "description": "Deposit To Account"
+          },
+          "lines_json": {
+            "type": "string",
+            "description": "Lines Json"
+          },
+          "memo": {
+            "type": "string",
+            "description": "Memo",
+            "default": ""
+          },
+          "tax_code": {
+            "type": "string",
+            "description": "Tax Code",
+            "default": ""
+          }
+        },
+        "required": [
+          "date",
+          "deposit_to_account",
+          "lines_json"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_create_transfer",
-      "description": "Transfer between accounts"
+      "description": "Transfer between accounts",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Date"
+          },
+          "from_account": {
+            "type": "string",
+            "description": "From Account"
+          },
+          "to_account": {
+            "type": "string",
+            "description": "To Account"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount"
+          },
+          "memo": {
+            "type": "string",
+            "description": "Memo",
+            "default": ""
+          }
+        },
+        "required": [
+          "date",
+          "from_account",
+          "to_account",
+          "amount"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_update_transaction",
-      "description": "Update an existing transaction"
+      "description": "Update an existing transaction",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "description": "Entity Type"
+          },
+          "entity_id": {
+            "type": "string",
+            "description": "Entity Id"
+          },
+          "updates_json": {
+            "type": "string",
+            "description": "Updates Json"
+          }
+        },
+        "required": [
+          "entity_type",
+          "entity_id",
+          "updates_json"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_void_transaction",
-      "description": "Void a transaction"
+      "description": "Void a transaction",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "description": "Entity Type"
+          },
+          "entity_id": {
+            "type": "string",
+            "description": "Entity Id"
+          }
+        },
+        "required": [
+          "entity_type",
+          "entity_id"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_reconcile_invoices",
-      "description": "Match invoices to transactions"
+      "description": "Match invoices to transactions",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "invoice_data": {
+            "type": "string",
+            "description": "Invoice Data"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date",
+          "invoice_data"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_account_balance",
-      "description": "Get account balance"
+      "description": "Get account balance",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_name": {
+            "type": "string",
+            "description": "Account Name"
+          }
+        },
+        "required": [
+          "account_name"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_uncategorized_transactions",
-      "description": "Find uncategorized items"
+      "description": "Find uncategorized items",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_find_duplicates",
-      "description": "Detect duplicate transactions"
+      "description": "Detect duplicate transactions",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "tolerance_days": {
+            "type": "integer",
+            "description": "Tolerance Days",
+            "default": 3
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 200
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_auto_categorize_suggestions",
-      "description": "AI categorization suggestions"
+      "description": "AI categorization suggestions",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_batch_create_expenses",
-      "description": "Bulk create expenses"
+      "description": "Bulk create expenses",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "expenses_json": {
+            "type": "string",
+            "description": "Expenses Json"
+          },
+          "tax_code": {
+            "type": "string",
+            "description": "Tax Code",
+            "default": ""
+          }
+        },
+        "required": [
+          "expenses_json"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_batch_create_bills",
-      "description": "Bulk create bills"
+      "description": "Bulk create bills",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "bills_json": {
+            "type": "string",
+            "description": "Bills Json"
+          },
+          "tax_code": {
+            "type": "string",
+            "description": "Tax Code",
+            "default": ""
+          }
+        },
+        "required": [
+          "bills_json"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_compare_periods",
-      "description": "Compare two time periods"
+      "description": "Compare two time periods",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "report_type": {
+            "type": "string",
+            "description": "Report Type"
+          },
+          "period1_start": {
+            "type": "string",
+            "description": "Period1 Start"
+          },
+          "period1_end": {
+            "type": "string",
+            "description": "Period1 End"
+          },
+          "period2_start": {
+            "type": "string",
+            "description": "Period2 Start"
+          },
+          "period2_end": {
+            "type": "string",
+            "description": "Period2 End"
+          }
+        },
+        "required": [
+          "report_type",
+          "period1_start",
+          "period1_end",
+          "period2_start",
+          "period2_end"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_monthly_burn_rate",
-      "description": "Monthly burn rate analysis"
+      "description": "Monthly burn rate analysis",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "months_back": {
+            "type": "integer",
+            "description": "Months Back",
+            "default": 6
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_runway_calculator",
-      "description": "Cash runway calculator"
+      "description": "Cash runway calculator",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "current_cash": {
+            "type": "number",
+            "description": "Current Cash",
+            "default": 0
+          },
+          "monthly_revenue": {
+            "type": "number",
+            "description": "Monthly Revenue",
+            "default": 0
+          },
+          "monthly_expenses": {
+            "type": "number",
+            "description": "Monthly Expenses",
+            "default": 0
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_schedule_c",
-      "description": "Schedule C line mapping"
+      "description": "Schedule C line mapping",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tax_year": {
+            "type": "string",
+            "description": "Tax Year",
+            "default": "2024"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_estimate_quarterly_tax",
-      "description": "Quarterly tax estimates"
+      "description": "Quarterly tax estimates",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tax_year": {
+            "type": "string",
+            "description": "Tax Year",
+            "default": "2025"
+          },
+          "filing_status": {
+            "type": "string",
+            "description": "Filing Status",
+            "default": "single"
+          },
+          "state": {
+            "type": "string",
+            "description": "State",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_deduction_finder",
-      "description": "Find missed tax deductions"
+      "description": "Find missed tax deductions",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tax_year": {
+            "type": "string",
+            "description": "Tax Year",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_depreciation_schedule",
-      "description": "Asset depreciation schedules"
+      "description": "Asset depreciation schedules",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tax_year": {
+            "type": "string",
+            "description": "Tax Year",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_match_invoices_to_transactions",
-      "description": "Fuzzy match invoices to QB"
+      "description": "Fuzzy match invoices to QB",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "invoices_json": {
+            "type": "string",
+            "description": "Invoices Json"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "tolerance": {
+            "type": "number",
+            "description": "Tolerance",
+            "default": 2.0
+          }
+        },
+        "required": [
+          "invoices_json",
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_inactivate_account",
-      "description": "Deactivate an account"
+      "description": "Deactivate an account",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_name": {
+            "type": "string",
+            "description": "Account Name"
+          }
+        },
+        "required": [
+          "account_name"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_create_account",
-      "description": "Create a new account"
+      "description": "Create a new account",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name"
+          },
+          "account_type": {
+            "type": "string",
+            "description": "Account Type"
+          },
+          "account_sub_type": {
+            "type": "string",
+            "description": "Account Sub Type",
+            "default": ""
+          },
+          "description": {
+            "type": "string",
+            "description": "Description",
+            "default": ""
+          }
+        },
+        "required": [
+          "name",
+          "account_type"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_vendor_summary",
-      "description": "Top vendors by spend"
+      "description": "Top vendors by spend",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "top_n": {
+            "type": "integer",
+            "description": "Top N",
+            "default": 20
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_create_bill",
-      "description": "Create a bill (AP)"
+      "description": "Create a bill (AP)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "vendor_name": {
+            "type": "string",
+            "description": "Vendor Name"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount"
+          },
+          "account_name": {
+            "type": "string",
+            "description": "Account Name"
+          },
+          "date": {
+            "type": "string",
+            "description": "Date"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "Due Date",
+            "default": ""
+          },
+          "description": {
+            "type": "string",
+            "description": "Description",
+            "default": ""
+          },
+          "tax_code": {
+            "type": "string",
+            "description": "Tax Code",
+            "default": ""
+          },
+          "tax_inclusive": {
+            "type": "boolean",
+            "description": "Tax Inclusive",
+            "default": false
+          }
+        },
+        "required": [
+          "vendor_name",
+          "amount",
+          "account_name",
+          "date"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_profit_loss_by_class",
-      "description": "P&L by class/department"
+      "description": "P&L by class/department",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_income_summary",
-      "description": "Income by category"
+      "description": "Income by category",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_fiscal_year_close_checklist",
-      "description": "Year-end close checklist"
+      "description": "Year-end close checklist",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tax_year": {
+            "type": "string",
+            "description": "Tax Year",
+            "default": "2024"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_upload_receipt",
-      "description": "Attach receipt to transaction"
+      "description": "Attach receipt to transaction",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "description": "Entity Type"
+          },
+          "entity_id": {
+            "type": "string",
+            "description": "Entity Id"
+          },
+          "file_name": {
+            "type": "string",
+            "description": "File Name"
+          },
+          "file_url": {
+            "type": "string",
+            "description": "File Url"
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Content Type",
+            "default": "image/jpeg"
+          }
+        },
+        "required": [
+          "entity_type",
+          "entity_id",
+          "file_name",
+          "file_url"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_list_attachments",
-      "description": "List document attachments"
+      "description": "List document attachments",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "description": "Entity Type",
+            "default": ""
+          },
+          "entity_id": {
+            "type": "string",
+            "description": "Entity Id",
+            "default": ""
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 25
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_recurring_transactions",
-      "description": "List recurring transactions"
+      "description": "List recurring transactions",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 50
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_reclassify_transaction",
-      "description": "Reclassify to different account"
+      "description": "Reclassify to different account",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "description": "Entity Type"
+          },
+          "entity_id": {
+            "type": "string",
+            "description": "Entity Id"
+          },
+          "new_account_name": {
+            "type": "string",
+            "description": "New Account Name"
+          },
+          "memo": {
+            "type": "string",
+            "description": "Memo",
+            "default": ""
+          }
+        },
+        "required": [
+          "entity_type",
+          "entity_id",
+          "new_account_name"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_batch_create_journal_entries",
-      "description": "Bulk create journal entries"
+      "description": "Bulk create journal entries",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entries_json": {
+            "type": "string",
+            "description": "Entries Json"
+          }
+        },
+        "required": [
+          "entries_json"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_home_office_calculator",
-      "description": "Home office deduction (Form 8829)"
+      "description": "Home office deduction (Form 8829)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "home_sqft": {
+            "type": "number",
+            "description": "Home Sqft"
+          },
+          "office_sqft": {
+            "type": "number",
+            "description": "Office Sqft"
+          },
+          "home_value": {
+            "type": "number",
+            "description": "Home Value"
+          },
+          "land_value": {
+            "type": "number",
+            "description": "Land Value",
+            "default": 0
+          },
+          "annual_mortgage_interest": {
+            "type": "number",
+            "description": "Annual Mortgage Interest",
+            "default": 0
+          },
+          "annual_property_tax": {
+            "type": "number",
+            "description": "Annual Property Tax",
+            "default": 0
+          },
+          "annual_insurance": {
+            "type": "number",
+            "description": "Annual Insurance",
+            "default": 0
+          },
+          "annual_utilities": {
+            "type": "number",
+            "description": "Annual Utilities",
+            "default": 0
+          },
+          "annual_repairs": {
+            "type": "number",
+            "description": "Annual Repairs",
+            "default": 0
+          },
+          "depreciation_years": {
+            "type": "number",
+            "description": "Depreciation Years",
+            "default": 39
+          },
+          "tax_year": {
+            "type": "string",
+            "description": "Tax Year",
+            "default": "2025"
+          }
+        },
+        "required": [
+          "home_sqft",
+          "office_sqft",
+          "home_value"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_vehicle_depreciation_calculator",
-      "description": "Vehicle depreciation calc"
+      "description": "Vehicle depreciation calc",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "purchase_price": {
+            "type": "number",
+            "description": "Purchase Price"
+          },
+          "purchase_date": {
+            "type": "string",
+            "description": "Purchase Date"
+          },
+          "business_use_pct": {
+            "type": "number",
+            "description": "Business Use Pct"
+          },
+          "vehicle_weight_lbs": {
+            "type": "number",
+            "description": "Vehicle Weight Lbs",
+            "default": 6001
+          },
+          "is_new": {
+            "type": "boolean",
+            "description": "Is New",
+            "default": true
+          },
+          "tax_year": {
+            "type": "string",
+            "description": "Tax Year",
+            "default": "2025"
+          }
+        },
+        "required": [
+          "purchase_price",
+          "purchase_date",
+          "business_use_pct"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_startup_cost_analysis",
-      "description": "Compute the \u00a7195 startup-cost deduction and amortization schedule."
+      "description": "Compute the \u00a7195 startup-cost deduction and amortization schedule.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "total_startup_costs": {
+            "type": "number",
+            "description": "Total Startup Costs"
+          },
+          "commencement_date": {
+            "type": "string",
+            "description": "Commencement Date"
+          },
+          "tax_year": {
+            "type": "string",
+            "description": "Tax Year",
+            "default": ""
+          }
+        },
+        "required": [
+          "total_startup_costs",
+          "commencement_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_journal_entries_by_memo",
-      "description": "Search JEs by memo text"
+      "description": "Search JEs by memo text",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "search_text": {
+            "type": "string",
+            "description": "Search Text"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 50
+          }
+        },
+        "required": [
+          "search_text"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_account_transactions",
-      "description": "All transactions for an account"
+      "description": "All transactions for an account",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_name": {
+            "type": "string",
+            "description": "Account Name"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        },
+        "required": [
+          "account_name",
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_schedule_c_detailed",
-      "description": "Detailed Schedule C with accounts"
+      "description": "Detailed Schedule C with accounts",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tax_year": {
+            "type": "string",
+            "description": "Tax Year",
+            "default": "2025"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_create_sub_account",
-      "description": "Create a sub-account"
+      "description": "Create a sub-account",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name"
+          },
+          "parent_account_name": {
+            "type": "string",
+            "description": "Parent Account Name"
+          },
+          "account_type": {
+            "type": "string",
+            "description": "Account Type",
+            "default": ""
+          },
+          "account_sub_type": {
+            "type": "string",
+            "description": "Account Sub Type",
+            "default": ""
+          },
+          "description": {
+            "type": "string",
+            "description": "Description",
+            "default": ""
+          }
+        },
+        "required": [
+          "name",
+          "parent_account_name"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_transaction_detail",
-      "description": "Full details of one transaction"
+      "description": "Full details of one transaction",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "description": "Entity Type"
+          },
+          "entity_id": {
+            "type": "string",
+            "description": "Entity Id"
+          }
+        },
+        "required": [
+          "entity_type",
+          "entity_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_delete_journal_entry",
-      "description": "Delete a journal entry"
+      "description": "Delete a journal entry",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "journal_entry_id": {
+            "type": "string",
+            "description": "Journal Entry Id"
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "Confirm",
+            "default": false
+          }
+        },
+        "required": [
+          "journal_entry_id"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_1099_contractor_report",
-      "description": "1099-NEC contractor reporting"
+      "description": "1099-NEC contractor reporting",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tax_year": {
+            "type": "string",
+            "description": "Tax Year",
+            "default": "2025"
+          },
+          "threshold": {
+            "type": "number",
+            "description": "Threshold",
+            "default": 0.0
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_anomaly_detection",
-      "description": "Detect unusual transactions"
+      "description": "Detect unusual transactions",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "sensitivity": {
+            "type": "string",
+            "description": "Sensitivity",
+            "default": "medium"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_credit_memos",
-      "description": "List customer credit memos"
+      "description": "List customer credit memos",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "customer_name": {
+            "type": "string",
+            "description": "Customer Name",
+            "default": ""
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_create_credit_memo",
-      "description": "Create customer credit memo"
+      "description": "Create customer credit memo",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "customer_name": {
+            "type": "string",
+            "description": "Customer Name"
+          },
+          "line_items": {
+            "type": "string",
+            "description": "Line Items"
+          },
+          "date": {
+            "type": "string",
+            "description": "Date",
+            "default": ""
+          },
+          "memo": {
+            "type": "string",
+            "description": "Memo",
+            "default": ""
+          },
+          "tax_code": {
+            "type": "string",
+            "description": "Tax Code",
+            "default": ""
+          },
+          "tax_inclusive": {
+            "type": "boolean",
+            "description": "Tax Inclusive",
+            "default": false
+          }
+        },
+        "required": [
+          "customer_name",
+          "line_items"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_list_vendor_credits",
-      "description": "List vendor credits"
+      "description": "List vendor credits",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "vendor_name": {
+            "type": "string",
+            "description": "Vendor Name",
+            "default": ""
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 100
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_create_vendor_credit",
-      "description": "Create vendor credit"
+      "description": "Create vendor credit",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "vendor_name": {
+            "type": "string",
+            "description": "Vendor Name"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount"
+          },
+          "account_name": {
+            "type": "string",
+            "description": "Account Name"
+          },
+          "date": {
+            "type": "string",
+            "description": "Date",
+            "default": ""
+          },
+          "description": {
+            "type": "string",
+            "description": "Description",
+            "default": ""
+          },
+          "tax_code": {
+            "type": "string",
+            "description": "Tax Code",
+            "default": ""
+          },
+          "tax_inclusive": {
+            "type": "boolean",
+            "description": "Tax Inclusive",
+            "default": false
+          }
+        },
+        "required": [
+          "vendor_name",
+          "amount",
+          "account_name"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_sales_tax_summary",
-      "description": "Sales tax summary by jurisdiction"
+      "description": "Sales tax summary by jurisdiction",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_tax_codes",
-      "description": "List this company's sales tax codes: name, Id, combined sales rate, and agency."
+      "description": "List this company's sales tax codes: name, Id, combined sales rate, and agency.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_tax_rates",
-      "description": "List this company's individual sales tax rates (rate % and tax agency)."
+      "description": "List this company's individual sales tax rates (rate % and tax agency).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_cash_flow_forecast",
-      "description": "Project future cash flow"
+      "description": "Project future cash flow",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "months_forward": {
+            "type": "integer",
+            "description": "Months Forward",
+            "default": 6
+          },
+          "base_months": {
+            "type": "integer",
+            "description": "Base Months",
+            "default": 6
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_profit_margin_analysis",
-      "description": "Margins by customer/item"
+      "description": "Margins by customer/item",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "group_by": {
+            "type": "string",
+            "description": "Group By",
+            "default": "customer"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_budget_vs_actual",
-      "description": "Budget vs actual spending"
+      "description": "Budget vs actual spending",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "fiscal_year": {
+            "type": "string",
+            "description": "Fiscal Year",
+            "default": "2025"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_list_estimates",
-      "description": "List estimates/quotes"
+      "description": "List estimates/quotes",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "customer_name": {
+            "type": "string",
+            "description": "Customer Name",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "description": "Status",
+            "default": ""
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 50
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_convert_estimate_to_invoice",
-      "description": "Convert estimate to invoice"
+      "description": "Convert estimate to invoice",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "estimate_id": {
+            "type": "string",
+            "description": "Estimate Id"
+          }
+        },
+        "required": [
+          "estimate_id"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_books_health_audit",
-      "description": "Comprehensive books health audit"
+      "description": "Comprehensive books health audit",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tax_year": {
+            "type": "string",
+            "description": "Tax Year",
+            "default": "2025"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_unknown_vendor_report",
-      "description": "Find unknown/missing vendors"
+      "description": "Find unknown/missing vendors",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Max Results",
+            "default": 200
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_bulk_update_vendor",
-      "description": "Assign vendor to multiple txns"
+      "description": "Assign vendor to multiple txns",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "transaction_ids": {
+            "type": "string",
+            "description": "Transaction Ids"
+          },
+          "vendor_name": {
+            "type": "string",
+            "description": "Vendor Name"
+          }
+        },
+        "required": [
+          "transaction_ids",
+          "vendor_name"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_bulk_update_vendors_multi",
-      "description": "Bulk vendor assignment"
+      "description": "Bulk vendor assignment",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "vendor_mapping": {
+            "type": "string",
+            "description": "Vendor Mapping"
+          }
+        },
+        "required": [
+          "vendor_mapping"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_month_end_close",
-      "description": "Month-end close checklist"
+      "description": "Month-end close checklist",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "integer",
+            "description": "Year",
+            "default": 2025
+          },
+          "month": {
+            "type": "integer",
+            "description": "Month",
+            "default": 12
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_delete_transaction",
-      "description": "Delete a transaction"
+      "description": "Delete a transaction",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "description": "Entity Type"
+          },
+          "entity_id": {
+            "type": "string",
+            "description": "Entity Id"
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "Confirm",
+            "default": false
+          }
+        },
+        "required": [
+          "entity_type",
+          "entity_id"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_update_vendor",
-      "description": "Update vendor details"
+      "description": "Update vendor details",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "vendor_name": {
+            "type": "string",
+            "description": "Vendor Name"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email",
+            "default": ""
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone",
+            "default": ""
+          },
+          "company_name": {
+            "type": "string",
+            "description": "Company Name",
+            "default": ""
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Display Name",
+            "default": ""
+          },
+          "vendor_1099": {
+            "type": "boolean",
+            "description": "Vendor 1099",
+            "default": false
+          },
+          "tax_id": {
+            "type": "string",
+            "description": "Tax Id",
+            "default": ""
+          }
+        },
+        "required": [
+          "vendor_name"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_update_customer",
-      "description": "Update customer details"
+      "description": "Update customer details",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "customer_name": {
+            "type": "string",
+            "description": "Customer Name"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email",
+            "default": ""
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone",
+            "default": ""
+          },
+          "company_name": {
+            "type": "string",
+            "description": "Company Name",
+            "default": ""
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Display Name",
+            "default": ""
+          }
+        },
+        "required": [
+          "customer_name"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_record_bill_payment",
-      "description": "Record a bill payment"
+      "description": "Record a bill payment",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "vendor_name": {
+            "type": "string",
+            "description": "Vendor Name"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount"
+          },
+          "bill_id": {
+            "type": "string",
+            "description": "Bill Id",
+            "default": ""
+          },
+          "payment_account": {
+            "type": "string",
+            "description": "Payment Account",
+            "default": ""
+          },
+          "date": {
+            "type": "string",
+            "description": "Date",
+            "default": ""
+          },
+          "memo": {
+            "type": "string",
+            "description": "Memo",
+            "default": ""
+          }
+        },
+        "required": [
+          "vendor_name",
+          "amount"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_record_invoice_payment",
-      "description": "Record invoice payment"
+      "description": "Record invoice payment",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "customer_name": {
+            "type": "string",
+            "description": "Customer Name"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount"
+          },
+          "invoice_id": {
+            "type": "string",
+            "description": "Invoice Id",
+            "default": ""
+          },
+          "deposit_account": {
+            "type": "string",
+            "description": "Deposit Account",
+            "default": ""
+          },
+          "date": {
+            "type": "string",
+            "description": "Date",
+            "default": ""
+          },
+          "payment_method": {
+            "type": "string",
+            "description": "Payment Method",
+            "default": ""
+          },
+          "memo": {
+            "type": "string",
+            "description": "Memo",
+            "default": ""
+          }
+        },
+        "required": [
+          "customer_name",
+          "amount"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_create_estimate",
-      "description": "Create a quote/estimate"
+      "description": "Create a quote/estimate",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "customer_name": {
+            "type": "string",
+            "description": "Customer Name"
+          },
+          "line_items": {
+            "type": "string",
+            "description": "Line Items"
+          },
+          "expiration_date": {
+            "type": "string",
+            "description": "Expiration Date",
+            "default": ""
+          },
+          "memo": {
+            "type": "string",
+            "description": "Memo",
+            "default": ""
+          },
+          "tax_code": {
+            "type": "string",
+            "description": "Tax Code",
+            "default": ""
+          },
+          "tax_inclusive": {
+            "type": "boolean",
+            "description": "Tax Inclusive",
+            "default": false
+          }
+        },
+        "required": [
+          "customer_name",
+          "line_items"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
     },
     {
       "name": "qb_gst_hst_return",
-      "description": "Build a GST/HST (GST34) return workpaper for a filing period."
+      "description": "Build a GST/HST (GST34) return workpaper for a filing period.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date"
+          },
+          "agency_name": {
+            "type": "string",
+            "description": "Agency Name",
+            "default": ""
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_t2125_summary",
-      "description": "Generate a CRA T2125 (Statement of Business or Professional Activities)"
+      "description": "Generate a CRA T2125 (Statement of Business or Professional Activities)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "integer",
+            "description": "Year"
+          }
+        },
+        "required": [
+          "year"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_cca_schedule",
-      "description": "Compute a Capital Cost Allowance (CCA) schedule by class (T2125 Area A)."
+      "description": "Compute a Capital Cost Allowance (CCA) schedule by class (T2125 Area A).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "assets_json": {
+            "type": "string",
+            "description": "Assets Json",
+            "default": ""
+          },
+          "year": {
+            "type": "integer",
+            "description": "Year",
+            "default": 0
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_t4a_contractor_report",
-      "description": "Generate T4A (box 048 \u2014 fees for services) contractor reporting data for"
+      "description": "Generate T4A (box 048 \u2014 fees for services) contractor reporting data for",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "integer",
+            "description": "Year"
+          }
+        },
+        "required": [
+          "year"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_estimate_instalments",
-      "description": "Estimate CRA tax instalments and CPP for a self-employed Canadian based"
+      "description": "Estimate CRA tax instalments and CPP for a self-employed Canadian based",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "integer",
+            "description": "Year",
+            "default": 0
+          },
+          "province": {
+            "type": "string",
+            "description": "Province",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     },
     {
       "name": "qb_tax_data_info",
-      "description": "Show the provenance of every tax rate and threshold this server uses:"
+      "description": "Show the provenance of every tax rate and threshold this server uses:",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
     }
   ],
   "tools_generated": true
