@@ -243,6 +243,8 @@ def test_tool_count_copy_matches_manifest():
     offenders = []
     for path in list((root / "web/src").rglob("*.ts*")) + \
             list((root / "web/src").rglob("*.md")) + \
+            list((root / "cowork-plugin").rglob("*.json")) + \
+            list((root / "cowork-plugin").rglob("*.md")) + \
             [root / "web/public/llms.txt", root / "README.md",
              root / "mcpb/manifest.json",
              root / "mcpb/src/accountingqb/__init__.py"]:

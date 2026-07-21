@@ -4,13 +4,14 @@
 <meta charset="UTF-8">
 <title>AccountingQB</title>
 <style>
-:root{color-scheme:dark;--bg:#0a0e1a;--bg-2:#0f1629;--card:#131a2e;--border:rgba(255,255,255,0.08);--border-glow:rgba(59,130,246,0.3);--text:#f1f5f9;--text-muted:#94a3b8;--text-dim:#64748b;--cyan:#22d3ee;--blue:#3b82f6;--indigo:#6366f1;--green:#10b981;--green-bg:rgba(16,185,129,0.12);--red:#ef4444;--red-bg:rgba(239,68,68,0.12);--warn:#f59e0b;--warn-bg:rgba(245,158,11,0.12)}
+:root{color-scheme:dark;--bg:#0a0e1a;--bg-2:#0f1629;--card:#131a2e;--border:rgba(255,255,255,0.08);--text:#f1f5f9;--text-muted:#94a3b8;--text-dim:#64748b;--cyan:#22d3ee;--blue:#3b82f6;--indigo:#6366f1;--green:#10b981;--green-bg:rgba(16,185,129,0.12);--red:#ef4444;--red-bg:rgba(239,68,68,0.12);--warn:#f59e0b;--warn-bg:rgba(245,158,11,0.12)}
 *{box-sizing:border-box}
 body{font-family:'Inter',-apple-system,'Helvetica Neue',sans-serif;background:var(--bg);color:var(--text);margin:0;padding:0;line-height:1.5;font-size:14px;-webkit-font-smoothing:antialiased}
 .app{max-width:1400px;margin:0 auto;padding:14px}
-.nav{display:flex;align-items:center;gap:14px;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;flex-wrap:wrap}
+.nav{display:flex;align-items:center;gap:14px;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);font-size:16px;letter-spacing:-0.01em}
-.brand .gradient{background:linear-gradient(135deg,#22d3ee 0%,#3b82f6 50%,#6366f1 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.brand .gradient{background:linear-gradient(135deg,#22d3ee 0%,#3b82f6 50%,#6366f1 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+@supports not ((-webkit-background-clip:text) or (background-clip:text)){.brand .gradient{color:#3b82f6;-webkit-text-fill-color:currentColor}}
 .brand .sub{font-size:11px;color:var(--text-muted);font-weight:400;margin-left:4px}
 .tabs{display:flex;gap:3px;flex:1;margin-left:6px;flex-wrap:wrap}
 .tab{padding:6px 11px;font-size:13px;color:var(--text-muted);border-radius:6px;cursor:pointer;font-weight:500;border:none;background:transparent;font-family:inherit}
@@ -19,18 +20,29 @@ body{font-family:'Inter',-apple-system,'Helvetica Neue',sans-serif;background:va
 .runway-pill{padding:5px 11px;font-size:12px;background:var(--green-bg);color:var(--green);border-radius:999px;font-weight:600;border:1px solid rgba(16,185,129,0.25)}
 .runway-pill.warn{background:var(--warn-bg);color:var(--warn);border-color:rgba(245,158,11,0.25)}
 .runway-pill.danger{background:var(--red-bg);color:var(--red);border-color:rgba(239,68,68,0.25)}
+.runway-pill.loading{animation:pulse 1.2s ease-in-out infinite;background:rgba(255,255,255,0.05);color:var(--text-dim);border-color:var(--border)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.quickbar{display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;align-items:center}
+.quickbar .qlabel{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);font-weight:700;margin-right:4px}
+.qbtn{padding:5px 12px;font-size:12px;color:var(--text-muted);border-radius:999px;cursor:pointer;font-weight:500;border:1px solid var(--border);background:transparent;font-family:inherit;display:flex;align-items:center;gap:5px}
+.qbtn:hover{background:rgba(34,211,238,0.1);color:var(--cyan);border-color:rgba(34,211,238,0.3)}
+.qbtn .plus{color:var(--cyan);font-weight:700}
 .body{display:grid;grid-template-columns:1fr 320px;gap:14px}
 .main{display:flex;flex-direction:column;gap:14px;min-width:0}
-.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative;overflow:hidden}
-.card::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(59,130,246,0.3),transparent);pointer-events:none}
-.card-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative}
+.card-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px}
 .card-h h3{font-size:14px;font-weight:600;color:var(--text);margin:0;letter-spacing:-0.005em}
-.card-h .small{font-size:12px;color:var(--text-muted)}
+.card-h .meta{display:flex;align-items:center;gap:8px}
+.card-h .small{font-size:11px;color:var(--text-dim)}
+.refresh-btn{background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:13px;line-height:1;display:grid;place-items:center;font-family:inherit}
+.refresh-btn:hover{color:var(--cyan);border-color:rgba(34,211,238,0.3)}
+.refresh-btn.spinning{animation:spin 0.8s linear infinite}
 .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .kpi{background:rgba(15,22,41,0.6);border:1px solid var(--border);padding:14px 16px;border-radius:10px;position:relative;overflow:hidden}
 .kpi::before{content:"";position:absolute;top:0;left:0;width:2px;height:100%;background:linear-gradient(180deg,#22d3ee,#3b82f6,#6366f1);opacity:0.6}
 .kpi-l{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:600;margin-bottom:6px}
 .kpi-v{font-size:22px;font-weight:700;line-height:1.1;background:linear-gradient(135deg,#22d3ee 0%,#3b82f6 50%,#6366f1 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-0.01em}
+@supports not ((-webkit-background-clip:text) or (background-clip:text)){.kpi-v{color:#3b82f6;-webkit-text-fill-color:currentColor}}
 .kpi-s{font-size:11px;color:var(--green);margin-top:6px}
 .kpi-s.neg{color:var(--red)}
 .period-tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
@@ -51,144 +63,66 @@ body{font-family:'Inter',-apple-system,'Helvetica Neue',sans-serif;background:va
 .md-content td:not(:first-child){text-align:right}
 .md-content code{background:rgba(34,211,238,0.1);padding:1px 5px;border-radius:3px;font-size:12px;color:var(--cyan)}
 .md-content blockquote{border-left:2px solid var(--cyan);padding:6px 14px;background:rgba(34,211,238,0.05);border-radius:6px;margin:10px 0;color:var(--text-muted)}
-.empty{text-align:center;padding:30px 18px;color:var(--text-muted)}
-.empty .e-h{color:var(--text);font-size:16px;margin-bottom:8px;font-weight:600}
-.empty .e-p{font-size:13px;line-height:1.6}
-.loading{text-align:center;padding:30px 18px;color:var(--text-muted);font-style:italic;font-size:13px}
-.loading::after{content:"";display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.1);border-top-color:var(--cyan);border-radius:50%;animation:spin 0.8s linear infinite;margin-left:10px;vertical-align:middle}
+.empty{text-align:center;padding:26px 18px;color:var(--text-muted)}
+.empty .e-h{color:var(--text);font-size:15px;margin-bottom:6px;font-weight:600}
+.empty .e-p{font-size:12px;line-height:1.6}
+.err-box{padding:14px;background:var(--red-bg);border:1px solid rgba(239,68,68,0.25);border-radius:8px;font-size:12px;color:var(--text-muted)}
+.err-box .retry{margin-top:8px;padding:5px 12px;font-size:11px;background:transparent;border:1px solid rgba(239,68,68,0.4);color:var(--red);border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600}
+.loading{text-align:center;padding:26px 18px;color:var(--text-dim);font-style:italic;font-size:13px}
+.loading::after{content:"";display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,0.1);border-top-color:var(--cyan);border-radius:50%;animation:spin 0.8s linear infinite;margin-left:10px;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
-.chat{background:var(--card);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;min-height:560px;position:relative;overflow:hidden}
-.chat::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,238,0.4),rgba(59,130,246,0.4),rgba(99,102,241,0.4),transparent);pointer-events:none}
-.chat-h{padding:13px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text);font-size:14px;letter-spacing:-0.005em}
+.chat{background:var(--card);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;min-height:600px;position:sticky;top:14px;max-height:calc(100vh - 28px)}
+.chat-h{padding:13px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text);font-size:14px}
 .chat-h .dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px rgba(34,211,238,0.6)}
 .chat-h .modes{margin-left:auto;display:flex;align-items:center;gap:8px;font-weight:500;font-size:11px;color:var(--text-muted)}
 .toggle{position:relative;display:inline-block;width:32px;height:18px}
 .toggle input{opacity:0;width:0;height:0}
-.toggle .slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.06);transition:.2s;border-radius:18px;border:1px solid var(--border)}
+.toggle .slider{position:absolute;cursor:pointer;inset:0;background:rgba(255,255,255,0.06);transition:.2s;border-radius:18px;border:1px solid var(--border)}
 .toggle .slider:before{position:absolute;content:"";height:12px;width:12px;left:2px;top:2px;background:var(--text-muted);transition:.2s;border-radius:50%}
 .toggle input:checked+.slider{background:linear-gradient(135deg,#22d3ee,#3b82f6);border-color:transparent}
 .toggle input:checked+.slider:before{transform:translateX(14px);background:#fff}
-.chat-msgs{flex:1;padding:12px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:380px}
+.chat-msgs{flex:1;padding:12px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
 .msg-row{display:flex;flex-direction:column;gap:3px}
 .msg-row.u{align-items:flex-end}
 .msg-row.a{align-items:flex-start}
-.msg-meta{font-size:10px;color:var(--text-dim);font-weight:500;letter-spacing:.02em}
+.msg-meta{font-size:10px;color:var(--text-dim);font-weight:500}
 .msg-meta .pill{padding:1px 6px;border-radius:4px;font-size:9px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
 .msg-meta .pill.q{background:rgba(34,211,238,0.15);color:var(--cyan)}
 .msg-meta .pill.d{background:linear-gradient(135deg,rgba(59,130,246,0.25),rgba(99,102,241,0.25));color:#a5b4fc}
 .msg{font-size:12px;line-height:1.55}
 .msg.u{background:linear-gradient(135deg,rgba(34,211,238,0.15),rgba(59,130,246,0.15));color:var(--text);padding:7px 11px;border-radius:10px 10px 2px 10px;max-width:90%;border:1px solid rgba(59,130,246,0.25)}
-.msg.a{background:rgba(255,255,255,0.04);color:var(--text);padding:7px 11px;border-radius:10px 10px 10px 2px;max-width:92%;border:1px solid var(--border)}
+.msg.a{background:rgba(255,255,255,0.04);color:var(--text);padding:7px 11px;border-radius:10px 10px 10px 2px;max-width:92%;border:1px solid var(--border);white-space:pre-wrap}
 .msg-hint{font-size:11px;color:var(--text-dim);font-style:italic;text-align:center;padding:8px}
+.thinking{display:flex;gap:4px;padding:9px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px 10px 10px 2px;width:fit-content}
+.thinking span{width:6px;height:6px;border-radius:50%;background:var(--cyan);animation:blink 1.2s infinite}
+.thinking span:nth-child(2){animation-delay:0.2s}
+.thinking span:nth-child(3){animation-delay:0.4s}
+@keyframes blink{0%,80%,100%{opacity:0.25}40%{opacity:1}}
 .chat-i{padding:10px 12px;border-top:1px solid var(--border)}
-.chat-input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;color:var(--text);background:rgba(15,22,41,0.6);outline:none;box-sizing:border-box}
+.chat-input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;color:var(--text);background:rgba(15,22,41,0.6);outline:none}
 .chat-input::placeholder{color:var(--text-dim)}
 .chat-input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,211,238,0.15)}
 .chat-suggestions{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
 .chat-suggestion{font-size:11px;padding:5px 10px;border-radius:6px;background:rgba(255,255,255,0.04);color:var(--text-muted);border:1px solid var(--border);cursor:pointer;font-family:inherit}
 .chat-suggestion:hover{background:rgba(34,211,238,0.1);color:var(--cyan);border-color:rgba(34,211,238,0.3)}
-.action-log{padding:10px 12px;border-top:1px solid var(--border);background:rgba(10,14,26,0.5);border-radius:0 0 12px 12px;font-size:11px;color:var(--text-muted);max-height:120px;overflow-y:auto}
-.action-log .h{font-weight:600;color:var(--cyan);text-transform:uppercase;letter-spacing:.06em;font-size:10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.action-log{padding:10px 12px;border-top:1px solid var(--border);background:rgba(10,14,26,0.5);border-radius:0 0 12px 12px;font-size:11px;color:var(--text-muted);max-height:110px;overflow-y:auto}
+.action-log .h{font-weight:600;color:var(--cyan);text-transform:uppercase;letter-spacing:.06em;font-size:10px;margin-bottom:6px;display:flex;justify-content:space-between}
 .action-log .h button{background:transparent;border:0;color:var(--text-dim);cursor:pointer;font-size:10px;font-family:inherit}
 .action-log .empty-log{font-style:italic;font-size:11px}
 .action-log .log-row{padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;display:flex;justify-content:space-between;gap:8px}
 .action-log .log-row:last-child{border-bottom:none}
 .action-log .log-row .what{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .action-log .log-row .when{color:var(--text-dim);font-size:10px;flex-shrink:0}
-@media (max-width:1100px){.body{grid-template-columns:1fr}}
+@media (max-width:1100px){.body{grid-template-columns:1fr}.chat{position:static;max-height:none;min-height:480px}}
 @media (max-width:600px){.kpi-grid{grid-template-columns:1fr}}
-.welcome{max-width:600px;margin:40px auto;text-align:center}
-.welcome-logo{margin-bottom:24px}
-.welcome h1{font-size:28px;font-weight:700;margin:0 0 8px;background:linear-gradient(135deg,#22d3ee 0%,#3b82f6 50%,#6366f1 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.welcome .tagline{color:var(--text-muted);font-size:15px;margin-bottom:32px}
-.steps{text-align:left;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px}
-.steps h2{font-size:14px;color:var(--cyan);text-transform:uppercase;letter-spacing:.06em;margin:0 0 16px}
-.step{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)}
-.step:last-child{border-bottom:none;padding-bottom:0}
-.step-num{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,rgba(34,211,238,0.2),rgba(59,130,246,0.2));color:var(--cyan);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.step-num.done{background:var(--green);color:#fff}
-.step-content h3{font-size:14px;font-weight:600;color:var(--text);margin:0 0 4px}
-.step-content p{font-size:13px;color:var(--text-muted);margin:0;line-height:1.5}
-.step-content code{background:rgba(34,211,238,0.1);padding:2px 6px;border-radius:4px;font-size:12px;color:var(--cyan)}
-.step-content a{color:var(--cyan);text-decoration:none}
-.step-content a:hover{text-decoration:underline}
-.status-bar{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;background:rgba(15,22,41,0.6);border-radius:8px;margin-top:20px}
-.status-dot{width:10px;height:10px;border-radius:50%;background:var(--warn);animation:pulse 1.5s infinite}
-.status-dot.connected{background:var(--green);animation:none}
-.status-dot.error{background:var(--red);animation:none}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
-.status-text{font-size:13px;color:var(--text-muted)}
-.retry-btn{padding:8px 16px;background:linear-gradient(135deg,#22d3ee,#3b82f6);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;margin-left:10px}
-.retry-btn:hover{opacity:0.9}
-.get-started-btn{display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#22d3ee,#3b82f6);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;margin-bottom:20px;box-shadow:0 4px 20px rgba(34,211,238,0.3)}
-.get-started-btn:hover{opacity:0.9;transform:translateY(-1px)}
 </style>
 </head>
 <body>
 <div class="app">
-
-<div id="welcome-view" class="welcome" style="display:none">
-<div class="welcome-logo">
-<svg viewBox="0 0 512 512" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
-<defs><linearGradient id="wg" x1="60" y1="60" x2="452" y2="452" gradientUnits="userSpaceOnUse">
-<stop offset="0%" stop-color="#22d3ee"/><stop offset="40%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#6366f1"/>
-</linearGradient></defs>
-<path d="M 210 108 A 148 148 0 1 1 209.99 108 Z M 210 164 A 92 92 0 1 0 210.01 164 Z" fill="url(#wg)" fill-rule="evenodd"/>
-<rect x="290" y="310" width="120" height="52" rx="26" fill="url(#wg)" transform="rotate(42, 350, 336)"/>
-<rect x="290" y="118" width="42" height="268" rx="4" fill="url(#wg)"/>
-<path d="M 311 118 L 360 118 A 62 62 0 0 1 360 242 L 311 242 Z" fill="url(#wg)"/>
-<path d="M 311 242 L 370 242 A 72 72 0 0 1 370 386 L 311 386 Z" fill="url(#wg)"/>
-<path d="M 318 148 L 348 148 A 34 34 0 0 1 348 216 L 318 216 Z" fill="#0a0e1a"/>
-<path d="M 318 268 L 355 268 A 42 42 0 0 1 355 364 L 318 364 Z" fill="#0a0e1a"/>
-</svg>
-</div>
-<h1>Welcome to AccountingQB</h1>
-<p class="tagline">Your AI-powered QuickBooks dashboard. Let's get you connected.</p>
-
-<div class="steps">
-<h2>Get Started</h2>
-<div class="step">
-<div class="step-num" id="step1-num">1</div>
-<div class="step-content">
-<h3>Create your account</h3>
-<p>Sign up for AccountingQB and start your free trial. No credit card required.</p>
-</div>
-</div>
-<div class="step">
-<div class="step-num" id="step2-num">2</div>
-<div class="step-content">
-<h3>Connect QuickBooks</h3>
-<p>Securely link your QuickBooks Online account with one click.</p>
-</div>
-</div>
-<div class="step">
-<div class="step-num" id="step3-num">3</div>
-<div class="step-content">
-<h3>You're done!</h3>
-<p>Come back here and click Retry to load your financial dashboard.</p>
-</div>
-</div>
-</div>
-<a href="https://accountingqb.com/setup" target="_blank" class="get-started-btn">Get Started Free</a>
-
-<div class="status-bar">
-<div class="status-dot" id="status-dot"></div>
-<span class="status-text" id="status-text">Checking connection...</span>
-<button class="retry-btn" id="retry-btn" style="display:none" onclick="checkConnection()">Retry</button>
-</div>
-</div>
-
-<div id="dashboard-view" style="display:none">
 <div class="nav">
 <div class="brand">
 <svg viewBox="0 0 512 512" width="22" height="22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-<defs>
-<linearGradient id="aqbg" x1="60" y1="60" x2="452" y2="452" gradientUnits="userSpaceOnUse">
-<stop offset="0%" stop-color="#22d3ee"/>
-<stop offset="40%" stop-color="#3b82f6"/>
-<stop offset="100%" stop-color="#6366f1"/>
-</linearGradient>
-</defs>
+<defs><linearGradient id="aqbg" x1="60" y1="60" x2="452" y2="452" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#22d3ee"/><stop offset="40%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#6366f1"/></linearGradient></defs>
 <path d="M 210 108 A 148 148 0 1 1 209.99 108 Z M 210 164 A 92 92 0 1 0 210.01 164 Z" fill="url(#aqbg)" fill-rule="evenodd"/>
 <rect x="290" y="310" width="120" height="52" rx="26" fill="url(#aqbg)" transform="rotate(42, 350, 336)"/>
 <rect x="290" y="118" width="42" height="268" rx="4" fill="url(#aqbg)"/>
@@ -198,7 +132,7 @@ body{font-family:'Inter',-apple-system,'Helvetica Neue',sans-serif;background:va
 <path d="M 318 268 L 355 268 A 42 42 0 0 1 355 364 L 318 364 Z" fill="#0a0e1a"/>
 </svg>
 <span class="gradient">AccountingQB</span>
-<span class="sub">Loading...</span>
+<span class="sub" id="company-name">connecting…</span>
 </div>
 <div class="tabs" role="tablist">
 <button class="tab active" data-tab="dashboard">Dashboard</button>
@@ -210,7 +144,17 @@ body{font-family:'Inter',-apple-system,'Helvetica Neue',sans-serif;background:va
 <button class="tab" data-tab="tax">Tax</button>
 <button class="tab" data-tab="health">Health</button>
 </div>
-<span id="runway-pill" class="runway-pill">Loading…</span>
+<span id="runway-pill" class="runway-pill loading">Loading</span>
+</div>
+
+<div class="quickbar">
+<span class="qlabel">Quick actions</span>
+<button class="qbtn" data-action="Create a new invoice — ask me for the customer, amount, and line items"><span class="plus">+</span> Invoice</button>
+<button class="qbtn" data-action="Create a new expense — ask me for the vendor, amount, category, and date"><span class="plus">+</span> Expense</button>
+<button class="qbtn" data-action="Run qb_find_duplicates and show me any duplicate transactions">⧉ Find duplicates</button>
+<button class="qbtn" data-action="Run qb_anomaly_detection and flag anything unusual in my books">⚠ Detect anomalies</button>
+<button class="qbtn" data-action="Run the month-end close checklist for last month and walk me through each item">✓ Month-end close</button>
+<button class="qbtn" data-action="Run qb_unknown_vendor_report and help me assign vendors to the unnamed transactions">☰ Fix vendors</button>
 </div>
 
 <div class="body">
@@ -218,7 +162,7 @@ body{font-family:'Inter',-apple-system,'Helvetica Neue',sans-serif;background:va
 
 <div id="view-dashboard">
 <div class="card">
-<div class="card-h"><h3>At a glance</h3><span id="as-of" class="small"></span></div>
+<div class="card-h"><h3>At a glance</h3><div class="meta"><span id="as-of" class="small"></span><button class="refresh-btn" data-refresh="dashboard" title="Refresh">↻</button></div></div>
 <div class="kpi-grid">
 <div class="kpi"><div class="kpi-l">Cash on hand</div><div class="kpi-v" id="kpi-cash">—</div><div class="kpi-s" id="kpi-cash-s">loading</div></div>
 <div class="kpi"><div class="kpi-l">Net Income (YTD)</div><div class="kpi-v" id="kpi-net">—</div><div class="kpi-s" id="kpi-net-s">loading</div></div>
@@ -226,21 +170,19 @@ body{font-family:'Inter',-apple-system,'Helvetica Neue',sans-serif;background:va
 <div class="kpi"><div class="kpi-l">Runway</div><div class="kpi-v" id="kpi-runway">—</div><div class="kpi-s" id="kpi-runway-s">loading</div></div>
 </div>
 </div>
-
 <div class="card">
-<div class="card-h"><h3>Profit &amp; Loss</h3><span class="small" id="pl-period-label">Year-to-date</span></div>
+<div class="card-h"><h3>Profit &amp; Loss</h3><div class="meta"><span class="small" id="pl-period-label">Year-to-date</span></div></div>
 <div id="dashboard-pl" class="md-content"><div class="loading">Loading P&amp;L</div></div>
 </div>
-
 <div class="card">
-<div class="card-h"><h3>Books health</h3><span class="small">Score &amp; cleanup items</span></div>
+<div class="card-h"><h3>Books health</h3><div class="meta"><span class="small ts" data-ts="health"></span><button class="refresh-btn" data-refresh="healthsum" title="Refresh">↻</button></div></div>
 <div id="dashboard-health" class="md-content"><div class="loading">Loading audit</div></div>
 </div>
 </div>
 
 <div id="view-pl" style="display:none">
 <div class="card">
-<div class="card-h"><h3>Profit &amp; Loss</h3><span class="small" id="pl-tab-period">Year-to-date</span></div>
+<div class="card-h"><h3>Profit &amp; Loss</h3><div class="meta"><span class="small ts" data-ts="pl"></span><button class="refresh-btn" data-refresh="pl" title="Refresh">↻</button></div></div>
 <div class="period-tabs" id="pl-period-tabs">
 <button class="period-tab" data-period="mtd">Month</button>
 <button class="period-tab" data-period="qtd">Quarter</button>
@@ -253,58 +195,75 @@ body{font-family:'Inter',-apple-system,'Helvetica Neue',sans-serif;background:va
 
 <div id="view-cashflow" style="display:none">
 <div class="card">
-<div class="card-h"><h3>Cash flow statement</h3><span class="small">Year-to-date</span></div>
+<div class="card-h"><h3>Cash flow statement</h3><div class="meta"><span class="small ts" data-ts="cashflow"></span><button class="refresh-btn" data-refresh="cashflow" title="Refresh">↻</button></div></div>
+<div class="period-tabs" id="cf-period-tabs">
+<button class="period-tab" data-period="mtd">Month</button>
+<button class="period-tab" data-period="qtd">Quarter</button>
+<button class="period-tab active" data-period="ytd">Year</button>
+</div>
 <div id="cashflow-content" class="md-content"><div class="loading">Loading</div></div>
 </div>
 <div class="card">
-<div class="card-h"><h3>Cash flow forecast</h3><span class="small">Next 90 days</span></div>
+<div class="card-h"><h3>Cash flow forecast</h3><div class="meta"><span class="small">Next 90 days</span></div></div>
 <div id="cashflow-forecast" class="md-content"><div class="loading">Loading</div></div>
 </div>
 </div>
 
 <div id="view-receivables" style="display:none">
 <div class="card">
-<div class="card-h"><h3>Accounts Receivable aging</h3><span class="small">Who owes you</span></div>
+<div class="card-h"><h3>Accounts Receivable aging</h3><div class="meta"><span class="small ts" data-ts="receivables"></span><button class="refresh-btn" data-refresh="receivables" title="Refresh">↻</button></div></div>
 <div id="ar-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Open invoices</h3><div class="meta"><span class="small">Unpaid &amp; overdue</span></div></div>
+<div id="invoices-content" class="md-content"><div class="loading">Loading</div></div>
 </div>
 </div>
 
 <div id="view-payables" style="display:none">
 <div class="card">
-<div class="card-h"><h3>Accounts Payable aging</h3><span class="small">Who you owe</span></div>
+<div class="card-h"><h3>Accounts Payable aging</h3><div class="meta"><span class="small ts" data-ts="payables"></span><button class="refresh-btn" data-refresh="payables" title="Refresh">↻</button></div></div>
 <div id="ap-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Top vendors by spend</h3><div class="meta"><span class="small">Year-to-date</span></div></div>
+<div id="vendors-content" class="md-content"><div class="loading">Loading</div></div>
 </div>
 </div>
 
 <div id="view-transactions" style="display:none">
 <div class="card">
-<div class="card-h"><h3>Uncategorized transactions</h3><span class="small">Cleanup queue</span></div>
+<div class="card-h"><h3>Uncategorized transactions</h3><div class="meta"><span class="small ts" data-ts="transactions"></span><button class="refresh-btn" data-refresh="transactions" title="Refresh">↻</button></div></div>
 <div id="uncat-content" class="md-content"><div class="loading">Loading</div></div>
 </div>
 <div class="card">
-<div class="card-h"><h3>Recent activity</h3><span class="small">Last 90 days</span></div>
+<div class="card-h"><h3>Anomalies &amp; duplicates</h3><div class="meta"><span class="small">AI-detected</span></div></div>
+<div id="anomaly-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Recent activity</h3><div class="meta"><span class="small">Last 90 days</span></div></div>
 <div id="recent-content" class="md-content"><div class="loading">Loading</div></div>
 </div>
 </div>
 
 <div id="view-tax" style="display:none">
 <div class="card">
-<div class="card-h"><h3>Quarterly tax estimate</h3><span class="small">Current quarter</span></div>
+<div class="card-h"><h3>Quarterly tax estimate</h3><div class="meta"><span class="small ts" data-ts="tax"></span><button class="refresh-btn" data-refresh="tax" title="Refresh">↻</button></div></div>
 <div id="tax-quarterly" class="md-content"><div class="loading">Loading</div></div>
 </div>
 <div class="card">
-<div class="card-h"><h3>Schedule C summary</h3><span class="small">Year-to-date deductions</span></div>
+<div class="card-h"><h3>Schedule C summary</h3><div class="meta"><span class="small">Year-to-date</span></div></div>
 <div id="tax-schedulec" class="md-content"><div class="loading">Loading</div></div>
 </div>
 <div class="card">
-<div class="card-h"><h3>Deduction finder</h3><span class="small">AI-spotted opportunities</span></div>
+<div class="card-h"><h3>Deduction finder</h3><div class="meta"><span class="small">AI-spotted opportunities</span></div></div>
 <div id="tax-deductions" class="md-content"><div class="loading">Loading</div></div>
 </div>
 </div>
 
 <div id="view-health" style="display:none">
 <div class="card">
-<div class="card-h"><h3>Books health audit</h3><span class="small">Comprehensive cleanup score</span></div>
+<div class="card-h"><h3>Books health audit</h3><div class="meta"><span class="small ts" data-ts="health"></span><button class="refresh-btn" data-refresh="health" title="Refresh">↻</button></div></div>
 <div id="health-content" class="md-content"><div class="loading">Loading</div></div>
 </div>
 </div>
@@ -317,31 +276,39 @@ body{font-family:'Inter',-apple-system,'Helvetica Neue',sans-serif;background:va
 <div class="modes"><span>Deep</span><label class="toggle"><input type="checkbox" id="deep-mode-toggle"><span class="slider"></span></label></div>
 </div>
 <div class="chat-msgs" id="chat-msgs">
-<div class="msg-hint">Ask about your books. Quick lookups answer instantly. Actions route through AccountingQB skills.</div>
+<div class="msg-hint">Ask about your books or give a command. Loaded tab data is used to answer instantly; actions route to AccountingQB's skills.</div>
 </div>
 <div class="chat-i">
 <input id="chat-input" class="chat-input" placeholder="Ask a question or give a command..." aria-label="Ask AccountingQB">
-<div class="chat-suggestions">
-<button class="chat-suggestion" data-q="What's my profit this month?">P&amp;L this month</button>
-<button class="chat-suggestion" data-q="Who owes me money?">A/R</button>
-<button class="chat-suggestion" data-q="Create an invoice for $5,000 to Acme Corp">Try a command</button>
-</div>
+<div class="chat-suggestions" id="chat-suggestions"></div>
 </div>
 <div class="action-log">
 <div class="h"><span>Recent actions</span><button onclick="clearActions()">Clear</button></div>
-<div id="action-log-list"><div class="empty-log">No actions yet — try giving a command.</div></div>
+<div id="action-log-list"><div class="empty-log">No actions yet — try a quick action above.</div></div>
 </div>
 </aside>
 
 </div>
-</div><!-- end dashboard-view -->
-</div><!-- end app -->
+</div>
 
-<script>window.HEARTH_DATA = window.HEARTH_DATA || {};</script>
 <script>
-const D = window.HEARTH_DATA || {};
-const NS = 'mcp__accountingqb__';
+// ============ Namespace auto-detection ============
+// Ryan's session exposes the server as mcp__quickbooks__*; packaged plugin installs
+// expose it as mcp__accountingqb__*. Same product (AccountingQB). Detect at runtime.
+const NS_CANDIDATES = ['mcp__quickbooks__', 'mcp__accountingqb__'];
+let NS = null;
+let COMPANY = null;
 
+// ============ Data cache (powers chat context + timestamps) ============
+const CACHE = {};   // key -> { md: string, ts: Date }
+function cachePut(key, md){ CACHE[key] = { md: String(md||'').slice(0, 4000), ts: new Date() }; paintTs(key); }
+function paintTs(key){
+  document.querySelectorAll('.ts[data-ts="' + key + '"]').forEach(el => {
+    if(CACHE[key]) el.textContent = 'as of ' + CACHE[key].ts.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+  });
+}
+
+// ============ Markdown renderer ============
 function md2html(s){
   if(!s) return '<div class="empty"><div class="e-p">No data returned.</div></div>';
   if(typeof s !== 'string') s = (s.result || s.text || JSON.stringify(s));
@@ -374,73 +341,95 @@ function md2html(s){
   }).join('\n');
   return s;
 }
-function inlineMd(s){
-  s = escapeHtml(s);
-  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  s = s.replace(/`(.+?)`/g, '<code>$1</code>');
-  return s;
-}
-function escapeHtml(s){
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+function inlineMd(s){ s = escapeHtml(s); s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'); s = s.replace(/`(.+?)`/g, '<code>$1</code>'); return s; }
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// ============ Helpers ============
 function periodRange(period){
-  const today = new Date();
-  const y = today.getFullYear();
-  const m = today.getMonth();
-  const iso = (dt) => dt.toISOString().slice(0,10);
-  if(period === 'mtd') return [iso(new Date(y, m, 1)), iso(today)];
-  if(period === 'qtd') return [iso(new Date(y, Math.floor(m/3)*3, 1)), iso(today)];
-  if(period === 'ytd') return [iso(new Date(y, 0, 1)), iso(today)];
+  const t = new Date(); const y = t.getFullYear(); const m = t.getMonth();
+  const iso = (d) => d.toISOString().slice(0,10);
+  if(period === 'mtd') return [iso(new Date(y, m, 1)), iso(t)];
+  if(period === 'qtd') return [iso(new Date(y, Math.floor(m/3)*3, 1)), iso(t)];
   if(period === 'prev_year') return [iso(new Date(y-1, 0, 1)), iso(new Date(y-1, 11, 31))];
-  return [iso(new Date(y, 0, 1)), iso(today)];
+  return [iso(new Date(y, 0, 1)), iso(t)];
 }
-
+async function rawCall(ns, tool, args){
+  const r = await window.cowork.callMcpTool(ns + tool, args || {});
+  if(r && r.isError) throw new Error((r.content && r.content[0] && r.content[0].text) || 'tool error');
+  return r;
+}
 async function call(tool, args){
-  if(!window.cowork || !window.cowork.callMcpTool){
-    return { error: 'cowork.callMcpTool not available — render this artifact inside Cowork.' };
+  if(!window.cowork || !window.cowork.callMcpTool) return { error: 'Not running inside Cowork.' };
+  if(NS){
+    try { return await rawCall(NS, tool, args); } catch(e){ return { error: e.message || String(e) }; }
   }
-  try {
-    return await window.cowork.callMcpTool(NS + tool, args || {});
-  } catch(e){
-    return { error: e.message || String(e) };
+  for(const cand of NS_CANDIDATES){
+    try { const r = await rawCall(cand, tool, args); NS = cand; return r; } catch(e){}
   }
+  return { error: 'AccountingQB connector not found. Check that the MCP server is running.' };
 }
-
-function setContent(id, content, errMessage){
+function extractText(r){
+  if(!r) return '';
+  if(typeof r === 'string') return r;
+  if(r.result) return r.result;
+  if(r.structuredContent && r.structuredContent.result) return r.structuredContent.result;
+  if(r.content && r.content[0] && r.content[0].text){
+    try { const p = JSON.parse(r.content[0].text); return p.result || r.content[0].text; } catch(e){ return r.content[0].text; }
+  }
+  return JSON.stringify(r);
+}
+function setContent(id, r, errMessage, cacheKey){
   const el = document.getElementById(id);
   if(!el) return;
-  if(content && content.error){ el.innerHTML = '<div class="empty"><div class="e-p">' + escapeHtml(errMessage || 'Could not load data') + ' — ' + escapeHtml(content.error) + '</div></div>'; return; }
-  el.innerHTML = md2html(content);
+  if(r && r.error){
+    el.innerHTML = '<div class="err-box">' + escapeHtml(errMessage || 'Could not load data') + ' — ' + escapeHtml(r.error) +
+      '<br><button class="retry" onclick="retrySection(\'' + id + '\')">Retry</button></div>';
+    return;
+  }
+  const md = extractText(r);
+  el.innerHTML = md2html(md);
+  if(cacheKey) cachePut(cacheKey, md);
 }
-
+const SECTION_LOADERS = {};  // id -> reload fn, used by retry buttons
+function retrySection(id){ if(SECTION_LOADERS[id]) SECTION_LOADERS[id](); }
+const fmt = n => n == null ? '—' : '$' + Math.round(Math.abs(n)).toLocaleString();
+const fmtSign = n => (n < 0 ? '-' : '') + fmt(n);
 function parseAmountFromMd(s, label){
-  if(typeof s !== 'string') s = (s && (s.result || s.text)) || '';
-  const re = new RegExp('\\*\\*' + label + '[:\\s]*\\**\\s*\\$?([\\-\\(\\)\\d,\\.]+)', 'i');
-  const m = s.match(re);
+  if(typeof s !== 'string') s = extractText(s);
+  const m = s.match(new RegExp('\\*\\*' + label + '[:\\s]*\\**\\s*\\$?([\\-\\(\\)\\d,\\.]+)', 'i'));
   if(!m) return null;
   const n = parseFloat(m[1].replace(/[\(\)$,]/g, ''));
   return isNaN(n) ? null : n;
 }
-
 function parseRunwayMonthsFromMd(s){
-  if(typeof s !== 'string') s = (s && (s.result || s.text)) || '';
+  if(typeof s !== 'string') s = extractText(s);
   const m = s.match(/Runway:\s*([\d\.]+)\s*months/i);
   return m ? parseFloat(m[1]) : null;
 }
 
-const fmt = n => n == null ? '—' : '$' + Math.round(Math.abs(n)).toLocaleString();
-const fmtSign = n => (n < 0 ? '-' : '') + fmt(n);
+// ============ Company name ============
+async function loadCompany(){
+  const r = await call('qb_company_info', {});
+  const el = document.getElementById('company-name');
+  if(r && r.error){ el.textContent = 'not connected'; return; }
+  const md = extractText(r);
+  cachePut('company', md);
+  const m = md.match(/\*\*Company:\*\*\s*(.+)/);
+  COMPANY = m ? m[1].trim() : null;
+  el.textContent = COMPANY || 'connected';
+}
 
+// ============ Dashboard ============
 async function loadDashboardKpis(){
   const [start, end] = periodRange('ytd');
   const [pl, runway] = await Promise.all([
     call('qb_profit_loss', { start_date: start, end_date: end, summarize_by: 'Total' }),
     call('qb_runway_calculator', {})
   ]);
-  setContent('dashboard-pl', pl, 'Could not load P&L');
-  const plStr = (pl && pl.result) || '';
-  const runwayStr = (runway && runway.result) || '';
+  setContent('dashboard-pl', pl, 'Could not load P&L', 'pl');
+  SECTION_LOADERS['dashboard-pl'] = loadDashboardKpis;
+  const plStr = extractText(pl); const runwayStr = extractText(runway);
+  cachePut('runway', runwayStr);
   const netIncome = parseAmountFromMd(plStr, 'Net Income');
   const cash = parseAmountFromMd(runwayStr, 'Cash on hand');
   const burn = parseAmountFromMd(runwayStr, 'Net monthly burn');
@@ -449,72 +438,132 @@ async function loadDashboardKpis(){
   document.getElementById('kpi-cash-s').textContent = cash != null ? 'across primary accounts' : 'no data';
   document.getElementById('kpi-net').textContent = netIncome != null ? fmtSign(netIncome) : '—';
   const netS = document.getElementById('kpi-net-s');
-  if(netIncome != null){
-    netS.textContent = netIncome >= 0 ? 'profitable YTD' : 'loss YTD';
-    netS.className = 'kpi-s' + (netIncome < 0 ? ' neg' : '');
-  } else { netS.textContent = 'no P&L data yet'; }
+  if(netIncome != null){ netS.textContent = netIncome >= 0 ? 'profitable YTD' : 'loss YTD'; netS.className = 'kpi-s' + (netIncome < 0 ? ' neg' : ''); }
+  else netS.textContent = 'no P&L data yet';
   document.getElementById('kpi-burn').textContent = burn != null ? fmt(burn) : '—';
   document.getElementById('kpi-burn-s').textContent = burn != null ? '90-day rolling' : 'no data';
   document.getElementById('kpi-runway').textContent = runMonths != null ? runMonths.toFixed(1) + ' mo' : '—';
   document.getElementById('kpi-runway-s').textContent = runMonths != null ? 'at current burn' : 'needs data';
   const pill = document.getElementById('runway-pill');
-  if(runMonths == null){ pill.textContent = 'No data'; pill.className = 'runway-pill'; }
+  pill.classList.remove('loading');
+  if(runMonths == null){ pill.textContent = burn != null && burn <= 0 ? 'Profitable' : 'No data'; pill.className = 'runway-pill'; }
   else if(runMonths < 3){ pill.textContent = runMonths.toFixed(1) + ' mo runway'; pill.className = 'runway-pill danger'; }
   else if(runMonths < 12){ pill.textContent = runMonths.toFixed(1) + ' mo runway'; pill.className = 'runway-pill warn'; }
   else { pill.textContent = runMonths.toFixed(1) + ' mo runway'; pill.className = 'runway-pill'; }
   document.getElementById('as-of').textContent = 'As of ' + new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
 }
-
 async function loadHealthSummary(){
-  const result = await call('qb_books_health_audit', { tax_year: String(new Date().getFullYear()) });
-  setContent('dashboard-health', result, 'Could not run audit');
-  setContent('health-content', result, 'Could not run audit');
+  const r = await call('qb_books_health_audit', { tax_year: String(new Date().getFullYear()) });
+  setContent('dashboard-health', r, 'Could not run audit', 'health');
+  setContent('health-content', r, 'Could not run audit', 'health');
+  SECTION_LOADERS['dashboard-health'] = loadHealthSummary;
+  SECTION_LOADERS['health-content'] = loadHealthSummary;
 }
 
+// ============ Lazy tab loaders ============
 const loaded = {};
-async function loadTab(tab){
-  if(loaded[tab]) return;
+async function loadTab(tab, force){
+  if(loaded[tab] && !force) return;
   loaded[tab] = true;
-  if(tab === 'pl'){ await loadPL('ytd'); }
+  if(tab === 'pl'){ await loadPL(currentPlPeriod); }
   else if(tab === 'cashflow'){
-    const [start, end] = periodRange('ytd');
-    const [cf, fc] = await Promise.all([call('qb_cash_flow', { start_date: start, end_date: end }), call('qb_cash_flow_forecast', { months_forward: 3 })]);
-    setContent('cashflow-content', cf, 'Could not load cash flow');
-    setContent('cashflow-forecast', fc, 'Could not load forecast');
-  } else if(tab === 'receivables'){ setContent('ar-content', await call('qb_ar_aging', {}), 'Could not load A/R aging'); }
-  else if(tab === 'payables'){ setContent('ap-content', await call('qb_ap_aging', {}), 'Could not load A/P aging'); }
-  else if(tab === 'transactions'){
-    const [uncat, recent] = await Promise.all([call('qb_uncategorized_transactions', { max_results: 25 }), call('qb_search_transactions', { max_results: 30 })]);
-    setContent('uncat-content', uncat, 'Could not load uncategorized');
-    setContent('recent-content', recent, 'Could not load recent transactions');
-  } else if(tab === 'tax'){
-    const [q, sc, ded] = await Promise.all([call('qb_estimate_quarterly_tax', {}), call('qb_schedule_c_detailed', { tax_year: String(new Date().getFullYear()) }), call('qb_deduction_finder', {})]);
-    setContent('tax-quarterly', q, 'Could not estimate quarterly tax');
-    setContent('tax-schedulec', sc, 'Could not load Schedule C');
-    setContent('tax-deductions', ded, 'Could not run deduction finder');
+    await loadCashflow(currentCfPeriod);
+    const fc = await call('qb_cash_flow_forecast', { months_forward: 3 });
+    setContent('cashflow-forecast', fc, 'Could not load forecast', 'forecast');
+    SECTION_LOADERS['cashflow-forecast'] = () => loadTab('cashflow', true);
   }
+  else if(tab === 'receivables'){
+    const [ar, inv] = await Promise.all([ call('qb_ar_aging', {}), call('qb_list_invoices', { status: 'unpaid', max_results: 20 }) ]);
+    setContent('ar-content', ar, 'Could not load A/R aging', 'receivables');
+    setContent('invoices-content', inv, 'Could not load invoices', 'invoices');
+    SECTION_LOADERS['ar-content'] = () => loadTab('receivables', true);
+    SECTION_LOADERS['invoices-content'] = () => loadTab('receivables', true);
+  }
+  else if(tab === 'payables'){
+    const [ap, vend] = await Promise.all([ call('qb_ap_aging', {}), call('qb_vendor_summary', {}) ]);
+    setContent('ap-content', ap, 'Could not load A/P aging', 'payables');
+    setContent('vendors-content', vend, 'Could not load vendor summary', 'vendors');
+    SECTION_LOADERS['ap-content'] = () => loadTab('payables', true);
+    SECTION_LOADERS['vendors-content'] = () => loadTab('payables', true);
+  }
+  else if(tab === 'transactions'){
+    const [uncat, anom, recent] = await Promise.all([
+      call('qb_uncategorized_transactions', { max_results: 25 }),
+      call('qb_find_duplicates', {}),
+      call('qb_search_transactions', { max_results: 30 })
+    ]);
+    setContent('uncat-content', uncat, 'Could not load uncategorized', 'transactions');
+    setContent('anomaly-content', anom, 'Could not run duplicate detection', 'anomalies');
+    setContent('recent-content', recent, 'Could not load recent transactions', 'recent');
+    SECTION_LOADERS['uncat-content'] = () => loadTab('transactions', true);
+    SECTION_LOADERS['anomaly-content'] = () => loadTab('transactions', true);
+    SECTION_LOADERS['recent-content'] = () => loadTab('transactions', true);
+  }
+  else if(tab === 'tax'){
+    const [q, sc, ded] = await Promise.all([
+      call('qb_estimate_quarterly_tax', {}),
+      call('qb_schedule_c_detailed', { tax_year: String(new Date().getFullYear()) }),
+      call('qb_deduction_finder', {})
+    ]);
+    setContent('tax-quarterly', q, 'Could not estimate quarterly tax', 'tax');
+    setContent('tax-schedulec', sc, 'Could not load Schedule C', 'schedulec');
+    setContent('tax-deductions', ded, 'Could not run deduction finder', 'deductions');
+    SECTION_LOADERS['tax-quarterly'] = () => loadTab('tax', true);
+    SECTION_LOADERS['tax-schedulec'] = () => loadTab('tax', true);
+    SECTION_LOADERS['tax-deductions'] = () => loadTab('tax', true);
+  }
+  else if(tab === 'health'){ if(!CACHE['health']) await loadHealthSummary(); }
 }
-
+let currentPlPeriod = 'ytd';
 async function loadPL(period){
+  currentPlPeriod = period;
   const [start, end] = periodRange(period);
-  const result = await call('qb_profit_loss', { start_date: start, end_date: end, summarize_by: 'Total' });
-  setContent('pl-content', result, 'Could not load P&L');
+  const r = await call('qb_profit_loss', { start_date: start, end_date: end, summarize_by: 'Total' });
+  setContent('pl-content', r, 'Could not load P&L', 'pl');
+  SECTION_LOADERS['pl-content'] = () => loadPL(currentPlPeriod);
   const labels = {mtd:'Month-to-date', qtd:'Quarter-to-date', ytd:'Year-to-date', prev_year:'Prior year'};
-  document.getElementById('pl-tab-period').textContent = labels[period] || 'Year-to-date';
-  document.getElementById('pl-period-label').textContent = labels[period] || 'Year-to-date';
+  document.getElementById('pl-period-label').textContent = labels[period];
+}
+let currentCfPeriod = 'ytd';
+async function loadCashflow(period){
+  currentCfPeriod = period;
+  const [start, end] = periodRange(period);
+  const r = await call('qb_cash_flow', { start_date: start, end_date: end });
+  setContent('cashflow-content', r, 'Could not load cash flow', 'cashflow');
+  SECTION_LOADERS['cashflow-content'] = () => loadCashflow(currentCfPeriod);
 }
 
+// ============ Tab switching + per-tab chat suggestions ============
+const TAB_SUGGESTIONS = {
+  dashboard: [ ['How are my books overall?', 'Overview'], ['What should I fix first?', 'Priorities'], ['Compare this month to last month', 'Compare'] ],
+  pl: [ ['Why is my net income negative?', 'Explain P&L'], ['What is my biggest expense category?', 'Top expense'], ['Compare this quarter to last quarter', 'Compare'] ],
+  cashflow: [ ['When will I run out of cash?', 'Runway'], ['What is driving my burn?', 'Burn drivers'], ['Forecast next quarter', 'Forecast'] ],
+  receivables: [ ['Who owes me the most?', 'Top debtor'], ['Draft a payment reminder for my oldest invoice', 'Chase payment'], ['Create a new invoice', 'New invoice'] ],
+  payables: [ ['What bills are due this week?', 'Due soon'], ['Who is my biggest vendor?', 'Top vendor'], ['Record a bill payment', 'Pay bill'] ],
+  transactions: [ ['Categorize my uncategorized transactions', 'Categorize'], ['Merge the duplicate transactions', 'Fix dupes'], ['Assign vendors to unknown transactions', 'Fix vendors'] ],
+  tax: [ ['How much should I set aside for Q3 taxes?', 'Q3 estimate'], ['What deductions am I missing?', 'Deductions'], ['Export my Schedule C', 'Schedule C'] ],
+  health: [ ['Fix all critical issues', 'Fix critical'], ['What does my accountant need?', 'For CPA'], ['Run month-end close', 'Close books'] ]
+};
+function paintSuggestions(tab){
+  const wrap = document.getElementById('chat-suggestions');
+  wrap.innerHTML = (TAB_SUGGESTIONS[tab] || TAB_SUGGESTIONS.dashboard).map(([q, label]) =>
+    '<button class="chat-suggestion" data-q="' + escapeHtml(q) + '">' + escapeHtml(label) + '</button>'
+  ).join('');
+  wrap.querySelectorAll('.chat-suggestion').forEach(s => s.addEventListener('click', () => askAQB(s.dataset.q)));
+}
+let activeTab = 'dashboard';
 document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
+    activeTab = t.dataset.tab;
     ['dashboard','pl','cashflow','receivables','payables','transactions','tax','health'].forEach(v => {
-      document.getElementById('view-' + v).style.display = v === t.dataset.tab ? '' : 'none';
+      document.getElementById('view-' + v).style.display = v === activeTab ? '' : 'none';
     });
-    loadTab(t.dataset.tab);
+    loadTab(activeTab);
+    paintSuggestions(activeTab);
   });
 });
-
 document.querySelectorAll('#pl-period-tabs .period-tab').forEach(t => {
   t.addEventListener('click', () => {
     document.querySelectorAll('#pl-period-tabs .period-tab').forEach(x => x.classList.remove('active'));
@@ -523,17 +572,51 @@ document.querySelectorAll('#pl-period-tabs .period-tab').forEach(t => {
     loadPL(t.dataset.period);
   });
 });
+document.querySelectorAll('#cf-period-tabs .period-tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('#cf-period-tabs .period-tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('cashflow-content').innerHTML = '<div class="loading">Loading</div>';
+    loadCashflow(t.dataset.period);
+  });
+});
 
-const ACTION_VERBS = ['create','reclassify','categorize','recategorize','delete','set ','update','import','export','add ','remove','push','rename','rebuild','apply','tag ','merge','split','archive','mark ','flag ','assign','move ','rerun','refresh','run ','build ','fetch','open ','generate','send','sync','reconcile','void','pay ','record','close ','match','file '];
-const ASK_STARTERS = ['where','what','how much','what\'s','show me','tell me','summarize','compare','why','when','who','do i','am i','is my','are my','should i','can you tell','how many','how is'];
+// ============ Refresh buttons ============
+document.querySelectorAll('.refresh-btn').forEach(b => {
+  b.addEventListener('click', async () => {
+    b.classList.add('spinning');
+    const what = b.dataset.refresh;
+    try {
+      if(what === 'dashboard'){ await loadDashboardKpis(); }
+      else if(what === 'healthsum' || what === 'health'){ await loadHealthSummary(); }
+      else { await loadTab(what, true); }
+    } finally { b.classList.remove('spinning'); }
+  });
+});
 
-function classifyIntent(question){
-  const q = question.toLowerCase().trim();
-  for(const v of ACTION_VERBS){ if(q.startsWith(v) || q.includes(' ' + v)) return 'do'; }
+// ============ Quick actions ============
+document.querySelectorAll('.qbtn').forEach(b => {
+  b.addEventListener('click', () => {
+    const action = b.dataset.action;
+    if(typeof sendPrompt !== 'function'){ appendMsg('assistant', 'Quick actions need the Cowork runtime.', 'deep'); return; }
+    sendPrompt('AccountingQB: ' + action);
+    appendMsg('user', b.textContent.trim());
+    appendMsg('assistant', 'Sent to AccountingQB skills — watch the main chat, then hit ↻ here to refresh the data.', 'pending');
+    logAction(b.textContent.trim());
+  });
+});
+
+// ============ Intent classifier ============
+const ACTION_VERBS = ['create','reclassify','categorize','recategorize','delete','set ','update','import','export','add ','remove','push','rename','apply','tag ','merge','split','archive','mark ','flag ','assign','move ','rerun','run ','build ','generate','send','sync','reconcile','void','pay ','record','close ','match','file ','draft','fix ','chase','invoice ','bill '];
+const ASK_STARTERS = ['where','what','how much','what\'s','show me','tell me','summarize','compare','why','when','who','do i','am i','is my','are my','should i','can you tell','how many','how is','how are','explain'];
+function classifyIntent(q){
+  q = q.toLowerCase().trim();
   for(const a of ASK_STARTERS){ if(q.startsWith(a)) return 'ask'; }
+  for(const v of ACTION_VERBS){ if(q.startsWith(v) || q.includes(' ' + v)) return 'do'; }
   return 'ask';
 }
 
+// ============ Action log ============
 const ACTION_LOG = JSON.parse(sessionStorage.getItem('aqb-actions') || '[]');
 function logAction(text){
   ACTION_LOG.unshift({text, ts: new Date().toISOString()});
@@ -544,15 +627,15 @@ function logAction(text){
 function clearActions(){ ACTION_LOG.length = 0; try{ sessionStorage.removeItem('aqb-actions'); }catch(e){} renderActionLog(); }
 function renderActionLog(){
   const el = document.getElementById('action-log-list');
-  if(ACTION_LOG.length === 0){ el.innerHTML = '<div class="empty-log">No actions yet — try giving a command.</div>'; return; }
+  if(ACTION_LOG.length === 0){ el.innerHTML = '<div class="empty-log">No actions yet — try a quick action above.</div>'; return; }
   el.innerHTML = ACTION_LOG.slice(0,6).map(a => {
-    const t = new Date(a.ts);
-    const s = Math.round((Date.now() - t.getTime()) / 1000);
+    const s = Math.round((Date.now() - new Date(a.ts).getTime()) / 1000);
     const ago = s < 60 ? s+'s ago' : s < 3600 ? Math.round(s/60)+'m ago' : s < 86400 ? Math.round(s/3600)+'h ago' : Math.round(s/86400)+'d ago';
-    return '<div class="log-row"><span class="what">' + escapeHtml(a.text.length > 50 ? a.text.slice(0,50)+'…' : a.text) + '</span><span class="when">' + ago + '</span></div>';
+    return '<div class="log-row"><span class="what">' + escapeHtml(a.text.length > 48 ? a.text.slice(0,48)+'…' : a.text) + '</span><span class="when">' + ago + '</span></div>';
   }).join('');
 }
 
+// ============ Chat ============
 function appendMsg(role, content, mode){
   const msgs = document.getElementById('chat-msgs');
   const hint = msgs.querySelector('.msg-hint'); if(hint) hint.remove();
@@ -562,8 +645,8 @@ function appendMsg(role, content, mode){
     const meta = document.createElement('div');
     meta.className = 'msg-meta';
     if(mode === 'quick') meta.innerHTML = '<span class="pill q">⚡ QUICK</span>';
-    else if(mode === 'deep') meta.innerHTML = '<span class="pill d">→ DEEP</span>';
     else if(mode === 'pending') meta.innerHTML = '<span class="pill d">→ SENT</span>';
+    else meta.innerHTML = '<span class="pill d">→ DEEP</span>';
     row.appendChild(meta);
   }
   const div = document.createElement('div');
@@ -572,115 +655,56 @@ function appendMsg(role, content, mode){
   row.appendChild(div);
   msgs.appendChild(row);
   msgs.scrollTop = msgs.scrollHeight;
+  return row;
 }
+function showThinking(){
+  const msgs = document.getElementById('chat-msgs');
+  const row = document.createElement('div');
+  row.className = 'msg-row a';
+  row.id = 'thinking-row';
+  row.innerHTML = '<div class="thinking"><span></span><span></span><span></span></div>';
+  msgs.appendChild(row);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+function hideThinking(){ const r = document.getElementById('thinking-row'); if(r) r.remove(); }
 
 async function askAQB(question){
-  const deepToggle = document.getElementById('deep-mode-toggle');
-  const forceDeep = deepToggle && deepToggle.checked;
+  const forceDeep = document.getElementById('deep-mode-toggle').checked;
   const intent = forceDeep ? 'do' : classifyIntent(question);
   appendMsg('user', question);
+
   if(intent === 'do'){
-    if(!window.cowork || !window.cowork.sendPrompt){ appendMsg('assistant', 'Cannot route — sendPrompt not available. Make sure you're running this in Cowork.', 'deep'); return; }
-    window.cowork.sendPrompt('AccountingQB: ' + question);
-    appendMsg('assistant', 'Routed to AccountingQB skills in main chat. Actions will execute and the dashboard will refresh on next reload.', 'pending');
+    if(typeof sendPrompt !== 'function'){ appendMsg('assistant', 'Cannot route — sendPrompt not available.', 'deep'); return; }
+    sendPrompt('AccountingQB: ' + question);
+    appendMsg('assistant', 'Routed to AccountingQB skills in the main chat. When it finishes, hit ↻ on the relevant card to refresh.', 'pending');
     logAction(question);
     return;
   }
-  if(!window.cowork || !window.cowork.sample){ appendMsg('assistant', 'Quick mode requires Cowork runtime.', 'quick'); return; }
-  const ctx = { product: 'AccountingQB', company: companyName, as_of: new Date().toISOString().slice(0,10) };
-  const systemPrompt = 'You are AccountingQB, an accounting AI for QuickBooks Online users. Answer concisely (2-3 sentences). For data questions, suggest the user reload the dashboard or click the relevant tab — you cannot pull live QB data in quick mode. For action requests, suggest they toggle Deep mode. Question: "' + question + '"';
+  if(!window.cowork || !window.cowork.sample){ appendMsg('assistant', 'Quick mode requires the Cowork runtime. Toggle Deep mode instead.', 'quick'); return; }
+
+  showThinking();
+  // Build context from everything already loaded (cached tab data)
+  const ctx = { company: COMPANY, as_of: new Date().toISOString().slice(0,10), loaded_reports: {} };
+  for(const [k, v] of Object.entries(CACHE)){ ctx.loaded_reports[k] = v.md; }
+  const systemPrompt = 'You are AccountingQB, an accounting AI. Answer the question concisely (2-4 sentences) using ONLY the loaded_reports data provided — these are live QuickBooks reports already fetched for this user. Reference specific numbers from the reports. If the loaded reports do not contain the answer, say which dashboard tab to open (Dashboard, P&L, Cash Flow, A/R, A/P, Transactions, Tax, Health) so the data loads, or suggest toggling Deep mode for a full analysis. Never invent numbers. Question: "' + question + '"';
   try {
     const result = await window.cowork.sample(systemPrompt, [ctx]);
+    hideThinking();
     if(result && result.text) appendMsg('assistant', result.text, 'quick');
-    else appendMsg('assistant', 'Could not answer that. Try Deep mode for live data.', 'quick');
-  } catch(e){ appendMsg('assistant', 'Sorry — chat service unavailable.', 'quick'); }
+    else appendMsg('assistant', 'Could not answer that. Try Deep mode for a full analysis.', 'quick');
+  } catch(e){
+    hideThinking();
+    appendMsg('assistant', 'Chat service unavailable — try Deep mode to route through the main conversation.', 'quick');
+  }
 }
-
 document.getElementById('chat-input').addEventListener('keydown', e => {
   if(e.key === 'Enter' && e.target.value.trim()){ askAQB(e.target.value.trim()); e.target.value = ''; }
 });
-document.querySelectorAll('.chat-suggestion').forEach(s => {
-  s.addEventListener('click', () => askAQB(s.dataset.q));
-});
 
-let companyName = 'Your Company';
-
-function showWelcome(status, message){
-  document.getElementById('welcome-view').style.display = '';
-  document.getElementById('dashboard-view').style.display = 'none';
-  const dot = document.getElementById('status-dot');
-  const text = document.getElementById('status-text');
-  const btn = document.getElementById('retry-btn');
-  dot.className = 'status-dot ' + status;
-  text.textContent = message;
-  btn.style.display = status === 'error' ? '' : 'none';
-}
-
-function showDashboard(){
-  document.getElementById('welcome-view').style.display = 'none';
-  document.getElementById('dashboard-view').style.display = '';
-}
-
-function markStep(num, done){
-  const el = document.getElementById('step' + num + '-num');
-  if(el) el.className = 'step-num' + (done ? ' done' : '');
-}
-
-async function checkConnection(){
-  const dot = document.getElementById('status-dot');
-  const text = document.getElementById('status-text');
-  dot.className = 'status-dot';
-  text.textContent = 'Checking connection...';
-  document.getElementById('retry-btn').style.display = 'none';
-
-  // Step 1: Check if we're in Cowork
-  if(!window.cowork || !window.cowork.callMcpTool){
-    showWelcome('error', 'Not running in Cowork. Open this artifact inside Claude Cowork.');
-    return;
-  }
-  markStep(1, true);
-
-  // Step 2-4: Try to call QB
-  try {
-    const result = await call('qb_company_info', {});
-    if(result && result.error){
-      if(result.error.includes('license') || result.error.includes('License')){
-        showWelcome('error', 'License key required. Run: accountingqb setup');
-        markStep(2, false);
-      } else if(result.error.includes('token') || result.error.includes('auth') || result.error.includes('QuickBooks')){
-        showWelcome('error', 'QuickBooks not connected. Run: accountingqb setup');
-        markStep(2, true);
-        markStep(3, false);
-      } else {
-        showWelcome('error', 'Connection failed: ' + result.error);
-      }
-      return;
-    }
-
-    // Connected! Extract company name
-    const infoStr = (result && result.result) || '';
-    const nameMatch = infoStr.match(/Company Name:\s*\*\*(.+?)\*\*/i) || infoStr.match(/Company:\s*(.+)/i);
-    if(nameMatch) companyName = nameMatch[1].trim();
-
-    markStep(1, true);
-    markStep(2, true);
-    markStep(3, true);
-
-    // Update company name in UI
-    const brandSub = document.querySelector('.brand .sub');
-    if(brandSub) brandSub.textContent = companyName;
-
-    showDashboard();
-    loadDashboardKpis();
-    loadHealthSummary();
-    renderActionLog();
-  } catch(e){
-    showWelcome('error', 'Connection error: ' + (e.message || e));
-  }
-}
-
-// Start connection check
-checkConnection();
+// ============ Boot ============
+paintSuggestions('dashboard');
+renderActionLog();
+loadCompany().then(() => { loadDashboardKpis(); loadHealthSummary(); });
 </script>
 </body>
 </html>

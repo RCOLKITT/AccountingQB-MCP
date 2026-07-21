@@ -238,6 +238,16 @@ export default async function Home() {
                 </svg>
                 See It in Action
               </a>
+              <a
+                href="/downloads/accountingqb.plugin"
+                download
+                className="flex items-center gap-2 rounded-xl border border-cyan-500/25 bg-cyan-500/[0.06] px-8 py-3.5 text-sm font-semibold text-cyan-300 transition hover:border-cyan-400/40 hover:bg-cyan-500/[0.12] hover:text-cyan-200"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Get it for Cowork
+              </a>
             </div>
 
             <p className="mt-5 text-sm text-gray-500">
@@ -891,6 +901,7 @@ export default async function Home() {
                 <li><a href="#pricing" className="transition hover:text-white">Pricing</a></li>
                 <li><a href="#faq" className="transition hover:text-white">FAQ</a></li>
                 <li><a href="/canada" className="transition hover:text-white">For Canadian businesses</a></li>
+                <li><a href="/downloads/accountingqb.plugin" download className="transition hover:text-white">Download for Cowork</a></li>
                 <li><a href="/dashboard" className="transition hover:text-white">Dashboard</a></li>
                 <li><a href="/sign-in" className="transition hover:text-white">Sign In</a></li>
               </ul>
