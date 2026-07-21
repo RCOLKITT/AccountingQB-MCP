@@ -19,7 +19,12 @@ Trigger on any of:
 
 1. Read the artifact template from `references/artifact-template.html`.
 2. Call `mcp__cowork__create_artifact` (or `update_artifact` if `accountingqb-dashboard` already exists) with the HTML template directly. **Do not pre-fetch any QB data** — the artifact handles connection checking and data loading automatically.
-3. Tell the user: *"Your AccountingQB dashboard is open in the sidebar."* — one short sentence. Do not narrate the dashboard contents.
+3. **Declare the full `mcp_tools` allowlist** — the artifact can only call tools listed here. Include EVERY name below, prefixed with the namespace present in this session (`mcp__accountingqb__` for packaged installs, `mcp__quickbooks__` for dev setups — check which is available and use that one):
+
+   `qb_company_info, qb_profit_loss, qb_balance_sheet, qb_cash_flow, qb_cash_flow_forecast, qb_runway_calculator, qb_books_health_audit, qb_trial_balance, qb_general_ledger, qb_ar_aging, qb_list_invoices, qb_ap_aging, qb_vendor_summary, qb_uncategorized_transactions, qb_find_duplicates, qb_search_transactions, qb_unknown_vendor_report, qb_estimate_quarterly_tax, qb_schedule_c_detailed, qb_deduction_finder, qb_1099_contractor_report, qb_depreciation_schedule, qb_sales_tax_summary, qb_t2125_summary, qb_t4a_contractor_report, qb_gst_hst_return, qb_cca_schedule`
+
+   If the artifact already exists and a user reports an error like *"is not in this artifact's mcp_tools allowlist"*, the stored allowlist predates newer tabs — **re-create the artifact** with the complete list above instead of updating it.
+4. Tell the user: *"Your AccountingQB dashboard is open in the sidebar."* — one short sentence. Do not narrate the dashboard contents.
 
 The artifact will:
 - **Auto-detect connection status** and show a welcome/setup screen if QuickBooks isn't connected
