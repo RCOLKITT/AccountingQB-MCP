@@ -21,7 +21,7 @@ Trigger on any of:
 2. Call `mcp__cowork__create_artifact` (or `update_artifact` if `accountingqb-dashboard` already exists) with the HTML template directly. **Do not pre-fetch any QB data** — the artifact handles connection checking and data loading automatically.
 3. **Declare the full `mcp_tools` allowlist** — the artifact can only call tools listed here. Include EVERY name below, prefixed with the namespace present in this session (`mcp__accountingqb__` for packaged installs, `mcp__quickbooks__` for dev setups — check which is available and use that one):
 
-   `qb_company_info, qb_profit_loss, qb_balance_sheet, qb_cash_flow, qb_cash_flow_forecast, qb_runway_calculator, qb_books_health_audit, qb_trial_balance, qb_general_ledger, qb_ar_aging, qb_list_invoices, qb_ap_aging, qb_vendor_summary, qb_uncategorized_transactions, qb_find_duplicates, qb_search_transactions, qb_unknown_vendor_report, qb_estimate_quarterly_tax, qb_schedule_c_detailed, qb_deduction_finder, qb_1099_contractor_report, qb_depreciation_schedule, qb_sales_tax_summary, qb_t2125_summary, qb_t4a_contractor_report, qb_gst_hst_return, qb_cca_schedule`
+   `qb_company_info, qb_profit_loss, qb_balance_sheet, qb_cash_flow, qb_cash_flow_forecast, qb_runway_calculator, qb_books_health_audit, qb_trial_balance, qb_general_ledger, qb_ar_aging, qb_list_invoices, qb_ap_aging, qb_vendor_summary, qb_uncategorized_transactions, qb_find_duplicates, qb_search_transactions, qb_unknown_vendor_report, qb_estimate_quarterly_tax, qb_schedule_c_detailed, qb_deduction_finder, qb_1099_contractor_report, qb_depreciation_schedule, qb_sales_tax_summary, qb_t2125_summary, qb_t4a_contractor_report, qb_gst_hst_return, qb_cca_schedule, qb_reconciliation_status, qb_comparative_statements, qb_tax_payments_made, qb_owner_draws`
 
    If the artifact already exists and a user reports an error like *"is not in this artifact's mcp_tools allowlist"*, the stored allowlist predates newer tabs — **re-create the artifact** with the complete list above instead of updating it.
 4. Tell the user: *"Your AccountingQB dashboard is open in the sidebar."* — one short sentence. Do not narrate the dashboard contents.
@@ -42,7 +42,7 @@ The artifact will:
 
 ## When the user asks for a specific report inside the chat panel
 
-The artifact also includes a **CPA Workbook** tab: a 12-page click-through year-end binder (cover, trial balance, statements, GL, region-aware tax mapping, contractors, sales tax, fixed assets, open items, notes) with a tie-out footer on every page and an Export button that routes to the `accountingqb-cpa-workbook` skill.
+The artifact also includes a **CPA Workbook** tab: a 15-page click-through year-end binder (cover, trial balance, statements, GL, region-aware tax mapping, contractors, sales tax, fixed assets, open items, notes) with a tie-out footer on every page and an Export button that routes to the `accountingqb-cpa-workbook` skill.
 
 The `accountingqb-accounting`, `accountingqb-bookkeeping`, and `accountingqb-tax-prep`, and `accountingqb-cpa-workbook` skills already handle these. The dashboard skill is the rendering layer; the existing skills are the action layer. When the chat panel routes to `sendPrompt()`, the appropriate sibling skill picks it up.
 

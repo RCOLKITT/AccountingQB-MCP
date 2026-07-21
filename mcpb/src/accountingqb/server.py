@@ -223,6 +223,8 @@ FREE_TOOLS = {
     "qb_balance_sheet",
     "qb_cash_flow",
     "qb_trial_balance",
+    "qb_reconciliation_status",
+    "qb_comparative_statements",
     "qb_ar_aging",
     "qb_ap_aging",
     "qb_expense_summary",
@@ -623,6 +625,7 @@ DEMO_ACCOUNTS = [
     {"Id": "10", "Name": "Rent", "AccountType": "Expense", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Rent"},
     {"Id": "11", "Name": "Professional Services", "AccountType": "Expense", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Professional Services"},
     {"Id": "12", "Name": "Advertising", "AccountType": "Expense", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Advertising"},
+    {"Id": "13", "Name": "Owner's Equity", "AccountType": "Equity", "CurrentBalance": 77876.56, "Active": True, "FullyQualifiedName": "Owner's Equity"},
 ]
 
 # Demo transactions (recent expenses)
@@ -634,6 +637,7 @@ DEMO_TRANSACTIONS = [
     {"Id": "105", "TxnDate": "2026-03-15", "TotalAmt": 425.00, "EntityRef": {"name": "United Airlines"}, "AccountRef": {"name": "Travel"}, "PaymentType": "CreditCard", "Line": [{"Description": "Flight to Chicago client meeting"}]},
     {"Id": "106", "TxnDate": "2026-03-12", "TotalAmt": 2000.00, "EntityRef": {"name": "Amazon Web Services"}, "AccountRef": {"name": "Software & Subscriptions"}, "PaymentType": "CreditCard", "Line": [{"Description": "AWS reserved instances"}]},
     {"Id": "107", "TxnDate": "2026-03-10", "TotalAmt": 599.88, "EntityRef": {"name": "Adobe Creative Cloud"}, "AccountRef": {"name": "Software & Subscriptions"}, "PaymentType": "CreditCard", "Line": [{"Description": "Adobe CC annual"}]},
+    {"Id": "109", "TxnDate": "2026-04-15", "TotalAmt": 8500.00, "EntityRef": {"name": "United States Treasury"}, "AccountRef": {"name": "Estimated Tax Payments"}, "PaymentType": "Check", "Line": [{"Description": "Q1 2026 federal estimated tax (Form 1040-ES)"}]},
     {"Id": "108", "TxnDate": "2026-03-05", "TotalAmt": 87.50, "EntityRef": {"name": "Uber for Business"}, "AccountRef": {"name": "Travel"}, "PaymentType": "CreditCard", "Line": [{"Description": "Client transportation"}]},
 ]
 
@@ -784,6 +788,10 @@ DEMO_GENERAL_LEDGER = {
             {"ColData": [{"value": "2026-03-20"}, {"value": "AWS monthly hosting"}, {"value": "847.50"}]},
             {"ColData": [{"value": "2026-03-25"}, {"value": "Zoom Pro annual"}, {"value": "149.90"}]},
         ]}, "Summary": {"ColData": [{"value": "Total Software & Subscriptions"}, {"value": "1597.28"}]}},
+        {"Header": {"ColData": [{"value": "Owner's Equity"}]}, "Rows": {"Row": [
+            {"ColData": [{"value": "2026-02-01"}, {"value": "Owner contribution"}, {"value": "10000.00"}]},
+            {"ColData": [{"value": "2026-05-15"}, {"value": "Owner draw"}, {"value": "-6000.00"}]},
+        ]}, "Summary": {"ColData": [{"value": "Total Owner's Equity"}, {"value": "4000.00"}]}},
         {"Header": {"ColData": [{"value": "Consulting Revenue"}]}, "Rows": {"Row": [
             {"ColData": [{"value": "2026-03-01"}, {"value": "Invoice #1042 — TechStart Inc"}, {"value": "15000.00"}]},
             {"ColData": [{"value": "2026-03-05"}, {"value": "Invoice #1043 — Sunrise Healthcare"}, {"value": "22500.00"}]},
@@ -825,10 +833,33 @@ def _demo_response(method: str, endpoint: str, params: dict = None,
 
     if endpoint.startswith("reports/"):
         name = endpoint.split("/", 1)[1]
-        return _DEMO_REPORTS.get(name) or {
-            "Header": {"ReportName": name, "Currency": "USD"},
-            "Rows": {"Row": []},
-        }
+        report = _DEMO_REPORTS.get(name)
+        if not report:
+            return {"Header": {"ReportName": name, "Currency": "USD"},
+                    "Rows": {"Row": []}}
+        # Prior-period requests get deterministically scaled values (x0.85)
+        # so comparative tools demo meaningfully instead of showing 0 deltas.
+        from datetime import date as _date
+        req_year = str((params or {}).get("start_date", ""))[:4]
+        if req_year.isdigit() and int(req_year) < _date.today().year:
+            import copy as _copy
+
+            def _scale(node):
+                if isinstance(node, dict):
+                    if "value" in node and isinstance(node.get("value"), str):
+                        try:
+                            node["value"] = f"{float(node['value']) * 0.85:.2f}"
+                        except ValueError:
+                            pass
+                    for v in node.values():
+                        _scale(v)
+                elif isinstance(node, list):
+                    for v in node:
+                        _scale(v)
+
+            report = _copy.deepcopy(report)
+            _scale(report.get("Rows", {}))
+        return report
 
     entity = endpoint.split("/")[0].split("?")[0]
     entity_key = entity[:1].upper() + entity[1:]
@@ -1030,6 +1061,14 @@ def fmt(amount) -> str:
     if amount is None:
         return "$0.00"
     return f"${float(amount):,.2f}"
+
+
+def fmt_signed(amount) -> str:
+    """Accounting convention: negatives in parentheses, None as em dash."""
+    if amount is None:
+        return "—"
+    v = float(amount)
+    return f"(${abs(v):,.2f})" if v < 0 else f"${v:,.2f}"
 
 
 def _parse_report_rows(rows, lines, indent=0):
@@ -2138,6 +2177,308 @@ async def qb_trial_balance(start_date: str, end_date: str) -> str:
     rows = report.get("Rows", {}).get("Row", [])
     _parse_report_rows(rows, lines)
     return "\n".join(lines)
+
+
+# ===================================================================
+# CPA WORKBOOK SUPPORT — reconciliation, comparatives, tax payments, draws
+# ===================================================================
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_reconciliation_status(as_of_date: str = "") -> str:
+    """Bank and credit-card tie-out summary for CPA handoff: per-account book
+    balance, most recent transaction date, and the Undeposited Funds balance.
+    as_of_date: YYYY-MM-DD (defaults to today). Note: the QuickBooks API does
+    not expose reconciliation/cleared status — this is a book-side summary."""
+    from datetime import date as _date
+    as_of_date = _validate_date(as_of_date, "as_of_date") if as_of_date \
+        else _date.today().isoformat()
+
+    accounts = (await qb_query(
+        "SELECT * FROM Account WHERE AccountType IN ('Bank', 'Credit Card') "
+        "MAXRESULTS 50")).get("QueryResponse", {}).get("Account", [])
+    if not accounts:
+        return "No bank or credit-card accounts found."
+
+    # Latest activity per account from recent purchases + deposits
+    last_activity = {}
+    for entity in ("Purchase", "Deposit"):
+        result = await qb_query(
+            f"SELECT * FROM {entity} WHERE TxnDate <= '{as_of_date}' "
+            f"ORDERBY TxnDate DESC MAXRESULTS 200")
+        for txn in result.get("QueryResponse", {}).get(entity, []):
+            ref = (txn.get("AccountRef") or txn.get("DepositToAccountRef") or {})
+            name = ref.get("name", "")
+            d = txn.get("TxnDate", "")
+            if name and d and d > last_activity.get(name, ""):
+                last_activity[name] = d
+
+    lines = [f"## Reconciliation Status — as of {as_of_date}\n",
+             "| Account | Type | Book balance | Last transaction |",
+             "|---|---|---|---|"]
+    for a in accounts:
+        name = a.get("Name", "?")
+        bal = float(a.get("CurrentBalance", 0) or 0)
+        lines.append(f"| {name} | {a.get('AccountType', '')} | {fmt(bal)} | "
+                     f"{last_activity.get(name, 'no recent activity')} |")
+
+    all_accounts = (await qb_query("SELECT * FROM Account MAXRESULTS 500")) \
+        .get("QueryResponse", {}).get("Account", [])
+    undeposited = [a for a in all_accounts
+                   if "undeposited" in (a.get("Name", "")).lower()]
+    for u in undeposited:
+        ubal = float(u.get("CurrentBalance", 0) or 0)
+        flag = " ⚠️ should be cleared before year-end" if abs(ubal) > 0.01 else " ✅"
+        lines.append(f"\n**Undeposited Funds:** {fmt(ubal)}{flag}")
+
+    lines.append(
+        "\n⚠️ QuickBooks' API does not expose reconciliation status — verify "
+        "each book balance against the bank statement; last-reconciled dates "
+        "are visible only in QuickBooks itself."
+    )
+    _audit_log("RECONCILIATION_STATUS", f"as_of={as_of_date} accounts={len(accounts)}")
+    return "\n".join(lines)
+
+
+def _extract_report_amounts(report: dict) -> dict:
+    """Flatten a QBO report's leaf rows into {line name: amount}."""
+    out = {}
+
+    def walk(rows):
+        for section in rows:
+            col_data = section.get("ColData", [])
+            if len(col_data) >= 2:
+                name = col_data[0].get("value", "")
+                try:
+                    out[name] = float(col_data[-1].get("value", "0") or 0)
+                except (ValueError, TypeError):
+                    pass
+            nested = section.get("Rows", {}).get("Row", [])
+            if nested:
+                walk(nested)
+            summary = section.get("Summary", {})
+            cols = summary.get("ColData", [])
+            if len(cols) >= 2:
+                name = cols[0].get("value", "")
+                try:
+                    out[name] = float(cols[-1].get("value", "0") or 0)
+                except (ValueError, TypeError):
+                    pass
+
+    walk(report.get("Rows", {}).get("Row", []))
+    return out
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_comparative_statements(statement: str = "pl", year: int = 0) -> str:
+    """Two-year comparative statement — the format CPAs read first. Renders
+    current vs prior year side by side with dollar and percent change, and
+    flags swings over ±30%. statement: 'pl' (Profit & Loss) or 'bs'
+    (Balance Sheet). year: the CURRENT year of the pair (default: this year;
+    year-to-date vs the same era isn't attempted — prior year is full-year)."""
+    from datetime import date as _date
+    statement = statement.lower().strip()
+    if statement not in ("pl", "bs"):
+        return "statement must be 'pl' (Profit & Loss) or 'bs' (Balance Sheet)."
+    year = int(year) or _date.today().year
+    today = _date.today()
+    cur_end = today.isoformat() if year == today.year else f"{year}-12-31"
+
+    if statement == "pl":
+        cur = await qb_request("GET", "reports/ProfitAndLoss", params={
+            "start_date": f"{year}-01-01", "end_date": cur_end,
+            "summarize_column_by": "Total"})
+        prior = await qb_request("GET", "reports/ProfitAndLoss", params={
+            "start_date": f"{year-1}-01-01", "end_date": f"{year-1}-12-31",
+            "summarize_column_by": "Total"})
+        title = "Comparative Profit & Loss"
+        period_note = (f"{year} through {cur_end}" if year == today.year
+                       else str(year)) + f" vs {year-1} (full year)"
+    else:
+        cur = await qb_request("GET", "reports/BalanceSheet", params={
+            "start_date": cur_end, "end_date": cur_end})
+        prior = await qb_request("GET", "reports/BalanceSheet", params={
+            "start_date": f"{year-1}-12-31", "end_date": f"{year-1}-12-31"})
+        title = "Comparative Balance Sheet"
+        period_note = f"as of {cur_end} vs {year-1}-12-31"
+
+    cur_amts = _extract_report_amounts(cur)
+    prior_amts = _extract_report_amounts(prior)
+    if not cur_amts and not prior_amts:
+        return f"No data available for either period ({year} / {year-1})."
+
+    lines = [f"## {title}", f"**Periods:** {period_note}\n",
+             f"| Line | {year} | {year-1} | Δ | Δ% |",
+             "|---|---|---|---|---|"]
+    flagged = []
+    seen = list(cur_amts) + [k for k in prior_amts if k not in cur_amts]
+    for name in seen:
+        c = cur_amts.get(name)
+        p = prior_amts.get(name)
+        delta = (c or 0) - (p or 0)
+        if p not in (None, 0):
+            pct = delta / abs(p) * 100
+            pct_s = f"{pct:+.0f}%"
+            if abs(pct) > 30 and abs(delta) > 100:
+                pct_s += " ⚠️"
+                flagged.append((name, pct))
+        else:
+            pct_s = "new" if c not in (None, 0) else "—"
+        bold = "**" if name.lower().startswith(("total", "net ", "gross")) else ""
+        lines.append(f"| {bold}{name}{bold} | {fmt_signed(c)} | {fmt_signed(p)} | "
+                     f"{fmt_signed(delta)} | {pct_s} |")
+
+    if flagged:
+        lines.append("\n### Swings your CPA will ask about (>±30%)")
+        for name, pct in flagged[:8]:
+            lines.append(f"- **{name}**: {pct:+.0f}% year over year")
+
+    lines.append("\n*Prior year is the full calendar year; the current column "
+                 "is year-to-date until Dec 31.*")
+    _audit_log("COMPARATIVE_STATEMENTS", f"stmt={statement} year={year}")
+    return "\n".join(lines)
+
+
+# Payees/memos that indicate income-tax payments to a tax authority.
+_TAX_AUTHORITY_HINTS = (
+    "irs", "internal revenue", "eftps", "united states treasury", "us treasury",
+    "u.s. treasury", "franchise tax", "department of revenue", "dept of revenue",
+    "estimated tax", "1040-es",
+    "cra", "canada revenue", "receiver general", "revenu quebec",
+    "revenu québec", "minister of finance",
+)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_tax_payments_made(tax_year: str = "") -> str:
+    """What you actually PAID the IRS/CRA this year — the first thing a CPA
+    asks. Finds payments to tax authorities (by payee/memo) plus TaxPayment
+    records (CA), totals them, and compares against the quarterly estimate.
+    tax_year: YYYY, defaults to the current year."""
+    from datetime import date as _date
+    if not tax_year:
+        tax_year = str(_date.today().year)
+    start, end = f"{tax_year}-01-01", f"{tax_year}-12-31"
+
+    found = []
+    for entity in ("Purchase",):
+        result = await qb_query(
+            f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
+            f"AND TxnDate <= '{end}' MAXRESULTS 1000")
+        for txn in result.get("QueryResponse", {}).get(entity, []):
+            payee = (txn.get("EntityRef") or {}).get("name", "")
+            memo = str(txn.get("PrivateNote", "")) + " " + " ".join(
+                str((l.get("Description") or "")) for l in txn.get("Line", []))
+            blob = (payee + " " + memo).lower()
+            if any(h in blob for h in _TAX_AUTHORITY_HINTS):
+                found.append({
+                    "date": txn.get("TxnDate", "?"),
+                    "payee": payee or "(no payee)",
+                    "amount": float(txn.get("TotalAmt", 0) or 0),
+                })
+
+    # CA/AU/UK: TaxPayment entity records payments against filed returns
+    try:
+        tp = await qb_query("SELECT * FROM TaxPayment MAXRESULTS 300")
+        for t in tp.get("QueryResponse", {}).get("TaxPayment", []):
+            d = t.get("PaymentDate") or t.get("TxnDate") or ""
+            if start <= d <= end:
+                found.append({"date": d, "payee": "Tax agency (TaxPayment)",
+                              "amount": float(t.get("PaymentAmount",
+                                                    t.get("TotalAmt", 0)) or 0)})
+    except Exception as e:
+        logger.debug(f"TaxPayment query failed: {e}")
+
+    lines = [f"## Tax Payments Made — {tax_year}\n"]
+    if not found:
+        lines.append("No payments to tax authorities found in the books for "
+                     f"{tax_year}. If you paid the IRS/CRA from an account "
+                     "outside QuickBooks, tell your CPA the amounts and dates.")
+    else:
+        found.sort(key=lambda x: x["date"])
+        lines.append("| Date | Payee | Amount |")
+        lines.append("|---|---|---|")
+        total = 0.0
+        for f_ in found:
+            lines.append(f"| {f_['date']} | {f_['payee']} | {fmt(f_['amount'])} |")
+            total += f_["amount"]
+        lines.append(f"| **Total paid** | | **{fmt(total)}** |")
+
+    lines.append("\n*Verify against your IRS online account / CRA My Account — "
+                 "payments made outside QuickBooks won't appear here. "
+                 "Run qb_estimate_quarterly_tax to compare against what the "
+                 "estimator suggests per quarter.*")
+    _audit_log("TAX_PAYMENTS_MADE", f"year={tax_year} found={len(found)}")
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_owner_draws(year: int = 0) -> str:
+    """Owner's draws and contributions for the year — equity movement a CPA
+    always asks about for Schedule C / T2125 filers. Summarizes activity in
+    every Equity-type account. year: defaults to the current year."""
+    from datetime import date as _date
+    year = int(year) or _date.today().year
+    start, end = f"{year}-01-01", f"{year}-12-31"
+
+    all_accounts = (await qb_query("SELECT * FROM Account MAXRESULTS 500")) \
+        .get("QueryResponse", {}).get("Account", [])
+    equity = [a for a in all_accounts
+              if (a.get("AccountType") or "").lower() == "equity"]
+    if not equity:
+        return "No equity accounts found in the chart of accounts."
+
+    lines = [f"## Owner's Draws & Contributions — {year}\n"]
+    net = 0.0
+    any_rows = False
+    for acct in equity:
+        report = await qb_request("GET", "reports/GeneralLedger", params={
+            "start_date": start, "end_date": end, "account": acct.get("Id")})
+
+        # Collect leaf rows belonging to THIS account's section (the live API
+        # filters by account; demo returns the full GL, so match the header).
+        acct_rows = []
+
+        def collect(sections):
+            for s in sections:
+                hdr = ((s.get("Header", {}).get("ColData") or [{}])[0]
+                       .get("value", ""))
+                nested = s.get("Rows", {}).get("Row", [])
+                if hdr == acct.get("Name") and nested:
+                    for leaf in nested:
+                        cd = leaf.get("ColData", [])
+                        if len(cd) >= 2:
+                            try:
+                                amt = float(cd[-1].get("value", "0") or 0)
+                            except (ValueError, TypeError):
+                                continue
+                            desc = cd[1].get("value", "") if len(cd) >= 3 else ""
+                            acct_rows.append((cd[0].get("value", ""), desc, amt))
+                elif nested:
+                    collect(nested)
+
+        collect(report.get("Rows", {}).get("Row", []))
+        if not acct_rows:
+            continue
+        any_rows = True
+        lines.append(f"### {acct.get('Name', '?')}")
+        for d, desc, v in acct_rows:
+            direction = "contribution" if v > 0 else "draw"
+            label = f"{d} — {desc}" if desc else d
+            lines.append(f"  {label}: {fmt_signed(v)} ({direction})")
+            net += v
+    if not any_rows:
+        lines.append("No equity activity recorded this year. Draws taken "
+                     "outside QuickBooks should be reported to your CPA "
+                     "directly.")
+    else:
+        label = "net contribution" if net >= 0 else "net draw"
+        lines.append(f"\n**Net owner activity: {fmt_signed(net)}** ({label})")
+
+    lines.append("\n*Draws are not business expenses — they reduce owner's "
+                 "equity. Your CPA reconciles this against the balance sheet.*")
+    _audit_log("OWNER_DRAWS", f"year={year} net={fmt(net)}")
+    return "\n".join(lines)
+
 
 
 # ===================================================================

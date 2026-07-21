@@ -56,6 +56,7 @@ blockers were verified 2026-07-11 (see checklist at the bottom).
 3. "Create a $250 invoice for Acme Consulting" (demo mode: the write is
    simulated and labelled as such).
 4. "Run a books health audit and tell me what needs attention."
+5. "Prepare my CPA workbook for last year."
 
 ## Pre-submission checklist — verified 2026-07-11
 

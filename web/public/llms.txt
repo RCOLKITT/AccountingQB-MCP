@@ -1,7 +1,7 @@
 # AccountingQB
 
 > AccountingQB connects Claude (and any MCP-compatible AI) to QuickBooks
-> Online with 104 tools for reports, bookkeeping cleanup, transaction
+> Online with 108 tools for reports, bookkeeping cleanup, transaction
 > creation, and tax preparation for the United States (Schedule C, 1099,
 > quarterly estimates) and Canada (GST/HST return workpapers, T2125, CCA,
 > T4A, CRA instalments). Built by Vaspera Capital.
@@ -14,6 +14,9 @@
   anomalies, bulk vendor assignment, reconciliation, month-end close
 - Transactions: create/update invoices, expenses, bills, estimates, credit
   memos, journal entries — with Canadian GST/HST tax codes where applicable
+- CPA workbook: a 15-page year-end binder (comparative statements,
+  reconciliation tie-outs, tax payments made, owner's draws, tax organizer)
+  exported to Excel for your accountant
 - Tax prep (workpapers, not filings): US Schedule C and 1099; Canadian
   GST/HST returns, T2125, CCA schedules, T4A, CPP/instalment estimates
 

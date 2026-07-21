@@ -677,10 +677,11 @@ function wbPages(){
   const y = wbYear();
   const us = WB_REGION !== 'CA';
   return [
-    {id:'cover', title:'Cover & Summary', multi:[['qb_company_info',{}],['qb_books_health_audit',{tax_year:y}]]},
+    {id:'cover', title:'Cover & Summary', multi:[['qb_company_info',{}],['qb_books_health_audit',{tax_year:y}]], cover:true},
     {id:'tb', title:'Trial Balance', tool:'qb_trial_balance', args:{start_date:start, end_date:end}},
-    {id:'plw', title:'Profit & Loss', tool:'qb_profit_loss', args:{start_date:start, end_date:end, summarize_by:'Total'}},
-    {id:'bs', title:'Balance Sheet', tool:'qb_balance_sheet', args:{as_of_date:end}},
+    {id:'recon', title:'Reconciliation Status', tool:'qb_reconciliation_status', args:{as_of_date:end}},
+    {id:'plw', title:'Profit & Loss (Comparative)', tool:'qb_comparative_statements', args:{statement:'pl', year:parseInt(y, 10)}},
+    {id:'bs', title:'Balance Sheet (Comparative)', tool:'qb_comparative_statements', args:{statement:'bs', year:parseInt(y, 10)}},
     {id:'cfw', title:'Cash Flow', tool:'qb_cash_flow', args:{start_date:start, end_date:end}},
     {id:'gl', title:'General Ledger', tool:'qb_general_ledger', args:{start_date:start, end_date:end}},
     us ? {id:'taxmap', title:'Schedule C Mapping', tool:'qb_schedule_c_detailed', args:{tax_year:y}}
@@ -691,10 +692,12 @@ function wbPages(){
        : {id:'salestax', title:'GST/HST Return', tool:'qb_gst_hst_return', args:{start_date:start, end_date:end}},
     us ? {id:'assets', title:'Fixed Assets & Depreciation', tool:'qb_depreciation_schedule', args:{tax_year:y}}
        : {id:'assets', title:'CCA Schedule', tool:'qb_cca_schedule', args:{year:parseInt(y, 10)}},
+    {id:'taxpaid', title:'Tax Payments Made', tool:'qb_tax_payments_made', args:{tax_year:y}},
+    {id:'draws', title:"Owner's Draws", tool:'qb_owner_draws', args:{year:parseInt(y, 10)}},
     {id:'open', title:'Open Items', multi:[['qb_uncategorized_transactions',{start_date:start, end_date:end}],
                                           ['qb_find_duplicates',{start_date:start, end_date:end}],
                                           ['qb_unknown_vendor_report',{start_date:start, end_date:end}]]},
-    {id:'notes', title:'Notes for CPA', notes:true},
+    {id:'organizer', title:'Tax Organizer', organizer:true},
   ];
 }
 
@@ -708,7 +711,50 @@ function renderWbToc(){
     b.addEventListener('click', () => loadWbPage(parseInt(b.dataset.wbpage, 10))));
 }
 
-function wbNotesKey(){ return 'aqb-wb-notes-' + wbYear(); }
+function wbOrganizerKey(){ return 'aqb-wb-organizer-' + wbYear(); }
+
+// The questions a CPA's tax organizer always asks — answered before the
+// follow-up email is ever sent.
+const ORGANIZER_FIELDS = [
+  {id:'miles', label:'Business miles driven', ph:'e.g. 4,250'},
+  {id:'office_sqft', label:'Home office sq ft', ph:'e.g. 200'},
+  {id:'home_sqft', label:'Total home sq ft', ph:'e.g. 2,000'},
+  {id:'health_prem', label:'Health insurance premiums paid', ph:'e.g. $6,400'},
+  {id:'loans', label:'New loans this year (lender / amount)', ph:'e.g. SBA \u2014 $25,000, or none'},
+  {id:'assets', label:'Assets purchased or sold', ph:'e.g. bought MacBook $3,000 in March'},
+  {id:'est_confirmed', label:'Estimated tax payments confirmed?', ph:'yes / see Tax Payments page'},
+  {id:'unusual', label:'Anything unusual this year', ph:'one-off events, mixed-use expenses\u2026'},
+];
+
+function organizerData(){
+  try { return JSON.parse(sessionStorage.getItem(wbOrganizerKey()) || '{}'); }
+  catch(e){ return {}; }
+}
+
+function renderOrganizer(el){
+  const data = organizerData();
+  el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin-top:0">' +
+    'Your CPA\u2019s organizer asks these every year \u2014 answer once, they ride along on export.</p>' +
+    ORGANIZER_FIELDS.map(f =>
+      '<div style="margin-bottom:10px"><label style="display:block;font-size:10px;font-weight:700;' +
+      'text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);margin-bottom:4px">' + f.label +
+      '</label><input class="chat-input" style="font-size:13px" data-org="' + f.id + '" placeholder="' + f.ph +
+      '" value="' + escapeHtml(data[f.id] || '') + '"></div>').join('');
+  el.querySelectorAll('input[data-org]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const d = organizerData();
+      d[inp.dataset.org] = inp.value;
+      try { sessionStorage.setItem(wbOrganizerKey(), JSON.stringify(d)); } catch(e){}
+    });
+  });
+}
+
+function organizerSummary(){
+  const d = organizerData();
+  const parts = ORGANIZER_FIELDS.filter(f => (d[f.id] || '').trim())
+    .map(f => f.label + ': ' + d[f.id].trim());
+  return parts.length ? parts.join('; ') : '';
+}
 
 async function loadWbPage(i, force){
   const pages = wbPages();
@@ -723,15 +769,9 @@ async function loadWbPage(i, force){
   const el = document.getElementById('wb-content');
   const tie = document.getElementById('wb-tieout');
 
-  if(page.notes){
-    const saved = (() => { try { return sessionStorage.getItem(wbNotesKey()) || ''; } catch(e){ return ''; } })();
-    el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin-top:0">Anything your CPA should know: ' +
-      'one-off events, owner draws, new asset purchases, loans, mixed-use expenses.</p>' +
-      '<textarea class="wb-notes" id="wb-notes-input" placeholder="Type notes for your CPA\u2026"></textarea>';
-    const ta = document.getElementById('wb-notes-input');
-    ta.value = saved;
-    ta.addEventListener('input', () => { try { sessionStorage.setItem(wbNotesKey(), ta.value); } catch(e){} });
-    tie.textContent = 'Included on the cover sheet of the exported workbook \u00b7 period ' + start + ' \u2013 ' + end;
+  if(page.organizer){
+    renderOrganizer(el);
+    tie.textContent = 'Answers land on the cover sheet of the exported workbook \u00b7 period ' + start + ' \u2013 ' + end;
     WB_LOADED[page.id] = true;
     renderWbToc();
     return;
@@ -754,7 +794,10 @@ async function loadWbPage(i, force){
       escapeHtml(errs[0].error) + '<br><button class="retry" onclick="loadWbPage(' + wbIndex + ', true)">Retry</button></div>';
     return;
   }
-  const md = results.map(r => (r && r.error) ? ('> Section unavailable: ' + r.error) : extractText(r)).join('\n\n---\n\n');
+  let md = results.map(r => (r && r.error) ? ('> Section unavailable: ' + r.error) : extractText(r)).join('\n\n---\n\n');
+  if(page.cover){
+    md += '\n\n---\n\n> **Payroll: not included** \u2014 attach W-2/941 (US) or T4 summaries (CA) from your payroll provider.';
+  }
   cachePut(cacheKey, md);
   el.innerHTML = md2html(md);
   WB_LOADED[page.id] = true;
@@ -797,9 +840,10 @@ document.querySelectorAll('#wb-period-tabs .period-tab').forEach(t => {
 });
 document.getElementById('wb-export').addEventListener('click', () => {
   const [start, end] = wbRange();
+  const org = organizerSummary();
   const instruction = 'AccountingQB: Export my CPA workbook for ' + start + ' to ' + end +
     ' \u2014 follow the export recipe in the accountingqb-cpa-workbook skill' +
-    ((() => { try { const n = sessionStorage.getItem(wbNotesKey()); return n ? '. Include these notes for the CPA on the cover sheet: ' + n : ''; } catch(e){ return ''; } })());
+    (org ? '. Tax organizer answers for the cover sheet \u2014 ' + org : '');
   if(typeof sendPrompt !== 'function'){
     appendMsg('assistant', 'Export runs through the Cowork chat \u2014 ask: "Export my CPA workbook".');
     return;
@@ -866,6 +910,7 @@ document.querySelectorAll('.refresh-btn').forEach(b => {
 document.querySelectorAll('.qbtn').forEach(b => {
   b.addEventListener('click', () => {
     const action = b.dataset.action;
+    if(!action) return;  // workbook pager/export buttons share the class
     if(typeof sendPrompt !== 'function'){ appendMsg('assistant', 'Quick actions need the Cowork runtime.', 'deep'); return; }
     sendPrompt('AccountingQB: ' + action);
     appendMsg('user', b.textContent.trim());

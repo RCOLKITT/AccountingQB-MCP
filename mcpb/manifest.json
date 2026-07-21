@@ -2,9 +2,9 @@
   "manifest_version": "0.3",
   "name": "accountingqb",
   "display_name": "AccountingQB \u2014 QuickBooks for Claude",
-  "version": "3.4.1",
+  "version": "3.5.0",
   "icon": "icon.png",
-  "description": "104 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
+  "description": "108 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
   "long_description": "Connect Claude to your QuickBooks Online with one click. Run P&L reports, reconcile transactions, prep for taxes, detect anomalies, and more. Full US and Canada support: Schedule C, quarterly estimates and 1099s for the US; GST/HST returns, T2125, CCA schedules, T4A reporting and CRA instalments for Canada. Your data stays on your machine \u2014 zero cloud routing.\n\n**Getting Started:**\n1. Enter your license key (get one at accountingqb.com)\n2. Click 'Connect QuickBooks' when prompted\n3. Start asking Claude about your books!\n\n**Requirements:** Python 3.10 or newer on your machine (all Python package dependencies are bundled with the extension).",
   "author": {
     "name": "Vaspera Capital",
@@ -191,6 +191,22 @@
     {
       "name": "qb_trial_balance",
       "description": "Trial balance report"
+    },
+    {
+      "name": "qb_reconciliation_status",
+      "description": "Bank and credit-card tie-out summary for CPA handoff: per-account book"
+    },
+    {
+      "name": "qb_comparative_statements",
+      "description": "Two-year comparative statement \u2014 the format CPAs read first. Renders"
+    },
+    {
+      "name": "qb_tax_payments_made",
+      "description": "What you actually PAID the IRS/CRA this year \u2014 the first thing a CPA"
+    },
+    {
+      "name": "qb_owner_draws",
+      "description": "Owner's draws and contributions for the year \u2014 equity movement a CPA"
     },
     {
       "name": "qb_ar_aging",

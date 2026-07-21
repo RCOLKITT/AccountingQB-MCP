@@ -48,7 +48,7 @@ const caTiers = [
     description: "For freelancers & sole proprietors",
     savings: "Save ~5 hrs/mo on bookkeeping & tax prep",
     features: [
-      "All 104 QuickBooks tools",
+      "All 108 QuickBooks tools",
       "T2125 line mapping & GST/HST workpapers",
       "CRA instalment estimates (CPP + CPP2)",
       "Anomaly detection",
@@ -117,6 +117,10 @@ const caFeatures = [
   {
     title: "CRA instalment estimates",
     body: "Quarterly instalments from your live P&L: CPP and CPP2 at current YMPE/YAMPE, approximate federal and provincial income tax, and the Mar/Jun/Sep/Dec 15 schedule.",
+  },
+  {
+    title: "CPA workbook, CRA-ready",
+    body: "A 15-page year-end binder for your accountant: comparative statements, trial balance, reconciliation tie-outs, T2125 mapping, GST/HST, CCA, T4A, instalments paid, owner's draws, and a tax organizer — exported to Excel in one message.",
   },
   {
     title: "Canadian tax codes, everywhere",
@@ -256,7 +260,7 @@ export default function CanadaPage() {
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-400">
             GST/HST return workpapers, T2125 line mapping, CCA schedules, T4A reports,
-            and CRA instalment estimates — 104 AI tools connecting Claude to your
+            and CRA instalment estimates — 108 AI tools connecting Claude to your
             QuickBooks Online, in plain English.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">

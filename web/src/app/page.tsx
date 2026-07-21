@@ -55,7 +55,7 @@ const tiers = [
     description: "For freelancers & sole proprietors",
     savings: "Save ~5 hrs/mo on bookkeeping & tax prep",
     features: [
-      "All 104 QuickBooks tools",
+      "All 108 QuickBooks tools",
       "US & Canadian tax prep (Schedule C / T2125)",
       "Deduction finder",
       "Anomaly detection",
@@ -121,7 +121,7 @@ const faqs = [
   },
   {
     q: "What happens after the 14-day trial?",
-    a: "You keep access to 25 essential read-only tools for free. To continue using all 104 tools including writes, tax prep, and advanced analytics, choose a paid plan.",
+    a: "You keep access to 25 essential read-only tools for free. To continue using all 108 tools including writes, tax prep, and advanced analytics, choose a paid plan.",
   },
   {
     q: "Can I use this with QuickBooks Desktop?",
@@ -215,7 +215,7 @@ export default async function Home() {
 
             {/* Subhead */}
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-400 sm:text-xl">
-              104 tools connecting Claude to your QuickBooks Online. Run reports,
+              108 tools connecting Claude to your QuickBooks Online. Run reports,
               reconcile books, prep for taxes, detect anomalies — all through
               natural conversation.{" "}
               <span className="text-gray-300">Run it locally or connect instantly — we never store your books.</span>
@@ -373,7 +373,7 @@ export default async function Home() {
               Features
             </div>
             <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
-              104 tools across every
+              108 tools across every
               <br />
               <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">accounting workflow</span>
             </h2>
@@ -482,6 +482,19 @@ export default async function Home() {
                 Auto-categorization suggestions, duplicate detection, unknown vendor cleanup, anomaly flagging, bulk vendor updates, and a books health audit scored 0-100.
               </p>
             </div>
+
+            {/* CPA Workbook */}
+            <div className="gradient-border rounded-2xl p-8">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20">
+                <svg className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-white">CPA Workbook</h3>
+              <p className="mt-2 text-gray-400">
+                A click-through year-end binder your accountant can file from: comparative statements, trial balance, reconciliation tie-outs, tax payments made, owner&apos;s draws, open items, and a built-in tax organizer. Export to Excel in one message.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -519,7 +532,7 @@ export default async function Home() {
               {
                 step: "03",
                 title: "Start Talking to Your Books",
-                desc: "Ask Claude anything. \"What's my burn rate?\" \"Find missing deductions.\" 104 tools ready.",
+                desc: "Ask Claude anything. \"What's my burn rate?\" \"Find missing deductions.\" 108 tools ready.",
                 gradient: "from-indigo-500 to-purple-500",
               },
             ].map((s) => (
@@ -597,6 +610,13 @@ export default async function Home() {
                 tagColor: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
                 example: "\"Create an invoice for Acme Corp for $5,000 consulting, due in 30 days.\"",
               },
+              {
+                title: "CPA Handoff",
+                desc: "A 15-page year-end workbook — comparative statements, tie-outs, tax payments made, owner's draws, and a tax organizer — assembled from live books and exported to Excel for your accountant.",
+                tag: "CPA Handoff",
+                tagColor: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
+                example: "\"Prepare my CPA workbook for last year.\"",
+              },
             ].map((uc) => (
               <div key={uc.title} className="gradient-border rounded-2xl p-8 transition duration-300 hover:bg-white/[0.02]">
                 <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${uc.tagColor}`}>
@@ -625,7 +645,7 @@ export default async function Home() {
               <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">in the first week</span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-gray-400">
-              104 tools means 104 tasks that used to be manual. Tax prep, invoice reconciliation, vendor cleanup, anomaly checks, month-end close — all in a conversation.
+              108 tools means 108 tasks that used to be manual. Tax prep, invoice reconciliation, vendor cleanup, anomaly checks, month-end close — all in a conversation.
             </p>
           </div>
 
@@ -725,7 +745,7 @@ export default async function Home() {
                 <p className="mt-3 text-gray-400">
                   If you&apos;re managing 20+ clients, your team is spending hundreds of hours a month on tasks
                   AccountingQB handles in minutes. Invoice reconciliation, month-end close, vendor cleanup,
-                  anomaly checks, tax prep — 104 tools covering every workflow that eats your margin.
+                  anomaly checks, tax prep — 108 tools covering every workflow that eats your margin.
                 </p>
               </div>
               <div className="rounded-xl bg-white/[0.03] p-6">

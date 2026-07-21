@@ -19,7 +19,7 @@ They're case-sensitive and must be entered exactly as shown.
 ## Pricing Plans
 
 ### Solopreneur - $39/month
-- All 104 QuickBooks tools
+- All 108 QuickBooks tools
 - US & Canadian tax prep (Schedule C / T2125)
 - Deduction finder
 - Anomaly detection
@@ -46,7 +46,7 @@ They're case-sensitive and must be entered exactly as shown.
 
 ## Free Trial
 
-All plans include a 14-day free trial with full access to all 104 tools.
+All plans include a 14-day free trial with full access to all 108 tools.
 
 ### After Trial Ends
 - You keep access to 25 essential read-only tools free forever
@@ -130,3 +130,7 @@ When contacting support, include:
 
 ### Compliance
 AccountingQB is designed with privacy-first principles. We never store your QuickBooks financial data — and with the local setup, it never even reaches us.
+
+## CPA Workbook
+
+The Cowork dashboard includes a CPA Workbook tab: a 15-page year-end binder (cover, trial balance, reconciliation status, comparative P&L and balance sheet, cash flow, general ledger, tax mapping, contractors, sales tax, fixed assets, tax payments made, owner's draws, open items, and a tax organizer). Click Export workbook — or say "Prepare my CPA workbook" — and Claude assembles the Excel/CSV bundle for your accountant. It produces workpapers, not filings.

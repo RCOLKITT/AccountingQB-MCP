@@ -257,3 +257,72 @@ def test_1099_report_runs_in_demo_and_carries_footer(qb_ctx):
     result = asyncio.run(qb_server.qb_1099_contractor_report("2026"))
     assert "TAX_DATA v" in result
     assert "1099" in result
+
+
+# ---------------------------------------------------------------------------
+# v3.5 CPA workbook tools
+# ---------------------------------------------------------------------------
+
+def _demo_ctx(qb_ctx):
+    _prime_ctx(qb_ctx)
+    qb_ctx.license_key = "LK-DEMO-REVIEW2026"
+
+
+def test_reconciliation_status_demo(qb_ctx):
+    _demo_ctx(qb_ctx)
+    result = asyncio.run(qb_server.qb_reconciliation_status())
+    assert "Reconciliation Status" in result
+    assert "Checking" in result and "$47,523.84" in result
+    # The honest API-limitation caveat must always ship
+    assert "does not expose reconciliation status" in result
+
+
+def test_comparative_statements_demo_scaling(qb_ctx):
+    # Demo serves prior-year values scaled x0.85, so deltas are non-zero
+    _demo_ctx(qb_ctx)
+    result = asyncio.run(qb_server.qb_comparative_statements("pl"))
+    assert "Comparative Profit & Loss" in result
+    assert "Δ%" in result or "Δ" in result
+    # 187,500 vs 159,375 (=85%) -> +18% swing on Total Income
+    assert "$187,500.00" in result and "$159,375.00" in result
+
+
+def test_comparative_statements_rejects_bad_statement(qb_ctx):
+    _demo_ctx(qb_ctx)
+    result = asyncio.run(qb_server.qb_comparative_statements("cashflow"))
+    assert "must be 'pl'" in result
+
+
+def test_tax_payments_made_demo_finds_treasury(qb_ctx):
+    _demo_ctx(qb_ctx)
+    result = asyncio.run(qb_server.qb_tax_payments_made("2026"))
+    assert "United States Treasury" in result
+    assert "$8,500.00" in result
+    assert "Total paid" in result
+    assert "IRS online account" in result
+
+
+def test_owner_draws_demo(qb_ctx):
+    _demo_ctx(qb_ctx)
+    result = asyncio.run(qb_server.qb_owner_draws(2026))
+    assert "Owner's Draws & Contributions" in result
+    assert "Owner contribution" in result and "Owner draw" in result
+    assert "Net owner activity" in result
+    assert "not business expenses" in result
+
+
+def test_comparative_math_with_mocked_periods(qb_ctx):
+    # Non-demo: two distinct mocked report periods -> exact delta math
+    _prime_ctx(qb_ctx)
+    def reports(request):
+        start = request.url.params.get("start_date", "")
+        val = "1000.00" if start.startswith("2026") else "500.00"
+        return Response(200, json={"Rows": {"Row": [
+            {"Summary": {"ColData": [{"value": "Total Income"}, {"value": val}]}},
+        ]}})
+    with respx.mock(assert_all_called=False) as router:
+        router.get(f"{BASE}/reports/ProfitAndLoss").mock(side_effect=reports)
+        result = asyncio.run(qb_server.qb_comparative_statements("pl", 2026))
+    assert "$1,000.00" in result and "$500.00" in result
+    # delta +500 = +100% -> flagged
+    assert "+100%" in result and "⚠️" in result
