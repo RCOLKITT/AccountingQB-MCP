@@ -247,3 +247,13 @@ def test_qb_read_lowercases_entity_path(qb_ctx):
 
     assert route.called
     assert result["JournalEntry"]["Id"] == "9"
+
+
+def test_1099_report_runs_in_demo_and_carries_footer(qb_ctx):
+    # Regression: footer once referenced an unbound 'year' variable and the
+    # tool crashed for every caller (no test covered it).
+    _prime_ctx(qb_ctx)
+    qb_ctx.license_key = "LK-DEMO-REVIEW2026"
+    result = asyncio.run(qb_server.qb_1099_contractor_report("2026"))
+    assert "TAX_DATA v" in result
+    assert "1099" in result

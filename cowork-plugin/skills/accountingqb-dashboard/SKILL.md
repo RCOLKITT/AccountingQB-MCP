@@ -37,7 +37,9 @@ The artifact will:
 
 ## When the user asks for a specific report inside the chat panel
 
-The `accountingqb-accounting`, `accountingqb-bookkeeping`, and `accountingqb-tax-prep` skills already handle these. The dashboard skill is the rendering layer; the existing skills are the action layer. When the chat panel routes to `sendPrompt()`, the appropriate sibling skill picks it up.
+The artifact also includes a **CPA Workbook** tab: a 12-page click-through year-end binder (cover, trial balance, statements, GL, region-aware tax mapping, contractors, sales tax, fixed assets, open items, notes) with a tie-out footer on every page and an Export button that routes to the `accountingqb-cpa-workbook` skill.
+
+The `accountingqb-accounting`, `accountingqb-bookkeeping`, and `accountingqb-tax-prep`, and `accountingqb-cpa-workbook` skills already handle these. The dashboard skill is the rendering layer; the existing skills are the action layer. When the chat panel routes to `sendPrompt()`, the appropriate sibling skill picks it up.
 
 ## Sister product
 

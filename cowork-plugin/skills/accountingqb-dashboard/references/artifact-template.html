@@ -139,6 +139,25 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 .action-log .log-row:last-child{border-bottom:none}
 .action-log .log-row .what{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .action-log .log-row .when{color:var(--ink-dim);font-size:10px;flex-shrink:0}
+/* ---- CPA Workbook ---- */
+.wb-layout{display:grid;grid-template-columns:215px 1fr;gap:18px;margin-top:6px}
+.wb-toc{display:flex;flex-direction:column;gap:2px;align-self:start;position:sticky;top:12px}
+.wb-toc button{display:flex;align-items:center;gap:8px;text-align:left;padding:7px 10px;font-size:12px;color:var(--ink-soft);border:none;background:transparent;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:500}
+.wb-toc button:hover{background:var(--paper);color:var(--ink)}
+.wb-toc button.active{background:var(--ink);color:#fff;font-weight:600}
+.wb-toc .pgnum{font-family:var(--mono);font-size:10px;color:var(--ink-dim);width:16px;flex-shrink:0}
+.wb-toc button.active .pgnum{color:#9fb0c4}
+.wb-toc .dot{width:6px;height:6px;border-radius:50%;background:var(--rule-dark);margin-left:auto;flex-shrink:0}
+.wb-toc .dot.loaded{background:var(--green)}
+.wb-page{min-width:0}
+.wb-page-h{display:flex;justify-content:space-between;align-items:baseline;font-weight:700;font-size:14px;color:var(--ink);padding-bottom:8px;border-bottom:1.5px solid var(--rule-dark);margin-bottom:10px}
+.wb-tieout{margin-top:16px;padding-top:8px;border-top:1px solid var(--rule);font-size:10.5px;color:var(--ink-dim);font-family:var(--mono)}
+.wb-pager{display:flex;justify-content:space-between;margin-top:14px}
+.wb-notes{width:100%;min-height:240px;border:1px solid var(--rule-dark);border-radius:6px;padding:12px;font-family:inherit;font-size:13px;color:var(--ink);background:#fff;resize:vertical;outline:none;line-height:1.6}
+.wb-notes:focus{border-color:var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+.md-content tr.drill{cursor:pointer}
+.md-content tr.drill:hover td:first-child{box-shadow:inset 3px 0 0 var(--green)}
+@media (max-width:900px){.wb-layout{grid-template-columns:1fr}.wb-toc{position:static;flex-direction:row;flex-wrap:wrap}}
 @media (max-width:1100px){.body{grid-template-columns:1fr}.chat{position:static;max-height:none;min-height:480px}}
 @media (max-width:600px){.kpi-grid{grid-template-columns:1fr}}
 </style>
@@ -168,6 +187,7 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 <button class="tab" data-tab="payables">A/P</button>
 <button class="tab" data-tab="transactions">Transactions</button>
 <button class="tab" data-tab="tax">Tax</button>
+<button class="tab" data-tab="workbook">Workbook</button>
 <button class="tab" data-tab="health">Health</button>
 </div>
 <span id="runway-pill" class="runway-pill loading">Loading</span>
@@ -287,6 +307,33 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 </div>
 </div>
 
+<div id="view-workbook" style="display:none">
+<div class="card">
+<div class="card-h">
+<h3>CPA Workbook</h3>
+<div class="meta">
+<div class="period-tabs" id="wb-period-tabs" style="margin:0">
+<button class="period-tab" data-wbperiod="prior_year">Prior year</button>
+<button class="period-tab" data-wbperiod="ytd">Year-to-date</button>
+</div>
+<button class="qbtn" id="wb-export" title="Have Claude assemble the Excel/CSV workbook">&#11015; Export workbook</button>
+</div>
+</div>
+<div class="wb-layout">
+<nav class="wb-toc" id="wb-toc" aria-label="Workbook pages"></nav>
+<div class="wb-page">
+<div class="wb-page-h"><span id="wb-page-title"></span><span class="small" id="wb-page-count"></span></div>
+<div id="wb-content" class="md-content"><div class="loading">Loading</div></div>
+<div class="wb-tieout" id="wb-tieout"></div>
+<div class="wb-pager">
+<button class="qbtn" id="wb-prev">&larr; Prev</button>
+<button class="qbtn" id="wb-next">Next &rarr;</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
 <div id="view-health" style="display:none">
 <div class="card">
 <div class="card-h"><h3>Books health audit</h3><div class="meta"><span class="small ts" data-ts="health"></span><button class="refresh-btn" data-refresh="health" title="Refresh">↻</button></div></div>
@@ -367,8 +414,14 @@ function md2html(s){
     let out = '<table>';
     if(header) out += '<thead><tr>' + header.map((c, i) => cell(c, i, 'th')).join('') + '</tr></thead>';
     out += '<tbody>' + data.map(r => {
-      const rowCls = totalRe.test((r[0] || '').trim()) ? ' class="total-row"' : '';
-      return '<tr' + rowCls + '>' + r.map((c, i) => cell(c, i, 'td')).join('') + '</tr>';
+      const isTotal = totalRe.test((r[0] || '').trim());
+      const hasNum = r.some((c, i) => header ? (numericCols[i] && (c || '').trim() && c.trim() !== '\u2014') : isNum(c));
+      let attrs = isTotal ? ' class="total-row"' : '';
+      if(!isTotal && hasNum && (r[0] || '').trim()){
+        attrs = ' class="drill" data-drill="' + escapeHtml((r[0] || '').replace(/\*\*/g, '').trim()) + '"' +
+                ' title="Click to see the transactions behind this line"';
+      }
+      return '<tr' + attrs + '>' + r.map((c, i) => cell(c, i, 'td')).join('') + '</tr>';
     }).join('') + '</tbody></table>';
     return out + '\n';
   });
@@ -569,6 +622,7 @@ async function loadTab(tab, force){
     SECTION_LOADERS['tax-schedulec'] = () => loadTab('tax', true);
     SECTION_LOADERS['tax-deductions'] = () => loadTab('tax', true);
   }
+  else if(tab === 'workbook'){ await initWorkbook(); }
   else if(tab === 'health'){ if(!CACHE['health']) await loadHealthSummary(); }
 }
 let currentPlPeriod = 'ytd';
@@ -599,6 +653,7 @@ const TAB_SUGGESTIONS = {
   payables: [ ['What bills are due this week?', 'Due soon'], ['Who is my biggest vendor?', 'Top vendor'], ['Record a bill payment', 'Pay bill'] ],
   transactions: [ ['Categorize my uncategorized transactions', 'Categorize'], ['Merge the duplicate transactions', 'Fix dupes'], ['Assign vendors to unknown transactions', 'Fix vendors'] ],
   tax: [ ['How much should I set aside for Q3 taxes?', 'Q3 estimate'], ['What deductions am I missing?', 'Deductions'], ['Export my Schedule C', 'Schedule C'] ],
+  workbook: [ ['What will my CPA ask about?', 'CPA questions'], ['Explain the open items', 'Open items'], ['Export the workbook', 'Export'] ],
   health: [ ['Fix all critical issues', 'Fix critical'], ['What does my accountant need?', 'For CPA'], ['Run month-end close', 'Close books'] ]
 };
 function paintSuggestions(tab){
@@ -608,13 +663,169 @@ function paintSuggestions(tab){
   ).join('');
   wrap.querySelectorAll('.chat-suggestion').forEach(s => s.addEventListener('click', () => askAQB(s.dataset.q)));
 }
+// ============ CPA Workbook ============
+let WB_REGION = null;   // 'US' | 'CA' — from company info (Business Number => CA)
+let wbPeriod = (new Date().getMonth() < 4) ? 'prior_year' : 'ytd';  // CPA season default
+let wbIndex = 0;
+const WB_LOADED = {};   // pageId -> true
+
+function wbRange(){ return periodRange(wbPeriod === 'prior_year' ? 'prev_year' : 'ytd'); }
+function wbYear(){ return wbRange()[0].slice(0, 4); }
+
+function wbPages(){
+  const [start, end] = wbRange();
+  const y = wbYear();
+  const us = WB_REGION !== 'CA';
+  return [
+    {id:'cover', title:'Cover & Summary', multi:[['qb_company_info',{}],['qb_books_health_audit',{tax_year:y}]]},
+    {id:'tb', title:'Trial Balance', tool:'qb_trial_balance', args:{start_date:start, end_date:end}},
+    {id:'plw', title:'Profit & Loss', tool:'qb_profit_loss', args:{start_date:start, end_date:end, summarize_by:'Total'}},
+    {id:'bs', title:'Balance Sheet', tool:'qb_balance_sheet', args:{as_of_date:end}},
+    {id:'cfw', title:'Cash Flow', tool:'qb_cash_flow', args:{start_date:start, end_date:end}},
+    {id:'gl', title:'General Ledger', tool:'qb_general_ledger', args:{start_date:start, end_date:end}},
+    us ? {id:'taxmap', title:'Schedule C Mapping', tool:'qb_schedule_c_detailed', args:{tax_year:y}}
+       : {id:'taxmap', title:'T2125 Mapping', tool:'qb_t2125_summary', args:{year:parseInt(y, 10)}},
+    us ? {id:'contract', title:'1099 Contractors', tool:'qb_1099_contractor_report', args:{tax_year:y}}
+       : {id:'contract', title:'T4A Contractors', tool:'qb_t4a_contractor_report', args:{year:parseInt(y, 10)}},
+    us ? {id:'salestax', title:'Sales Tax', tool:'qb_sales_tax_summary', args:{start_date:start, end_date:end}}
+       : {id:'salestax', title:'GST/HST Return', tool:'qb_gst_hst_return', args:{start_date:start, end_date:end}},
+    us ? {id:'assets', title:'Fixed Assets & Depreciation', tool:'qb_depreciation_schedule', args:{tax_year:y}}
+       : {id:'assets', title:'CCA Schedule', tool:'qb_cca_schedule', args:{year:parseInt(y, 10)}},
+    {id:'open', title:'Open Items', multi:[['qb_uncategorized_transactions',{start_date:start, end_date:end}],
+                                          ['qb_find_duplicates',{start_date:start, end_date:end}],
+                                          ['qb_unknown_vendor_report',{start_date:start, end_date:end}]]},
+    {id:'notes', title:'Notes for CPA', notes:true},
+  ];
+}
+
+function renderWbToc(){
+  const pages = wbPages();
+  document.getElementById('wb-toc').innerHTML = pages.map((p, i) =>
+    '<button data-wbpage="' + i + '"' + (i === wbIndex ? ' class="active"' : '') + '>' +
+    '<span class="pgnum">' + (i + 1) + '</span>' + escapeHtml(p.title) +
+    '<span class="dot' + (WB_LOADED[p.id] ? ' loaded' : '') + '"></span></button>').join('');
+  document.getElementById('wb-toc').querySelectorAll('button').forEach(b =>
+    b.addEventListener('click', () => loadWbPage(parseInt(b.dataset.wbpage, 10))));
+}
+
+function wbNotesKey(){ return 'aqb-wb-notes-' + wbYear(); }
+
+async function loadWbPage(i, force){
+  const pages = wbPages();
+  wbIndex = Math.max(0, Math.min(pages.length - 1, i));
+  const page = pages[wbIndex];
+  const [start, end] = wbRange();
+  document.getElementById('wb-page-title').textContent = page.title;
+  document.getElementById('wb-page-count').textContent = 'Page ' + (wbIndex + 1) + ' of ' + pages.length;
+  document.getElementById('wb-prev').disabled = wbIndex === 0;
+  document.getElementById('wb-next').disabled = wbIndex === pages.length - 1;
+  renderWbToc();
+  const el = document.getElementById('wb-content');
+  const tie = document.getElementById('wb-tieout');
+
+  if(page.notes){
+    const saved = (() => { try { return sessionStorage.getItem(wbNotesKey()) || ''; } catch(e){ return ''; } })();
+    el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin-top:0">Anything your CPA should know: ' +
+      'one-off events, owner draws, new asset purchases, loans, mixed-use expenses.</p>' +
+      '<textarea class="wb-notes" id="wb-notes-input" placeholder="Type notes for your CPA\u2026"></textarea>';
+    const ta = document.getElementById('wb-notes-input');
+    ta.value = saved;
+    ta.addEventListener('input', () => { try { sessionStorage.setItem(wbNotesKey(), ta.value); } catch(e){} });
+    tie.textContent = 'Included on the cover sheet of the exported workbook \u00b7 period ' + start + ' \u2013 ' + end;
+    WB_LOADED[page.id] = true;
+    renderWbToc();
+    return;
+  }
+
+  const cacheKey = 'wb-' + page.id + '-' + wbPeriod;
+  if(WB_LOADED[page.id] && !force && CACHE[cacheKey]){
+    el.innerHTML = md2html(CACHE[cacheKey].md);
+    paintWbTieout(page, start, end, CACHE[cacheKey].ts);
+    return;
+  }
+
+  el.innerHTML = '<div class="loading">Loading</div>';
+  tie.textContent = '';
+  const specs = page.multi || [[page.tool, page.args]];
+  const results = await Promise.all(specs.map(([t, a]) => call(t, a)));
+  const errs = results.filter(r => r && r.error);
+  if(errs.length === results.length){
+    el.innerHTML = '<div class="err-box">Could not load ' + escapeHtml(page.title) + ' \u2014 ' +
+      escapeHtml(errs[0].error) + '<br><button class="retry" onclick="loadWbPage(' + wbIndex + ', true)">Retry</button></div>';
+    return;
+  }
+  const md = results.map(r => (r && r.error) ? ('> Section unavailable: ' + r.error) : extractText(r)).join('\n\n---\n\n');
+  cachePut(cacheKey, md);
+  el.innerHTML = md2html(md);
+  WB_LOADED[page.id] = true;
+  renderWbToc();
+  paintWbTieout(page, start, end, new Date());
+}
+
+function paintWbTieout(page, start, end, ts){
+  const tools = (page.multi ? page.multi.map(s => s[0]) : [page.tool]).join(' + ');
+  document.getElementById('wb-tieout').textContent =
+    'Source: ' + tools + ' \u00b7 pulled ' + ts.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'}) +
+    ' \u00b7 period ' + start + ' \u2013 ' + end + ' \u00b7 workpapers, not filings';
+}
+
+async function initWorkbook(force){
+  if(WB_REGION === null){
+    let md = CACHE.company ? CACHE.company.md : '';
+    if(!md){
+      const r = await call('qb_company_info', {});
+      if(!(r && r.error)) { md = extractText(r); cachePut('company', md); }
+    }
+    WB_REGION = /Business Number/i.test(md) ? 'CA' : 'US';
+  }
+  // Period toggle active state
+  document.querySelectorAll('#wb-period-tabs .period-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.wbperiod === wbPeriod));
+  renderWbToc();
+  await loadWbPage(wbIndex, force);
+}
+
+document.getElementById('wb-prev').addEventListener('click', () => loadWbPage(wbIndex - 1));
+document.getElementById('wb-next').addEventListener('click', () => loadWbPage(wbIndex + 1));
+document.querySelectorAll('#wb-period-tabs .period-tab').forEach(t => {
+  t.addEventListener('click', () => {
+    if(wbPeriod === t.dataset.wbperiod) return;
+    wbPeriod = t.dataset.wbperiod;
+    Object.keys(WB_LOADED).forEach(k => delete WB_LOADED[k]);
+    initWorkbook(true);
+  });
+});
+document.getElementById('wb-export').addEventListener('click', () => {
+  const [start, end] = wbRange();
+  const instruction = 'AccountingQB: Export my CPA workbook for ' + start + ' to ' + end +
+    ' \u2014 follow the export recipe in the accountingqb-cpa-workbook skill' +
+    ((() => { try { const n = sessionStorage.getItem(wbNotesKey()); return n ? '. Include these notes for the CPA on the cover sheet: ' + n : ''; } catch(e){ return ''; } })());
+  if(typeof sendPrompt !== 'function'){
+    appendMsg('assistant', 'Export runs through the Cowork chat \u2014 ask: "Export my CPA workbook".');
+    return;
+  }
+  sendPrompt(instruction);
+  appendMsg('user', 'Export workbook (' + wbYear() + ')');
+  logAction('Export CPA workbook \u00b7 ' + wbYear());
+});
+
+
+// ============ Row drill-down: click a ledger line, ask about it ============
+document.addEventListener('click', (e) => {
+  const row = e.target && e.target.closest ? e.target.closest('tr.drill') : null;
+  if(!row || !row.dataset.drill) return;
+  const inWb = !!row.closest('#view-workbook');
+  const [ws, we] = inWb ? wbRange() : periodRange('ytd');
+  askAQB('Show the transactions behind "' + row.dataset.drill + '" for ' + ws + ' to ' + we);
+});
+
 let activeTab = 'dashboard';
 document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
     activeTab = t.dataset.tab;
-    ['dashboard','pl','cashflow','receivables','payables','transactions','tax','health'].forEach(v => {
+    ['dashboard','pl','cashflow','receivables','payables','transactions','tax','workbook','health'].forEach(v => {
       document.getElementById('view-' + v).style.display = v === activeTab ? '' : 'none';
     });
     loadTab(activeTab);

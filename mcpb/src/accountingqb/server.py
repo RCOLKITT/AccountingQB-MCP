@@ -750,11 +750,54 @@ DEMO_AGED_PAYABLES = {
     ]},
 }
 
+# Demo Trial Balance (balances tie to DEMO_ACCOUNTS / DEMO_PROFIT_LOSS)
+DEMO_TRIAL_BALANCE = {
+    "Header": {"ReportName": "TrialBalance", "StartPeriod": "2026-01-01", "EndPeriod": "2026-06-30"},
+    "Rows": {"Row": [
+        {"ColData": [{"value": "Checking"}, {"value": "47523.84"}, {"value": ""}]},
+        {"ColData": [{"value": "Savings"}, {"value": "125000.00"}, {"value": ""}]},
+        {"ColData": [{"value": "Accounts Receivable"}, {"value": "49200.00"}, {"value": ""}]},
+        {"ColData": [{"value": "Accounts Payable"}, {"value": ""}, {"value": "5097.28"}]},
+        {"ColData": [{"value": "Owner's Equity"}, {"value": ""}, {"value": "77876.56"}]},
+        {"ColData": [{"value": "Consulting Revenue"}, {"value": ""}, {"value": "145000.00"}]},
+        {"ColData": [{"value": "Software Revenue"}, {"value": ""}, {"value": "42500.00"}]},
+        {"ColData": [{"value": "Software & Subscriptions"}, {"value": "12500.00"}, {"value": ""}]},
+        {"ColData": [{"value": "Rent"}, {"value": "13500.00"}, {"value": ""}]},
+        {"ColData": [{"value": "Travel"}, {"value": "8750.00"}, {"value": ""}]},
+        {"ColData": [{"value": "Office Supplies"}, {"value": "2500.00"}, {"value": ""}]},
+        {"ColData": [{"value": "Professional Services"}, {"value": "7500.00"}, {"value": ""}]},
+        {"ColData": [{"value": "Advertising"}, {"value": "4000.00"}, {"value": ""}]},
+        {"Summary": {"ColData": [{"value": "TOTAL"}, {"value": "270473.84"}, {"value": "270473.84"}]}},
+    ]},
+}
+
+# Demo General Ledger (entries tie to DEMO_TRANSACTIONS / DEMO_INVOICES)
+DEMO_GENERAL_LEDGER = {
+    "Header": {"ReportName": "GeneralLedger", "StartPeriod": "2026-01-01", "EndPeriod": "2026-06-30"},
+    "Rows": {"Row": [
+        {"Header": {"ColData": [{"value": "Checking"}]}, "Rows": {"Row": [
+            {"ColData": [{"value": "2026-02-15"}, {"value": "Payment — Metro Legal Services #1041"}, {"value": "12000.00"}]},
+            {"ColData": [{"value": "2026-03-22"}, {"value": "Check — WeWork March coworking"}, {"value": "-1500.00"}]},
+        ]}, "Summary": {"ColData": [{"value": "Total Checking"}, {"value": "10500.00"}]}},
+        {"Header": {"ColData": [{"value": "Software & Subscriptions"}]}, "Rows": {"Row": [
+            {"ColData": [{"value": "2026-03-10"}, {"value": "Adobe Creative Cloud annual"}, {"value": "599.88"}]},
+            {"ColData": [{"value": "2026-03-20"}, {"value": "AWS monthly hosting"}, {"value": "847.50"}]},
+            {"ColData": [{"value": "2026-03-25"}, {"value": "Zoom Pro annual"}, {"value": "149.90"}]},
+        ]}, "Summary": {"ColData": [{"value": "Total Software & Subscriptions"}, {"value": "1597.28"}]}},
+        {"Header": {"ColData": [{"value": "Consulting Revenue"}]}, "Rows": {"Row": [
+            {"ColData": [{"value": "2026-03-01"}, {"value": "Invoice #1042 — TechStart Inc"}, {"value": "15000.00"}]},
+            {"ColData": [{"value": "2026-03-05"}, {"value": "Invoice #1043 — Sunrise Healthcare"}, {"value": "22500.00"}]},
+        ]}, "Summary": {"ColData": [{"value": "Total Consulting Revenue"}, {"value": "37500.00"}]}},
+    ]},
+}
+
 _DEMO_REPORTS = {
     "ProfitAndLoss": DEMO_PROFIT_LOSS,
     "BalanceSheet": DEMO_BALANCE_SHEET,
     "AgedReceivables": DEMO_AGED_RECEIVABLES,
     "AgedPayables": DEMO_AGED_PAYABLES,
+    "TrialBalance": DEMO_TRIAL_BALANCE,
+    "GeneralLedger": DEMO_GENERAL_LEDGER,
 }
 
 
@@ -4014,9 +4057,13 @@ async def qb_deduction_finder(tax_year: str = "") -> str:
 
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("US", "Use qb_cca_schedule for CCA classes.")
-async def qb_depreciation_schedule(tax_year: str = "2024") -> str:
+async def qb_depreciation_schedule(tax_year: str = "") -> str:
     """Generate a depreciation schedule for all fixed assets. Shows Section 179,
-    MACRS, and accumulated depreciation for tax year. Pulls from QB asset accounts."""
+    MACRS, and accumulated depreciation for tax year (defaults to the current
+    year). Pulls from QB asset accounts."""
+    from datetime import date as _date
+    if not tax_year:
+        tax_year = str(_date.today().year)
     # Get fixed asset accounts
     assets = await qb_query("SELECT * FROM Account WHERE AccountType = 'Fixed Asset' MAXRESULTS 50")
     acct_list = assets.get("QueryResponse", {}).get("Account", [])
@@ -5754,7 +5801,7 @@ async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 0
         lines.append(f"  - Use IRS FIRE system or approved e-file provider")
 
     _audit_log("1099_REPORT", f"year={tax_year} vendors={len(reportable)} total={fmt(grand_total)}")
-    return "\n".join(lines) + tax_data_footer(year)
+    return "\n".join(lines) + tax_data_footer(int(tax_year))
 
 
 # ===================================================================
