@@ -25,6 +25,13 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState(initialSearch);
   const [campaignLoading, setCampaignLoading] = useState(false);
 
+  // Invite-a-tester state
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteTier, setInviteTier] = useState("solopreneur");
+  const [inviteDays, setInviteDays] = useState(14);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteResult, setInviteResult] = useState<string | null>(null);
+
   // Cohorts the campaign endpoint supports
   const campaignFilter = filter === "stuck" || filter === "canceled" ? filter : null;
 
@@ -49,6 +56,44 @@ export default function AdminUsersPage() {
       console.error("Failed to fetch users:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const inviteFriend = async () => {
+    setInviteResult(null);
+    if (!inviteEmail.trim()) {
+      setInviteResult("Enter an email first.");
+      return;
+    }
+    setInviteLoading(true);
+    try {
+      const res = await fetch("/api/admin/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: inviteEmail.trim(),
+          tier: inviteTier,
+          trialDays: inviteDays,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setInviteResult(data.error || "Failed to send invite.");
+      } else if (data.alreadyHasLicense) {
+        setInviteResult(data.message);
+      } else if (data.created) {
+        setInviteResult(
+          data.emailSent
+            ? `✓ Invited ${inviteEmail.trim()} — ${inviteDays}-day ${inviteTier} trial emailed (key ${data.licenseKey}).`
+            : `License created (${data.licenseKey}) but email failed — share the key manually.`
+        );
+        setInviteEmail("");
+        fetchUsers();
+      }
+    } catch {
+      setInviteResult("Network error sending invite.");
+    } finally {
+      setInviteLoading(false);
     }
   };
 
@@ -122,6 +167,54 @@ export default function AdminUsersPage() {
           >
             {campaignLoading ? "Working..." : "Send re-engagement campaign"}
           </button>
+        )}
+      </div>
+
+      {/* Invite a tester */}
+      <div className="bg-[#131a2e] rounded-xl border border-cyan-500/20 p-5">
+        <h2 className="text-sm font-semibold text-white">Invite a tester</h2>
+        <p className="text-xs text-gray-400 mt-1">
+          Issues a time-limited trial (no card) and emails them the key + setup
+          steps. When the trial ends they drop to the free read-only tools and
+          must subscribe for full access.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 mt-4">
+          <input
+            type="email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            placeholder="friend@example.com"
+            className="flex-1 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+          />
+          <select
+            value={inviteTier}
+            onChange={(e) => setInviteTier(e.target.value)}
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-white focus:border-cyan-500/50 focus:outline-none"
+          >
+            <option value="solopreneur">Solopreneur</option>
+            <option value="business">Business</option>
+            <option value="firm">Firm</option>
+          </select>
+          <select
+            value={inviteDays}
+            onChange={(e) => setInviteDays(Number(e.target.value))}
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-white focus:border-cyan-500/50 focus:outline-none"
+          >
+            <option value={7}>7 days</option>
+            <option value={14}>14 days</option>
+            <option value={21}>21 days</option>
+            <option value={30}>30 days</option>
+          </select>
+          <button
+            onClick={inviteFriend}
+            disabled={inviteLoading}
+            className="rounded-lg bg-cyan-500/10 border border-cyan-500/40 px-4 py-2 text-sm font-medium text-cyan-400 hover:bg-cyan-500/20 transition disabled:opacity-50"
+          >
+            {inviteLoading ? "Sending..." : "Send invite"}
+          </button>
+        </div>
+        {inviteResult && (
+          <p className="text-xs mt-3 text-gray-300">{inviteResult}</p>
         )}
       </div>
 
