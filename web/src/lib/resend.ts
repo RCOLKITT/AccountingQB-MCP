@@ -30,6 +30,12 @@ export async function sendLicenseEmail({
     month: "long",
     day: "numeric",
   });
+  // Derive the real trial length so comped invites (7/21/30-day) don't all
+  // read "14-day". Round to whole days from now → trial_ends_at.
+  const trialDays = Math.max(
+    1,
+    Math.round((new Date(trialEndsAt).getTime() - Date.now()) / 86400000)
+  );
 
   const { data, error } = await getResend().emails.send({
     from: "AccountingQB <noreply@accountingqb.com>",
@@ -71,7 +77,7 @@ export async function sendLicenseEmail({
               <!-- Trial Info -->
               <div style="background: rgba(99, 102, 241, 0.1); border-radius: 8px; padding: 16px; margin-bottom: 32px;">
                 <p style="margin: 0; font-size: 14px; color: #a5b4fc;">
-                  <strong style="color: #ffffff;">14-day free trial</strong> — full access to all 108 tools.<br>
+                  <strong style="color: #ffffff;">${trialDays}-day free trial</strong> — full access to all 108 tools.<br>
                   Trial ends: ${trialEndDate}
                 </p>
               </div>
