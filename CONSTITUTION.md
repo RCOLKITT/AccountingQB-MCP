@@ -70,7 +70,7 @@ _CPP_PARAMS = {2026: {"rate": 0.119, "ymPE": 74_600, ...}}
 
 - Statutory constants (CPP/YMPE, CCA ceilings, mileage rates, IRS/CRA dates,
   thresholds) live in named, year-keyed tables with a source comment and a
-  review cadence (tracked in docs/OPS.md). No bare magic numbers in tax math.
+  review cadence (tracked in private-docs/OPS.md). No bare magic numbers in tax math.
 - When a constant's year table lacks the requested year, the tool says which
   year's figures it used — it never silently reuses stale rates.
 
@@ -187,7 +187,7 @@ These tools mutate a business's books of record.
   changes ship as dated files in `web/migrations/` and are applied before
   the code that needs them deploys.
 - Statutory rate tables reviewed annually (December CRA / IRS announcements);
-  Reports API cutover and other dated obligations tracked in docs/OPS.md.
+  Reports API cutover and other dated obligations tracked in private-docs/OPS.md.
 - External failure → hold and log, never publish partial financial data
   silently.
 

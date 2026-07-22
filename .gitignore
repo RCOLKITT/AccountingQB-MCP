@@ -42,3 +42,6 @@ mcpb/server/
 
 # Vaspera cert raw findings (machine artifacts; CERTIFICATION.md is the committed summary)
 .vaspera/certifications/
+
+# Internal strategy/ops docs — kept local, never published (repo is public)
+private-docs/

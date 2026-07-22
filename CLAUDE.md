@@ -13,7 +13,9 @@ them; propose a Constitution amendment instead.
   `web/migrations/`.
 - `cowork-plugin/` — Claude plugin (official `.claude-plugin` format + skills).
 - `tests/` — `python3 -m pytest tests/ -q` (offline, respx). Web: `cd web && npx tsc --noEmit`.
-- `docs/` — AUDIT-2026-07.md (context), OPS.md (dated obligations), SUBMISSIONS.md.
+- `docs/` — CONNECTOR-SUBMISSION.md (public reviewer package). Internal
+  strategy/ops docs (AUDIT, OPS, SUBMISSIONS, PLAN, desktop-extension SPEC) live
+  in the gitignored `private-docs/` — local only, never published.
 
 ## Non-obvious facts
 - Secrets live in Doppler (→ Vercel/Fly). Never commit or log them.
