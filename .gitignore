@@ -39,3 +39,6 @@ Thumbs.db
 # Build artifacts
 *.mcpb
 mcpb/server/
+
+# Vaspera cert raw findings (machine artifacts; CERTIFICATION.md is the committed summary)
+.vaspera/certifications/
