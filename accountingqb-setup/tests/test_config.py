@@ -194,7 +194,7 @@ class TestMaskLicenseKey:
         masked = mask_license_key(key)
 
         assert masked.startswith("LK-")
-        assert masked.endswith("7F93")
+        assert masked.endswith("CDEF")
         assert "*" in masked
         assert len(masked) == len(key)
 

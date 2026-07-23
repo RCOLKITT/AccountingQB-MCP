@@ -1,21 +1,52 @@
-MIT License
+AccountingQB Commercial License
 
-Copyright (c) 2025 Vaspera Capital LLC
+Copyright (c) 2024-2026 Vaspera Capital LLC. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This repository and all of its contents (the "Software") are proprietary and
+confidential. The source is made publicly viewable for transparency, security
+review, and distribution-directory purposes only. Public visibility does NOT
+grant any license to use, copy, modify, or redistribute the Software. Use of
+AccountingQB requires a valid, paid license key.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+LICENSE TERMS:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+1. LICENSE GRANT
+   Subject to payment of applicable fees and compliance with these terms,
+   Vaspera Capital grants you a limited, non-exclusive, non-transferable
+   license to use AccountingQB for your business purposes. No rights are
+   granted by mere access to or viewing of this repository.
+
+2. RESTRICTIONS
+   You may not:
+   - Redistribute, sublicense, or resell the Software
+   - Modify, reverse engineer, or create derivative works
+   - Use the Software or any part of it to build a competing product
+   - Copy, reuse, or incorporate the source code into other works
+   - Remove or alter any proprietary notices
+   - Use the Software without a valid license key
+
+3. SUBSCRIPTION
+   This Software is licensed on a subscription basis. Your license is
+   valid for as long as your subscription remains active.
+
+4. DATA PRIVACY
+   - Your financial data is processed locally by the MCP server
+   - OAuth tokens are stored securely (encrypted at rest)
+   - We do not access, store, or process your QuickBooks data
+   - See https://accountingqb.com/privacy for full privacy policy
+
+5. DISCLAIMER
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+6. LIMITATION OF LIABILITY
+   IN NO EVENT SHALL VASPERA CAPITAL BE LIABLE FOR ANY CLAIM, DAMAGES
+   OR OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
+
+7. TERMINATION
+   This license terminates automatically if you fail to comply with
+   these terms or if your subscription expires.
+
+For questions or licensing inquiries, contact: support@vasperacapital.com
+Website: https://accountingqb.com

@@ -314,6 +314,8 @@ Issues and PRs welcome. If you're adding new tools, follow the existing pattern:
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+**Proprietary — © Vaspera Capital LLC, all rights reserved.** The source is
+publicly viewable for transparency and security review; it is **not** open
+source. Use requires a paid license key. See [LICENSE](LICENSE).
 
 Built by [Vaspera Capital](https://vasperacapital.com)
