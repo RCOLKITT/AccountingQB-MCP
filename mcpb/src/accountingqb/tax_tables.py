@@ -563,11 +563,17 @@ def tax_value_or_latest(table: str, year: int):
 
 
 def tax_data_footer(vintage_year=None) -> str:
-    """One-line provenance footer for tax tool outputs."""
+    """Provenance + point-of-use liability footer for tax tool outputs."""
     vintage = f"{vintage_year} tables" if vintage_year else "current tables"
     return ("\n\n---\n"
             f"*Rates: {vintage} · verified {TAX_DATA_VERIFIED} · "
-            f"TAX_DATA v{TAX_DATA_VERSION} · details: qb_tax_data_info*")
+            f"TAX_DATA v{TAX_DATA_VERSION} · details: qb_tax_data_info*\n"
+            "*Informational workpaper only — not tax, legal, or accounting "
+            "advice. Rates and rules change and may not fit your situation. "
+            "Verify against official IRS/CRA/state sources and confirm with a "
+            "qualified tax professional before filing or relying on these "
+            "figures; you are responsible for the accuracy and compliance of "
+            "your filings.*")
 
 
 # =========================================================================

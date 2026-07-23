@@ -107,7 +107,29 @@ export default function TermsOfService() {
             or sponsored by Intuit Inc. QuickBooks is a registered trademark of Intuit Inc.
           </p>
 
-          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">10. Disclaimer of Warranties</h2>
+          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">10. No Professional Advice; Your Responsibility for Accuracy and Compliance</h2>
+          <p className="text-gray-400 leading-relaxed">
+            AccountingQB is a software tool, not a tax, accounting, legal, bookkeeping,
+            or financial advisor. We are not certified public accountants, enrolled
+            agents, or tax return preparers, and no output of the Service constitutes
+            tax, legal, accounting, or financial advice. Using the Service does not
+            create any accountant-client, fiduciary, or other professional relationship.
+          </p>
+          <p className="text-gray-400 leading-relaxed mt-4">
+            The Service produces workpapers and calculations to assist you — not filed
+            returns. Tax rates, thresholds, forms, and rules are provided for
+            informational purposes, change over time, and may not reflect the most
+            current law or your specific circumstances. YOU ARE SOLELY RESPONSIBLE FOR
+            REVIEWING AND VERIFYING THE ACCURACY OF ALL OUTPUT, FOR INDEPENDENTLY
+            CONFIRMING IT AGAINST OFFICIAL IRS, CRA, STATE, AND PROVINCIAL SOURCES, AND
+            FOR ENSURING THAT YOUR BOOKS, FILINGS, RETURNS, AND PAYMENTS COMPLY WITH ALL
+            APPLICABLE TAX AND ACCOUNTING LAWS. You should consult a qualified
+            professional (such as a CPA or tax advisor) before filing or otherwise
+            relying on any figures the Service produces. You assume all risk and
+            responsibility for decisions made in reliance on the Service.
+          </p>
+
+          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">11. Disclaimer of Warranties</h2>
           <p className="text-gray-400 leading-relaxed">
             THE SERVICE IS PROVIDED &ldquo;AS IS&rdquo; AND &ldquo;AS AVAILABLE&rdquo; WITHOUT
             WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED
@@ -116,7 +138,7 @@ export default function TermsOfService() {
             SERVICE IS NOT A SUBSTITUTE FOR PROFESSIONAL ACCOUNTING, TAX, OR FINANCIAL ADVICE.
           </p>
 
-          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">11. Limitation of Liability</h2>
+          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">12. Limitation of Liability</h2>
           <p className="text-gray-400 leading-relaxed">
             TO THE MAXIMUM EXTENT PERMITTED BY LAW, NUTRIFITAI LLC (D/B/A VASPERA CAPITAL) AND ITS OFFICERS, DIRECTORS,
             EMPLOYEES, AND AGENTS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL,
@@ -129,7 +151,7 @@ export default function TermsOfService() {
             PRECEDING THE CLAIM.
           </p>
 
-          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">12. Indemnification</h2>
+          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">13. Indemnification</h2>
           <p className="text-gray-400 leading-relaxed">
             You agree to indemnify and hold harmless NutriFitAI LLC (d/b/a Vaspera Capital) from any claims, damages,
             losses, liabilities, and expenses (including reasonable attorney&apos;s fees) arising out
@@ -137,15 +159,15 @@ export default function TermsOfService() {
             violation of any rights of another party.
           </p>
 
-          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">13. Termination</h2>
+          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">14. Termination</h2>
           <p className="text-gray-400 leading-relaxed">
             We may suspend or terminate your access to the Service at any time, with or without
             cause, and with or without notice. Upon termination, your license to use the Service
-            will immediately cease. Sections 10 through 15 shall survive any termination of these
+            will immediately cease. Sections 10 through 16 shall survive any termination of these
             Terms.
           </p>
 
-          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">14. Governing Law</h2>
+          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">15. Governing Law</h2>
           <p className="text-gray-400 leading-relaxed">
             These Terms shall be governed by and construed in accordance with the laws of the
             Commonwealth of Massachusetts, without regard to its conflict of law provisions. Any
@@ -153,14 +175,14 @@ export default function TermsOfService() {
             the courts located in Worcester County, Massachusetts.
           </p>
 
-          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">15. Changes to Terms</h2>
+          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">16. Changes to Terms</h2>
           <p className="text-gray-400 leading-relaxed">
             We may update these Terms from time to time. We will notify you of material changes
             by email or by posting a notice on our website. Your continued use of the Service
             after changes become effective constitutes acceptance of the revised Terms.
           </p>
 
-          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">16. Contact Us</h2>
+          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">17. Contact Us</h2>
           <p className="text-gray-400 leading-relaxed">
             If you have questions about these Terms, contact us at{" "}
             <a href="mailto:support@vasperacapital.com" className="text-cyan-400 hover:underline">
