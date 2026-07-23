@@ -366,9 +366,10 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 
 <script>
 // ============ Namespace auto-detection ============
-// Ryan's session exposes the server as mcp__quickbooks__*; packaged plugin installs
-// expose it as mcp__accountingqb__*. Same product (AccountingQB). Detect at runtime.
-const NS_CANDIDATES = ['mcp__quickbooks__', 'mcp__accountingqb__'];
+// The product server registers as mcp__accountingqb__* (PyPI package + mcpb
+// plugin). Prefer it. mcp__quickbooks__* is a legacy dev-only alias some local
+// configs still carry; kept last as a fallback. Same product either way.
+const NS_CANDIDATES = ['mcp__accountingqb__', 'mcp__quickbooks__'];
 let NS = null;
 let COMPANY = null;
 
