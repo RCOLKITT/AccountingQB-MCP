@@ -53,6 +53,16 @@ export async function GET(req: NextRequest) {
         metadata: { tier },
       },
       line_items: [{ price: priceId, quantity: 1 }],
+      // Clickwrap: a required "I agree to the Terms of Service" checkbox at the
+      // point of payment. Makes the limitation-of-liability / no-advice terms
+      // affirmatively agreed to. Requires the ToS URL set in Stripe Dashboard.
+      consent_collection: { terms_of_service: "required" },
+      custom_text: {
+        terms_of_service_acceptance: {
+          message:
+            "I agree to the AccountingQB [Terms of Service](https://accountingqb.com/terms) and understand it is a software tool, not tax or accounting advice.",
+        },
+      },
       success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/#pricing`,
       metadata: { tier },
