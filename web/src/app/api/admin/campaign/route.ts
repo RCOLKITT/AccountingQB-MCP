@@ -64,10 +64,12 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabase();
 
-  // Fetch the base cohort of licenses
+  // Fetch the base cohort of licenses. Internal/demo accounts (is_test) are
+  // never included in campaigns — so we don't email ourselves.
   let query = supabase
     .from("licenses")
     .select("key, email, tier, status, created_at")
+    .eq("is_test", false)
     .order("created_at", { ascending: false });
 
   if (filter === "canceled") {

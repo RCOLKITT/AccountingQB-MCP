@@ -32,7 +32,7 @@ function median(nums: number[]): number | null {
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
-async function getFunnel(range: Range): Promise<FunnelData> {
+async function getFunnel(range: Range, includeTest: boolean): Promise<FunnelData> {
   const supabase = getSupabase();
   const since =
     range === "all"
@@ -41,32 +41,33 @@ async function getFunnel(range: Range): Promise<FunnelData> {
           Date.now() - Number(range) * 24 * 60 * 60 * 1000
         ).toISOString();
 
-  // Licenses in range (by signup date)
+  // Licenses in range (by signup date). Internal/demo accounts (is_test)
+  // are excluded by default so the funnel reflects real users.
   let lq = supabase
     .from("licenses")
     .select("key, status, tier, created_at")
     .order("created_at", { ascending: false })
     .limit(5000);
+  if (!includeTest) lq = lq.eq("is_test", false);
   if (since) lq = lq.gte("created_at", since);
   const { data: licenses } = await lq;
   const rows = licenses || [];
   const keys = new Set(rows.map((r) => r.key));
 
-  // All relevant milestones for these licenses
+  // All relevant milestones for these licenses. NOTE: user_milestones uses
+  // completed_at (not created_at) for the timestamp.
   const { data: ms } = await supabase
     .from("user_milestones")
-    .select("license_key, milestone, created_at")
+    .select("license_key, milestone, completed_at")
     .in("milestone", ["signup", "qb_connected", "claude_configured", "trial_converted"])
     .limit(20000);
 
   const connected = new Map<string, string>(); // key -> qb_connected time
-  const configured = new Set<string>();
   const convertedM = new Set<string>();
   for (const m of ms || []) {
     if (!keys.has(m.license_key)) continue;
     if (m.milestone === "qb_connected" && !connected.has(m.license_key))
-      connected.set(m.license_key, m.created_at);
-    else if (m.milestone === "claude_configured") configured.add(m.license_key);
+      connected.set(m.license_key, m.completed_at);
     else if (m.milestone === "trial_converted") convertedM.add(m.license_key);
   }
 
@@ -80,7 +81,6 @@ async function getFunnel(range: Range): Promise<FunnelData> {
 
   const signedUp = rows.length;
   const connectedCount = [...connected.keys()].filter((k) => keys.has(k)).length;
-  const configuredCount = [...configured].filter((k) => keys.has(k)).length;
   const convertedCount = convertedKeys.size;
 
   // Median days signup -> qb_connected
@@ -109,7 +109,6 @@ async function getFunnel(range: Range): Promise<FunnelData> {
     stages: [
       { label: "Signed up", count: signedUp, hint: "license created" },
       { label: "Connected QuickBooks", count: connectedCount, hint: "qb_connected" },
-      { label: "Configured Claude", count: configuredCount, hint: "claude_configured" },
       { label: "Converted to paid", count: convertedCount, hint: "active / trial_converted" },
     ],
     medianDaysToConnect: median(durations),
@@ -128,12 +127,13 @@ function pct(n: number, d: number): string {
 export default async function FunnelPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; test?: string }>;
 }) {
   const sp = await searchParams;
   const range: Range =
     sp.range === "90" ? "90" : sp.range === "all" ? "all" : "30";
-  const f = await getFunnel(range);
+  const includeTest = sp.test === "1";
+  const f = await getFunnel(range, includeTest);
   const top = f.signedUp || 1;
 
   const ranges: { key: Range; label: string }[] = [
@@ -151,20 +151,32 @@ export default async function FunnelPage({
             Where signups drop off on the way to paying. Cohort by signup date.
           </p>
         </div>
-        <div className="flex gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
-          {ranges.map((r) => (
-            <Link
-              key={r.key}
-              href={`/admin/funnel?range=${r.key}`}
-              className={`rounded-md px-3 py-1.5 text-sm transition ${
-                range === r.key
-                  ? "bg-cyan-500/20 text-cyan-300"
-                  : "text-gray-400 hover:text-white"
-              }`}
-            >
-              {r.label}
-            </Link>
-          ))}
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/admin/funnel?range=${range}${includeTest ? "" : "&test=1"}`}
+            className={`rounded-md border px-3 py-1.5 text-xs transition ${
+              includeTest
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                : "border-white/10 bg-white/5 text-gray-400 hover:text-white"
+            }`}
+          >
+            {includeTest ? "Including test accounts" : "Real users only"}
+          </Link>
+          <div className="flex gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
+            {ranges.map((r) => (
+              <Link
+                key={r.key}
+                href={`/admin/funnel?range=${r.key}${includeTest ? "&test=1" : ""}`}
+                className={`rounded-md px-3 py-1.5 text-sm transition ${
+                  range === r.key
+                    ? "bg-cyan-500/20 text-cyan-300"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                {r.label}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -218,7 +230,7 @@ export default async function FunnelPage({
         />
         <Metric
           label="Signup → Paid"
-          value={pct(f.stages[3].count, f.signedUp)}
+          value={pct(f.stages[2].count, f.signedUp)}
           sub="overall conversion"
         />
         <Metric
@@ -267,9 +279,13 @@ export default async function FunnelPage({
       </div>
 
       <p className="text-xs text-gray-600">
-        Post-signup funnel from <code className="text-gray-500">user_milestones</code>.
-        Pre-signup web behavior (traffic, page clicks, checkout starts) lands in
-        PostHog once wired — that becomes the top of this funnel.
+        Post-signup funnel from <code className="text-gray-500">user_milestones</code>{" "}
+        (test/demo accounts excluded). <span className="text-amber-500/70">A middle
+        &ldquo;activated&rdquo; step is intentionally omitted: the MCP server&rsquo;s
+        telemetry to the web app (setup-verify + tool-usage) isn&rsquo;t landing, so
+        those signals read 0 — a known instrumentation fix.</span> Pre-signup web
+        behavior (traffic, page clicks, checkout starts) lands in PostHog once the
+        key is set — that becomes the top of this funnel.
       </p>
     </div>
   );
