@@ -59,6 +59,12 @@ export default async function AdminLayout({
               >
                 Emails
               </Link>
+              <Link
+                href="/admin/compose"
+                className="text-sm text-gray-400 hover:text-white transition"
+              >
+                Compose
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-4">

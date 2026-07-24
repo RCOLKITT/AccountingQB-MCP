@@ -19,7 +19,8 @@ export type EmailType =
   | "trial_expired"
   | "payment_failed"
   | "subscription_renewed"
-  | "reengagement";
+  | "reengagement"
+  | "campaign"; // custom AI-drafted / hand-written marketing send
 
 interface EmailData {
   to: string;

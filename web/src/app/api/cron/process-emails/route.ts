@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { sendEmail, EmailType } from "@/lib/emails/send-email";
+import { campaignEmail, type CampaignContent } from "@/lib/emails/templates/campaign";
 import {
   welcomeEmail,
   qbConnectedEmail,
@@ -272,6 +273,13 @@ function generateEmailContent(
         nextBillingDate: (metadata.nextBillingDate as string) || "",
         invoiceUrl: metadata.invoiceUrl as string | undefined,
       });
+
+    case "campaign":
+      // AI-composed / hand-written marketing email; copy lives in metadata.
+      return campaignEmail(
+        metadata as unknown as CampaignContent,
+        license.email
+      );
 
     default:
       return null;
