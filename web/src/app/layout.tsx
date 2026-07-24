@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 import SupportWidget from "@/components/support/SupportWidget";
+import { PostHogProvider } from "@/components/PostHogProvider";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";
@@ -129,11 +130,13 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-[#0a0e1a] text-gray-100 antialiased">
-        <ClerkProvider afterSignInUrl="/dashboard" afterSignUpUrl="/dashboard">
-          {children}
-          <Analytics />
-          <SupportWidget />
-        </ClerkProvider>
+        <PostHogProvider>
+          <ClerkProvider afterSignInUrl="/dashboard" afterSignUpUrl="/dashboard">
+            {children}
+            <Analytics />
+            <SupportWidget />
+          </ClerkProvider>
+        </PostHogProvider>
       </body>
     </html>
   );
