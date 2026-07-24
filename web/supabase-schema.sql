@@ -348,6 +348,19 @@ CREATE INDEX IF NOT EXISTS idx_support_analytics_topic
 ALTER TABLE support_analytics ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
+-- Email Unsubscribes: marketing suppression list (CAN-SPAM / CASL).
+-- Transactional email ignores this; only campaigns/marketing check it.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS email_unsubscribes (
+  email           TEXT PRIMARY KEY,
+  scope           TEXT NOT NULL DEFAULT 'marketing',  -- marketing | all
+  reason          TEXT,
+  source          TEXT,                                -- 'link' | 'admin' | 'bounce'
+  unsubscribed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ============================================================
 -- Email Schedules: queue for scheduled/automated emails
 -- ============================================================
 

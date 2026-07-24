@@ -2,7 +2,23 @@
  * Base email template wrapper
  * All emails use this consistent layout
  */
-export function emailWrapper(content: string, preheader?: string): string {
+export function emailWrapper(
+  content: string,
+  preheader?: string,
+  opts?: { unsubscribeUrl?: string }
+): string {
+  // Marketing emails must carry a one-click unsubscribe + physical mailing
+  // address (CAN-SPAM / CASL). Transactional emails omit both.
+  const marketingFooter = opts?.unsubscribeUrl
+    ? `
+              <p style="margin: 16px 0 0 0; color: #4b5563; font-size: 11px;">
+                <a href="${opts.unsubscribeUrl}" style="color: #6b7280; text-decoration: underline;">Unsubscribe</a> from product news &amp; offers.
+                You'll still get essential account emails.
+              </p>
+              <p style="margin: 8px 0 0 0; color: #4b5563; font-size: 11px;">
+                NutriFitAI LLC (d/b/a Vaspera Capital) · 12 Autumn Hill Ln, Southborough, MA 01772
+              </p>`
+    : "";
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -59,8 +75,9 @@ export function emailWrapper(content: string, preheader?: string): string {
                 <a href="https://accountingqb.com" style="color: #22d3ee; text-decoration: none;">accountingqb.com</a>
               </p>
               <p style="margin: 16px 0 0 0; color: #4b5563; font-size: 11px;">
-                Vaspera Capital LLC · 2025
+                © 2026 NutriFitAI LLC, d/b/a Vaspera Capital
               </p>
+              ${marketingFooter}
             </td>
           </tr>
 
