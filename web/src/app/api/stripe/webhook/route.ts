@@ -4,6 +4,7 @@ import { getSupabase } from "@/lib/supabase";
 import { createStripeEventLogger, logEvent } from "@/lib/event-logger";
 import { scheduleEmail } from "@/lib/emails/schedule-email";
 import { ensureLicenseForSession } from "@/lib/license-issuance";
+import { sendAlert } from "@/lib/alerts";
 import Stripe from "stripe";
 
 /**
@@ -116,7 +117,7 @@ export async function POST(req: NextRequest) {
 
       const { data: license } = await supabase
         .from("licenses")
-        .select("key")
+        .select("key, email, tier")
         .eq("stripe_subscription_id", sub.id)
         .maybeSingle();
 
@@ -126,6 +127,12 @@ export async function POST(req: NextRequest) {
         .eq("stripe_subscription_id", sub.id);
 
       await eventLogger.success(license?.key, { newStatus: "canceled" });
+      await sendAlert("🔴 Cancellation", [
+        `Customer: ${license?.email || "unknown"}`,
+        `Tier: ${license?.tier || "?"}`,
+        `License: ${license?.key || "?"}`,
+        `Consider a win-back — see /admin/compose.`,
+      ]);
       break;
     }
 
@@ -153,6 +160,11 @@ export async function POST(req: NextRequest) {
 
         // Track trial conversion milestone
         if (wasTrialing && license?.key) {
+          await sendAlert("🟢 New paying customer", [
+            `Customer: ${license.email || "unknown"}`,
+            `Tier: ${license.tier || "?"}`,
+            `First payment: $${((invoice.amount_paid || 0) / 100).toFixed(2)}`,
+          ]);
           await supabase.from("user_milestones").upsert(
             {
               license_key: license.key,

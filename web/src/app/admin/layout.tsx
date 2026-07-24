@@ -54,6 +54,12 @@ export default async function AdminLayout({
                 Funnel
               </Link>
               <Link
+                href="/admin/revenue"
+                className="text-sm text-gray-400 hover:text-white transition"
+              >
+                Revenue
+              </Link>
+              <Link
                 href="/admin/emails"
                 className="text-sm text-gray-400 hover:text-white transition"
               >
