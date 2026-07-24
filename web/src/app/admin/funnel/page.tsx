@@ -280,12 +280,11 @@ export default async function FunnelPage({
 
       <p className="text-xs text-gray-600">
         Post-signup funnel from <code className="text-gray-500">user_milestones</code>{" "}
-        (test/demo accounts excluded). <span className="text-amber-500/70">A middle
-        &ldquo;activated&rdquo; step is intentionally omitted: the MCP server&rsquo;s
-        telemetry to the web app (setup-verify + tool-usage) isn&rsquo;t landing, so
-        those signals read 0 — a known instrumentation fix.</span> Pre-signup web
-        behavior (traffic, page clicks, checkout starts) lands in PostHog once the
-        key is set — that becomes the top of this funnel.
+        (test/demo accounts excluded). Tool-usage telemetry was blocked by an auth
+        rule and is now fixed — an &ldquo;activated (ran a tool)&rdquo; step will
+        populate going forward and can be added here. Pre-signup web behavior
+        (traffic, page clicks, checkout starts) lands in PostHog once the key is set —
+        that becomes the top of this funnel.
       </p>
     </div>
   );
