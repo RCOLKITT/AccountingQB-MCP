@@ -40,7 +40,9 @@ interface SendEmailResult {
 export async function sendEmail(data: EmailData): Promise<SendEmailResult> {
   try {
     const result = await getResend().emails.send({
-      from: "AccountingQB <hello@vasperacapital.com>",
+      // Product-branded sender (isolates AccountingQB's sending reputation);
+      // replies route to the central Vaspera support desk.
+      from: "AccountingQB <hello@accountingqb.com>",
       to: data.to,
       subject: data.subject,
       html: data.html,
