@@ -920,6 +920,7 @@ export default async function Home() {
                 <li><a href="#features" className="transition hover:text-white">Features</a></li>
                 <li><a href="#pricing" className="transition hover:text-white">Pricing</a></li>
                 <li><a href="#faq" className="transition hover:text-white">FAQ</a></li>
+                <li><a href="/changelog" className="transition hover:text-white">What&rsquo;s new</a></li>
                 <li><a href="/canada" className="transition hover:text-white">For Canadian businesses</a></li>
                 <li><a href="/downloads/accountingqb.plugin" download className="transition hover:text-white">Download for Cowork</a></li>
                 <li><a href="/dashboard" className="transition hover:text-white">Dashboard</a></li>

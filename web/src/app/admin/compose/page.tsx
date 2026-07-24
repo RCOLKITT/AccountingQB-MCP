@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { RELEASES } from "@/lib/changelog";
 
 interface Draft {
   subject: string;
@@ -127,6 +128,30 @@ export default function ComposePage() {
 
       {/* AI prompt row */}
       <div className="bg-[#131a2e] rounded-xl border border-cyan-500/20 p-5 space-y-3">
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <span>Start from a release:</span>
+          <select
+            defaultValue=""
+            onChange={(e) => {
+              const r = RELEASES.find((x) => x.version === e.target.value);
+              if (r) {
+                const label = /^\d/.test(r.version) ? `v${r.version}` : r.version;
+                setGoal(
+                  `Announce our ${label} release: "${r.title}". ${r.summary} Key points: ${r.highlights.join("; ")}.`
+                );
+              }
+            }}
+            className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-white focus:outline-none"
+          >
+            <option value="">— pick a release —</option>
+            {RELEASES.map((r) => (
+              <option key={r.version} value={r.version}>
+                {(/^\d/.test(r.version) ? `v${r.version}` : r.version) + " · " + r.title}
+              </option>
+            ))}
+          </select>
+          <span className="text-gray-600">(or write your own below)</span>
+        </div>
         <textarea
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
