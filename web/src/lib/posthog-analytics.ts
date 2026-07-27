@@ -69,6 +69,7 @@ export interface SiteAnalytics {
   utm: { source: string; visitors: number }[];
   geo: Row2[];
   devices: Row2[];
+  newReturning: { newVisitors: number; returning: number };
 }
 
 export async function getSiteAnalytics(days: number): Promise<SiteAnalytics> {
@@ -79,7 +80,11 @@ export async function getSiteAnalytics(days: number): Promise<SiteAnalytics> {
   // Daily buckets up to 30d; weekly beyond so the chart stays readable at 90d.
   const bucket = days <= 30 ? "toDate(timestamp)" : "toStartOfWeek(timestamp)";
 
-  const [cur, prev, trend, pages, sources, utm, geo, devices] = await Promise.all([
+  // New vs returning: among visitors active in the window, is their first-ever
+  // pageview inside the window (new) or before it (returning)?
+  const newRetQ = `SELECT countIf(fs >= now() - INTERVAL ${days} DAY) AS n, countIf(fs < now() - INTERVAL ${days} DAY) AS r FROM (SELECT person_id, min(timestamp) AS fs FROM events WHERE event = '$pageview' AND ${NOT_INTERNAL_PAGE} AND ${person} GROUP BY person_id HAVING max(timestamp) >= now() - INTERVAL ${days} DAY)`;
+
+  const [cur, prev, trend, pages, sources, utm, geo, devices, newRet] = await Promise.all([
     hog(`SELECT count(), count(DISTINCT person_id) FROM events WHERE ${PV} AND ${win}`),
     hog(`SELECT count(), count(DISTINCT person_id) FROM events WHERE ${PV} AND ${prevWin}`),
     hog(`SELECT ${bucket} AS d, count(), count(DISTINCT person_id) FROM events WHERE ${PV} AND ${win} GROUP BY d ORDER BY d`),
@@ -88,6 +93,7 @@ export async function getSiteAnalytics(days: number): Promise<SiteAnalytics> {
     hog(`SELECT properties.utm_source, count(DISTINCT person_id) FROM events WHERE ${win} AND properties.utm_source != '' AND ${person} GROUP BY properties.utm_source ORDER BY 2 DESC LIMIT 8`),
     hog(`SELECT coalesce(nullIf(properties.$geoip_country_name, ''), 'Unknown'), count(DISTINCT person_id) FROM events WHERE ${PV} AND ${win} GROUP BY 1 ORDER BY 2 DESC LIMIT 8`),
     hog(`SELECT coalesce(nullIf(properties.$device_type, ''), 'Unknown'), count(DISTINCT person_id) FROM events WHERE ${PV} AND ${win} GROUP BY 1 ORDER BY 2 DESC LIMIT 5`),
+    hog(newRetQ),
   ]);
 
   return {
@@ -100,5 +106,6 @@ export async function getSiteAnalytics(days: number): Promise<SiteAnalytics> {
     utm: utm.map((r) => ({ source: str(r[0]), visitors: num(r[1]) })),
     geo: geo.map((r) => ({ label: str(r[0]), value: num(r[1]) })),
     devices: devices.map((r) => ({ label: str(r[0]), value: num(r[1]) })),
+    newReturning: { newVisitors: num(newRet[0]?.[0]), returning: num(newRet[0]?.[1]) },
   };
 }
