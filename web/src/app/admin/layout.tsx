@@ -42,6 +42,12 @@ export default async function AdminLayout({
                 Dashboard
               </Link>
               <Link
+                href="/admin/analytics"
+                className="text-sm text-gray-400 hover:text-white transition"
+              >
+                Analytics
+              </Link>
+              <Link
                 href="/admin/users"
                 className="text-sm text-gray-400 hover:text-white transition"
               >
