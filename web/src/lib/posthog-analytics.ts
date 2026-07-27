@@ -32,32 +32,73 @@ async function hog(query: string): Promise<unknown[][]> {
 const num = (v: unknown): number => Number(v) || 0;
 const str = (v: unknown): string => (v == null ? "" : String(v));
 
+// Internal-traffic filter: keep the public marketing site, drop app/admin/auth
+// pages, exclude @vasperacapital.com identified users, and exclude internal IPs
+// (INTERNAL_IPS — your office/dev IP, where QA hits also originate).
+const NOT_INTERNAL_PAGE = [
+  "admin", "dashboard", "api", "oauth", "sign-", "setup", "success",
+]
+  .map((p) => `properties.$pathname NOT LIKE '/${p}%'`)
+  .join(" AND ");
+
+function notInternalPerson(): string {
+  const ips = (process.env.INTERNAL_IPS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const email =
+    "(person.properties.email IS NULL OR person.properties.email NOT ILIKE '%@vasperacapital.com%')";
+  const ipClause = ips.length
+    ? ` AND properties.$ip NOT IN (${ips.map((ip) => `'${ip}'`).join(", ")})`
+    : "";
+  return email + ipClause;
+}
+
+export interface Row2 {
+  label: string;
+  value: number;
+}
+
 export interface SiteAnalytics {
-  week: { views: number; visitors: number };
-  month: { views: number; visitors: number };
+  days: number;
+  current: { views: number; visitors: number };
+  previous: { views: number; visitors: number };
   trend: { day: string; views: number; visitors: number }[];
   pages: { path: string; views: number }[];
   sources: { source: string; views: number }[];
   utm: { source: string; visitors: number }[];
+  geo: Row2[];
+  devices: Row2[];
 }
 
-export async function getSiteAnalytics(): Promise<SiteAnalytics> {
-  const PV = "event = '$pageview'";
-  const [d7, d30, trend, pages, sources, utm] = await Promise.all([
-    hog(`SELECT count(), count(DISTINCT person_id) FROM events WHERE ${PV} AND timestamp > now() - INTERVAL 7 DAY`),
-    hog(`SELECT count(), count(DISTINCT person_id) FROM events WHERE ${PV} AND timestamp > now() - INTERVAL 30 DAY`),
-    hog(`SELECT toDate(timestamp) AS d, count(), count(DISTINCT person_id) FROM events WHERE ${PV} AND timestamp > now() - INTERVAL 14 DAY GROUP BY d ORDER BY d`),
-    hog(`SELECT properties.$pathname, count() FROM events WHERE ${PV} AND timestamp > now() - INTERVAL 30 DAY GROUP BY properties.$pathname ORDER BY count() DESC LIMIT 8`),
-    hog(`SELECT coalesce(nullIf(properties.$referring_domain, ''), '(direct)'), count() FROM events WHERE ${PV} AND timestamp > now() - INTERVAL 30 DAY GROUP BY 1 ORDER BY count() DESC LIMIT 8`),
-    hog(`SELECT properties.utm_source, count(DISTINCT person_id) FROM events WHERE timestamp > now() - INTERVAL 30 DAY AND properties.utm_source != '' GROUP BY properties.utm_source ORDER BY 2 DESC LIMIT 8`),
+export async function getSiteAnalytics(days: number): Promise<SiteAnalytics> {
+  const person = notInternalPerson();
+  const PV = `event = '$pageview' AND ${NOT_INTERNAL_PAGE} AND ${person}`;
+  const win = `timestamp > now() - INTERVAL ${days} DAY`;
+  const prevWin = `timestamp > now() - INTERVAL ${days * 2} DAY AND timestamp <= now() - INTERVAL ${days} DAY`;
+  // Daily buckets up to 30d; weekly beyond so the chart stays readable at 90d.
+  const bucket = days <= 30 ? "toDate(timestamp)" : "toStartOfWeek(timestamp)";
+
+  const [cur, prev, trend, pages, sources, utm, geo, devices] = await Promise.all([
+    hog(`SELECT count(), count(DISTINCT person_id) FROM events WHERE ${PV} AND ${win}`),
+    hog(`SELECT count(), count(DISTINCT person_id) FROM events WHERE ${PV} AND ${prevWin}`),
+    hog(`SELECT ${bucket} AS d, count(), count(DISTINCT person_id) FROM events WHERE ${PV} AND ${win} GROUP BY d ORDER BY d`),
+    hog(`SELECT properties.$pathname, count() FROM events WHERE ${PV} AND ${win} GROUP BY properties.$pathname ORDER BY count() DESC LIMIT 8`),
+    hog(`SELECT coalesce(nullIf(properties.$referring_domain, ''), '(direct)'), count() FROM events WHERE ${PV} AND ${win} GROUP BY 1 ORDER BY count() DESC LIMIT 8`),
+    hog(`SELECT properties.utm_source, count(DISTINCT person_id) FROM events WHERE ${win} AND properties.utm_source != '' AND ${person} GROUP BY properties.utm_source ORDER BY 2 DESC LIMIT 8`),
+    hog(`SELECT coalesce(nullIf(properties.$geoip_country_name, ''), 'Unknown'), count(DISTINCT person_id) FROM events WHERE ${PV} AND ${win} GROUP BY 1 ORDER BY 2 DESC LIMIT 8`),
+    hog(`SELECT coalesce(nullIf(properties.$device_type, ''), 'Unknown'), count(DISTINCT person_id) FROM events WHERE ${PV} AND ${win} GROUP BY 1 ORDER BY 2 DESC LIMIT 5`),
   ]);
 
   return {
-    week: { views: num(d7[0]?.[0]), visitors: num(d7[0]?.[1]) },
-    month: { views: num(d30[0]?.[0]), visitors: num(d30[0]?.[1]) },
+    days,
+    current: { views: num(cur[0]?.[0]), visitors: num(cur[0]?.[1]) },
+    previous: { views: num(prev[0]?.[0]), visitors: num(prev[0]?.[1]) },
     trend: trend.map((r) => ({ day: str(r[0]), views: num(r[1]), visitors: num(r[2]) })),
     pages: pages.map((r) => ({ path: str(r[0]) || "/", views: num(r[1]) })),
     sources: sources.map((r) => ({ source: str(r[0]), views: num(r[1]) })),
     utm: utm.map((r) => ({ source: str(r[0]), visitors: num(r[1]) })),
+    geo: geo.map((r) => ({ label: str(r[0]), value: num(r[1]) })),
+    devices: devices.map((r) => ({ label: str(r[0]), value: num(r[1]) })),
   };
 }
