@@ -11,9 +11,15 @@ async function handle(email: string, token: string): Promise<boolean> {
   return true;
 }
 
+function esc(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string)
+  );
+}
+
 function page(ok: boolean, email: string): string {
   const msg = ok
-    ? `<strong>${email}</strong> has been unsubscribed from AccountingQB marketing emails. You'll still receive essential account emails (receipts, security, trial status).`
+    ? `<strong>${esc(email)}</strong> has been unsubscribed from AccountingQB marketing emails. You'll still receive essential account emails (receipts, security, trial status).`
     : `We couldn't process this unsubscribe link. Please email <a href="mailto:support@vasperacapital.com">support@vasperacapital.com</a> and we'll remove you right away.`;
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Unsubscribe · AccountingQB</title></head>
 <body style="margin:0;background:#0a0e1a;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#e5e7eb">
