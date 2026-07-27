@@ -7,6 +7,7 @@ import {
   isRateLimitingEnabled,
 } from "@/lib/ratelimit";
 import { logOAuthRefresh } from "@/lib/event-logger";
+import { encryptToken, decryptToken } from "@/lib/token-crypto";
 
 /**
  * POST /api/oauth/token
@@ -112,8 +113,8 @@ export async function POST(req: NextRequest) {
     const companies = refreshedTokens.map((t) => ({
       realmId: t.realm_id,
       companyName: t.company_name,
-      accessToken: t.access_token,
-      refreshToken: t.refresh_token,
+      accessToken: decryptToken(t.access_token),
+      refreshToken: decryptToken(t.refresh_token),
       expiresAt: t.token_expires_at,
     }));
 
@@ -194,8 +195,8 @@ async function refreshTokenIfNeeded(
       await supabase
         .from("oauth_tokens")
         .update({
-          access_token: refreshed.access_token,
-          refresh_token: refreshed.refresh_token,
+          access_token: encryptToken(refreshed.access_token),
+          refresh_token: encryptToken(refreshed.refresh_token),
           token_expires_at: refreshed.token_expires_at,
           refresh_locked_at: null,
         })
@@ -279,7 +280,7 @@ async function refreshAccessToken(token: {
       },
       body: new URLSearchParams({
         grant_type: "refresh_token",
-        refresh_token: token.refresh_token,
+        refresh_token: decryptToken(token.refresh_token),
       }),
     });
 

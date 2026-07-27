@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { logOAuthDisconnect } from "@/lib/event-logger";
+import { decryptToken } from "@/lib/token-crypto";
 
 /**
  * POST /api/oauth/revoke
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
               "Authorization": `Basic ${basicAuth}`,
             },
             body: JSON.stringify({
-              token: token.refresh_token,
+              token: decryptToken(token.refresh_token),
             }),
           });
         }

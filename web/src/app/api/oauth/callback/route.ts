@@ -4,6 +4,7 @@ import { getSupabase } from "@/lib/supabase";
 import { validateState, clearStateCookie, CSRF_COOKIE_NAME } from "@/lib/csrf";
 import { logOAuthConnect } from "@/lib/event-logger";
 import { scheduleEmail, cancelEmailsByType } from "@/lib/emails/schedule-email";
+import { encryptToken } from "@/lib/token-crypto";
 
 /**
  * GET /api/oauth/callback
@@ -131,8 +132,8 @@ export async function GET(req: NextRequest) {
         license_key: licenseKey,
         realm_id: realmId,
         company_name: companyName,
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
+        access_token: encryptToken(tokenData.access_token),
+        refresh_token: encryptToken(tokenData.refresh_token),
         token_expires_at: tokenExpiresAt,
       },
       { onConflict: "license_key,realm_id" }
