@@ -66,6 +66,12 @@ export default async function AdminLayout({
                 Revenue
               </Link>
               <Link
+                href="/admin/usage"
+                className="text-sm text-gray-400 hover:text-white transition"
+              >
+                Usage
+              </Link>
+              <Link
                 href="/admin/emails"
                 className="text-sm text-gray-400 hover:text-white transition"
               >

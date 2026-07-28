@@ -12,6 +12,7 @@ interface User {
   created_at: string;
   trial_ends_at: string | null;
   qb_connected: boolean;
+  last_active: string | null;
 }
 
 export default function AdminUsersPage() {
@@ -253,6 +254,7 @@ export default function AdminUsersPage() {
                 <th className="px-6 py-3 font-medium">Tier</th>
                 <th className="px-6 py-3 font-medium">Status</th>
                 <th className="px-6 py-3 font-medium">QB Connected</th>
+                <th className="px-6 py-3 font-medium">Last Active</th>
                 <th className="px-6 py-3 font-medium">Trial Ends</th>
                 <th className="px-6 py-3 font-medium">Created</th>
                 <th className="px-6 py-3 font-medium"></th>
@@ -261,13 +263,13 @@ export default function AdminUsersPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
+                  <td colSpan={9} className="px-6 py-8 text-center text-gray-400">
                     Loading...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
+                  <td colSpan={9} className="px-6 py-8 text-center text-gray-400">
                     No users found
                   </td>
                 </tr>
@@ -290,9 +292,19 @@ export default function AdminUsersPage() {
                     <td className="px-6 py-4">
                       {user.qb_connected ? (
                         <span className="text-green-400">Yes</span>
+                      ) : user.status === "active" ? (
+                        <span
+                          className="px-2 py-1 rounded text-xs font-medium bg-red-500/10 text-red-400"
+                          title="Paying customer with no QuickBooks connected — activation at risk"
+                        >
+                          At risk
+                        </span>
                       ) : (
                         <span className="text-yellow-400">No</span>
                       )}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-400">
+                      {timeAgo(user.last_active)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-400">
                       {user.trial_ends_at ? formatDate(user.trial_ends_at) : "—"}
@@ -354,4 +366,17 @@ function formatDate(date: string): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function timeAgo(date: string | null): string {
+  if (!date) return "—";
+  const diff = Date.now() - new Date(date).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return formatDate(date);
 }

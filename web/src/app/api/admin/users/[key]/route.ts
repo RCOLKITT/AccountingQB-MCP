@@ -64,6 +64,38 @@ export async function GET(
     .eq("license_key", key)
     .order("created_at", { ascending: false });
 
+  // Tool usage (per-tool aggregate + totals)
+  const { data: usageRows } = await supabase
+    .from("tool_usage")
+    .select("tool_name, time_saved_minutes, invoked_at")
+    .eq("license_key", key)
+    .order("invoked_at", { ascending: false });
+
+  const usageMap = new Map<string, { tool: string; calls: number; minutes: number; last: string }>();
+  let totalCalls = 0;
+  let totalMinutes = 0;
+  for (const r of (usageRows as { tool_name: string; time_saved_minutes: number | null; invoked_at: string }[]) || []) {
+    const mins = r.time_saved_minutes || 0;
+    totalCalls += 1;
+    totalMinutes += mins;
+    const cur = usageMap.get(r.tool_name);
+    if (cur) {
+      cur.calls += 1;
+      cur.minutes += mins;
+    } else {
+      usageMap.set(r.tool_name, { tool: r.tool_name, calls: 1, minutes: mins, last: r.invoked_at });
+    }
+  }
+  const toolUsage = [...usageMap.values()].sort((a, b) => b.calls - a.calls);
+
+  // Activity timeline (connect/refresh/webhook events)
+  const { data: activity } = await supabase
+    .from("event_logs")
+    .select("event_type, success, created_at, realm_id")
+    .eq("license_key", key)
+    .order("created_at", { ascending: false })
+    .limit(25);
+
   return NextResponse.json({
     user: {
       ...license,
@@ -71,6 +103,9 @@ export async function GET(
       qb_connections: qbConnections || [],
       emails: emails || [],
       trial_extensions: trialExtensions || [],
+      tool_usage: toolUsage,
+      usage_totals: { calls: totalCalls, hours: Math.round(totalMinutes / 6) / 10 },
+      activity: activity || [],
     },
   });
 }

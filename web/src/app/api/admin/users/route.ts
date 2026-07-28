@@ -68,6 +68,36 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
   }
 
+  const keys = (licenses as LicenseRow[] || []).map((l) => l.key);
+
+  // Last-active per license: most recent of tool_usage or oauth activity.
+  // Bounded by the current page's license keys (<=100) so this stays cheap.
+  const lastActive = new Map<string, string>();
+  const noteActivity = (key: string, ts: string | null) => {
+    if (!ts) return;
+    const cur = lastActive.get(key);
+    if (!cur || ts > cur) lastActive.set(key, ts);
+  };
+  if (keys.length > 0) {
+    const [{ data: usageRows }, { data: eventRows }] = await Promise.all([
+      supabase
+        .from("tool_usage")
+        .select("license_key, invoked_at")
+        .in("license_key", keys)
+        .order("invoked_at", { ascending: false }),
+      supabase
+        .from("event_logs")
+        .select("license_key, created_at")
+        .in("license_key", keys)
+        .in("event_type", ["oauth_connect", "oauth_refresh"])
+        .order("created_at", { ascending: false }),
+    ]);
+    for (const r of (usageRows as { license_key: string; invoked_at: string }[]) || [])
+      noteActivity(r.license_key, r.invoked_at);
+    for (const r of (eventRows as { license_key: string; created_at: string }[]) || [])
+      noteActivity(r.license_key, r.created_at);
+  }
+
   // Get milestone data for each user
   const users = await Promise.all(
     (licenses as LicenseRow[] || []).map(async (license) => {
@@ -81,6 +111,7 @@ export async function GET(req: NextRequest) {
       return {
         ...license,
         qb_connected: !!milestone,
+        last_active: lastActive.get(license.key) || null,
       };
     })
   );

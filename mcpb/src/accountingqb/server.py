@@ -320,10 +320,19 @@ def require_license(func):
 # calculations. This is non-blocking and fire-and-forget — tool execution is
 # never interrupted by tracking failures.
 
-async def _track_usage(tool_name: str) -> None:
+# Strong references to in-flight tracking tasks. asyncio only holds a weak
+# reference to tasks created with create_task(), so without this set a
+# fire-and-forget task can be garbage-collected before its POST completes.
+_usage_tasks: set = set()
+
+async def _track_usage(tool_name: str, license_key: str, realm_id: str | None) -> None:
     """Report tool usage to AccountingQB API (non-blocking, fire-and-forget).
-    Silently fails if license key is not set or API is unreachable."""
-    license_key = _effective_license_key()
+    Silently fails if license key is not set or API is unreachable.
+
+    license_key and realm_id are captured synchronously at call time (see
+    track_usage) rather than re-read from the request context here — in the
+    stateless-HTTP remote server the request context may already be torn down
+    by the time this background task runs."""
     if not license_key:
         return
 
@@ -334,7 +343,7 @@ async def _track_usage(tool_name: str) -> None:
                 json={
                     "licenseKey": license_key,
                     "toolName": tool_name,
-                    "realmId": get_ctx().realm_id or None,
+                    "realmId": realm_id or None,
                 },
             )
     except Exception as e:
@@ -347,8 +356,20 @@ def track_usage(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
         result = await func(*args, **kwargs)
-        # Track usage in background (fire-and-forget)
-        asyncio.create_task(_track_usage(func.__name__))
+        # Capture the effective license + realm NOW, while the request context
+        # is live (single-tenant: QB_LICENSE_KEY; remote: per-request JWT claim).
+        license_key = _effective_license_key()
+        if license_key:
+            try:
+                realm_id = get_ctx().realm_id
+                task = asyncio.create_task(
+                    _track_usage(func.__name__, license_key, realm_id)
+                )
+                _usage_tasks.add(task)
+                task.add_done_callback(_usage_tasks.discard)
+            except RuntimeError:
+                # No running event loop — skip tracking rather than crash.
+                pass
         return result
     return wrapper
 
@@ -9330,11 +9351,12 @@ def _apply_license_gating():
 
 def _apply_usage_tracking():
     """Wrap all registered MCP tools with usage tracking.
-    Only active when a license key is configured."""
-    if not LICENSE_KEY:
-        logger.debug("Usage tracking not active (no license key)")
-        return
 
+    Wrapping is unconditional: the effective license is resolved per call in
+    the wrapper (single-tenant uses QB_LICENSE_KEY; the remote multi-tenant
+    server sets ctx.license_key per request from the JWT, so the module-level
+    LICENSE_KEY is empty there). The wrapper no-ops when no license is in
+    effect, so dev/no-license runs still emit nothing."""
     tracked_count = 0
     for tool_name in list(mcp._tool_manager._tools.keys()):
         tool = mcp._tool_manager._tools[tool_name]
@@ -9342,7 +9364,10 @@ def _apply_usage_tracking():
         tool.fn = track_usage(original_fn)
         tracked_count += 1
 
-    logger.info(f"Usage tracking active: {tracked_count} tools tracked")
+    logger.info(
+        f"Usage tracking active: {tracked_count} tools wrapped "
+        f"(runtime-gated on effective license)"
+    )
 
 # Apply gating and tracking after all tools are registered
 _apply_license_gating()

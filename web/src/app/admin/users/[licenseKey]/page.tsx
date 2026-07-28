@@ -19,6 +19,9 @@ interface UserDetail {
   qb_connections: { realm_id: string; company_name: string | null; created_at: string }[];
   emails: { id: string; email_type: string; scheduled_for: string; sent_at: string | null; cancelled: boolean }[];
   trial_extensions: { extension_days: number; extended_by: string; created_at: string; reason: string | null }[];
+  tool_usage: { tool: string; calls: number; minutes: number; last: string }[];
+  usage_totals: { calls: number; hours: number };
+  activity: { event_type: string; success: boolean; created_at: string; realm_id: string | null }[];
 }
 
 export default function AdminUserDetailPage({
@@ -255,6 +258,69 @@ export default function AdminUserDetailPage({
                 <p className="text-gray-400 text-sm">
                   {formatDate(c.created_at)}
                 </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Tool Usage */}
+      <div className="bg-[#131a2e] rounded-xl border border-white/10 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-white">Tool Usage</h3>
+          {user.usage_totals.calls > 0 && (
+            <span className="text-sm text-gray-400">
+              <span className="text-cyan-400 font-semibold">{user.usage_totals.calls}</span> calls ·{" "}
+              <span className="text-cyan-400 font-semibold">{user.usage_totals.hours}</span> hrs saved
+            </span>
+          )}
+        </div>
+        {user.tool_usage.length === 0 ? (
+          <p className="text-gray-400">
+            No tool usage recorded yet. Connection activity (below) still shows engagement.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {user.tool_usage.map((t) => (
+              <div
+                key={t.tool}
+                className="flex items-center justify-between py-2 border-b border-white/5 last:border-0"
+              >
+                <span className="font-mono text-sm text-gray-200">{t.tool}</span>
+                <span className="text-sm text-gray-400">
+                  {t.calls} {t.calls === 1 ? "call" : "calls"} ·{" "}
+                  {Math.round(t.minutes / 6) / 10}h · last {formatDate(t.last)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Activity */}
+      <div className="bg-[#131a2e] rounded-xl border border-white/10 p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Activity</h3>
+        {user.activity.length === 0 ? (
+          <p className="text-gray-400">No recorded activity.</p>
+        ) : (
+          <div className="space-y-2">
+            {user.activity.map((a, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between py-2 border-b border-white/5 last:border-0"
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      a.success ? "bg-green-400" : "bg-red-400"
+                    }`}
+                  />
+                  <span className="text-sm text-gray-200">
+                    {a.event_type.replace(/_/g, " ")}
+                  </span>
+                  {!a.success && <span className="text-xs text-red-400">failed</span>}
+                </div>
+                <span className="text-sm text-gray-500">{formatDateTime(a.created_at)}</span>
               </div>
             ))}
           </div>
