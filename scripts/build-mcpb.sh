@@ -47,13 +47,15 @@ rm -rf "$LIB_DIR"
 mkdir -p "$LIB_DIR"
 
 echo "==> Installing dependencies into server/lib (wheels only)"
-# Unpinned on purpose — versions resolve at build time. Per-platform builds
-# should add --platform/--python-version/--implementation/--abi for
-# cross-builds; CI should run this script per OS.
+# Versions resolve at build time, EXCEPT mcp: 2.0.0 removed mcp.server.fastmcp
+# (imported by server.py), so a bundle that vendors mcp>=2 crashes on launch.
+# Keep this cap in sync with mcpb/pyproject.toml and mcpb/remote-requirements.txt.
+# Per-platform builds should add --platform/--python-version/--implementation/--abi
+# for cross-builds; CI should run this script per OS.
 python3 -m pip install \
     --target "$LIB_DIR" \
     --only-binary=:all: \
-    "mcp[cli]" httpx pydantic cryptography
+    "mcp[cli]<2.0.0" httpx pydantic cryptography
 
 # Strip caches from the vendored tree to keep the bundle small.
 find "$LIB_DIR" -type d -name "__pycache__" -prune -exec rm -rf {} +
