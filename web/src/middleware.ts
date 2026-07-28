@@ -8,6 +8,7 @@ const isPublicRoute = createRouteMatcher([
   "/changelog",
   "/privacy",
   "/terms",
+  "/security",
   "/login",
   // Stripe redirects new purchasers here before they have an account
   "/success",

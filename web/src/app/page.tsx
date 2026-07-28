@@ -930,6 +930,7 @@ export default async function Home() {
             <div>
               <h4 className="text-sm font-semibold text-gray-300">Legal</h4>
               <ul className="mt-4 space-y-2.5 text-sm text-gray-500">
+                <li><a href="/security" className="transition hover:text-white">Security</a></li>
                 <li><a href="/privacy" className="transition hover:text-white">Privacy Policy</a></li>
                 <li><a href="/terms" className="transition hover:text-white">Terms of Service</a></li>
                 <li><a href="mailto:support@vasperacapital.com" className="transition hover:text-white">Contact</a></li>

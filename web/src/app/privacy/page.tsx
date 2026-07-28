@@ -66,8 +66,12 @@ export default function PrivacyPolicy() {
             database to validate your subscription.
           </p>
           <p className="text-gray-400 leading-relaxed mt-3">
-            <strong>Usage metadata:</strong> We may collect anonymous, aggregate usage statistics such as
-            which tools are used most frequently. This data contains no financial information.
+            <strong>Usage metadata:</strong> For licensed deployments, we record which tools are run —
+            the tool name, your QuickBooks company ID (an opaque identifier), an estimated time saved,
+            and a timestamp — linked to your license key, to power your dashboard and improve the product.
+            This data contains no financial information. If you run locally without a license key, no
+            usage metadata is collected. See our{" "}
+            <a href="/security" className="text-cyan-400 hover:underline">Security page</a> for details.
           </p>
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">4. What We Do NOT Collect</h2>
