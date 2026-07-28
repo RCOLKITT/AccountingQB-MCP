@@ -297,6 +297,30 @@ def create_app():
     mcp.settings.stateless_http = True
     mcp.settings.json_response = True
 
+    # Configure the MCP transport's host/origin allow-list explicitly. The SDK's
+    # DNS-rebinding protection (mcp >= 1.29 enables it by default with a
+    # localhost-only allow-list) would otherwise reject every request to
+    # mcp.accountingqb.com with "421 Invalid Host header". DNS-rebinding is a
+    # browser-origin attack; this service is not browser-facing, sits behind the
+    # Fly proxy, and already enforces Bearer-JWT auth via BearerAuthMiddleware —
+    # so we pin the allow-list to the known host instead of relying on the
+    # SDK's version-dependent default (which changed under us and caused an
+    # outage). Override with MCP_ALLOWED_HOSTS (comma-separated) if needed.
+    from urllib.parse import urlparse  # noqa: PLC0415
+    from mcp.server.transport_security import TransportSecuritySettings  # noqa: PLC0415
+
+    _host = urlparse(RESOURCE_URL).netloc or "mcp.accountingqb.com"
+    _allowed_hosts = os.environ.get("MCP_ALLOWED_HOSTS", "")
+    hosts = [h.strip() for h in _allowed_hosts.split(",") if h.strip()] or [
+        _host,
+        f"{_host}:*",
+    ]
+    mcp.settings.transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=hosts,
+        allowed_origins=[RESOURCE_URL, f"{RESOURCE_URL}/*"],
+    )
+
     inner = mcp.streamable_http_app()
 
     return BearerAuthMiddleware(
