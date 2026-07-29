@@ -26,7 +26,7 @@ AccountingQB handles token refresh automatically. You don't need to do anything.
 
 However, if you don't use AccountingQB for 100+ days, your connection may expire (this is an Intuit policy).
 
-**If expired:** Click "Connect QuickBooks" again in your dashboard to reauthorize.
+**If expired:** First, just ask Claude to "refresh the QuickBooks connection" — it runs `qb_refresh_connection`, which clears most expiries instantly with no browser step. If the connection is fully gone, click "Connect QuickBooks" again in your dashboard to reauthorize.
 
 ---
 
@@ -39,7 +39,7 @@ However, if you don't use AccountingQB for 100+ days, your connection may expire
 
 ### "401 Unauthorized" error in Claude
 Your token may have expired.
-**Fix:** Go to https://accountingqb.com/dashboard and click "Connect QuickBooks" to reauthorize.
+**Fix:** First ask Claude to "refresh the QuickBooks connection" (`qb_refresh_connection`) — this resolves most expiries instantly. If that doesn't work, go to https://accountingqb.com/dashboard and click "Connect QuickBooks" to reauthorize.
 
 ### "Company not found" error
 The company ID in your connection doesn't match.

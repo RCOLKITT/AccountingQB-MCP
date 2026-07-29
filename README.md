@@ -267,7 +267,10 @@ This server takes security seriously:
 
 ### Token Management
 
-QuickBooks refresh tokens are valid for 100 days. The server automatically handles token refresh, but if your token expires (e.g., you don't use the server for 100+ days), re-run `python setup.py` to re-authorize.
+QuickBooks refresh tokens are valid for 100 days and rotate automatically on every use, so an active connection stays live indefinitely. If a connection does lapse (100+ days idle), reconnect based on how you run AccountingQB:
+
+- **Hosted / managed (you have a license key):** In Claude, run `qb_refresh_connection` first — it silently re-establishes most expired connections with no browser step. If the connection is fully gone, reconnect at [accountingqb.com/dashboard](https://accountingqb.com/dashboard) → **Connect QuickBooks**, then run `qb_refresh_connection` again.
+- **Self-hosted (your own Intuit app):** re-run `python setup.py` to re-authorize and rewrite your refresh token.
 
 ---
 
@@ -286,10 +289,10 @@ This connects to `sandbox-quickbooks.api.intuit.com` with Intuit's test data. Sw
 ## Troubleshooting
 
 **"QuickBooks credentials not configured"**
-Run `python setup.py` to configure credentials, or check your Claude Desktop config.
+Self-hosted: run `python setup.py` to configure credentials, or check your Claude Desktop config. Hosted/managed: set your `QB_LICENSE_KEY` and connect a company at [accountingqb.com/dashboard](https://accountingqb.com/dashboard).
 
 **"401 Unauthorized"**
-Your refresh token may have expired (100-day limit). Run `python setup.py` to re-authorize.
+Your connection may have expired (100-day idle limit). Hosted/managed: run `qb_refresh_connection` first, then if needed reconnect at [accountingqb.com/dashboard](https://accountingqb.com/dashboard) → **Connect QuickBooks**. Self-hosted: re-run `python setup.py` to re-authorize.
 
 **"Company not found"**
 Check that your `QB_REALM_ID` matches the company you authorized. You can find it in the URL when logged into QuickBooks Online.

@@ -38,7 +38,7 @@ Use jsonlint.com to validate.
 
 ### "401 Unauthorized" error
 Your OAuth token has expired.
-**Fix:** Go to https://accountingqb.com/dashboard and click "Connect QuickBooks" to reauthorize.
+**Fix:** First ask Claude to "refresh the QuickBooks connection" (`qb_refresh_connection`) — this resolves most expiries instantly without reconnecting. If that doesn't work, go to https://accountingqb.com/dashboard and click "Connect QuickBooks" to reauthorize.
 
 ### "Company not found" error
 The company ID doesn't match.
