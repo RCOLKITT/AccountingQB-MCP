@@ -468,6 +468,18 @@ async function rawCall(ns, tool, args){
   if(r && r.isError) throw new Error((r.content && r.content[0] && r.content[0].text) || 'tool error');
   return r;
 }
+// Route a natural-language instruction back to the Claude/Cowork conversation so
+// the sibling AccountingQB skills run it. The runtime exposes this as
+// window.cowork.sendPrompt() (same namespace as callMcpTool/sample); some hosts
+// inject a bare sendPrompt global instead. Try both so the chat panel works
+// across runtimes. Returns false if neither is available.
+function routePrompt(text){
+  const fn = (window.cowork && typeof window.cowork.sendPrompt === 'function')
+    ? window.cowork.sendPrompt.bind(window.cowork)
+    : (typeof sendPrompt === 'function' ? sendPrompt : null);
+  if(!fn) return false;
+  try { fn(text); return true; } catch(e){ return false; }
+}
 async function call(tool, args){
   if(!window.cowork || !window.cowork.callMcpTool) return { error: 'Not running inside Cowork.' };
   if(NS){
@@ -845,11 +857,10 @@ document.getElementById('wb-export').addEventListener('click', () => {
   const instruction = 'AccountingQB: Export my CPA workbook for ' + start + ' to ' + end +
     ' \u2014 follow the export recipe in the accountingqb-cpa-workbook skill' +
     (org ? '. Tax organizer answers for the cover sheet \u2014 ' + org : '');
-  if(typeof sendPrompt !== 'function'){
+  if(!routePrompt(instruction)){
     appendMsg('assistant', 'Export runs through the Cowork chat \u2014 ask: "Export my CPA workbook".');
     return;
   }
-  sendPrompt(instruction);
   appendMsg('user', 'Export workbook (' + wbYear() + ')');
   logAction('Export CPA workbook \u00b7 ' + wbYear());
 });
@@ -912,8 +923,7 @@ document.querySelectorAll('.qbtn').forEach(b => {
   b.addEventListener('click', () => {
     const action = b.dataset.action;
     if(!action) return;  // workbook pager/export buttons share the class
-    if(typeof sendPrompt !== 'function'){ appendMsg('assistant', 'Quick actions need the Cowork runtime.', 'deep'); return; }
-    sendPrompt('AccountingQB: ' + action);
+    if(!routePrompt('AccountingQB: ' + action)){ appendMsg('assistant', 'Quick actions need the Cowork runtime.', 'deep'); return; }
     appendMsg('user', b.textContent.trim());
     appendMsg('assistant', 'Sent to AccountingQB skills — watch the main chat, then hit ↻ here to refresh the data.', 'pending');
     logAction(b.textContent.trim());
@@ -988,8 +998,7 @@ async function askAQB(question){
   appendMsg('user', question);
 
   if(intent === 'do'){
-    if(typeof sendPrompt !== 'function'){ appendMsg('assistant', 'Cannot route — sendPrompt not available.', 'deep'); return; }
-    sendPrompt('AccountingQB: ' + question);
+    if(!routePrompt('AccountingQB: ' + question)){ appendMsg('assistant', 'Chat routing needs the Cowork runtime (window.cowork.sendPrompt). Ask in the main chat instead — e.g. "AccountingQB: ' + question + '".', 'deep'); return; }
     appendMsg('assistant', 'Routed to AccountingQB skills in the main chat. When it finishes, hit ↻ on the relevant card to refresh.', 'pending');
     logAction(question);
     return;
