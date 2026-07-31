@@ -239,7 +239,9 @@ FREE_TOOLS = {
     # Tax-code discovery utilities (always free)
     "qb_list_tax_codes",
     "qb_list_tax_rates",
-}  # ~30 read-only / reporting / management tools
+    # Tax-law reference (always free — no client data, a public reference)
+    "qb_tax_law_changes",
+}  # ~31 read-only / reporting / management tools
 
 def _effective_license_key() -> str:
     """License key for the current connection.
@@ -9320,6 +9322,63 @@ async def qb_tax_data_info() -> str:
         f"- Latest entry: {max(r['verified_date'] for r in rows) if rows else 'n/a'}"
     )
     return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_tax_law_changes(year_from: str = "2025", year_to: str = "2026",
+                             jurisdiction: str = "", topic: str = "") -> str:
+    """Year-over-year tax-law changes (default 2025 → 2026), each with its
+    source, effective date, and governing statute — a fast CPA reference
+    covering US federal, US state, and Canadian rate/threshold changes in one
+    place. jurisdiction: "" (all), "US"/"federal", "state", or "CA"/"Canada".
+    topic: optional keyword filter (e.g. "depreciation", "mileage", "CPP",
+    "OBBBA", "179", "SALT"). Reference only — not tax advice; every figure
+    links to its official source."""
+    try:
+        yf, yt = int(str(year_from)[:4]), int(str(year_to)[:4])
+    except ValueError:
+        return "Provide 4-digit years, e.g. year_from=2025, year_to=2026."
+
+    j = (jurisdiction or "").strip().lower()
+    jur = None
+    if j in ("us", "federal", "us federal", "us-federal"):
+        jur = "US Federal"
+    elif j in ("state", "us state", "us-state", "states"):
+        jur = "US State"
+    elif j in ("ca", "canada", "cad", "canadian"):
+        jur = "Canada"
+
+    changes = _tt.derive_tax_changes(yf, yt, jur)
+
+    kw = (topic or "").strip().lower()
+    if kw:
+        changes = [c for c in changes if kw in
+                   f"{c['item']} {c['statute']} {c['source']} {c['category']}".lower()]
+
+    if not changes:
+        return (f"No tracked tax-law changes for {yf} → {yt}"
+                + (f" matching '{topic}'" if topic else "")
+                + (f" in {jur}" if jur else "")
+                + ". This reference tracks marquee US-federal, US-state, and "
+                "Canadian rate/threshold changes — not comprehensive tax law.")
+
+    header = (f" · {jur}" if jur else " · US federal, US state & Canada")
+    lines = [f"## Tax Law Changes — {yf} → {yt}",
+             f"*{len(changes)} tracked change{'s' if len(changes) != 1 else ''}"
+             + header + (f" · topic: {topic}" if topic else "") + "*"]
+
+    order = {"US Federal": 0, "US State": 1, "Canada": 2}
+    cats = sorted({c["category"] for c in changes}, key=lambda x: order.get(x, 9))
+    for cat in cats:
+        lines.append(f"\n### {cat}")
+        for c in (c for c in changes if c["category"] == cat):
+            auth = c["statute"] or "source"
+            lines.append(
+                f"- **{c['item']}** — {c['from']} → **{c['to']}**  \n"
+                f"  eff. {c['effective']} · [{auth}]({c['source_url']}) · "
+                f"verified {c['verified']}"
+            )
+    return "\n".join(lines) + tax_data_footer()
 
 
 # ===================================================================

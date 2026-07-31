@@ -48,7 +48,7 @@ const caTiers = [
     description: "For freelancers & sole proprietors",
     savings: "Save ~5 hrs/mo on bookkeeping & tax prep",
     features: [
-      "All 108 QuickBooks tools",
+      "All 109 QuickBooks tools",
       "T2125 line mapping & GST/HST workpapers",
       "CRA instalment estimates (CPP + CPP2)",
       "Anomaly detection",
@@ -260,7 +260,7 @@ export default function CanadaPage() {
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-400">
             GST/HST return workpapers, T2125 line mapping, CCA schedules, T4A reports,
-            and CRA instalment estimates — 108 AI tools connecting Claude to your
+            and CRA instalment estimates — 109 AI tools connecting Claude to your
             QuickBooks Online, in plain English.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -457,6 +457,7 @@ export default function CanadaPage() {
                 <li><a href="#features" className="transition hover:text-white">Features</a></li>
                 <li><a href="#pricing" className="transition hover:text-white">Pricing</a></li>
                 <li><a href="#faq" className="transition hover:text-white">FAQ</a></li>
+                <li><a href="/tax-changes" className="transition hover:text-white">2026 tax changes</a></li>
                 <li><a href="/" className="transition hover:text-white">US site</a></li>
                 <li><a href="/dashboard" className="transition hover:text-white">Dashboard</a></li>
                 <li><a href="/sign-in" className="transition hover:text-white">Sign In</a></li>

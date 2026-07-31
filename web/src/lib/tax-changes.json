@@ -1,0 +1,273 @@
+{
+  "yearFrom": 2025,
+  "yearTo": 2026,
+  "taxDataVersion": "2026.3",
+  "verified": "2026-07-13",
+  "count": 24,
+  "changes": [
+    {
+      "category": "US Federal",
+      "item": "1099-NEC/MISC reporting threshold",
+      "from": "$600",
+      "to": "$2,000",
+      "effective": "Jan 1, 2026",
+      "statute": "OBBBA \u00a770433",
+      "source": "OBBBA \u00a770433: $2,000 for payments on/after 2026-01-01, indexed after",
+      "source_url": "https://www.irs.gov/newsroom/one-big-beautiful-bill-act-tax-provisions",
+      "verified": "2026-07-12"
+    },
+    {
+      "category": "US Federal",
+      "item": "Bonus depreciation (first-year)",
+      "from": "40% (2025, TCJA phase-down)",
+      "to": "100% \u2014 restored & permanent",
+      "effective": "Property acquired & placed in service after Jan 19, 2025",
+      "statute": "OBBBA \u00a770301",
+      "source": "OBBBA; IRS interim guidance (bonus depreciation restored to 100%)",
+      "source_url": "https://www.irs.gov/newsroom/one-big-beautiful-bill-act-tax-provisions",
+      "verified": "2026-07-31"
+    },
+    {
+      "category": "US Federal",
+      "item": "Heavy-SUV \u00a7179 expensing cap",
+      "from": "$31,300",
+      "to": "$32,000",
+      "effective": "Jan 1, 2026",
+      "statute": "Rev. Proc. 2025-32",
+      "source": "Rev. Proc. 2025-32 \u00a7179(b)(5) inflation adjustment",
+      "source_url": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+      "verified": "2026-07-12"
+    },
+    {
+      "category": "US Federal",
+      "item": "Luxury-auto \u00a7280F first-year cap",
+      "from": "$20,200",
+      "to": "$20,300",
+      "effective": "Jan 1, 2026",
+      "statute": "Rev. Proc. 2026-15",
+      "source": "Rev. Proc. 2025-16 (2025); Rev. Proc. 2026-15 (2026)",
+      "source_url": "https://www.irs.gov/pub/irs-drop/rp-26-15.pdf",
+      "verified": "2026-07-12"
+    },
+    {
+      "category": "US Federal",
+      "item": "SALT (state & local tax) deduction cap",
+      "from": "$10,000",
+      "to": "$40,400 (2026)",
+      "effective": "$40,000 for 2025; $40,400 for 2026 (indexed 1%/yr through 2029); phases down 30% of MAGI over $505,000, floored at $10,000",
+      "statute": "OBBBA",
+      "source": "OBBBA \u2014 SALT cap raised to $40,000 (2025) / $40,400 (2026)",
+      "source_url": "https://www.irs.gov/newsroom/one-big-beautiful-bill-act-tax-provisions",
+      "verified": "2026-07-31"
+    },
+    {
+      "category": "US Federal",
+      "item": "SEP-IRA max / solo-401(k) deferral",
+      "from": "$70,000 / $23,500",
+      "to": "$72,000 / $24,500",
+      "effective": "Jan 1, 2026",
+      "statute": "IRS COLA",
+      "source": "IRS COLA notice (2026: SEP $72,000, deferral $24,500)",
+      "source_url": "https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-contributions",
+      "verified": "2026-07-12"
+    },
+    {
+      "category": "US Federal",
+      "item": "Social Security wage base (SE OASDI cap)",
+      "from": "$176,100",
+      "to": "$184,500",
+      "effective": "Jan 1, 2026",
+      "statute": "SSA COLA",
+      "source": "SSA COLA fact sheet; Rev. Proc. 2025-32 context",
+      "source_url": "https://www.ssa.gov/oact/cola/cbb.html",
+      "verified": "2026-07-12"
+    },
+    {
+      "category": "US Federal",
+      "item": "Standard business mileage rate",
+      "from": "70\u00a2/mi",
+      "to": "76\u00a2/mi",
+      "effective": "Jul 1, 2026 (H2)",
+      "statute": "Announcement 2026-11",
+      "source": "Notice 2025-5 (2025: 70c); Notice 2026-10 (H1 2026: 72.5c); Announcement 2026-11 in IRB 2026-29 (H2 2026: 76.0c, effective Jul 1)",
+      "source_url": "https://www.irs.gov/pub/irs-irbs/irb26-29.pdf",
+      "verified": "2026-07-13"
+    },
+    {
+      "category": "US Federal",
+      "item": "Standard deduction (single / MFJ)",
+      "from": "$15,750 / $31,500",
+      "to": "$16,100 / $32,200",
+      "effective": "Jan 1, 2026",
+      "statute": "Rev. Proc. 2025-32",
+      "source": "Rev. Proc. 2024-40 (2025); Rev. Proc. 2025-32 (2026, post-OBBBA)",
+      "source_url": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+      "verified": "2026-07-12"
+    },
+    {
+      "category": "US Federal",
+      "item": "\u00a7179 expensing limit / phase-out",
+      "from": "$2,500,000 / $4,000,000",
+      "to": "$2,560,000 / $4,090,000",
+      "effective": "Jan 1, 2026",
+      "statute": "OBBBA + indexing",
+      "source": "OBBBA (base $2.5M/$4M from 2025); Rev. Proc. 2025-32 (2026 indexed)",
+      "source_url": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+      "verified": "2026-07-12"
+    },
+    {
+      "category": "US State",
+      "item": "GA income tax (SE / pass-through)",
+      "from": "5.19%",
+      "to": "4.99%",
+      "effective": "Jan 1, 2026",
+      "statute": "GA HB 463 (retroactive Jan 1, 2026)",
+      "source": "Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01)",
+      "source_url": "https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
+      "verified": "2026-07-13"
+    },
+    {
+      "category": "US State",
+      "item": "IN income tax (SE / pass-through)",
+      "from": "3%",
+      "to": "2.95%",
+      "effective": "Jan 1, 2026",
+      "statute": "Indiana rate step-down",
+      "source": "Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01)",
+      "source_url": "https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
+      "verified": "2026-07-13"
+    },
+    {
+      "category": "US State",
+      "item": "KY income tax (SE / pass-through)",
+      "from": "4%",
+      "to": "3.5%",
+      "effective": "Jan 1, 2026",
+      "statute": "Kentucky rate step-down",
+      "source": "Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01)",
+      "source_url": "https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
+      "verified": "2026-07-13"
+    },
+    {
+      "category": "US State",
+      "item": "MS income tax (SE / pass-through)",
+      "from": "4.4%",
+      "to": "4%",
+      "effective": "Jan 1, 2026",
+      "statute": "Mississippi phase-down",
+      "source": "Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01)",
+      "source_url": "https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
+      "verified": "2026-07-13"
+    },
+    {
+      "category": "US State",
+      "item": "MT income tax (SE / pass-through)",
+      "from": "5.9%",
+      "to": "5.65%",
+      "effective": "Jan 1, 2026",
+      "statute": "Montana rate cut",
+      "source": "Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01)",
+      "source_url": "https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
+      "verified": "2026-07-13"
+    },
+    {
+      "category": "US State",
+      "item": "NC income tax (SE / pass-through)",
+      "from": "4.25%",
+      "to": "3.99%",
+      "effective": "Jan 1, 2026",
+      "statute": "North Carolina phase-down",
+      "source": "Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01)",
+      "source_url": "https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
+      "verified": "2026-07-13"
+    },
+    {
+      "category": "US State",
+      "item": "NE income tax (SE / pass-through)",
+      "from": "5.2%",
+      "to": "4.55%",
+      "effective": "Jan 1, 2026",
+      "statute": "Nebraska rate cut",
+      "source": "Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01)",
+      "source_url": "https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
+      "verified": "2026-07-13"
+    },
+    {
+      "category": "US State",
+      "item": "OH income tax (SE / pass-through)",
+      "from": "3.5%",
+      "to": "2.75%",
+      "effective": "Jan 1, 2026",
+      "statute": "Ohio flat-tax transition",
+      "source": "Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01)",
+      "source_url": "https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
+      "verified": "2026-07-13"
+    },
+    {
+      "category": "US State",
+      "item": "OK income tax (SE / pass-through)",
+      "from": "4.75%",
+      "to": "4.5%",
+      "effective": "Jan 1, 2026",
+      "statute": "Oklahoma rate cut",
+      "source": "Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01)",
+      "source_url": "https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
+      "verified": "2026-07-13"
+    },
+    {
+      "category": "US State",
+      "item": "WV income tax (SE / pass-through)",
+      "from": "4.82%",
+      "to": "4.58%",
+      "effective": "Jan 1, 2026",
+      "statute": "West Virginia rate cut",
+      "source": "Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01)",
+      "source_url": "https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
+      "verified": "2026-07-13"
+    },
+    {
+      "category": "Canada",
+      "item": "CPP YMPE / YAMPE (self-employed)",
+      "from": "YMPE $71,300 / YAMPE $81,200",
+      "to": "YMPE $74,600 / YAMPE $85,000",
+      "effective": "Jan 1, 2026",
+      "statute": "CRA payroll tables",
+      "source": "CRA payroll deductions tables (2026: YMPE $74,600 / YAMPE $85,000)",
+      "source_url": "https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/payroll/payroll-deductions-contributions/canada-pension-plan-cpp.html",
+      "verified": "2026-07-12"
+    },
+    {
+      "category": "Canada",
+      "item": "Class 10.1 passenger-vehicle CCA ceiling",
+      "from": "$38,000",
+      "to": "$39,000",
+      "effective": "Jan 1, 2026",
+      "statute": "CRA prescribed amounts",
+      "source": "CRA prescribed automobile amounts (announced each December)",
+      "source_url": "https://www.canada.ca/en/department-finance/news/2025/12/automobile-deduction-limits.html",
+      "verified": "2026-07-12"
+    },
+    {
+      "category": "Canada",
+      "item": "Federal personal income tax \u2014 lowest rate",
+      "from": "14.5% (2025 blended)",
+      "to": "14%",
+      "effective": "Jan 1, 2026",
+      "statute": "Bill C-4 (2025)",
+      "source": "CRA income tax rates; Bill C-4 (2025) rate cut",
+      "source_url": "https://www.canada.ca/en/revenue-agency/services/tax/individuals/frequently-asked-questions-individuals/canadian-income-tax-rates-individuals-current-previous-years.html",
+      "verified": "2026-07-13"
+    },
+    {
+      "category": "Canada",
+      "item": "Nova Scotia HST",
+      "from": "15%",
+      "to": "14%",
+      "effective": "Apr 1, 2025",
+      "statute": "NS Budget 2025",
+      "source": "CRA GST/HST rates table",
+      "source_url": "https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/gst-hst-businesses/charge-collect-which-rate.html",
+      "verified": "2026-07-13"
+    }
+  ]
+}

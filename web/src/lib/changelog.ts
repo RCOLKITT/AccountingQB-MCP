@@ -14,6 +14,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.6",
+    date: "2026-07-31",
+    title: "2026 vs 2025 tax changes — sourced",
+    tag: "Tax",
+    summary:
+      "Every 2026 tax change a bookkeeper or CPA needs, each with its effective date, statute, and a link to the official source — in the app (qb_tax_law_changes) and on a public reference page.",
+    highlights: [
+      "New qb_tax_law_changes tool: ask \"what changed for 2026?\" and get a cited, dated answer — filter by jurisdiction or topic",
+      "Public /tax-changes reference: US federal, US state, and Canadian rate/threshold changes with one-click sources",
+      "OBBBA highlights done right: 100% bonus depreciation restored, SALT cap to $40,400, 1099-NEC threshold $600 → $2,000",
+      "Powered by the same sourced, hash-chained tax-data control plane as our calculators — the reference and the tools can't disagree",
+    ],
+  },
+  {
     version: "3.5",
     date: "2026-07-22",
     title: "CPA-ready year-end binder",
@@ -24,7 +38,7 @@ export const RELEASES: Release[] = [
       "Reconciliation tie-outs, prior-year comparative statements (P&L + balance sheet), tax payments made, and owner's draws — the questions a CPA asks first, pre-answered",
       "A structured Tax Organizer replaces free-text notes: mileage, home office, health premiums, assets bought/sold, estimated payments",
       "Export the whole binder to Excel in one message",
-      "108 tools total across US & Canada",
+      "109 tools total across US & Canada",
     ],
   },
   {

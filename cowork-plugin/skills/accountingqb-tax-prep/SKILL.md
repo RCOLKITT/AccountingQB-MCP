@@ -1,6 +1,6 @@
 ---
 name: accountingqb-tax-prep
-description: Tax preparation workflows for QuickBooks Online via AccountingQB — US (Schedule C, quarterly estimates, 1099s, depreciation) and Canada (GST/HST returns, T2125, CCA, T4A/T5018, CRA instalments). Use when the user mentions taxes, tax prep, tax season, Schedule C, T2125, GST/HST, deductions, quarterly estimates, instalments, 1099s, T4As, depreciation, CCA, the IRS, or the CRA.
+description: Tax preparation workflows for QuickBooks Online via AccountingQB — US (Schedule C, quarterly estimates, 1099s, depreciation) and Canada (GST/HST returns, T2125, CCA, T4A/T5018, CRA instalments), plus a sourced 2026-vs-2025 tax-law changes reference (qb_tax_law_changes). Use when the user mentions taxes, tax prep, tax season, what changed for 2026, OBBBA, tax law changes, Schedule C, T2125, GST/HST, deductions, quarterly estimates, instalments, 1099s, T4As, depreciation, CCA, the IRS, or the CRA.
 ---
 
 # AccountingQB - Tax Preparation Assistant

@@ -1,7 +1,7 @@
 # AccountingQB
 
 > AccountingQB connects Claude (and any MCP-compatible AI) to QuickBooks
-> Online with 108 tools for reports, bookkeeping cleanup, transaction
+> Online with 109 tools for reports, bookkeeping cleanup, transaction
 > creation, and tax preparation for the United States (Schedule C, 1099,
 > quarterly estimates) and Canada (GST/HST return workpapers, T2125, CCA,
 > T4A, CRA instalments). Built by Vaspera Capital.
@@ -33,6 +33,7 @@
 
 - Home & pricing: https://accountingqb.com/
 - For Canadian businesses (GST/HST, T2125, CRA, CAD pricing): https://accountingqb.com/canada
+- 2026 vs 2025 tax changes (sourced US federal, US state & Canadian rate/threshold changes — OBBBA bonus depreciation, SALT cap, 1099-NEC, brackets, mileage, CPP, GST/HST): https://accountingqb.com/tax-changes
 - Setup guide: https://accountingqb.com/setup-wizard
 - Privacy (data locality & zero-retention details): https://accountingqb.com/privacy
 - Terms: https://accountingqb.com/terms

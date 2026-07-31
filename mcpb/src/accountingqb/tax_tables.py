@@ -658,3 +658,183 @@ def verify_ledger_chain(rows=None) -> bool:
         canonical = json.dumps(row, sort_keys=True, separators=(",", ":"))
         prev = hashlib.sha256(canonical.encode()).hexdigest()
     return True
+
+
+# =========================================================================
+# L5 — year-over-year change derivation (reference surface)
+# Single source of truth for BOTH the qb_tax_law_changes MCP tool and the
+# public /tax-changes page generator, so the "what changed" feed can never
+# drift from the figures the calculators use. Reference only — never advice;
+# always pair with tax_data_footer().
+# =========================================================================
+
+def _money(v) -> str:
+    return f"${v:,.0f}"
+
+
+def _cents(v) -> str:
+    return f"{v:g}¢/mi"
+
+
+def _pct(v) -> str:
+    return f"{v * 100:g}%"
+
+
+# Year-keyed registry tables surfaced in the change feed, each with a
+# presentable label + a formatter rendering a year's value. TCJA_PHASE_DOWN
+# is deliberately EXCLUDED: a raw 40%->20% diff would misrepresent the headline
+# OBBBA change (100% bonus restored) — that story is a curated entry below.
+# (table, category, label, format(value)->str, effective, statute)
+_CHANGE_ITEMS = [
+    ("SS_WAGE_BASE", "US Federal", "Social Security wage base (SE OASDI cap)",
+     lambda v: _money(v), "Jan 1, 2026", "SSA COLA"),
+    ("FED_BRACKETS", "US Federal", "Standard deduction (single / MFJ)",
+     lambda v: f"{_money(v['std_single'])} / {_money(v['std_married'])}",
+     "Jan 1, 2026", "Rev. Proc. 2025-32"),
+    ("SUV_179_CAP", "US Federal", "Heavy-SUV §179 expensing cap",
+     lambda v: _money(v), "Jan 1, 2026", "Rev. Proc. 2025-32"),
+    ("280F_LIMITS", "US Federal", "Luxury-auto §280F first-year cap",
+     lambda v: _money(v[1]), "Jan 1, 2026", "Rev. Proc. 2026-15"),
+    ("SEC_179_LIMITS", "US Federal", "§179 expensing limit / phase-out",
+     lambda v: f"{_money(v['limit'])} / {_money(v['phaseout'])}",
+     "Jan 1, 2026", "OBBBA + indexing"),
+    ("STD_MILEAGE_CENTS", "US Federal", "Standard business mileage rate",
+     lambda v: _cents(v), "Jul 1, 2026 (H2)", "Announcement 2026-11"),
+    ("RETIREMENT_LIMITS", "US Federal", "SEP-IRA max / solo-401(k) deferral",
+     lambda v: f"{_money(v['sep_max'])} / {_money(v['solo_401k_deferral'])}",
+     "Jan 1, 2026", "IRS COLA"),
+    ("NEC_1099_THRESHOLD", "US Federal", "1099-NEC/MISC reporting threshold",
+     lambda v: _money(v), "Jan 1, 2026", "OBBBA §70433"),
+    ("CLASS_10_1_CEILING", "Canada", "Class 10.1 passenger-vehicle CCA ceiling",
+     lambda v: _money(v), "Jan 1, 2026", "CRA prescribed amounts"),
+    ("CPP", "Canada", "CPP YMPE / YAMPE (self-employed)",
+     lambda v: f"YMPE {_money(v['ympe'])} / YAMPE {_money(v['yampe'])}",
+     "Jan 1, 2026", "CRA payroll tables"),
+]
+
+# US-state flat-rate cuts: prior-year (2025) rate backfilled from the inline
+# "(was X)" annotations in _US_STATE_TAX, promoted to structured data so the
+# feed can diff current-vs-prior. (state -> (prior_rate, statute/label)).
+_US_STATE_TAX_PRIOR = {
+    "IN": (0.030, "Indiana rate step-down"),
+    "KY": (0.040, "Kentucky rate step-down"),
+    "MS": (0.044, "Mississippi phase-down"),
+    "NC": (0.0425, "North Carolina phase-down"),
+    "OH": (0.035, "Ohio flat-tax transition"),
+    "MT": (0.059, "Montana rate cut"),
+    "NE": (0.052, "Nebraska rate cut"),
+    "OK": (0.0475, "Oklahoma rate cut"),
+    "WV": (0.0482, "West Virginia rate cut"),
+    "GA": (0.0519, "GA HB 463 (retroactive Jan 1, 2026)"),
+}
+
+# Curated legislative changes that don't reduce to one year-keyed number
+# (narrative rate + rule). Reference-only, each independently sourced/dated;
+# not part of the L2 registry (so not ledger-gated), but held to the same
+# "no figure without a source" bar.
+_IRS_OBBBA_URL = "https://www.irs.gov/newsroom/one-big-beautiful-bill-act-tax-provisions"
+_CRA_RATES_URL = ("https://www.canada.ca/en/revenue-agency/services/tax/individuals/"
+                  "frequently-asked-questions-individuals/"
+                  "canadian-income-tax-rates-individuals-current-previous-years.html")
+_LEGISLATIVE_CHANGES = [
+    {
+        "category": "US Federal", "item": "Bonus depreciation (first-year)",
+        "from": "40% (2025, TCJA phase-down)", "to": "100% — restored & permanent",
+        "effective": "Property acquired & placed in service after Jan 19, 2025",
+        "statute": "OBBBA §70301",
+        "source": "OBBBA; IRS interim guidance (bonus depreciation restored to 100%)",
+        "source_url": _IRS_OBBBA_URL, "verified": "2026-07-31",
+    },
+    {
+        "category": "US Federal", "item": "SALT (state & local tax) deduction cap",
+        "from": "$10,000", "to": "$40,400 (2026)",
+        "effective": "$40,000 for 2025; $40,400 for 2026 (indexed 1%/yr through 2029); "
+                     "phases down 30% of MAGI over $505,000, floored at $10,000",
+        "statute": "OBBBA",
+        "source": "OBBBA — SALT cap raised to $40,000 (2025) / $40,400 (2026)",
+        "source_url": _IRS_OBBBA_URL, "verified": "2026-07-31",
+    },
+    {
+        "category": "Canada", "item": "Nova Scotia HST",
+        "from": "15%", "to": "14%", "effective": "Apr 1, 2025",
+        "statute": "NS Budget 2025",
+        "source": "CRA GST/HST rates table",
+        "source_url": ("https://www.canada.ca/en/revenue-agency/services/tax/businesses/"
+                       "topics/gst-hst-businesses/charge-collect-which-rate.html"),
+        "verified": "2026-07-13",
+    },
+    {
+        "category": "Canada", "item": "Federal personal income tax — lowest rate",
+        "from": "14.5% (2025 blended)", "to": "14%", "effective": "Jan 1, 2026",
+        "statute": "Bill C-4 (2025)",
+        "source": "CRA income tax rates; Bill C-4 (2025) rate cut",
+        "source_url": _CRA_RATES_URL, "verified": "2026-07-13",
+    },
+]
+
+
+def _year_value(name: str, entry: dict, year: int):
+    """Per-year value for a year-keyed change item (CPP nests under params)."""
+    if name == "CPP":
+        return entry["values"]["params"].get(year)
+    return entry["values"].get(year)
+
+
+def derive_tax_changes(year_from: int = 2025, year_to: int = 2026,
+                       jurisdiction: str | None = None) -> list:
+    """Structured year-over-year (default 2025->2026) tax-law change feed.
+
+    Merges three sourced/dated sources: (1) auto-diffs of year-keyed registry
+    tables, (2) US-state flat-rate cuts (registry current vs _US_STATE_TAX_PRIOR
+    backfill), (3) curated legislative changes that don't reduce to a single
+    year-keyed number (OBBBA bonus depreciation, SALT cap, NS HST, Bill C-4).
+    One source of truth for the qb_tax_law_changes tool and the /tax-changes
+    page. jurisdiction: None (all), "US Federal", "US State", or "Canada".
+    Returns dicts {category, item, from, to, effective, statute, source,
+    source_url, verified}. Reference only — pair with tax_data_footer()."""
+    yf, yt = int(year_from), int(year_to)
+    out: list = []
+
+    # (1) year-keyed registry auto-diffs
+    for name, category, label, fmt, effective, statute in _CHANGE_ITEMS:
+        entry = TABLES.get(name)
+        if not entry:
+            continue
+        vf, vt = _year_value(name, entry, yf), _year_value(name, entry, yt)
+        if vf is None or vt is None:
+            continue
+        try:
+            sf, st = fmt(vf), fmt(vt)
+        except (KeyError, TypeError, IndexError):
+            continue
+        if sf == st:
+            continue
+        out.append({
+            "category": category, "item": label, "from": sf, "to": st,
+            "effective": effective, "statute": statute,
+            "source": entry["source"], "source_url": entry["source_url"],
+            "verified": entry["verified"],
+        })
+
+    # (2) US-state flat-rate cuts (registry current vs prior-year backfill)
+    state_entry = TABLES["US_STATE_TAX"]
+    for code, (prior_rate, statute) in _US_STATE_TAX_PRIOR.items():
+        cur = _US_STATE_TAX.get(code)
+        if not cur or abs(cur[0] - prior_rate) < 1e-9:
+            continue
+        out.append({
+            "category": "US State", "item": f"{code} income tax (SE / pass-through)",
+            "from": _pct(prior_rate), "to": _pct(cur[0]),
+            "effective": "Jan 1, 2026", "statute": statute,
+            "source": state_entry["source"], "source_url": state_entry["source_url"],
+            "verified": state_entry["verified"],
+        })
+
+    # (3) curated legislative changes (copied so callers can't mutate module state)
+    out.extend(dict(c) for c in _LEGISLATIVE_CHANGES)
+
+    if jurisdiction:
+        out = [c for c in out if c["category"] == jurisdiction]
+    order = {"US Federal": 0, "US State": 1, "Canada": 2}
+    out.sort(key=lambda c: (order.get(c["category"], 9), c["item"]))
+    return out

@@ -84,9 +84,10 @@
 | qb_budget_vs_actual | Compare budget to actual spending |
 | qb_anomaly_detection | Statistical anomaly and fraud detection |
 
-## Tax Preparation (16 tools)
+## Tax Preparation (17 tools)
 | Tool | Description |
 |------|-------------|
+| qb_tax_law_changes | Year-over-year tax-law changes (2026 vs 2025) — US federal, US state & Canada, each with effective date, statute, and official source. Also at accountingqb.com/tax-changes |
 | qb_tax_summary | Expenses mapped to Schedule C lines |
 | qb_schedule_c | Full IRS Schedule C line-by-line |
 | qb_schedule_c_detailed | Granular Schedule C with QB account detail |
