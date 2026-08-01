@@ -7256,6 +7256,16 @@ async def qb_sales_tax_summary(start_date: str = "", end_date: str = "") -> str:
     )
     sales_receipts = sr_result.get("QueryResponse", {}).get("SalesReceipt", [])
 
+    # Customer cash refunds net back out of taxable sales and tax collected.
+    refunds = []
+    try:
+        ref_result = await qb_query_all(
+            f"SELECT * FROM RefundReceipt WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
+        )
+        refunds = ref_result.get("QueryResponse", {}).get("RefundReceipt", [])
+    except Exception as e:
+        logger.debug(f"RefundReceipt query failed: {e}")
+
     # Try to get the TaxAgency / TaxCode info
     tax_code_result = await qb_query("SELECT * FROM TaxCode MAXRESULTS 50")
     tax_codes = tax_code_result.get("QueryResponse", {}).get("TaxCode", [])
@@ -7278,17 +7288,17 @@ async def qb_sales_tax_summary(start_date: str = "", end_date: str = "") -> str:
     total_gross = 0.0
     tax_by_rate = {}
 
-    for txn_list in [invoices, sales_receipts]:
+    for txn_list, sign in [(invoices, 1), (sales_receipts, 1), (refunds, -1)]:
         for txn in txn_list:
             total_amt = float(txn.get("TotalAmt", 0))
             tax_amt = float(txn.get("TxnTaxDetail", {}).get("TotalTax", 0))
-            total_gross += total_amt
-            total_tax += tax_amt
+            total_gross += total_amt * sign
+            total_tax += tax_amt * sign
 
             if tax_amt > 0:
-                total_taxable += (total_amt - tax_amt)
+                total_taxable += (total_amt - tax_amt) * sign
             else:
-                total_exempt += total_amt
+                total_exempt += total_amt * sign
 
             # Parse tax detail lines
             tax_lines = txn.get("TxnTaxDetail", {}).get("TaxLine", [])
@@ -7307,13 +7317,14 @@ async def qb_sales_tax_summary(start_date: str = "", end_date: str = "") -> str:
                         "taxable_amount": 0.0,
                         "tax_collected": 0.0,
                     }
-                tax_by_rate[key]["taxable_amount"] += tax_on
-                tax_by_rate[key]["tax_collected"] += tax_charged
+                tax_by_rate[key]["taxable_amount"] += tax_on * sign
+                tax_by_rate[key]["tax_collected"] += tax_charged * sign
 
     lines = ca_note + [
         f"## Sales Tax Summary",
         f"**Period:** {start_date} to {end_date}",
-        f"**Invoices:** {len(invoices)} | **Sales Receipts:** {len(sales_receipts)}\n",
+        f"**Invoices:** {len(invoices)} | **Sales Receipts:** {len(sales_receipts)}"
+        + (f" | **Refunds (netted):** {len(refunds)}" if refunds else "") + "\n",
         f"### Totals",
         f"  Gross Sales: {fmt(total_gross)}",
         f"  Taxable Sales: {fmt(total_taxable)}",
@@ -7390,9 +7401,16 @@ async def qb_sales_tax_nexus(year: str = "", approaching_pct: int = 80) -> str:
         logger.debug(f"customer state map failed: {e}")
 
     by_state = {}  # state -> {sales, txns, tax}
-    for entity in ("Invoice", "SalesReceipt"):
-        r = await qb_query_all(f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
-                           f"AND TxnDate <= '{end}' MAXRESULTS 1000")
+    # Invoices + sales receipts add sales; RefundReceipts (customer cash refunds)
+    # net back out, so a refunded sale doesn't push a state over its threshold or
+    # overstate liability. A refund isn't a new sale, so it doesn't add to txns.
+    for entity, sign in (("Invoice", 1), ("SalesReceipt", 1), ("RefundReceipt", -1)):
+        try:
+            r = await qb_query_all(f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
+                               f"AND TxnDate <= '{end}' MAXRESULTS 1000")
+        except Exception as e:
+            logger.debug(f"nexus {entity} query failed: {e}")
+            continue
         for t in r.get("QueryResponse", {}).get(entity, []):
             st = ((t.get("ShipAddr") or {}).get("CountrySubDivisionCode")
                   or (t.get("BillAddr") or {}).get("CountrySubDivisionCode")
@@ -7401,9 +7419,10 @@ async def qb_sales_tax_nexus(year: str = "", approaching_pct: int = 80) -> str:
             if not st:
                 continue
             d = by_state.setdefault(st, {"sales": 0.0, "txns": 0, "tax": 0.0})
-            d["sales"] += float(t.get("TotalAmt", 0) or 0)
-            d["txns"] += 1
-            d["tax"] += float((t.get("TxnTaxDetail") or {}).get("TotalTax", 0) or 0)
+            d["sales"] += float(t.get("TotalAmt", 0) or 0) * sign
+            if sign > 0:
+                d["txns"] += 1
+            d["tax"] += float((t.get("TxnTaxDetail") or {}).get("TotalTax", 0) or 0) * sign
 
     if not by_state:
         return (f"No ship-to state found on invoices/sales receipts for {year}. "
@@ -7479,7 +7498,8 @@ async def qb_sales_tax_nexus(year: str = "", approaching_pct: int = 80) -> str:
                  "usually don't count toward your own threshold; exempt/resale "
                  "sales don't count; the measurement window (prior vs current "
                  "calendar year) varies by state. This screen counts all ship-to "
-                 "sales — a flag to investigate, not a final answer.*")
+                 "sales (net of customer refunds) — a flag to investigate, not a "
+                 "final answer.*")
     return "\n".join(lines) + tax_data_footer()
 
 

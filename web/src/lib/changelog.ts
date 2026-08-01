@@ -14,6 +14,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.6.2",
+    date: "2026-08-01",
+    title: "Sales-tax totals net out customer refunds",
+    tag: "Tax",
+    summary:
+      "Sales-tax summary and the economic-nexus screen now subtract customer cash refunds, so refunded sales don't overstate what you owe — or push a state falsely over its nexus threshold.",
+    highlights: [
+      "Refund receipts net out of taxable sales and tax collected in qb_sales_tax_summary and qb_sales_tax_nexus",
+      "Prevents a false 'you may have nexus' signal when returns pull a state back under its threshold",
+      "Income summary was already correct (it reads the P&L report, which nets refunds)",
+    ],
+  },
+  {
     version: "3.6.1",
     date: "2026-08-01",
     title: "Complete numbers on large books",

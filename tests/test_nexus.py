@@ -13,10 +13,12 @@ def _inv(pid, state, amount, tax=0.0):
             "TxnTaxDetail": {"TotalTax": tax}}
 
 
-def _patch(monkeypatch, invoices):
+def _patch(monkeypatch, invoices, refunds=None):
     async def fake_query(q, **kw):
         if "FROM Invoice" in q:
             return {"QueryResponse": {"Invoice": invoices}}
+        if "FROM RefundReceipt" in q:
+            return {"QueryResponse": {"RefundReceipt": refunds or []}}
         return {"QueryResponse": {}}  # Customer, SalesReceipt
 
     async def fake_region():
@@ -58,6 +60,22 @@ def test_nexus_screen_buckets_states(monkeypatch):
     # liability rollup present
     assert "Sales tax collected (liability)" in out
     assert "$88,000" in out  # 45k + 3k + 40k
+
+
+def test_refunds_net_out_of_nexus(monkeypatch):
+    # $600k CA sales, but a $200k customer refund -> net $400k, below the
+    # $500k sales-only threshold. Without netting this would false-positive as
+    # "likely nexus"; with netting it must drop to approaching, not exposure.
+    _patch(monkeypatch,
+           [_inv("1", "CA", 600_000, 45_000)],
+           refunds=[_inv("r1", "CA", 200_000, 15_000)])
+    out = asyncio.run(s.qb_sales_tax_nexus("2026"))
+    exposure_block = out.split("Approaching")[0]
+    assert "| CA " not in exposure_block          # no longer over threshold
+    ca = [ln for ln in out.splitlines() if ln.startswith("| CA ")]
+    assert ca and "$400,000" in ca[0]             # net of the refund
+    # liability nets too: $45k collected - $15k refunded = $30k
+    assert "$30,000" in out
 
 
 def test_no_destination_state(monkeypatch):
