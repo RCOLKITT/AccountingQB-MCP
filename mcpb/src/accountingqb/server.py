@@ -2055,8 +2055,12 @@ async def qb_expense_summary(start_date: str = "", end_date: str = "") -> str:
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_profit_loss(start_date: str, end_date: str, summarize_by: str = "Total") -> str:
-    """Generate a Profit & Loss (Income Statement) report. Dates in YYYY-MM-DD. summarize_by: Total, Month, Quarter, Year."""
+async def qb_profit_loss(start_date: str = "", end_date: str = "", summarize_by: str = "Total", basis: str = "") -> str:
+    """Generate a Profit & Loss (Income Statement) report. Dates in YYYY-MM-DD
+    (default: current year-to-date). summarize_by: Total, Month, Quarter, Year.
+    basis: '' (QuickBooks default), 'cash', or 'accrual' — CPAs often book on
+    accrual but file on cash."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     # Demo mode: return mock P&L
     if _demo_active():
         return (
@@ -2081,14 +2085,19 @@ async def qb_profit_loss(start_date: str, end_date: str, summarize_by: str = "To
             "### Net Income: **$138,750.00**"
         )
 
-    report = await qb_request("GET", "reports/ProfitAndLoss", params={
+    params = {
         "start_date": start_date,
         "end_date": end_date,
         "summarize_column_by": summarize_by,
-    })
+    }
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/ProfitAndLoss", params=params)
 
     header = report.get("Header", {})
-    lines = [f"## Profit & Loss: {header.get('StartPeriod', '')} to {header.get('EndPeriod', '')}\n"]
+    basis_note = f" · {method} basis" if method else ""
+    lines = [f"## Profit & Loss: {header.get('StartPeriod', '')} to {header.get('EndPeriod', '')}{basis_note}\n"]
     rows = report.get("Rows", {}).get("Row", [])
     _parse_report_rows(rows, lines)
     return "\n".join(lines)
@@ -2099,8 +2108,10 @@ async def qb_profit_loss(start_date: str, end_date: str, summarize_by: str = "To
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_balance_sheet(as_of_date: str = "") -> str:
-    """Generate a Balance Sheet report as of a specific date. Date in YYYY-MM-DD format (defaults to today)."""
+async def qb_balance_sheet(as_of_date: str = "", basis: str = "") -> str:
+    """Generate a Balance Sheet report as of a specific date. Date in YYYY-MM-DD
+    format (defaults to today). basis: '' (QuickBooks default), 'cash', or
+    'accrual'."""
     as_of_date = _as_of_or_today(as_of_date)
     # Demo mode: return mock balance sheet
     if _demo_active():
@@ -2129,13 +2140,14 @@ async def qb_balance_sheet(as_of_date: str = "") -> str:
             "**Total Liabilities + Equity: $221,723.84**"
         )
 
-    report = await qb_request("GET", "reports/BalanceSheet", params={
-        "date_macro": "",
-        "start_date": as_of_date,
-        "end_date": as_of_date,
-    })
+    params = {"date_macro": "", "start_date": as_of_date, "end_date": as_of_date}
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/BalanceSheet", params=params)
 
-    lines = [f"## Balance Sheet as of {as_of_date}\n"]
+    basis_note = f" · {method} basis" if method else ""
+    lines = [f"## Balance Sheet as of {as_of_date}{basis_note}\n"]
     rows = report.get("Rows", {}).get("Row", [])
     _parse_report_rows(rows, lines)
     return "\n".join(lines)
@@ -2314,6 +2326,17 @@ def _as_of_or_today(as_of_date: str = "") -> str:
     """Resolve an as-of date, defaulting to today when blank."""
     from datetime import date as _d
     return as_of_date.strip() if as_of_date else _d.today().isoformat()
+
+
+def _accounting_method(basis: str) -> str:
+    """Map a 'cash'/'accrual' basis hint to the QBO accounting_method param
+    ('' = QuickBooks' default). CPAs often book accrual but file cash."""
+    b = (basis or "").strip().lower()
+    if b in ("cash", "c"):
+        return "Cash"
+    if b in ("accrual", "a"):
+        return "Accrual"
+    return ""
 
 
 def _merge_line_order(cur_keys: list, prior_keys: list) -> list:
@@ -4501,63 +4524,96 @@ async def qb_depreciation_schedule(tax_year: str = "") -> str:
     from datetime import date as _date
     if not tax_year:
         tax_year = str(_date.today().year)
-    # Get fixed asset accounts
-    assets = await qb_query("SELECT * FROM Account WHERE AccountType = 'Fixed Asset' MAXRESULTS 50")
+    # Fetch fixed-asset accounts (cost accounts + accumulated-depreciation contras)
+    assets = await qb_query(
+        "SELECT * FROM Account WHERE AccountType IN ('Fixed Asset', 'Other Asset') "
+        "MAXRESULTS 100")
     acct_list = assets.get("QueryResponse", {}).get("Account", [])
-
     if not acct_list:
         return f"No fixed asset accounts found for {tax_year}."
 
-    lines = [f"## Depreciation Schedule — {tax_year}\n"]
-    lines.append("| Asset Account | Balance | Useful Life | Method | Annual Depreciation |")
-    lines.append("|---|---|---|---|---|")
+    def _is_contra(nm: str) -> bool:
+        low = (nm or "").lower()
+        return ("accum" in low and "dep" in low) or low.strip().startswith("less")
 
-    total_depreciation = 0
+    def _tokens(nm: str) -> set:
+        stripped = _re.sub(
+            r"accumulated|accum\.?|depreciation|deprec\.?|amortization|less|"
+            r"[-–—:()]", " ", nm or "", flags=_re.IGNORECASE)
+        return {t.lower() for t in stripped.split() if len(t) > 2}
+
+    contras, costs = [], []
     for a in acct_list:
-        name = a.get("Name", "")
-        balance = float(a.get("CurrentBalance", 0))
-        if abs(balance) < 1:
+        nm = a.get("Name", "")
+        bal = float(a.get("CurrentBalance", 0) or 0)
+        (contras if _is_contra(nm) else costs).append((nm, bal, _tokens(nm)))
+
+    def _accum_for(cost_tokens: set) -> float:
+        return sum(abs(cb) for _, cb, ct in contras if ct & cost_tokens)
+
+    def _method_life(nm: str):
+        low = nm.lower()
+        if any(k in low for k in ("computer", "laptop", "tablet", "server", "hardware")):
+            return "MACRS 5-yr", 5
+        if "furniture" in low or "fixture" in low:
+            return "MACRS 7-yr", 7
+        if any(k in low for k in ("vehicle", "auto", "truck", "car")):
+            return "MACRS 5-yr", 5
+        if any(k in low for k in ("building", "improvement", "real property")):
+            return "SL 39-yr", 39
+        if any(k in low for k in ("land",)):
+            return "Not depreciable", 0
+        return "MACRS 5-yr (default)", 5
+
+    lines = [
+        f"## Fixed-Asset Register — {tax_year}\n",
+        "### On the books (from QuickBooks)",
+        "| Asset | Cost basis | Accumulated deprec. | Net book value | Est. method / life |",
+        "|---|---|---|---|---|",
+    ]
+    total_cost = total_accum = total_net = 0.0
+    asset_rows = []  # (name, cost_basis, method, life)
+    for name, bal, toks in costs:
+        accum = _accum_for(toks)
+        if abs(bal) < 1 and accum == 0:
             continue
-
-        # Determine method/life based on asset type
-        if "computer" in name.lower() or "laptop" in name.lower() or "tablet" in name.lower():
-            useful_life = 5
-            method = "Section 179 / MACRS 5-yr"
-            annual = balance  # Full Section 179
-        elif "furniture" in name.lower():
-            useful_life = 7
-            method = "MACRS 7-year"
-            annual = balance / 7
-        elif "vehicle" in name.lower() or "auto" in name.lower():
-            useful_life = 5
-            method = "MACRS 5-year"
-            annual = balance / 5
-        elif "building" in name.lower() or "improvement" in name.lower():
-            useful_life = 39
-            method = "Straight-line 39-yr"
-            annual = balance / 39
-        else:
-            useful_life = 5
-            method = "MACRS 5-year (default)"
-            annual = balance / 5
-
-        lines.append(f"| {name} | {fmt(balance)} | {useful_life} yr | {method} | {fmt(annual)} |")
-        total_depreciation += annual
-
-    lines.append(f"\n**Total Annual Depreciation: {fmt(total_depreciation)}**")
+        net = bal
+        cost = net + accum  # QBO CurrentBalance is net book value; gross = net + accum
+        method, life = _method_life(name)
+        total_cost += cost
+        total_accum += accum
+        total_net += net
+        asset_rows.append((name, cost, method, life))
+        life_s = f"{method}" if life else method
+        lines.append(f"| {name} | {fmt(cost)} | {fmt(accum)} | {fmt(net)} | {life_s} |")
     lines.append(
-        "\n*This is a forward-looking **tax** estimate (MACRS/§179 on current "
-        "asset book values) and will not match the depreciation **expense booked "
-        "in your P&L**, which reflects the entries actually recorded (often "
-        "straight-line or prior elections). Your CPA reconciles the two — the "
-        "P&L figure is what's on the books; this is the tax schedule.*")
+        f"| **Totals** | **{fmt(total_cost)}** | **{fmt(total_accum)}** | "
+        f"**{fmt(total_net)}** | |")
     lines.append(
-        "\nNote: Section 179 allows full first-year expensing of qualifying assets "
-        "up to $2,560,000 for 2026 (phase-out begins at $4,090,000 of purchases; "
-        "OBBBA raised both, indexed annually). Requires an active trade or business "
-        "and can't create a loss — 100% bonus depreciation (permanent for property "
-        "acquired after Jan 19, 2025) has no income limit."
-    )
+        "\n*Cost basis = net book value + the matched “Accumulated "
+        "Depreciation” contra account; where the books don’t separate "
+        "them, cost ≈ net. QuickBooks Online’s API does **not** expose "
+        "per-asset **acquisition / in-service dates** or the elected "
+        "**depreciation method** — confirm those from the purchase invoice "
+        "and prior-year Form 4562 before filing. Land is not depreciable.*")
+
+    # Forward-looking tax estimate (illustrative straight-line on cost basis)
+    lines.append("\n### Forward-looking tax depreciation estimate")
+    lines.append("| Asset | Cost basis | Method | Est. annual (SL) |")
+    lines.append("|---|---|---|---|")
+    total_est = 0.0
+    for name, cost, method, life in asset_rows:
+        annual = (cost / life) if life else 0.0
+        total_est += annual
+        lines.append(f"| {name} | {fmt(cost)} | {method} | {fmt(annual)} |")
+    lines.append(f"| **Total** | | | **{fmt(total_est)}** |")
+    lines.append(
+        "\n*Illustrative straight-line estimate on cost basis. Actual **MACRS**, "
+        "**§179** (full first-year expensing up to $2,560,000 for 2026), and "
+        "**100% bonus** (permanent for property acquired after Jan 19, 2025) depend "
+        "on the in-service year and elections and are applied by your CPA on Form "
+        "4562. This estimate will **not** match depreciation **booked in your P&L** "
+        "(actual recorded entries) — the two are reconciled at tax time.*")
 
     return "\n".join(lines) + tax_data_footer()
 
