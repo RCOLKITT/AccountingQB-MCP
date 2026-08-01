@@ -4538,6 +4538,12 @@ async def qb_depreciation_schedule(tax_year: str = "") -> str:
 
     lines.append(f"\n**Total Annual Depreciation: {fmt(total_depreciation)}**")
     lines.append(
+        "\n*This is a forward-looking **tax** estimate (MACRS/§179 on current "
+        "asset book values) and will not match the depreciation **expense booked "
+        "in your P&L**, which reflects the entries actually recorded (often "
+        "straight-line or prior elections). Your CPA reconciles the two — the "
+        "P&L figure is what's on the books; this is the tax schedule.*")
+    lines.append(
         "\nNote: Section 179 allows full first-year expensing of qualifying assets "
         "up to $2,560,000 for 2026 (phase-out begins at $4,090,000 of purchases; "
         "OBBBA raised both, indexed annually). Requires an active trade or business "
@@ -6148,68 +6154,98 @@ async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 0
             vendor_map[vid]["total_paid"] += amount
             vendor_map[vid]["payment_count"] += 1
 
-    # Filter vendors above threshold
-    reportable = []
-    for vid, info in vendor_map.items():
-        if info["total_paid"] >= threshold:
-            reportable.append(info)
-
+    # 1099-NEC applies ONLY to vendors the business marked "Track payments for
+    # 1099" in QuickBooks (the Vendor1099 flag). Filtering by dollar amount
+    # alone wrongly swept in banks and credit-card/loan payments, SaaS
+    # corporations, product purchases, and owner draws — none of which are
+    # 1099-NEC reportable. Respect the flag: reportable = flagged vendors only.
+    any_flagged = any(info["vendor1099"] for info in vendor_map.values())
+    reportable, review = [], []
+    for info in vendor_map.values():
+        if info["total_paid"] < threshold:
+            continue
+        (reportable if info["vendor1099"] else review).append(info)
     reportable.sort(key=lambda x: x["total_paid"], reverse=True)
+    review.sort(key=lambda x: x["total_paid"], reverse=True)
 
     lines = [
         f"## 1099-NEC Contractor Report — {tax_year}",
-        f"**Threshold:** {fmt(threshold)}",
-        f"**Reportable Vendors:** {len(reportable)}\n",
+        f"**Threshold:** {fmt(threshold)} · reportable = vendors marked "
+        "“Track payments for 1099” in QuickBooks",
+        f"**Reportable vendors:** {len(reportable)}\n",
     ]
 
     grand_total = 0.0
     missing_tin = 0
     missing_addr = 0
 
-    for i, v in enumerate(reportable, 1):
-        grand_total += v["total_paid"]
-        tin_status = "✅ On file" if v["tin"] else "⚠️ MISSING"
-        flag_1099 = "Yes" if v["vendor1099"] else "No"
+    if reportable:
+        for i, v in enumerate(reportable, 1):
+            grand_total += v["total_paid"]
+            if not v["tin"]:
+                missing_tin += 1
+            if not v["address"]:
+                missing_addr += 1
+            tin_status = "✅ On file" if v["tin"] else "⚠️ MISSING"
+            lines.append(f"### {i}. {v['name']}")
+            lines.append(f"  **Total Paid:** {fmt(v['total_paid'])} ({v['payment_count']} payments)")
+            lines.append(f"  **TIN Status:** {tin_status}")
+            if v["company"]:
+                lines.append(f"  **Company:** {v['company']}")
+            lines.append("  **Address:** " + (v["address"] or
+                         "⚠️ MISSING — needed for 1099-NEC filing"))
+            if v["email"]:
+                lines.append(f"  **Email:** {v['email']}")
+            lines.append("")
+    elif not any_flagged:
+        lines.append(
+            "No vendors are marked for 1099 tracking in QuickBooks, so there is "
+            "nothing to report yet. In QuickBooks, open each **contractor** vendor "
+            "→ **Edit** → check **“Track payments for 1099”** (and collect "
+            "a W-9), then re-run. 1099-NEC covers non-employee **compensation** — "
+            "not corporations, credit-card/loan payments, product purchases, or "
+            "owner draws.\n")
+    else:
+        lines.append("No 1099-flagged vendors reached the threshold this year.\n")
 
-        if not v["tin"]:
-            missing_tin += 1
-        if not v["address"]:
-            missing_addr += 1
-
-        lines.append(f"### {i}. {v['name']}")
-        lines.append(f"  **Total Paid:** {fmt(v['total_paid'])} ({v['payment_count']} payments)")
-        lines.append(f"  **1099 Vendor Flag:** {flag_1099}")
-        lines.append(f"  **TIN Status:** {tin_status}")
-        if v["company"]:
-            lines.append(f"  **Company:** {v['company']}")
-        if v["address"]:
-            lines.append(f"  **Address:** {v['address']}")
-        else:
-            lines.append(f"  **Address:** ⚠️ MISSING — needed for 1099-NEC filing")
-        if v["email"]:
-            lines.append(f"  **Email:** {v['email']}")
+    # Advisory review list: paid over threshold but NOT flagged. These are NOT
+    # automatically reportable — most (banks, corporations, goods, owner draws)
+    # are excluded from 1099-NEC. Surfaced only so a real contractor that wasn't
+    # flagged can be caught and corrected in QuickBooks.
+    if review:
+        lines.append("---")
+        lines.append(f"### Not marked for 1099 — review ({len(review)})")
+        lines.append(
+            "*Paid over the threshold but not flagged in QuickBooks, so **not "
+            "counted above**. Corporations, product purchases, credit-card/loan "
+            "payments, and owner draws are not 1099-NEC reportable. If any below "
+            "is an individual/LLC you paid for services, mark them in QuickBooks "
+            "and re-run.*\n")
+        for v in review[:20]:
+            lines.append(f"  - {v['name']}: {fmt(v['total_paid'])} "
+                         f"({v['payment_count']} payments)")
         lines.append("")
 
     lines.extend([
         f"---",
         f"### Summary",
-        f"  Total reportable payments: {fmt(grand_total)}",
+        f"  Reportable (1099-flagged) payments: {fmt(grand_total)}",
         f"  Vendors requiring 1099-NEC: {len(reportable)}",
         f"  Missing TIN: {missing_tin}",
         f"  Missing address: {missing_addr}",
         "",
     ])
 
-    if missing_tin > 0 or missing_addr > 0:
+    if reportable and (missing_tin > 0 or missing_addr > 0):
         lines.append("### ⚠️ Action Items")
         if missing_tin > 0:
-            lines.append(f"  - Collect W-9 from {missing_tin} vendor(s) to get TIN")
+            lines.append(f"  - Collect W-9 from {missing_tin} flagged vendor(s) to get TIN")
         if missing_addr > 0:
-            lines.append(f"  - Collect mailing address from {missing_addr} vendor(s)")
+            lines.append(f"  - Collect mailing address from {missing_addr} flagged vendor(s)")
         lines.append(f"  - 1099-NEC filing deadline: January 31, {int(tax_year)+1}")
         lines.append(f"  - Use IRS FIRE system or approved e-file provider")
 
-    _audit_log("1099_REPORT", f"year={tax_year} vendors={len(reportable)} total={fmt(grand_total)}")
+    _audit_log("1099_REPORT", f"year={tax_year} reportable={len(reportable)} total={fmt(grand_total)}")
     return "\n".join(lines) + tax_data_footer(int(tax_year))
 
 
@@ -8827,11 +8863,13 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
 
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("CA", "Use qb_schedule_c / qb_schedule_c_detailed for the IRS Schedule C.")
-async def qb_t2125_summary(year: int) -> str:
+async def qb_t2125_summary(year: int = 0) -> str:
     """Generate a CRA T2125 (Statement of Business or Professional Activities)
     line-by-line mapping for a tax year. Maps QuickBooks expense accounts to
     T2125 Part 4 lines (8521 Advertising, 8523 Meals at 50%, 8910 Rent, ...)
-    the way qb_schedule_c maps to Schedule C. year: e.g. 2025."""
+    the way qb_schedule_c maps to Schedule C. year: e.g. 2025 (default: current year)."""
+    from datetime import date as _date
+    year = int(year) or _date.today().year
     start = f"{year}-01-01"
     end = f"{year}-12-31"
 
