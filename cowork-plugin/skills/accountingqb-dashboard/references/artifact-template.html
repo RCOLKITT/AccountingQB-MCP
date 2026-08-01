@@ -1003,7 +1003,7 @@ async function askAQB(question){
     logAction(question);
     return;
   }
-  if(!window.cowork || !window.cowork.sample){ appendMsg('assistant', 'Quick mode requires the Cowork runtime. Toggle Deep mode instead.', 'quick'); return; }
+  if(!window.cowork || !window.cowork.askClaude){ appendMsg('assistant', 'Quick mode requires the Cowork runtime. Toggle Deep mode instead.', 'quick'); return; }
 
   showThinking();
   // Build context from everything already loaded (cached tab data)
@@ -1011,7 +1011,7 @@ async function askAQB(question){
   for(const [k, v] of Object.entries(CACHE)){ ctx.loaded_reports[k] = v.md; }
   const systemPrompt = 'You are AccountingQB, an accounting AI. Answer the question concisely (2-4 sentences) using ONLY the loaded_reports data provided — these are live QuickBooks reports already fetched for this user. Reference specific numbers from the reports. If the loaded reports do not contain the answer, say which dashboard tab to open (Dashboard, P&L, Cash Flow, A/R, A/P, Transactions, Tax, Health) so the data loads, or suggest toggling Deep mode for a full analysis. Never invent numbers. Question: "' + question + '"';
   try {
-    const result = await window.cowork.sample(systemPrompt, [ctx]);
+    const result = await window.cowork.askClaude(systemPrompt, [ctx]);
     hideThinking();
     if(result && result.text) appendMsg('assistant', result.text, 'quick');
     else appendMsg('assistant', 'Could not answer that. Try Deep mode for a full analysis.', 'quick');

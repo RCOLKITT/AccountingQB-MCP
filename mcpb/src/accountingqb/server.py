@@ -2544,6 +2544,128 @@ async def qb_ap_aging(as_of_date: str) -> str:
 # REPORTS — Tax Summary (Schedule C)
 # ===================================================================
 
+# ---------------------------------------------------------------------------
+# Shared Schedule C expense mapping. Word-boundary matching with specific rules
+# FIRST, so accounts are never mis-mapped by substring — the bugs this fixes:
+# "car" inside "Credit Card" -> Line 9, "tax" inside "Taxis" -> Line 23, and
+# generic "interest" swallowing mortgage vs. credit-card interest. Both
+# qb_schedule_c and qb_schedule_c_detailed use this so they can never disagree,
+# and both read P&L period activity (not balance-sheet balances).
+# ---------------------------------------------------------------------------
+import re as _re  # re is otherwise imported lazily deeper in this module
+
+# (regex, IRS Schedule C line, description). ORDER MATTERS — first match wins,
+# so specific rules precede generic (mortgage before interest).
+_SCHEDULE_C_RULES = [
+    (r"mortgage", "16a", "Mortgage interest"),
+    (r"advertis|marketing", "8", "Advertising"),
+    (r"cars?\b|truck|vehicle|automobile|mileage", "9", "Car and truck expenses"),
+    (r"commission", "10", "Commissions and fees"),
+    (r"contract labou?r|subcontractor|contractor|freelancer", "11", "Contract labor"),
+    (r"depreciation|amortization", "13", "Depreciation and section 179"),
+    (r"insurance", "15", "Insurance (other than health)"),
+    (r"interest|finance charge", "16b", "Other interest"),
+    (r"legal|professional|accounting|bookkeep|consult", "17",
+     "Legal and professional services"),
+    (r"rent|lease", "20b", "Rent or lease (other business property)"),
+    (r"repair|maintenance", "21", "Repairs and maintenance"),
+    (r"office", "18", "Office expense"),
+    (r"supplies|stationery", "22", "Supplies"),
+    (r"tax(?:es)?\b|licen[cs]e|permit", "23", "Taxes and licenses"),
+    (r"travel|hotel|lodging|airfare|airline|flight|taxi|rideshare|ride ?share|"
+     r"uber|lyft", "24a", "Travel"),
+    (r"meals?|restaurant|dining|entertainment", "24b", "Deductible meals"),
+    (r"utilit(y|ies)|electric|water|internet|phone|telephone|cell|communication",
+     "25", "Utilities"),
+    (r"wages?|salar|payroll", "26", "Wages"),
+    (r"software|subscription|hosting|cloud|saas|education|training|"
+     r"bank (charge|fee)|processing|merchant|dues|shipping|postage|freight",
+     "27a", "Other expenses"),
+]
+# Leading word boundary only, so stems match inflections ("advertis" ->
+# "Advertising", "electric" -> "Electricity"). The two genuinely-ambiguous
+# short stems (car, tax) carry their own trailing \b inside the pattern so
+# "Card" and "Taxis" don't match.
+_SCHEDULE_C_COMPILED = [
+    (_re.compile(r"\b(?:" + pat + r")", _re.IGNORECASE), line, desc)
+    for pat, line, desc in _SCHEDULE_C_RULES
+]
+# Personal / home-office hints that belong on Form 8829, not a direct Schedule
+# C line — flagged for review (still counted so totals reconcile to the P&L).
+_HOME_8829_HINTS = _re.compile(
+    r"\b(home office|home-office|homeowner|home utilit|home insurance)\b",
+    _re.IGNORECASE)
+
+
+def _match_schedule_c_line(account_name: str):
+    """(line, desc) for an expense account, or None if it maps to 'Other'.
+    Word-boundary + specific-first: 'Credit Card' never hits Line 9,
+    'Taxis' never hits Line 23."""
+    name = account_name or ""
+    for pat, line, desc in _SCHEDULE_C_COMPILED:
+        if pat.search(name):
+            return line, desc
+    return None
+
+
+def _extract_pl_expense_accounts(pl_result: dict) -> dict:
+    """{account_name: amount} for every LEAF row in the P&L Expenses section
+    (period activity, not balances). Shared so both Schedule C tools use the
+    same numbers and reconcile to the P&L."""
+    out: dict = {}
+
+    def walk(rows):
+        for section in rows or []:
+            nested = section.get("Rows", {}).get("Row", [])
+            col = section.get("ColData", [])
+            if not nested and len(col) >= 2:
+                name = col[0].get("value", "")
+                try:
+                    val = float(col[-1].get("value", "0") or 0)
+                except (ValueError, TypeError):
+                    val = 0.0
+                if name and val != 0:
+                    out[name] = out.get(name, 0.0) + val
+            if nested:
+                walk(nested)
+
+    for section in pl_result.get("Rows", {}).get("Row", []):
+        header = section.get("Header", {}).get("ColData", [{}])
+        if header and "expense" in header[0].get("value", "").lower():
+            walk(section.get("Rows", {}).get("Row", []))
+    return out
+
+
+def _pl_expense_total(pl_result: dict) -> float:
+    """Total from the P&L Expenses section summary row — the reconciliation
+    target for Schedule C Line 28."""
+    for section in pl_result.get("Rows", {}).get("Row", []):
+        summary = section.get("Summary", {}).get("ColData", [])
+        if len(summary) >= 2 and "expense" in summary[0].get("value", "").lower():
+            try:
+                return abs(float(summary[-1].get("value", "0") or 0))
+            except (ValueError, TypeError):
+                return 0.0
+    return 0.0
+
+
+def _map_expenses_to_schedule_c(expense_accounts: dict):
+    """Map {name: amount} -> ordered dict {line_key: {'amount', 'accounts',
+    'home': bool}}, routing anything unmatched to Line 27a so NOTHING is
+    dropped (Line 28 total == sum of expense accounts == P&L expenses)."""
+    from collections import defaultdict
+    sc = defaultdict(lambda: {"amount": 0.0, "accounts": [], "home": False})
+    for name, amount in expense_accounts.items():
+        m = _match_schedule_c_line(name)
+        line, desc = m if m else ("27a", "Other expenses")
+        key = f"Line {line} — {desc}"
+        sc[key]["amount"] += abs(amount)
+        sc[key]["accounts"].append((name, abs(amount)))
+        if _HOME_8829_HINTS.search(name or ""):
+            sc[key]["home"] = True
+    return sc
+
+
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("US", "For Canadian books use qb_t2125_summary.")
 async def qb_tax_summary(start_date: str, end_date: str) -> str:
@@ -2554,62 +2676,18 @@ async def qb_tax_summary(start_date: str, end_date: str) -> str:
         "summarize_column_by": "Total",
     })
 
-    schedule_c_map = {
-        "Advertising": "Line 8 - Advertising",
-        "Marketing": "Line 8 - Advertising",
-        "Car and Truck": "Line 9 - Car and truck",
-        "Automobile": "Line 9 - Car and truck",
-        "Commissions": "Line 10 - Commissions",
-        "Contract Labor": "Line 11 - Contract labor",
-        "Depreciation": "Line 13 - Depreciation",
-        "Insurance": "Line 15 - Insurance",
-        "Interest": "Line 16 - Interest",
-        "Legal": "Line 17 - Legal & professional",
-        "Professional": "Line 17 - Legal & professional",
-        "Accounting": "Line 17 - Legal & professional",
-        "Bookkeeper": "Line 17 - Legal & professional",
-        "Office": "Line 18 - Office expense",
-        "Software": "Line 18 - Office expense",
-        "Subscriptions": "Line 18 - Office expense",
-        "Equipment": "Line 18 - Office expense",
-        "Rent": "Line 20b - Rent",
-        "Repairs": "Line 21 - Repairs",
-        "Maintenance": "Line 21 - Repairs",
-        "Supplies": "Line 22 - Supplies",
-        "Taxes": "Line 23 - Taxes & licenses",
-        "Travel": "Line 24a - Travel",
-        "Meals": "Line 24b - Meals",
-        "Utilities": "Line 25 - Utilities",
-        "Telephone": "Line 25 - Utilities",
-        "Internet": "Line 25 - Utilities",
-        "Home Office": "Line 30 - Home office",
-        "Mortgage": "Line 30 - Home office",
-    }
-
     lines = [f"## Tax Summary (Schedule C): {start_date} to {end_date}\n"]
     schedule_c = {}
 
-    rows = report.get("Rows", {}).get("Row", [])
-    for section in rows:
-        for row in section.get("Rows", {}).get("Row", []):
-            col_data = row.get("ColData", [])
-            if len(col_data) >= 2:
-                rname = col_data[0].get("value", "")
-                try:
-                    amount = float(col_data[-1].get("value", "0"))
-                except (ValueError, TypeError):
-                    continue
-                if amount == 0:
-                    continue
-
-                mapped = "Line 27 - Other expenses"
-                for keyword, sc_line in schedule_c_map.items():
-                    if keyword.lower() in rname.lower():
-                        mapped = sc_line
-                        break
-
-                schedule_c.setdefault(mapped, [])
-                schedule_c[mapped].append((rname, amount))
+    # Expense accounts only (period activity), word-boundary mapped — the same
+    # shared logic qb_schedule_c uses, so 'Credit Card'/'Taxis'-style substring
+    # mis-maps can't happen here either.
+    for rname, amount in _extract_pl_expense_accounts(report).items():
+        m = _match_schedule_c_line(rname)
+        line, desc = m if m else ("27a", "Other expenses")
+        mapped = f"Line {line} - {desc}"
+        schedule_c.setdefault(mapped, [])
+        schedule_c[mapped].append((rname, abs(amount)))
 
     for sc_line in sorted(schedule_c.keys()):
         items = schedule_c[sc_line]
@@ -3979,125 +4057,57 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
         "summarize_column_by": "Total"
     })
 
-    # Schedule C line mapping
-    schedule_c_map = {
-        "advertising": {"line": "8", "desc": "Advertising"},
-        "marketing": {"line": "8", "desc": "Advertising"},
-        "automobile": {"line": "9", "desc": "Car and truck expenses"},
-        "vehicle": {"line": "9", "desc": "Car and truck expenses"},
-        "mileage": {"line": "9", "desc": "Car and truck expenses"},
-        "commission": {"line": "10", "desc": "Commissions and fees"},
-        "contract": {"line": "11", "desc": "Contract labor"},
-        "freelancer": {"line": "11", "desc": "Contract labor"},
-        "depreciation": {"line": "13", "desc": "Depreciation and Sec 179"},
-        "insurance": {"line": "15", "desc": "Insurance (other than health)"},
-        "interest": {"line": "16a", "desc": "Mortgage interest"},
-        "legal": {"line": "17", "desc": "Legal and professional services"},
-        "professional": {"line": "17", "desc": "Legal and professional services"},
-        "accounting": {"line": "17", "desc": "Legal and professional services"},
-        "office": {"line": "18", "desc": "Office expense"},
-        "supplies": {"line": "22", "desc": "Supplies"},
-        "rent": {"line": "20b", "desc": "Rent (other business property)"},
-        "repair": {"line": "21", "desc": "Repairs and maintenance"},
-        "tax": {"line": "23", "desc": "Taxes and licenses"},
-        "license": {"line": "23", "desc": "Taxes and licenses"},
-        "travel": {"line": "24a", "desc": "Travel"},
-        "meals": {"line": "24b", "desc": "Deductible meals (50%)"},
-        "utilities": {"line": "25", "desc": "Utilities"},
-        "phone": {"line": "25", "desc": "Utilities"},
-        "internet": {"line": "25", "desc": "Utilities"},
-        "wage": {"line": "26", "desc": "Wages"},
-        "salary": {"line": "26", "desc": "Wages"},
-        "software": {"line": "27a", "desc": "Other expenses"},
-        "subscription": {"line": "27a", "desc": "Other expenses"},
-        "hosting": {"line": "27a", "desc": "Other expenses"},
-        "cloud": {"line": "27a", "desc": "Other expenses"},
-        "education": {"line": "27a", "desc": "Other expenses"},
-        "training": {"line": "27a", "desc": "Other expenses"},
-        "bank": {"line": "27a", "desc": "Other expenses"},
-        "processing": {"line": "27a", "desc": "Other expenses"},
-    }
-
-    # Parse P&L rows into account → amount
-    def extract_expenses(rows, result_dict, parent=""):
-        for section in rows:
-            col_data = section.get("ColData", [])
-            if len(col_data) >= 2:
-                name = col_data[0].get("value", "")
-                try:
-                    val = float(col_data[-1].get("value", "0"))
-                except (ValueError, TypeError):
-                    val = 0
-                if val != 0:
-                    result_dict[name] = val
-            nested = section.get("Rows", {}).get("Row", [])
-            if nested:
-                extract_expenses(nested, result_dict)
-
-    expense_dict = {}
+    # Income (Gross receipts) from the P&L Income section summary
     report_rows = result.get("Rows", {}).get("Row", [])
+    total_income = 0.0
     for section in report_rows:
-        header = section.get("Header", {}).get("ColData", [{}])
-        if header and "expense" in header[0].get("value", "").lower():
-            nested = section.get("Rows", {}).get("Row", [])
-            if nested:
-                extract_expenses(nested, expense_dict)
-
-    # Also get income
-    total_income = 0
-    total_expenses = 0
-    for section in report_rows:
-        summary = section.get("Summary", {})
-        cols = summary.get("ColData", [])
+        cols = section.get("Summary", {}).get("ColData", [])
         if len(cols) >= 2:
             label = cols[0].get("value", "").lower()
             try:
-                val = float(cols[-1].get("value", "0"))
+                val = float(cols[-1].get("value", "0") or 0)
             except (ValueError, TypeError):
-                val = 0
+                val = 0.0
             if "income" in label and "net" not in label:
                 total_income = val
-            elif "expense" in label:
-                total_expenses = abs(val)
 
-    # Map expenses to Schedule C lines
-    from collections import defaultdict
-    sc_lines = defaultdict(lambda: {"amount": 0, "accounts": []})
-    unmapped = []
+    # Expenses: P&L period activity, word-boundary mapped, nothing dropped
+    # (unmatched accounts flow to Line 27a so Line 28 reconciles to the P&L).
+    expense_dict = _extract_pl_expense_accounts(result)
+    sc_lines = _map_expenses_to_schedule_c(expense_dict)
+    pl_total = _pl_expense_total(result)
 
-    for acct_name, amount in expense_dict.items():
-        mapped = False
-        for keyword, info in schedule_c_map.items():
-            if keyword in acct_name.lower():
-                line_key = f"Line {info['line']}: {info['desc']}"
-                sc_lines[line_key]["amount"] += abs(amount)
-                sc_lines[line_key]["accounts"].append(f"{acct_name}: {fmt(abs(amount))}")
-                mapped = True
-                break
-        if not mapped and abs(amount) > 0:
-            unmapped.append(f"{acct_name}: {fmt(abs(amount))}")
+    def _sc_line_sort(item):
+        m = _re.search(r"Line (\d+)([a-z]?)", item[0])
+        return (int(m.group(1)) if m else 999, m.group(2) if m else "")
 
     lines = [f"## IRS Schedule C — {tax_year}\n"]
     lines.append(f"**Line 1 — Gross receipts:** {fmt(total_income)}")
     lines.append(f"**Line 7 — Gross income:** {fmt(total_income)}\n")
 
     lines.append("### Expenses:")
-    sorted_lines = sorted(sc_lines.items(), key=lambda x: x[0])
-    total_mapped = 0
-    for line_name, data in sorted_lines:
-        lines.append(f"\n**{line_name}: {fmt(data['amount'])}**")
-        for acct in data["accounts"]:
-            lines.append(f"  - {acct}")
+    total_mapped = 0.0
+    home_flagged = False
+    for line_name, data in sorted(sc_lines.items(), key=_sc_line_sort):
+        flag = " ⚠️ (review — may belong on Form 8829)" if data["home"] else ""
+        lines.append(f"\n**{line_name}: {fmt(data['amount'])}**{flag}")
+        for acct, amt in data["accounts"]:
+            lines.append(f"  - {acct}: {fmt(amt)}")
         total_mapped += data["amount"]
-
-    if unmapped:
-        lines.append(f"\n### Unmapped (need manual review):")
-        for u in unmapped:
-            lines.append(f"  - {u}")
+        home_flagged = home_flagged or data["home"]
 
     lines.append(f"\n**Line 28 — Total expenses: {fmt(total_mapped)}**")
+    if pl_total and abs(total_mapped - pl_total) > 0.01:
+        lines.append(
+            f"⚠️ Does not reconcile to P&L expenses ({fmt(pl_total)}) — "
+            f"difference {fmt(abs(total_mapped - pl_total))}. Review.")
     net_profit = total_income - total_mapped
     lines.append(f"**Line 31 — Net profit (loss): {fmt(net_profit)}**")
+    if home_flagged:
+        lines.append(
+            "\n*Items flagged ⚠️ (home office, homeowner insurance, home "
+            "utilities) generally belong on Form 8829, not directly on "
+            "Schedule C — review before filing.*")
 
     if net_profit < 0:
         lines.append(f"\n📋 **NOL:** This {fmt(abs(net_profit))} loss can be carried forward to offset future income.")
@@ -4278,10 +4288,14 @@ async def qb_deduction_finder(tax_year: str = "") -> str:
                 val = float(cols[-1].get("value", "0"))
             except (ValueError, TypeError):
                 val = 0
+            # Accumulate across ALL income/expense sections — a P&L has both
+            # "Expenses" and "Other Expenses" as separate top-level sections, so
+            # assigning (=) here kept only the last one ("Other Expenses"), badly
+            # understating the total and the NOL. Sum them instead.
             if "income" in label and "net" not in label:
-                total_income = val
-            elif "expense" in label:
-                total_expenses = abs(val)
+                total_income += val
+            elif "expense" in label and "net" not in label:
+                total_expenses += abs(val)
         nested = section.get("Rows", {}).get("Row", [])
         if nested:
             extract_all(nested, expense_dict)
@@ -5733,46 +5747,29 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
     start = f"{tax_year}-01-01"
     end = f"{tax_year}-12-31"
 
-    # Get P&L for the year
-    params = {"start_date": start, "end_date": end, "summarize_by": "Total"}
-    result = await qb_request("GET", "reports/ProfitAndLoss", params=params)
+    # P&L period activity (NOT balance-sheet CurrentBalances). The previous
+    # version summed every account's CurrentBalance — including credit-card
+    # LIABILITIES ("Delta Platinum Business Card" -> Line 9 via 'car' in 'Card')
+    # — which was both the wrong number and the wrong accounts. Now identical
+    # to qb_schedule_c so the two tools always agree and reconcile to the P&L.
+    result = await qb_request("GET", "reports/ProfitAndLoss", params={
+        "start_date": start, "end_date": end, "summarize_column_by": "Total"})
 
-    # Get all accounts for mapping
-    accts_result = await qb_query("SELECT * FROM Account MAXRESULTS 200")
-    all_accounts = accts_result.get("QueryResponse", {}).get("Account", [])
+    expense_dict = _extract_pl_expense_accounts(result)
+    sc_lines = _map_expenses_to_schedule_c(expense_dict)
+    pl_total = _pl_expense_total(result)
 
-    # Build account balance lookup
-    acct_balances = {}
-    for a in all_accounts:
-        name = a.get("Name", "")
-        bal = float(a.get("CurrentBalance", 0))
-        acct_type = a.get("AccountType", "")
-        acct_balances[name] = {"balance": bal, "type": acct_type, "id": a.get("Id", "")}
-
-    # Schedule C line mapping
-    line_map = {
-        "Line 1 - Gross receipts": ["Sales of Product Income", "Service/Fee Income", "Other Income"],
-        "Line 6 - Other income": ["Other income", "Interest income"],
-        "Line 8 - Advertising": ["Advertising", "Marketing"],
-        "Line 9 - Car/truck expenses": ["Business Vehicles", "Auto", "Car", "Vehicle"],
-        "Line 10 - Commissions": ["Commissions"],
-        "Line 11 - Contract labor": ["Contract labor", "Contractors", "Subcontractors"],
-        "Line 13 - Depreciation": ["Depreciation"],
-        "Line 15 - Insurance": ["Insurance", "Homeowner & rental insurance"],
-        "Line 16a - Mortgage interest": ["Mortgage interest"],
-        "Line 17 - Legal/professional": ["Legal", "Professional", "Accounting", "Tax"],
-        "Line 18 - Office expense": ["Office", "Supplies", "Stationery"],
-        "Line 20a - Rent (vehicles)": [],
-        "Line 20b - Rent (other)": ["Rent"],
-        "Line 21 - Repairs": ["Repairs & maintenance"],
-        "Line 22 - Supplies": ["Supplies"],
-        "Line 23 - Taxes/licenses": ["Property taxes", "Taxes", "Licenses"],
-        "Line 24a - Travel": ["Travel"],
-        "Line 24b - Meals": ["Meals"],
-        "Line 25 - Utilities": ["Utilities", "Home utilities", "Electric", "Gas", "Water", "Internet", "Cell phone", "Communications"],
-        "Line 27a - Other expenses": ["Subscriptions", "Software", "Training", "Education", "Bank charges", "Fees"],
-        "Line 30 - Business use of home": [],
-    }
+    total_income = 0.0
+    for section in result.get("Rows", {}).get("Row", []):
+        cols = section.get("Summary", {}).get("ColData", [])
+        if len(cols) >= 2:
+            label = cols[0].get("value", "").lower()
+            try:
+                val = float(cols[-1].get("value", "0") or 0)
+            except (ValueError, TypeError):
+                val = 0.0
+            if "income" in label and "net" not in label:
+                total_income = val
 
     # Company name from the connected QuickBooks company (never hardcoded)
     company_name = ""
@@ -5783,51 +5780,43 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
     except Exception:
         pass
 
+    def _sc_line_sort(item):
+        m = _re.search(r"Line (\d+)([a-z]?)", item[0])
+        return (int(m.group(1)) if m else 999, m.group(2) if m else "")
+
     lines = [
         f"## Schedule C Detail — {tax_year}\n",
         *( [f"**{company_name}**"] if company_name else [] ),
         f"**EIN:** Check QB Company Info",
         f"**Period:** {start} to {end}\n",
+        f"**Line 1 — Gross receipts: {fmt(total_income)}**\n",
+        "### Expenses (by Schedule C line, from P&L):",
     ]
 
-    total_income = 0.0
     total_expenses = 0.0
-
-    for sched_line, keywords in line_map.items():
-        matching_accounts = []
-        line_total = 0.0
-
-        for acct_name, info in acct_balances.items():
-            for kw in keywords:
-                if kw.lower() in acct_name.lower():
-                    bal = abs(info["balance"])
-                    if bal > 0:
-                        matching_accounts.append((acct_name, bal, info["id"]))
-                        line_total += bal
-                    break
-
-        if matching_accounts or "Line 1" in sched_line or "Line 30" in sched_line:
-            lines.append(f"### {sched_line}: **{fmt(line_total)}**")
-            for name, bal, aid in matching_accounts:
-                lines.append(f"  - {name} (#{aid}): {fmt(bal)}")
-            if not matching_accounts:
-                lines.append(f"  - (no matching accounts)")
-            lines.append("")
-
-            if "Line 1" in sched_line or "Line 6" in sched_line:
-                total_income += line_total
-            else:
-                total_expenses += line_total
+    home_flagged = False
+    for line_name, data in sorted(sc_lines.items(), key=_sc_line_sort):
+        flag = " ⚠️ (may belong on Form 8829)" if data["home"] else ""
+        lines.append(f"\n**{line_name}: {fmt(data['amount'])}**{flag}")
+        for acct, amt in data["accounts"]:
+            lines.append(f"  - {acct}: {fmt(amt)}")
+        total_expenses += data["amount"]
+        home_flagged = home_flagged or data["home"]
 
     net = total_income - total_expenses
+    recon = ("" if not pl_total or abs(total_expenses - pl_total) <= 0.01 else
+             f"\n  ⚠️ Line 28 does not reconcile to P&L expenses ({fmt(pl_total)}) — review.")
     lines.extend([
         f"\n---",
         f"### **Summary**",
-        f"  Total Income (Lines 1-6): {fmt(total_income)}",
-        f"  Total Expenses (Lines 8-27): {fmt(total_expenses)}",
-        f"  **Net Profit/Loss (Line 31): {fmt(net)}**",
-        f"\n*Note: Line 30 (Business use of home) calculated separately via Form 8829.*",
-        f"*CPA should verify account-to-line mappings match actual filing.*",
+        f"  Total Income (Line 1): {fmt(total_income)}",
+        f"  Total Expenses (Line 28): {fmt(total_expenses)}",
+        f"  **Net Profit/Loss (Line 31): {fmt(net)}**{recon}",
+        ("\n*Items flagged ⚠️ (home office, homeowner insurance, home utilities) "
+         "generally belong on Form 8829, not directly on Schedule C.*"
+         if home_flagged else ""),
+        f"*Line 30 (business use of home) is computed separately via Form 8829. "
+        f"CPA should verify account-to-line mappings before filing.*",
     ])
 
     _audit_log("SCHEDULE_C_DETAIL", f"year={tax_year} income={fmt(total_income)} expenses={fmt(total_expenses)}")

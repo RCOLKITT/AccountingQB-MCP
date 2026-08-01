@@ -38,7 +38,7 @@ The artifact will:
 - **Dynamic company name**: The company name is fetched from QuickBooks and displayed in the header.
 - **Markdown rendering**: QuickBooks MCP tools return markdown strings. The artifact parses and renders tables, headers, and lists natively.
 - **Period selector**: P&L and Cash Flow tabs have MTD/QTD/YTD/Prior Year selectors.
-- **Ask AccountingQB chat panel**: Quick lookups go to `window.cowork.sample()`. Action commands (create invoice, reclassify transaction, etc.) route to `window.cowork.sendPrompt()` which fires the existing AccountingQB skills.
+- **Ask AccountingQB chat panel**: Quick lookups go to `window.cowork.askClaude(prompt, data[])`. Action commands (create invoice, reclassify transaction, etc.) route to the top-level global `sendPrompt(text)` which fires the existing AccountingQB skills.
 
 ## When the user asks for a specific report inside the chat panel
 
