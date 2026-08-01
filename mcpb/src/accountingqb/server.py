@@ -7317,6 +7317,128 @@ async def _tax_agency_names() -> dict:
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "Economic nexus is US-specific; Canadian GST/HST registration differs.")
+async def qb_sales_tax_nexus(year: str = "", approaching_pct: int = 80) -> str:
+    """Screen for state sales-tax ECONOMIC NEXUS exposure and show sales-tax
+    liability by state. Rolls up your sales by DESTINATION state (ship-to) and
+    compares to each state's sourced post-Wayfair threshold. This is a screening
+    reference, NOT a determination — confirm with the state and a tax professional
+    before registering. year: YYYY (default: current). approaching_pct: warn at
+    this % of a threshold (default 80)."""
+    from datetime import date as _d
+    if not year:
+        year = str(_d.today().year)
+    start, end = f"{year}-01-01", f"{year}-12-31"
+
+    nexus = _tt.TABLES["US_SALES_TAX_NEXUS"]
+    thresholds = nexus["values"]
+
+    # Customer -> state fallback (used when a sale has no ship/bill address)
+    cust_state = {}
+    try:
+        cres = await qb_query("SELECT * FROM Customer MAXRESULTS 1000")
+        for c in cres.get("QueryResponse", {}).get("Customer", []):
+            st = (c.get("ShipAddr") or c.get("BillAddr") or {}).get("CountrySubDivisionCode", "")
+            if st:
+                cust_state[c.get("Id", "")] = st.upper()
+    except Exception as e:
+        logger.debug(f"customer state map failed: {e}")
+
+    by_state = {}  # state -> {sales, txns, tax}
+    for entity in ("Invoice", "SalesReceipt"):
+        r = await qb_query(f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
+                           f"AND TxnDate <= '{end}' MAXRESULTS 1000")
+        for t in r.get("QueryResponse", {}).get(entity, []):
+            st = ((t.get("ShipAddr") or {}).get("CountrySubDivisionCode")
+                  or (t.get("BillAddr") or {}).get("CountrySubDivisionCode")
+                  or cust_state.get((t.get("CustomerRef") or {}).get("value", ""), ""))
+            st = (st or "").upper()
+            if not st:
+                continue
+            d = by_state.setdefault(st, {"sales": 0.0, "txns": 0, "tax": 0.0})
+            d["sales"] += float(t.get("TotalAmt", 0) or 0)
+            d["txns"] += 1
+            d["tax"] += float((t.get("TxnTaxDetail") or {}).get("TotalTax", 0) or 0)
+
+    if not by_state:
+        return (f"No ship-to state found on invoices/sales receipts for {year}. "
+                "Economic-nexus screening needs destination (ship-to or bill-to) "
+                "states on your sales — add them in QuickBooks and re-run.")
+
+    exposure, approaching, below, untracked = [], [], [], []
+    for st, d in by_state.items():
+        if st in _tt._NO_SALES_TAX_STATES:
+            continue
+        rule = thresholds.get(st)
+        if not rule:
+            untracked.append(st)
+            continue
+        sales_ok = d["sales"] >= rule["sales"]
+        txn_ok = rule["txns"] is not None and d["txns"] >= rule["txns"]
+        met = (sales_ok and (rule["txns"] is None or txn_ok)) if rule["basis"] == "and" \
+            else (sales_ok or txn_ok)
+        pct = (d["sales"] / rule["sales"] * 100) if rule["sales"] else 0
+        rec = (st, d, rule, pct)
+        if met:
+            exposure.append(rec)
+        elif pct >= approaching_pct or (rule["txns"] and
+                                        d["txns"] >= rule["txns"] * approaching_pct / 100):
+            approaching.append(rec)
+        else:
+            below.append(rec)
+
+    def _thr(rule):
+        s = fmt(rule["sales"])
+        return f"{s} {rule['basis']} {rule['txns']} txns" if rule["txns"] else f"{s} (sales only)"
+
+    lines = [
+        f"## Sales-Tax Economic-Nexus Screen — {year}",
+        f"*Sales rolled up by ship-to state vs each state's post-Wayfair threshold. "
+        f"A screening reference, **not** a determination. Thresholds verified "
+        f"{nexus['verified']} ([source]({nexus['source_url']})).*\n",
+    ]
+    if exposure:
+        lines.append(f"### 🔴 Likely nexus — over the threshold ({len(exposure)})")
+        lines.append("| State | Your sales | Txns | Threshold |")
+        lines.append("|---|---|---|---|")
+        for st, d, rule, _ in sorted(exposure, key=lambda x: -x[1]["sales"]):
+            lines.append(f"| {st} | {fmt(d['sales'])} | {d['txns']} | {_thr(rule)} |")
+    if approaching:
+        lines.append(f"\n### 🟡 Approaching (≥{approaching_pct}% of threshold) ({len(approaching)})")
+        lines.append("| State | Your sales | Txns | Threshold | % |")
+        lines.append("|---|---|---|---|---|")
+        for st, d, rule, pct in sorted(approaching, key=lambda x: -x[3]):
+            lines.append(f"| {st} | {fmt(d['sales'])} | {d['txns']} | {_thr(rule)} | {pct:.0f}% |")
+    if below:
+        lines.append(f"\n### 🟢 Below threshold ({len(below)}): " +
+                     ", ".join(f"{st} ({fmt(d['sales'])})"
+                               for st, d, _, _ in sorted(below, key=lambda x: -x[1]["sales"])))
+    if untracked:
+        lines.append(f"\n### ⚠️ Not yet assessed ({len(untracked)}): " +
+                     ", ".join(sorted(untracked)) +
+                     " — no verified threshold on file; check the state DOR.")
+
+    total_tax = sum(d["tax"] for d in by_state.values())
+    lines.append(f"\n### Sales tax collected (liability) — {fmt(total_tax)} total")
+    tax_states = [(st, d) for st, d in by_state.items() if d["tax"] > 0]
+    if tax_states:
+        lines.append("| State | Tax collected | Sales |")
+        lines.append("|---|---|---|")
+        for st, d in sorted(tax_states, key=lambda x: -x[1]["tax"]):
+            lines.append(f"| {st} | {fmt(d['tax'])} | {fmt(d['sales'])} |")
+    lines.append("\n*Tax collected is money you owe the state — verify each "
+                 "jurisdiction's filing frequency and due dates in the state portal "
+                 "(QuickBooks' API doesn't expose remittance/filed status). Run "
+                 "qb_sales_tax_summary for the by-agency breakdown.*")
+    lines.append("\n*Nexus edges: marketplace-facilitated sales (Amazon/Etsy) "
+                 "usually don't count toward your own threshold; exempt/resale "
+                 "sales don't count; the measurement window (prior vs current "
+                 "calendar year) varies by state. This screen counts all ship-to "
+                 "sales — a flag to investigate, not a final answer.*")
+    return "\n".join(lines) + tax_data_footer()
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_tax_codes() -> str:
     """List this company's sales tax codes: name, Id, combined sales rate, and agency.
     In Canada/global editions, pass a code's name (e.g. 'HST ON') as tax_code= to

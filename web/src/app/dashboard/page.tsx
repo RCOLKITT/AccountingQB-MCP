@@ -314,7 +314,7 @@ function DashboardContent() {
                 href="/dashboard/features"
                 className="text-sm text-gray-400 hover:text-white transition"
               >
-                All 112 Tools
+                All 113 Tools
               </a>
               {(clerkUser?.publicMetadata as { role?: string })?.role === "admin" && (
                 <a

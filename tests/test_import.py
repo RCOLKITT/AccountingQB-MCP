@@ -1,6 +1,6 @@
-"""Import smoke tests: the canonical server registers exactly 112 tools."""
+"""Import smoke tests: the canonical server registers exactly 113 tools."""
 
-EXPECTED_TOOL_COUNT = 112
+EXPECTED_TOOL_COUNT = 113
 
 SPOT_CHECK_TOOLS = [
     "qb_create_invoice",

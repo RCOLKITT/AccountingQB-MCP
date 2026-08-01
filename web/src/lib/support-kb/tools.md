@@ -63,7 +63,7 @@
 | qb_batch_create_bills | Bulk bill import |
 | qb_batch_create_journal_entries | Bulk JE import |
 
-## Reports & Analysis (17 tools)
+## Reports & Analysis (18 tools)
 | Tool | Description |
 |------|-------------|
 | qb_profit_loss | P&L by total, month, quarter, or year |
@@ -78,6 +78,7 @@
 | qb_expense_summary | Expenses by category |
 | qb_income_summary | Income by source |
 | qb_sales_tax_summary | Sales tax collected by jurisdiction |
+| qb_sales_tax_nexus | Economic-nexus screen (sales by ship-to state vs sourced Wayfair thresholds) + liability by state |
 | qb_compare_periods | Side-by-side period comparison |
 | qb_vendor_summary | Top vendors by spend |
 | qb_profit_margin_analysis | Profit margins by customer or item |

@@ -14,6 +14,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.6",
+    date: "2026-08-01",
+    title: "Sales-tax economic-nexus screen",
+    tag: "Tax",
+    summary:
+      "Know which states you may owe sales tax in before you get a notice — your sales rolled up by ship-to state against each state's sourced Wayfair threshold, plus liability by state.",
+    highlights: [
+      "qb_sales_tax_nexus: sales by destination state vs each state's economic-nexus threshold — exposure / approaching / below, with a source link and verified date per state",
+      "All ~45 sales-tax states sourced and dated in the same tamper-evident tax-data control plane as our rates (Sales Tax Institute chart, cross-checked to state DORs)",
+      "Liability by state (tax collected you owe) + honest caveats: marketplace-facilitated sales, exempt sales, and measurement windows differ",
+      "A screening reference, not a determination — confirm with the state and a tax pro before registering",
+    ],
+  },
+  {
     version: "3.5",
     date: "2026-07-22",
     title: "CPA-ready year-end binder",
@@ -24,7 +38,7 @@ export const RELEASES: Release[] = [
       "Reconciliation tie-outs, prior-year comparative statements (P&L + balance sheet), tax payments made, and owner's draws — the questions a CPA asks first, pre-answered",
       "A structured Tax Organizer replaces free-text notes: mileage, home office, health premiums, assets bought/sold, estimated payments",
       "Export the whole binder to Excel in one message",
-      "112 tools total across US & Canada",
+      "113 tools total across US & Canada",
     ],
   },
   {
