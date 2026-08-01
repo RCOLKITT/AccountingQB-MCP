@@ -6452,6 +6452,215 @@ async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 0
     return "\n".join(lines) + tax_data_footer(int(tax_year))
 
 
+@mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "Canadian payroll differs — hand T4/T4A summaries to your accountant.")
+async def qb_payroll_checklist(tax_year: str = "") -> str:
+    """Payroll boundary checklist. AccountingQB does NOT run payroll or compute
+    payroll taxes — this inspects the books for payroll signals (wages, payroll-
+    tax liability accounts, 1099 contractors) and produces the checklist to hand
+    your CPA / payroll provider: W-2 vs 1099 classification, 941/940 reconciliation,
+    and year-end forms. tax_year: YYYY (default: current year)."""
+    from datetime import date as _d
+    if not tax_year:
+        tax_year = str(_d.today().year)
+    start, end = f"{tax_year}-01-01", f"{tax_year}-12-31"
+
+    pl = await qb_request("GET", "reports/ProfitAndLoss",
+                          params={"start_date": start, "end_date": end})
+    exp = _extract_pl_expense_accounts(pl)
+    wage_accts = {n: v for n, v in exp.items()
+                  if _re.search(r"\b(wage|salar|payroll)", n, _re.IGNORECASE)}
+    total_wages = sum(abs(v) for v in wage_accts.values())
+
+    payroll_liabs = {}
+    try:
+        liabs = await qb_query(
+            "SELECT * FROM Account WHERE AccountType IN ('Other Current Liability',"
+            "'Long Term Liability') MAXRESULTS 100")
+        for a in liabs.get("QueryResponse", {}).get("Account", []):
+            nm = a.get("Name", "")
+            if _re.search(r"payroll|941|940|futa|suta|fica|withhold|employ",
+                          nm, _re.IGNORECASE):
+                payroll_liabs[nm] = float(a.get("CurrentBalance", 0) or 0)
+    except Exception as e:
+        logger.debug(f"payroll liability query failed: {e}")
+
+    try:
+        vres = await qb_query("SELECT * FROM Vendor WHERE Vendor1099 = true MAXRESULTS 100")
+        contractors_1099 = len(vres.get("QueryResponse", {}).get("Vendor", []))
+    except Exception:
+        contractors_1099 = 0
+
+    lines = [
+        f"## Payroll Boundary Checklist — {tax_year}\n",
+        "AccountingQB does **not** run payroll, compute payroll taxes, or file "
+        "employment returns. Here's what your books show and what to hand your CPA "
+        "or payroll provider.\n",
+        "### What the books show",
+    ]
+    if wage_accts:
+        lines.append(f"- **Wages/salaries booked:** {fmt(total_wages)} across "
+                     f"{len(wage_accts)} account(s) — indicates **W-2 employees**.")
+        for n, v in sorted(wage_accts.items(), key=lambda x: -abs(x[1])):
+            lines.append(f"  - {n}: {fmt(abs(v))}")
+    else:
+        lines.append("- No wages/salary expense detected — likely no W-2 employees "
+                     "(a Schedule C owner's draws are **not** wages).")
+    if payroll_liabs:
+        lines.append(f"- **Payroll-tax liability accounts:** {len(payroll_liabs)} "
+                     "(year-end balances should tie to filed 941/940).")
+        for n, v in payroll_liabs.items():
+            lines.append(f"  - {n}: {fmt(v)}")
+    lines.append(f"- **Contractors flagged for 1099:** {contractors_1099} "
+                 "(run qb_1099_contractor_report).")
+
+    lines.append("\n### Hand to your CPA / payroll provider")
+    lines.append("- [ ] W-2 vs 1099 classification confirmed for every worker "
+                 "(misclassification is the #1 payroll audit issue)")
+    if wage_accts:
+        lines.append("- [ ] Form 941 (quarterly) reconciles to booked wages + withholding")
+        lines.append("- [ ] Form 940 (FUTA, annual) filed")
+        lines.append("- [ ] W-2 / W-3 issued to employees (due Jan 31)")
+        lines.append("- [ ] Payroll-tax liability accounts cleared after each deposit")
+    lines.append("- [ ] 1099-NEC issued to reportable contractors (due Jan 31)")
+    lines.append("- [ ] State unemployment (SUTA) + withholding returns filed")
+
+    lines.append("\n*Boundary checklist, not payroll-tax advice. Use a payroll "
+                 "provider (Gusto, QuickBooks Payroll, ADP) or your CPA to compute "
+                 "and file employment taxes.*")
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_bank_reconciliation(account_name: str, csv_data: str,
+                                 start_date: str = "", end_date: str = "",
+                                 tolerance_days: int = 4) -> str:
+    """Reconcile a bank / credit-card statement against the books. QuickBooks
+    Online's API does not expose cleared/reconciled status, so paste your
+    statement as CSV (columns like Date, Description, Amount) and this produces
+    the tie-out: matched, in-statement-not-in-books (missing entries to add), and
+    in-books-not-in-statement (uncleared / outstanding). account_name: the QB
+    account (for context). tolerance_days: date window for a match (default 4).
+    Dates default to the statement's own range."""
+    import csv as _csv
+    import io as _io
+
+    reader = _csv.reader(_io.StringIO(csv_data.strip()))
+    rows = [r for r in reader if any(c.strip() for c in r)]
+    if not rows:
+        return "No CSV rows found. Provide columns like Date, Description, Amount."
+    hdr = [h.strip().lower() for h in rows[0]]
+
+    def _col(*names):
+        for i, h in enumerate(hdr):
+            if any(n in h for n in names):
+                return i
+        return -1
+
+    di, ai, ni = _col("date"), _col("amount", "debit", "credit"), _col("desc", "memo", "payee", "name")
+    body = rows[1:] if (di >= 0 or ai >= 0) else rows
+    if di < 0:
+        di = 0
+    if ai < 0:
+        ai = len(hdr) - 1
+
+    def _num(x):
+        x = x.strip().replace("$", "").replace(",", "")
+        neg = x.startswith("(") and x.endswith(")")
+        x = x.strip("()")
+        try:
+            v = float(x)
+            return -v if neg else v
+        except ValueError:
+            return None
+
+    bank = []
+    for r in body:
+        if len(r) <= max(di, ai):
+            continue
+        amt = _num(r[ai])
+        if amt is None:
+            continue
+        bank.append({"date": r[di].strip()[:10],
+                     "desc": (r[ni].strip() if 0 <= ni < len(r) else ""),
+                     "amount": amt})
+    if not bank:
+        return ("Could not parse amounts from the CSV — expected a numeric Amount "
+                "column (Date, Description, Amount).")
+
+    dates = [b["date"] for b in bank if b["date"]]
+    start = start_date or (min(dates) if dates else "")
+    end = end_date or (max(dates) if dates else "")
+
+    book = []
+    for entity in ("Purchase", "BillPayment", "Deposit", "Payment",
+                   "SalesReceipt", "JournalEntry"):
+        try:
+            r = await qb_query(f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
+                               f"AND TxnDate <= '{end}' MAXRESULTS 1000")
+            for t in r.get("QueryResponse", {}).get(entity, []):
+                amt = float(t.get("TotalAmt", 0) or 0)
+                if amt == 0:
+                    continue
+                party = (t.get("EntityRef") or t.get("VendorRef")
+                         or t.get("CustomerRef") or {}).get("name", "")
+                book.append({"date": (t.get("TxnDate", "") or "")[:10], "amount": amt,
+                             "party": party, "type": entity, "id": t.get("Id"),
+                             "matched": False})
+        except Exception as e:
+            logger.debug(f"{entity} query failed in bank rec: {e}")
+
+    def _pd(x):
+        try:
+            return datetime.strptime((x or "")[:10], "%Y-%m-%d")
+        except ValueError:
+            return None
+
+    matched, unmatched_bank = [], []
+    for b in bank:
+        bd, target = _pd(b["date"]), abs(b["amount"])
+        hit = None
+        for k in book:
+            if k["matched"] or abs(abs(k["amount"]) - target) >= 0.01:
+                continue
+            kd = _pd(k["date"])
+            if (bd and kd and abs((kd - bd).days) <= tolerance_days) or not (bd and kd):
+                hit = k
+                break
+        if hit:
+            hit["matched"] = True
+            matched.append(b)
+        else:
+            unmatched_bank.append(b)
+    unmatched_book = [k for k in book if not k["matched"]]
+
+    lines = [
+        f"## Bank Reconciliation — {account_name or 'account'} ({start} to {end})",
+        f"*Statement lines: {len(bank)} · book transactions: {len(book)}*\n",
+        f"- ✅ **Matched:** {len(matched)}",
+        f"- 🔴 **In statement, not in books:** {len(unmatched_bank)} (missing entries to add)",
+        f"- 🟡 **In books, not in statement:** {len(unmatched_book)} (uncleared / outstanding)\n",
+    ]
+    if unmatched_bank:
+        lines.append("### 🔴 On the statement but not in QuickBooks")
+        lines.append("| Date | Description | Amount |")
+        lines.append("|---|---|---|")
+        for b in unmatched_bank[:50]:
+            lines.append(f"| {b['date']} | {b['desc'][:40]} | {fmt(b['amount'])} |")
+    if unmatched_book:
+        lines.append("\n### 🟡 In QuickBooks but not on the statement (uncleared)")
+        lines.append("| Date | Party | Amount | Transaction |")
+        lines.append("|---|---|---|---|")
+        for k in unmatched_book[:50]:
+            lines.append(f"| {k['date']} | {k['party'] or '—'} | {fmt(k['amount'])} "
+                         f"| {k['type']} #{k['id']} |")
+    lines.append("\n*Matched by amount within the date tolerance — verify before "
+                 "clearing. QuickBooks Online's API does not expose cleared/"
+                 "reconciled status, which is why this reconciles against your "
+                 "statement CSV.*")
+    return "\n".join(lines)
+
+
 # ===================================================================
 # NEW: Anomaly Detection
 # ===================================================================

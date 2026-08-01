@@ -2,9 +2,9 @@
   "manifest_version": "0.3",
   "name": "accountingqb",
   "display_name": "AccountingQB \u2014 QuickBooks for Claude",
-  "version": "3.5.8",
+  "version": "3.5.9",
   "icon": "icon.png",
-  "description": "110 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
+  "description": "112 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
   "long_description": "Connect Claude to your QuickBooks Online with one click. Run P&L reports, reconcile transactions, prep for taxes, detect anomalies, and more. Full US and Canada support: Schedule C, quarterly estimates and 1099s for the US; GST/HST returns, T2125, CCA schedules, T4A reporting and CRA instalments for Canada. Your data stays on your machine \u2014 zero cloud routing.\n\n**Getting Started:**\n1. Enter your license key (get one at accountingqb.com)\n2. Click 'Connect QuickBooks' when prompted\n3. Start asking Claude about your books!\n\n**Requirements:** Python 3.10 or newer on your machine (all Python package dependencies are bundled with the extension).",
   "author": {
     "name": "Vaspera Capital",
@@ -2516,6 +2516,68 @@
             "default": 0.0
           }
         }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_payroll_checklist",
+      "description": "Payroll boundary checklist. AccountingQB does NOT run payroll or compute",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tax_year": {
+            "type": "string",
+            "description": "Tax Year",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_bank_reconciliation",
+      "description": "Reconcile a bank / credit-card statement against the books. QuickBooks",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_name": {
+            "type": "string",
+            "description": "Account Name"
+          },
+          "csv_data": {
+            "type": "string",
+            "description": "Csv Data"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "tolerance_days": {
+            "type": "integer",
+            "description": "Tolerance Days",
+            "default": 4
+          }
+        },
+        "required": [
+          "account_name",
+          "csv_data"
+        ]
       },
       "annotations": {
         "readOnlyHint": true

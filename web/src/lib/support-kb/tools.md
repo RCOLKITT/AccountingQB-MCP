@@ -121,7 +121,7 @@
 | qb_month_end_close | Month-end close checklist with status checks |
 | qb_unknown_vendor_report | Find transactions with missing vendor names |
 
-## Reconciliation & Attachments (7 tools)
+## Reconciliation & Attachments (8 tools)
 | Tool | Description |
 |------|-------------|
 | qb_reconcile_invoices | Match invoices against transactions |
@@ -130,6 +130,7 @@
 | qb_list_attachments | List attached documents |
 | qb_missing_receipts | Expenses >= threshold (default $75) with no receipt attached |
 | qb_change_audit_trail | What changed since a date — created/updated/deleted (QuickBooks CDC) |
+| qb_bank_reconciliation | Tie a bank/credit-card statement CSV to the books (matched/missing/uncleared) |
 | qb_account_balance | Check any account balance |
 
 ## Connection & Multi-Company (3 tools)
