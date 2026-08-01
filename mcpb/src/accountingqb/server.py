@@ -3941,6 +3941,44 @@ async def qb_compare_periods(report_type: str, period1_start: str, period1_end: 
     return "\n".join(lines)
 
 
+def _pl_income_expense_totals(pl_result: dict) -> tuple:
+    """(total_income, total_expenses) as positive magnitudes from a P&L report.
+
+    Income comes from the **Total Income** section ONLY — summary labels
+    containing net/gross/operating (Net Income, Gross Profit, Net Operating
+    Income) are excluded, because matching a bare "income" substring on those is
+    how the burn/runway tools were silently reading *Net Income* (a negative) as
+    revenue and double-counting the burn. Expenses are summed across all expense
+    sections. Both are >= 0 so callers compute burn = expenses - income."""
+    income = 0.0
+    expenses = 0.0
+    for section in pl_result.get("Rows", {}).get("Row", []):
+        cols = section.get("Summary", {}).get("ColData", [])
+        if len(cols) < 2:
+            continue
+        label = cols[0].get("value", "").lower().strip()
+        try:
+            val = float(cols[-1].get("value", "0") or 0)
+        except (ValueError, TypeError):
+            val = 0.0
+        if "income" in label and not any(w in label for w in ("net", "gross", "operating")):
+            income += val
+        elif "expense" in label and "net" not in label:
+            expenses += abs(val)
+    return max(0.0, income), expenses
+
+
+async def _bank_cash_on_hand() -> float:
+    """Sum of Bank-type account balances (cash on hand). Queries Account
+    directly — the balance-sheet 'bank' section-header scan missed nested rows."""
+    try:
+        r = await qb_query("SELECT * FROM Account WHERE AccountType = 'Bank' MAXRESULTS 50")
+        return sum(float(a.get("CurrentBalance", 0) or 0)
+                   for a in r.get("QueryResponse", {}).get("Account", []))
+    except Exception:
+        return 0.0
+
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_monthly_burn_rate(months_back: int = 6) -> str:
     """Calculate monthly burn rate based on the last N months of expenses.
@@ -3967,23 +4005,8 @@ async def qb_monthly_burn_rate(months_back: int = 6) -> str:
             "start_date": month_start, "end_date": month_end
         })
 
-        # Extract total expenses
-        total_expense = 0
-        total_income = 0
-        report_rows = result.get("Rows", {}).get("Row", [])
-        for section in report_rows:
-            summary = section.get("Summary", {})
-            cols = summary.get("ColData", [])
-            if len(cols) >= 2:
-                label = cols[0].get("value", "").lower()
-                try:
-                    val = float(cols[-1].get("value", "0"))
-                except (ValueError, TypeError):
-                    val = 0
-                if "expense" in label:
-                    total_expense = abs(val)
-                elif "income" in label:
-                    total_income = val
+        # Income (Total Income, not Net Income) + summed expenses, both positive
+        total_income, total_expense = _pl_income_expense_totals(result)
 
         from calendar import month_abbr
         monthly_data.append({
@@ -4025,21 +4048,7 @@ async def qb_runway_calculator(current_cash: float = 0, monthly_revenue: float =
     """Calculate runway (months until cash runs out). If amounts are 0, auto-calculates from last 3 months of QB data.
     Returns months of runway and recommendations."""
     if current_cash == 0:
-        # Auto-detect from balance sheet
-        bs = await qb_request("GET", "reports/BalanceSheet", params={
-            "date_macro": "Today"
-        })
-        report_rows = bs.get("Rows", {}).get("Row", [])
-        for section in report_rows:
-            header = section.get("Header", {}).get("ColData", [{}])
-            if header and "bank" in header[0].get("value", "").lower():
-                summary = section.get("Summary", {})
-                cols = summary.get("ColData", [])
-                if len(cols) >= 2:
-                    try:
-                        current_cash = float(cols[-1].get("value", "0"))
-                    except (ValueError, TypeError):
-                        pass
+        current_cash = await _bank_cash_on_hand()
 
     if monthly_expenses == 0 or monthly_revenue == 0:
         from datetime import date
@@ -4049,30 +4058,29 @@ async def qb_runway_calculator(current_cash: float = 0, monthly_revenue: float =
         result = await qb_request("GET", "reports/ProfitAndLoss", params={
             "start_date": start_3mo, "end_date": end
         })
-        report_rows = result.get("Rows", {}).get("Row", [])
-        for section in report_rows:
-            summary = section.get("Summary", {})
-            cols = summary.get("ColData", [])
-            if len(cols) >= 2:
-                label = cols[0].get("value", "").lower()
-                try:
-                    val = float(cols[-1].get("value", "0"))
-                except (ValueError, TypeError):
-                    val = 0
-                if "expense" in label:
-                    monthly_expenses = abs(val) / 3
-                elif "income" in label:
-                    monthly_revenue = val / 3
+        income, expenses = _pl_income_expense_totals(result)
+        monthly_revenue = income / 3
+        monthly_expenses = expenses / 3
 
     net_burn = monthly_expenses - monthly_revenue
-    if net_burn <= 0:
-        return (f"## Runway Calculator\n\n"
-                f"**Cash on hand:** {fmt(current_cash)}\n"
-                f"**Monthly revenue:** {fmt(monthly_revenue)}\n"
-                f"**Monthly expenses:** {fmt(monthly_expenses)}\n\n"
-                f"✅ **Cash-flow positive!** Revenue exceeds expenses by {fmt(abs(net_burn))}/month.")
 
-    runway_months = current_cash / net_burn if net_burn > 0 else float('inf')
+    header = (f"## Runway Calculator\n\n"
+              f"**Cash on hand:** {fmt(current_cash)}\n"
+              f"**Monthly revenue:** {fmt(monthly_revenue)}\n"
+              f"**Monthly expenses:** {fmt(monthly_expenses)}\n")
+
+    if net_burn <= 0:
+        return (header + f"\n✅ **Cash-flow positive!** Revenue covers expenses "
+                f"with {fmt(abs(net_burn))}/month to spare — no cash runway limit "
+                f"at the current rate.")
+
+    if current_cash <= 0:
+        return (header + f"**Net monthly burn:** {fmt(net_burn)}\n\n"
+                f"🔴 **No runway** — the cash balance is {fmt(current_cash)} "
+                f"(zero or negative) while burning {fmt(net_burn)}/month. Raise "
+                f"cash or cut costs immediately.")
+
+    runway_months = current_cash / net_burn
 
     lines = ["## Runway Calculator\n"]
     lines.append(f"**Cash on hand:** {fmt(current_cash)}")
@@ -6360,6 +6368,21 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
     if not amounts:
         return "No non-zero transactions found."
 
+    # Recurring/subscription vendors: automated billing (SaaS, usage-based) runs
+    # on any day of the week and often repeats at identical amounts on adjacent
+    # days, so flagging those as "weekend" or "duplicate" is pure noise. Treat a
+    # vendor as recurring if it appears >=3 times in the period, or its expense
+    # account looks like software/subscription/SaaS.
+    from collections import Counter
+    _vendor_freq = Counter(t["vendor"] for t in biz_txns if t["vendor"] != "Unknown")
+    _saas_re = _re.compile(
+        r"\b(software|subscription|saas|hosting|cloud|web services|app|dues)\b",
+        _re.IGNORECASE)
+    recurring_vendors = {v for v, c in _vendor_freq.items() if c >= 3} | {
+        t["vendor"] for t in biz_txns
+        if t["vendor"] != "Unknown" and _saas_re.search(t.get("account_category", ""))
+    }
+
     # Statistical analysis
     import statistics
     mean_amt = statistics.mean(amounts)
@@ -6389,13 +6412,17 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
     for i in range(len(sorted_txns) - 1):
         a = sorted_txns[i]
         b = sorted_txns[i + 1]
-        if a["vendor"] == b["vendor"] and a["vendor"] != "Unknown":
+        if (a["vendor"] == b["vendor"] and a["vendor"] != "Unknown"
+                and a["vendor"] not in recurring_vendors):
             try:
                 date_a = datetime.strptime(a["date"], "%Y-%m-%d")
                 date_b = datetime.strptime(b["date"], "%Y-%m-%d")
                 day_diff = abs((date_b - date_a).days)
                 amt_diff = abs(a["amount"] - b["amount"])
-                if day_diff <= 3 and amt_diff < 0.01 and a["amount"] > 0:
+                # Same vendor + same amount + SAME DAY is the real double-charge
+                # signature. Adjacent-day identical charges are normal usage-based
+                # billing (Cursor/Windsurf), not duplicates.
+                if day_diff == 0 and amt_diff < 0.01 and a["amount"] > 0:
                     anomalies.append({
                         "category": "Potential Duplicate",
                         "severity": "HIGH",
@@ -6415,8 +6442,11 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
                 "txn": t,
             })
 
-    # 4. Weekend transactions — skip equity (people pay CC bills on weekends)
+    # 4. Weekend transactions — skip equity (CC bills) and recurring/subscription
+    # vendors (automated billing runs on weekends; flagging it is noise).
     for t in biz_txns:
+        if t["vendor"] in recurring_vendors:
+            continue
         try:
             d = datetime.strptime(t["date"], "%Y-%m-%d")
             if d.weekday() >= 5:  # Saturday=5, Sunday=6
@@ -7121,13 +7151,18 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
     ])
 
     if avg_expenses > avg_income and avg_expenses > 0:
-        runway_months = current_cash / (avg_expenses - avg_income)
-        lines.append(f"  ⚠️ **Burn rate:** {fmt(avg_expenses - avg_income)}/month")
-        lines.append(f"  **Runway:** {runway_months:.1f} months")
-        if runway_months < 6:
-            lines.append(f"  🔴 **CRITICAL:** Less than 6 months of runway")
-        elif runway_months < 12:
-            lines.append(f"  🟡 **CAUTION:** Less than 12 months of runway")
+        burn = avg_expenses - avg_income
+        lines.append(f"  ⚠️ **Burn rate:** {fmt(burn)}/month")
+        if current_cash > 0:
+            runway_months = current_cash / burn
+            lines.append(f"  **Runway:** {runway_months:.1f} months")
+            if runway_months < 6:
+                lines.append(f"  🔴 **CRITICAL:** Less than 6 months of runway")
+            elif runway_months < 12:
+                lines.append(f"  🟡 **CAUTION:** Less than 12 months of runway")
+        else:
+            lines.append(f"  🔴 **No runway** — cash balance is {fmt(current_cash)} "
+                         f"(zero or negative) while burning {fmt(burn)}/month.")
     elif avg_income > avg_expenses:
         lines.append(f"  ✅ **Positive cash flow:** {fmt(avg_income - avg_expenses)}/month")
         lines.append(f"  Cash position growing — no runway concerns")
