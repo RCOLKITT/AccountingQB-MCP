@@ -2,7 +2,7 @@
 
 The most comprehensive QuickBooks Online MCP server for Claude. Built for sole proprietors and small businesses who want to manage their books, run reports, and prep taxes through natural conversation.
 
-**113 tools** covering transactions, reports, tax prep (US **and** Canada), reconciliation, smart bookkeeping, 1099/T4A reporting, GST/HST returns, anomaly detection, credit memos, vendor credits, cash flow forecasting, and profit margin analysis — all from Claude Desktop. Includes a **CPA Workbook**: a 15-page year-end binder (comparative statements, reconciliation tie-outs, tax payments made, owner's draws, tax organizer) exported to Excel for your accountant.
+**119 tools** covering transactions, reports, tax prep (US **and** Canada), reconciliation, smart bookkeeping, 1099/T4A reporting, GST/HST returns, anomaly detection, credit memos, vendor credits, cash flow forecasting, and profit margin analysis — all from Claude Desktop. Includes a **CPA Workbook**: a 15-page year-end binder (comparative statements, reconciliation tie-outs, tax payments made, owner's draws, tax organizer) exported to Excel for your accountant.
 
 **Canada support:** works with Canadian QuickBooks Online companies out of the box — the server auto-detects the company's tax edition, applies sales tax codes (GST/HST/PST) on created transactions, and ships a full Canadian tax suite: GST/HST (GST34) return workpapers with the 50% meals ITC restriction, T2125 line mapping, CCA schedules (half-year rule + Accelerated Investment Incentive), T4A/T5018 contractor reporting, and CRA instalment + CPP estimates. Multicurrency companies see per-transaction currency and exchange rates.
 
@@ -151,8 +151,14 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 | Tool | Description |
 |------|-------------|
 | `qb_profit_loss` | P&L by total, month, quarter, or year |
+| `qb_profit_loss_detail` | P&L drill-down — every transaction behind each line, by account |
 | `qb_profit_loss_by_class` | P&L by department/class |
 | `qb_balance_sheet` | Balance sheet as of any date |
+| `qb_sales_by_customer` | Total sales (income) by customer |
+| `qb_sales_by_product` | Sales by product/service — quantity and amount |
+| `qb_transaction_list` | Flexible transaction register for a date range |
+| `qb_customer_balance_detail` | Open invoices per customer with line detail (AR drill-down) |
+| `qb_vendor_balance_detail` | Open bills per vendor with line detail (AP drill-down) |
 | `qb_cash_flow` | Statement of cash flows |
 | `qb_cash_flow_forecast` | Multi-period cash flow projections |
 | `qb_general_ledger` | All transactions by account |

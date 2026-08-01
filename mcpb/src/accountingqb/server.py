@@ -1173,6 +1173,58 @@ def _parse_report_rows(rows, lines, indent=0):
                     lines.append(f"**{cols[0].get('value', '')}: {cols[-1].get('value', '')}**")
 
 
+def _fmt_report_cells(vals, ncols, bold=False):
+    """Pad/truncate a report row to ncols and render as a markdown table row."""
+    out = [str(v).replace("|", "\\|") for v in vals]
+    out = (out + [""] * ncols)[:ncols]
+    if bold:
+        out = [f"**{v}**" if v else "" for v in out]
+    return "| " + " | ".join(out) + " |"
+
+
+def _format_report_table(report, lines, max_rows=400):
+    """Render a QuickBooks report as a full multi-column markdown table.
+
+    Unlike _parse_report_rows (which keeps only the first + last column, right
+    for summary statements), this preserves every column — needed for detail and
+    transaction reports (ProfitAndLossDetail, TransactionList, *BalanceDetail)
+    whose value is the per-line columns. Group headers and section summaries are
+    bolded; leaf rows are capped at max_rows with a truncation note."""
+    cols = [c.get("ColTitle", "") or "—"
+            for c in report.get("Columns", {}).get("Column", [])]
+    n = len(cols)
+    if n < 2:  # no column metadata — fall back to the summary parser
+        _parse_report_rows(report.get("Rows", {}).get("Row", []), lines)
+        return
+    lines.append(_fmt_report_cells(cols, n))
+    lines.append("|" + "|".join(["---"] * n) + "|")
+    state = {"count": 0, "truncated": False}
+
+    def walk(rows):
+        for sec in rows:
+            hdr = sec.get("Header", {}).get("ColData", [])
+            if hdr and hdr[0].get("value", ""):
+                lines.append(_fmt_report_cells([hdr[0].get("value", "")], n, bold=True))
+            cd = sec.get("ColData", [])
+            if cd:
+                if state["count"] >= max_rows:
+                    state["truncated"] = True
+                else:
+                    lines.append(_fmt_report_cells([c.get("value", "") for c in cd], n))
+                    state["count"] += 1
+            nested = sec.get("Rows", {}).get("Row", [])
+            if nested:
+                walk(nested)
+            summ = sec.get("Summary", {}).get("ColData", [])
+            if summ and any(c.get("value", "") for c in summ):
+                lines.append(_fmt_report_cells([c.get("value", "") for c in summ], n, bold=True))
+
+    walk(report.get("Rows", {}).get("Row", []))
+    if state["truncated"]:
+        lines.append(f"\n*Showing the first {max_rows} rows — narrow the date "
+                     "range or add a filter to see the rest.*")
+
+
 # ===================================================================
 # REGION / TAX EDITION DETECTION — Canada & global tax editions
 # ===================================================================
@@ -2264,6 +2316,107 @@ async def qb_trial_balance(start_date: str = "", end_date: str = "") -> str:
     lines = [f"## Trial Balance: {header.get('StartPeriod', '')} to {header.get('EndPeriod', '')}\n"]
     rows = report.get("Rows", {}).get("Row", [])
     _parse_report_rows(rows, lines)
+    return "\n".join(lines)
+
+
+# ===================================================================
+# REPORTS — Tier-1 native reports (sales / detail / open items)
+# ===================================================================
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_sales_by_customer(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+    """Total sales (income) by customer for a date range — who your biggest
+    customers are. Dates YYYY-MM-DD (default: current year-to-date). basis: ''
+    (QuickBooks default), 'cash', or 'accrual'."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    params = {"start_date": start_date, "end_date": end_date,
+              "summarize_column_by": "Total"}
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/SalesByCustomer", params=params)
+    h = report.get("Header", {})
+    basis_note = f" · {method} basis" if method else ""
+    lines = [f"## Sales by Customer: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"]
+    _parse_report_rows(report.get("Rows", {}).get("Row", []), lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_sales_by_product(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+    """Sales by product/service (item) for a date range — what's actually
+    selling, with quantity and amount. Dates YYYY-MM-DD (default: current
+    year-to-date). basis: '' (QuickBooks default), 'cash', or 'accrual'."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    params = {"start_date": start_date, "end_date": end_date,
+              "summarize_column_by": "Total"}
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/SalesByProduct", params=params)
+    h = report.get("Header", {})
+    basis_note = f" · {method} basis" if method else ""
+    lines = [f"## Sales by Product/Service: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"]
+    _format_report_table(report, lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_profit_loss_detail(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+    """Profit & Loss DETAIL — every transaction behind each P&L line, grouped by
+    account. Use this to drill into a number from qb_profit_loss. Dates YYYY-MM-DD
+    (default: current year-to-date). basis: '' (QuickBooks default), 'cash',
+    or 'accrual'."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    params = {"start_date": start_date, "end_date": end_date}
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/ProfitAndLossDetail", params=params)
+    h = report.get("Header", {})
+    basis_note = f" · {method} basis" if method else ""
+    lines = [f"## Profit & Loss Detail: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"]
+    _format_report_table(report, lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_transaction_list(start_date: str = "", end_date: str = "") -> str:
+    """A flexible transaction register — every transaction (date, type, num, name,
+    account, amount) in a date range, the workhorse for 'show me everything that
+    hit the books.' Dates YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    report = await qb_request("GET", "reports/TransactionList", params={
+        "start_date": start_date, "end_date": end_date})
+    h = report.get("Header", {})
+    lines = [f"## Transaction List: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}\n"]
+    _format_report_table(report, lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_customer_balance_detail(as_of_date: str = "") -> str:
+    """Open invoices per customer with line detail (date, invoice #, due date,
+    amount, open balance) — the drill-down behind qb_ar_aging. as_of_date:
+    YYYY-MM-DD (defaults to today)."""
+    as_of_date = _as_of_or_today(as_of_date)
+    report = await qb_request("GET", "reports/CustomerBalanceDetail",
+                              params={"report_date": as_of_date})
+    lines = [f"## Customer Balance Detail — as of {as_of_date}\n"]
+    _format_report_table(report, lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_vendor_balance_detail(as_of_date: str = "") -> str:
+    """Open bills per vendor with line detail (date, bill #, due date, amount,
+    open balance) — the drill-down behind qb_ap_aging. as_of_date: YYYY-MM-DD
+    (defaults to today)."""
+    as_of_date = _as_of_or_today(as_of_date)
+    report = await qb_request("GET", "reports/VendorBalanceDetail",
+                              params={"report_date": as_of_date})
+    lines = [f"## Vendor Balance Detail — as of {as_of_date}\n"]
+    _format_report_table(report, lines)
     return "\n".join(lines)
 
 

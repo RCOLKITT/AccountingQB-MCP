@@ -14,6 +14,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.7",
+    date: "2026-08-01",
+    title: "Six new bookkeeper reports",
+    tag: "Feature",
+    summary:
+      "Sales by customer and by product, a flexible transaction list, P&L detail drill-down, and open-item detail by customer and vendor — the native QuickBooks reports bookkeepers ask for, now in Claude.",
+    highlights: [
+      "qb_sales_by_customer and qb_sales_by_product: who your biggest customers are and what's actually selling",
+      "qb_transaction_list: the flexible register — every transaction in a date range with full columns",
+      "qb_profit_loss_detail: drill from any P&L number down to the transactions behind it",
+      "qb_customer_balance_detail and qb_vendor_balance_detail: the line-item drill-down behind AR/AP aging",
+      "119 tools total across US & Canada",
+    ],
+  },
+  {
     version: "3.6.2",
     date: "2026-08-01",
     title: "Sales-tax totals net out customer refunds",
@@ -64,7 +79,7 @@ export const RELEASES: Release[] = [
       "Reconciliation tie-outs, prior-year comparative statements (P&L + balance sheet), tax payments made, and owner's draws — the questions a CPA asks first, pre-answered",
       "A structured Tax Organizer replaces free-text notes: mileage, home office, health premiums, assets bought/sold, estimated payments",
       "Export the whole binder to Excel in one message",
-      "113 tools total across US & Canada",
+      "119 tools total across US & Canada",
     ],
   },
   {

@@ -2,9 +2,9 @@
   "manifest_version": "0.3",
   "name": "accountingqb",
   "display_name": "AccountingQB \u2014 QuickBooks for Claude",
-  "version": "3.6.2",
+  "version": "3.7.0",
   "icon": "icon.png",
-  "description": "113 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
+  "description": "119 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
   "long_description": "Connect Claude to your QuickBooks Online with one click. Run P&L reports, reconcile transactions, prep for taxes, detect anomalies, and more. Full US and Canada support: Schedule C, quarterly estimates and 1099s for the US; GST/HST returns, T2125, CCA schedules, T4A reporting and CRA instalments for Canada. Your data stays on your machine \u2014 zero cloud routing.\n\n**Getting Started:**\n1. Enter your license key (get one at accountingqb.com)\n2. Click 'Connect QuickBooks' when prompted\n3. Start asking Claude about your books!\n\n**Requirements:** Python 3.10 or newer on your machine (all Python package dependencies are bundled with the extension).",
   "author": {
     "name": "Vaspera Capital",
@@ -678,6 +678,161 @@
           "end_date": {
             "type": "string",
             "description": "End Date",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_sales_by_customer",
+      "description": "Total sales (income) by customer for a date range \u2014 who your biggest",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "basis": {
+            "type": "string",
+            "description": "Basis",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_sales_by_product",
+      "description": "Sales by product/service (item) for a date range \u2014 what's actually",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "basis": {
+            "type": "string",
+            "description": "Basis",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_profit_loss_detail",
+      "description": "Profit & Loss DETAIL \u2014 every transaction behind each P&L line, grouped by",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "basis": {
+            "type": "string",
+            "description": "Basis",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_transaction_list",
+      "description": "A flexible transaction register \u2014 every transaction (date, type, num, name,",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_customer_balance_detail",
+      "description": "Open invoices per customer with line detail (date, invoice #, due date,",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "as_of_date": {
+            "type": "string",
+            "description": "As Of Date",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_vendor_balance_detail",
+      "description": "Open bills per vendor with line detail (date, bill #, due date, amount,",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "as_of_date": {
+            "type": "string",
+            "description": "As Of Date",
             "default": ""
           }
         }

@@ -1,4 +1,4 @@
-# AccountingQB Tools (101 Total)
+# AccountingQB Tools (119 Total)
 
 ## Company & Entities (12 tools)
 | Tool | Description |
@@ -63,11 +63,17 @@
 | qb_batch_create_bills | Bulk bill import |
 | qb_batch_create_journal_entries | Bulk JE import |
 
-## Reports & Analysis (18 tools)
+## Reports & Analysis (24 tools)
 | Tool | Description |
 |------|-------------|
 | qb_profit_loss | P&L by total, month, quarter, or year |
+| qb_profit_loss_detail | P&L drill-down — every transaction behind each line, by account |
 | qb_profit_loss_by_class | P&L by department/class |
+| qb_sales_by_customer | Total sales (income) by customer for a date range |
+| qb_sales_by_product | Sales by product/service (item) — quantity and amount |
+| qb_transaction_list | Flexible transaction register for a date range (all columns) |
+| qb_customer_balance_detail | Open invoices per customer with line detail (AR drill-down) |
+| qb_vendor_balance_detail | Open bills per vendor with line detail (AP drill-down) |
 | qb_balance_sheet | Balance sheet as of any date |
 | qb_cash_flow | Statement of cash flows |
 | qb_cash_flow_forecast | Multi-period cash flow projections |
