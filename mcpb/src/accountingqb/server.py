@@ -1053,6 +1053,51 @@ async def qb_query(query: str) -> dict:
     return await qb_request("GET", "query", params={"query": query})
 
 
+async def qb_query_all(query: str, *, page_size: int = 1000,
+                       max_records: int = 40_000) -> dict:
+    """Run a QBO query and page through EVERY matching row.
+
+    QuickBooks returns at most 1000 rows per response and paginates with a
+    1-based STARTPOSITION cursor; a bare ``MAXRESULTS N`` silently truncates
+    a large book, so any tool that totals or reconciles across all rows must
+    page or it will understate. This strips whatever trailing
+    STARTPOSITION/MAXRESULTS the caller wrote, walks all pages, and merges the
+    entity arrays into one ``{"QueryResponse": {<Entity>: [...]}}`` with the
+    same shape ``qb_query`` returns. ``max_records`` is a runaway guard.
+
+    Use ``qb_query`` (not this) for deliberately bounded reads: ``MAXRESULTS 1``
+    lookups, ``ORDERBY ... DESC`` recent-N previews, and user-controlled
+    ``max_results`` limits."""
+    import re as _re
+    tail = _re.compile(r"\s+(?:STARTPOSITION\s+\d+|MAXRESULTS\s+\d+)\s*$",
+                       _re.IGNORECASE)
+    base = query.rstrip()
+    while True:
+        stripped = tail.sub("", base).rstrip()
+        if stripped == base:
+            break
+        base = stripped
+    page_size = max(1, min(page_size, 1000))
+    merged: dict = {}
+    meta: dict = {}
+    pos = 1
+    while True:
+        resp = await qb_query(f"{base} STARTPOSITION {pos} MAXRESULTS {page_size}")
+        qr = (resp or {}).get("QueryResponse", {}) or {}
+        page_rows = 0
+        for key, val in qr.items():
+            if isinstance(val, list):
+                merged.setdefault(key, []).extend(val)
+                page_rows = max(page_rows, len(val))
+            elif key not in meta:
+                meta[key] = val
+        total = sum(len(v) for v in merged.values())
+        if page_rows < page_size or total >= max_records:
+            break
+        pos += page_size
+    return {"QueryResponse": {**meta, **merged}}
+
+
 async def qb_read(entity: str, entity_id: str) -> dict:
     # QBO resource paths are lowercase; "JournalEntry/1" returns a 400.
     return await qb_request("GET", f"{entity.lower()}/{entity_id}")
@@ -1241,7 +1286,7 @@ async def _resolve_tax_code(name_or_id: str) -> tuple[str, str]:
     Matches active TaxCodes case-insensitively on exact Name first, then by
     substring. Raises ValueError listing available names when nothing matches.
     """
-    result = await qb_query(
+    result = await qb_query_all(
         "SELECT Id, Name FROM TaxCode WHERE Active = true MAXRESULTS 1000"
     )
     codes = result.get("QueryResponse", {}).get("TaxCode", [])
@@ -2018,7 +2063,7 @@ async def qb_expense_summary(start_date: str = "", end_date: str = "") -> str:
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS 1000"
     )
-    result = await qb_query(query)
+    result = await qb_query_all(query)
     purchases = result.get("QueryResponse", {}).get("Purchase", [])
 
     categories = {}
@@ -2264,7 +2309,7 @@ async def qb_reconciliation_status(as_of_date: str = "") -> str:
         lines.append(f"| {name} | {a.get('AccountType', '')} | {fmt(bal)} | "
                      f"{last_activity.get(name, 'no recent activity')} |")
 
-    all_accounts = (await qb_query("SELECT * FROM Account MAXRESULTS 500")) \
+    all_accounts = (await qb_query_all("SELECT * FROM Account MAXRESULTS 500")) \
         .get("QueryResponse", {}).get("Account", [])
     undeposited = [a for a in all_accounts
                    if "undeposited" in (a.get("Name", "")).lower()]
@@ -2453,7 +2498,7 @@ async def qb_tax_payments_made(tax_year: str = "") -> str:
 
     found = []
     for entity in ("Purchase",):
-        result = await qb_query(
+        result = await qb_query_all(
             f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
             f"AND TxnDate <= '{end}' MAXRESULTS 1000")
         for txn in result.get("QueryResponse", {}).get(entity, []):
@@ -2470,7 +2515,7 @@ async def qb_tax_payments_made(tax_year: str = "") -> str:
 
     # CA/AU/UK: TaxPayment entity records payments against filed returns
     try:
-        tp = await qb_query("SELECT * FROM TaxPayment MAXRESULTS 300")
+        tp = await qb_query_all("SELECT * FROM TaxPayment MAXRESULTS 300")
         for t in tp.get("QueryResponse", {}).get("TaxPayment", []):
             d = t.get("PaymentDate") or t.get("TxnDate") or ""
             if start <= d <= end:
@@ -2512,7 +2557,7 @@ async def qb_owner_draws(year: int = 0) -> str:
     year = int(year) or _date.today().year
     start, end = f"{year}-01-01", f"{year}-12-31"
 
-    all_accounts = (await qb_query("SELECT * FROM Account MAXRESULTS 500")) \
+    all_accounts = (await qb_query_all("SELECT * FROM Account MAXRESULTS 500")) \
         .get("QueryResponse", {}).get("Account", [])
     equity = [a for a in all_accounts
               if (a.get("AccountType") or "").lower() == "equity"]
@@ -3444,7 +3489,7 @@ async def qb_reconcile_invoices(start_date: str, end_date: str, invoice_data: st
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS 1000"
     )
-    result = await qb_query(query)
+    result = await qb_query_all(query)
     qb_purchases = result.get("QueryResponse", {}).get("Purchase", [])
 
     qb_by_vendor = {}
@@ -3659,7 +3704,7 @@ async def qb_auto_categorize_suggestions(start_date: str = "", end_date: str = "
         return "No uncategorized transactions found to categorize."
 
     # Build vendor → account history from categorized purchases
-    all_purchases = await qb_query(f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500")
+    all_purchases = await qb_query_all(f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500")
     categorized = all_purchases.get("QueryResponse", {}).get("Purchase", [])
 
     from collections import Counter
@@ -4633,7 +4678,7 @@ async def qb_match_invoices_to_transactions(invoices_json: str, start_date: str,
         return "Error: Invalid JSON for invoices."
 
     # Get all transactions in range
-    purchases = await qb_query(
+    purchases = await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
     )
     txns = purchases.get("QueryResponse", {}).get("Purchase", [])
@@ -4774,7 +4819,7 @@ async def qb_vendor_summary(start_date: str = "", end_date: str = "", top_n: int
     transaction count and total amount. Useful for negotiation and cost analysis.
     Dates in YYYY-MM-DD (default: current year-to-date)."""
     start_date, end_date = _ytd_range(start_date, end_date)
-    result = await qb_query(
+    result = await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
     )
     purchases = result.get("QueryResponse", {}).get("Purchase", [])
@@ -4982,7 +5027,7 @@ async def qb_fiscal_year_close_checklist(tax_year: str = "2024") -> str:
 
     # 5. Check for personal accounts still active
     personal_keywords = ["personal", "mortgage", "student loan"]
-    all_accts = await qb_query("SELECT * FROM Account WHERE Active = true MAXRESULTS 200")
+    all_accts = await qb_query_all("SELECT * FROM Account WHERE Active = true MAXRESULTS 200")
     all_list = all_accts.get("QueryResponse", {}).get("Account", [])
     personal_active = [a for a in all_list if any(kw in a.get("Name", "").lower() for kw in personal_keywords)]
     if personal_active:
@@ -5119,7 +5164,7 @@ async def qb_missing_receipts(threshold: float = 75.0, start_date: str = "", end
     # Set of (entity, id) that already have an attachment.
     attached = set()
     try:
-        att = await qb_query("SELECT * FROM Attachable MAXRESULTS 1000")
+        att = await qb_query_all("SELECT * FROM Attachable MAXRESULTS 1000")
         for a in att.get("QueryResponse", {}).get("Attachable", []):
             for r in a.get("AttachableRef", []):
                 ref = r.get("EntityRef", {})
@@ -5130,7 +5175,7 @@ async def qb_missing_receipts(threshold: float = 75.0, start_date: str = "", end
 
     missing = []
     for entity in ("Purchase", "Bill"):
-        r = await qb_query(
+        r = await qb_query_all(
             f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' AND "
             f"TxnDate <= '{end_date}' MAXRESULTS 1000")
         for t in r.get("QueryResponse", {}).get(entity, []):
@@ -5805,7 +5850,7 @@ async def qb_list_journal_entries_by_memo(search_text: str, max_results: int = 5
     search_text = _sanitize_input(search_text, "search_text")
 
     # QB query doesn't support LIKE on PrivateNote, so we fetch all and filter
-    result = await qb_query(f"SELECT * FROM JournalEntry MAXRESULTS 500")
+    result = await qb_query_all(f"SELECT * FROM JournalEntry MAXRESULTS 500")
     all_jes = result.get("QueryResponse", {}).get("JournalEntry", [])
 
     if not all_jes:
@@ -6296,25 +6341,25 @@ async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 0
     threshold = _validate_amount(threshold, "threshold")
 
     # Get all vendors
-    vendor_result = await qb_query("SELECT * FROM Vendor MAXRESULTS 500")
+    vendor_result = await qb_query_all("SELECT * FROM Vendor MAXRESULTS 500")
     vendors = vendor_result.get("QueryResponse", {}).get("Vendor", [])
     if not vendors:
         return "No vendors found."
 
     # Get all purchases for the year
-    purchase_result = await qb_query(
+    purchase_result = await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )
     purchases = purchase_result.get("QueryResponse", {}).get("Purchase", [])
 
     # Get all bill payments for the year
-    billpay_result = await qb_query(
+    billpay_result = await qb_query_all(
         f"SELECT * FROM BillPayment WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )
     bill_payments = billpay_result.get("QueryResponse", {}).get("BillPayment", [])
 
     # Get all bills for the year (for bill-based payments)
-    bill_result = await qb_query(
+    bill_result = await qb_query_all(
         f"SELECT * FROM Bill WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )
     bills = bill_result.get("QueryResponse", {}).get("Bill", [])
@@ -6596,7 +6641,7 @@ async def qb_bank_reconciliation(account_name: str, csv_data: str,
     for entity in ("Purchase", "BillPayment", "Deposit", "Payment",
                    "SalesReceipt", "JournalEntry"):
         try:
-            r = await qb_query(f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
+            r = await qb_query_all(f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
                                f"AND TxnDate <= '{end}' MAXRESULTS 1000")
             for t in r.get("QueryResponse", {}).get(entity, []):
                 amt = float(t.get("TotalAmt", 0) or 0)
@@ -6684,13 +6729,13 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
     z_limit = z_thresholds[sensitivity]
 
     # Fetch all purchases
-    purchase_result = await qb_query(
+    purchase_result = await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 1000"
     )
     purchases = purchase_result.get("QueryResponse", {}).get("Purchase", [])
 
     # Fetch bills
-    bill_result = await qb_query(
+    bill_result = await qb_query_all(
         f"SELECT * FROM Bill WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 1000"
     )
     bills = bill_result.get("QueryResponse", {}).get("Bill", [])
@@ -7201,12 +7246,12 @@ async def qb_sales_tax_summary(start_date: str = "", end_date: str = "") -> str:
         ]
 
     # Get invoices and sales receipts with tax
-    inv_result = await qb_query(
+    inv_result = await qb_query_all(
         f"SELECT * FROM Invoice WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
     )
     invoices = inv_result.get("QueryResponse", {}).get("Invoice", [])
 
-    sr_result = await qb_query(
+    sr_result = await qb_query_all(
         f"SELECT * FROM SalesReceipt WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
     )
     sales_receipts = sr_result.get("QueryResponse", {}).get("SalesReceipt", [])
@@ -7308,7 +7353,7 @@ async def _tax_agency_names() -> dict:
     """Map TaxAgency Id -> DisplayName (best effort; names are cosmetic)."""
     names = {}
     try:
-        result = await qb_query("SELECT * FROM TaxAgency MAXRESULTS 1000")
+        result = await qb_query_all("SELECT * FROM TaxAgency MAXRESULTS 1000")
         for ta in result.get("QueryResponse", {}).get("TaxAgency", []):
             names[str(ta.get("Id", ""))] = ta.get("DisplayName", "?")
     except Exception as e:
@@ -7336,7 +7381,7 @@ async def qb_sales_tax_nexus(year: str = "", approaching_pct: int = 80) -> str:
     # Customer -> state fallback (used when a sale has no ship/bill address)
     cust_state = {}
     try:
-        cres = await qb_query("SELECT * FROM Customer MAXRESULTS 1000")
+        cres = await qb_query_all("SELECT * FROM Customer MAXRESULTS 1000")
         for c in cres.get("QueryResponse", {}).get("Customer", []):
             st = (c.get("ShipAddr") or c.get("BillAddr") or {}).get("CountrySubDivisionCode", "")
             if st:
@@ -7346,7 +7391,7 @@ async def qb_sales_tax_nexus(year: str = "", approaching_pct: int = 80) -> str:
 
     by_state = {}  # state -> {sales, txns, tax}
     for entity in ("Invoice", "SalesReceipt"):
-        r = await qb_query(f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
+        r = await qb_query_all(f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
                            f"AND TxnDate <= '{end}' MAXRESULTS 1000")
         for t in r.get("QueryResponse", {}).get(entity, []):
             st = ((t.get("ShipAddr") or {}).get("CountrySubDivisionCode")
@@ -7445,7 +7490,7 @@ async def qb_list_tax_codes() -> str:
     create tools (qb_create_invoice, qb_create_expense, qb_create_bill, ...)."""
     region_info = await _get_region()
 
-    tc_result = await qb_query("SELECT * FROM TaxCode MAXRESULTS 1000")
+    tc_result = await qb_query_all("SELECT * FROM TaxCode MAXRESULTS 1000")
     tax_codes = [
         tc for tc in tc_result.get("QueryResponse", {}).get("TaxCode", [])
         if tc.get("Active", True)
@@ -7453,7 +7498,7 @@ async def qb_list_tax_codes() -> str:
     if not tax_codes:
         return "No tax codes found for this company."
 
-    tr_result = await qb_query("SELECT * FROM TaxRate MAXRESULTS 1000")
+    tr_result = await qb_query_all("SELECT * FROM TaxRate MAXRESULTS 1000")
     tax_rates = tr_result.get("QueryResponse", {}).get("TaxRate", [])
     agency_names = await _tax_agency_names()
 
@@ -7515,7 +7560,7 @@ async def qb_list_tax_codes() -> str:
 async def qb_list_tax_rates() -> str:
     """List this company's individual sales tax rates (rate % and tax agency).
     Tax codes (see qb_list_tax_codes) combine one or more of these rates."""
-    tr_result = await qb_query("SELECT * FROM TaxRate MAXRESULTS 1000")
+    tr_result = await qb_query_all("SELECT * FROM TaxRate MAXRESULTS 1000")
     tax_rates = tr_result.get("QueryResponse", {}).get("TaxRate", [])
     if not tax_rates:
         return "No tax rates found for this company."
@@ -7718,12 +7763,12 @@ async def qb_profit_margin_analysis(start_date: str, end_date: str, group_by: st
         return "group_by must be 'customer' or 'item'."
 
     # Get invoices and sales receipts
-    inv_result = await qb_query(
+    inv_result = await qb_query_all(
         f"SELECT * FROM Invoice WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
     )
     invoices = inv_result.get("QueryResponse", {}).get("Invoice", [])
 
-    sr_result = await qb_query(
+    sr_result = await qb_query_all(
         f"SELECT * FROM SalesReceipt WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
     )
     sales_receipts = sr_result.get("QueryResponse", {}).get("SalesReceipt", [])
@@ -7876,7 +7921,7 @@ async def qb_budget_vs_actual(fiscal_year: str = "2025") -> str:
 
     # Get actual account balances
     actual_by_acct = {}
-    accts_result = await qb_query("SELECT * FROM Account MAXRESULTS 200")
+    accts_result = await qb_query_all("SELECT * FROM Account MAXRESULTS 200")
     for a in accts_result.get("QueryResponse", {}).get("Account", []):
         actual_by_acct[a["Name"]] = float(a.get("CurrentBalance", 0))
 
@@ -8064,12 +8109,12 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
     score = 100  # start perfect, deduct for issues
 
     # --- 1. Unknown/missing vendor transactions (split active vs deleted accounts) ---
-    purchases = (await qb_query(
+    purchases = (await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )).get("QueryResponse", {}).get("Purchase", [])
 
     # Build active account lookup
-    all_accounts_raw = (await qb_query(
+    all_accounts_raw = (await qb_query_all(
         "SELECT Id, Name, Active FROM Account MAXRESULTS 500"
     )).get("QueryResponse", {}).get("Account", [])
     active_account_ids = {a["Id"] for a in all_accounts_raw if a.get("Active", True)}
@@ -8114,7 +8159,7 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
         )
 
     # --- 2. Uncategorized transactions ---
-    all_accounts = (await qb_query(
+    all_accounts = (await qb_query_all(
         "SELECT * FROM Account MAXRESULTS 200"
     )).get("QueryResponse", {}).get("Account", [])
     # Merge with raw account data if needed
@@ -8154,7 +8199,7 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
         passed.append("✅ Undeposited Funds account is clear")
 
     # --- 4. Open/overdue invoices ---
-    invoices = (await qb_query(
+    invoices = (await qb_query_all(
         f"SELECT * FROM Invoice WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
     )).get("QueryResponse", {}).get("Invoice", [])
 
@@ -8169,7 +8214,7 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
         passed.append("✅ No unpaid invoices")
 
     # --- 5. Open bills (AP) ---
-    bills = (await qb_query(
+    bills = (await qb_query_all(
         f"SELECT * FROM Bill WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
     )).get("QueryResponse", {}).get("Bill", [])
 
@@ -8224,7 +8269,7 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
         passed.append("✅ No significant duplicate patterns detected")
 
     # --- 8. Missing tax info (1099 readiness) ---
-    vendors = (await qb_query(
+    vendors = (await qb_query_all(
         "SELECT * FROM Vendor MAXRESULTS 200"
     )).get("QueryResponse", {}).get("Vendor", [])
 
@@ -8305,7 +8350,7 @@ async def qb_unknown_vendor_report(start_date: str = "", end_date: str = "", max
     purchases = (await qb_query(query)).get("QueryResponse", {}).get("Purchase", [])
 
     # Build active account lookup
-    all_accounts = (await qb_query(
+    all_accounts = (await qb_query_all(
         "SELECT Id, Name, Active FROM Account MAXRESULTS 500"
     )).get("QueryResponse", {}).get("Account", [])
     active_account_ids = {a["Id"] for a in all_accounts if a.get("Active", True)}
@@ -8582,15 +8627,15 @@ async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
     warnings_count = 0
 
     # --- 1. Transaction volume ---
-    purchases = (await qb_query(
+    purchases = (await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )).get("QueryResponse", {}).get("Purchase", [])
 
-    deposits = (await qb_query(
+    deposits = (await qb_query_all(
         f"SELECT * FROM Deposit WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
     )).get("QueryResponse", {}).get("Deposit", [])
 
-    journals = (await qb_query(
+    journals = (await qb_query_all(
         f"SELECT * FROM JournalEntry WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
     )).get("QueryResponse", {}).get("JournalEntry", [])
 
@@ -8612,7 +8657,7 @@ async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
         checklist.append("✅ All purchases have vendors assigned")
 
     # --- 3. Uncategorized amounts ---
-    all_accounts = (await qb_query(
+    all_accounts = (await qb_query_all(
         "SELECT * FROM Account MAXRESULTS 200"
     )).get("QueryResponse", {}).get("Account", [])
 
@@ -9245,7 +9290,7 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
 
     # ---- Resolve the tax agency for the reports/TaxSummary endpoint ----
     try:
-        agencies = (await qb_query("SELECT * FROM TaxAgency MAXRESULTS 1000")) \
+        agencies = (await qb_query_all("SELECT * FROM TaxAgency MAXRESULTS 1000")) \
             .get("QueryResponse", {}).get("TaxAgency", [])
     except Exception as e:
         logger.debug(f"TaxAgency query failed: {e}")
@@ -9304,7 +9349,7 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
     line_103 = 0.0  # GST/HST collected (TxnTaxDetail.TotalTax on sales docs)
     sales_count = 0
     for entity in ("Invoice", "SalesReceipt"):
-        result = await qb_query(
+        result = await qb_query_all(
             f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' "
             f"AND TxnDate <= '{end_date}' MAXRESULTS 1000"
         )
@@ -9319,7 +9364,7 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
     meals_restricted = 0.0  # disallowed half of meals & entertainment GST/HST
     purchase_count = 0
     for entity in ("Purchase", "Bill"):
-        result = await qb_query(
+        result = await qb_query_all(
             f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' "
             f"AND TxnDate <= '{end_date}' MAXRESULTS 1000"
         )
@@ -9377,7 +9422,7 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
     # payments against them.
     tax_payments = []
     try:
-        tp_result = await qb_query("SELECT * FROM TaxPayment MAXRESULTS 300")
+        tp_result = await qb_query_all("SELECT * FROM TaxPayment MAXRESULTS 300")
         for tp in tp_result.get("QueryResponse", {}).get("TaxPayment", []):
             pay_date = tp.get("PaymentDate") or tp.get("TxnDate") or ""
             if start_date <= pay_date <= end_date:
@@ -9564,7 +9609,7 @@ async def qb_cca_schedule(assets_json: str = "", year: int = 0) -> str:
 
     if not assets_json.strip():
         # Pull fixed-asset accounts as candidates (mirrors qb_depreciation_schedule)
-        result = await qb_query(
+        result = await qb_query_all(
             "SELECT * FROM Account WHERE AccountType = 'Fixed Asset' MAXRESULTS 200"
         )
         acct_list = result.get("QueryResponse", {}).get("Account", [])
@@ -9707,17 +9752,17 @@ async def qb_t4a_contractor_report(year: int) -> str:
     start = f"{year}-01-01"
     end = f"{year}-12-31"
 
-    vendor_result = await qb_query("SELECT * FROM Vendor MAXRESULTS 500")
+    vendor_result = await qb_query_all("SELECT * FROM Vendor MAXRESULTS 500")
     vendors = vendor_result.get("QueryResponse", {}).get("Vendor", [])
     if not vendors:
         return "No vendors found."
 
-    purchase_result = await qb_query(
+    purchase_result = await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )
     purchases = purchase_result.get("QueryResponse", {}).get("Purchase", [])
 
-    bill_result = await qb_query(
+    bill_result = await qb_query_all(
         f"SELECT * FROM Bill WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )
     bills = bill_result.get("QueryResponse", {}).get("Bill", [])

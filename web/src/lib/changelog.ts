@@ -14,6 +14,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.6.1",
+    date: "2026-08-01",
+    title: "Complete numbers on large books",
+    tag: "Platform",
+    summary:
+      "Reports and reconciliations now page through every transaction, not just the first 1,000 — so totals stay correct on high-volume books.",
+    highlights: [
+      "QuickBooks returns at most 1,000 rows per request; tools that total or reconcile across all rows now follow the cursor to the end instead of stopping at the cap",
+      "Fixes silent under-counting on busy books — sales-tax and nexus totals, 1099s, missing-receipts, bank reconciliation, expense summaries and more",
+      "Small books are unaffected (one request as before); deliberate 'recent N' and single-record lookups keep their limits",
+    ],
+  },
+  {
     version: "3.6",
     date: "2026-08-01",
     title: "Sales-tax economic-nexus screen",
