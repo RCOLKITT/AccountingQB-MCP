@@ -1053,6 +1053,51 @@ async def qb_query(query: str) -> dict:
     return await qb_request("GET", "query", params={"query": query})
 
 
+async def qb_query_all(query: str, *, page_size: int = 1000,
+                       max_records: int = 40_000) -> dict:
+    """Run a QBO query and page through EVERY matching row.
+
+    QuickBooks returns at most 1000 rows per response and paginates with a
+    1-based STARTPOSITION cursor; a bare ``MAXRESULTS N`` silently truncates
+    a large book, so any tool that totals or reconciles across all rows must
+    page or it will understate. This strips whatever trailing
+    STARTPOSITION/MAXRESULTS the caller wrote, walks all pages, and merges the
+    entity arrays into one ``{"QueryResponse": {<Entity>: [...]}}`` with the
+    same shape ``qb_query`` returns. ``max_records`` is a runaway guard.
+
+    Use ``qb_query`` (not this) for deliberately bounded reads: ``MAXRESULTS 1``
+    lookups, ``ORDERBY ... DESC`` recent-N previews, and user-controlled
+    ``max_results`` limits."""
+    import re as _re
+    tail = _re.compile(r"\s+(?:STARTPOSITION\s+\d+|MAXRESULTS\s+\d+)\s*$",
+                       _re.IGNORECASE)
+    base = query.rstrip()
+    while True:
+        stripped = tail.sub("", base).rstrip()
+        if stripped == base:
+            break
+        base = stripped
+    page_size = max(1, min(page_size, 1000))
+    merged: dict = {}
+    meta: dict = {}
+    pos = 1
+    while True:
+        resp = await qb_query(f"{base} STARTPOSITION {pos} MAXRESULTS {page_size}")
+        qr = (resp or {}).get("QueryResponse", {}) or {}
+        page_rows = 0
+        for key, val in qr.items():
+            if isinstance(val, list):
+                merged.setdefault(key, []).extend(val)
+                page_rows = max(page_rows, len(val))
+            elif key not in meta:
+                meta[key] = val
+        total = sum(len(v) for v in merged.values())
+        if page_rows < page_size or total >= max_records:
+            break
+        pos += page_size
+    return {"QueryResponse": {**meta, **merged}}
+
+
 async def qb_read(entity: str, entity_id: str) -> dict:
     # QBO resource paths are lowercase; "JournalEntry/1" returns a 400.
     return await qb_request("GET", f"{entity.lower()}/{entity_id}")
@@ -1126,6 +1171,58 @@ def _parse_report_rows(rows, lines, indent=0):
                     lines.append(f"**{cols[0].get('value', '')}: {fmt(float(cols[-1].get('value', '0')))}**")
                 except (ValueError, TypeError):
                     lines.append(f"**{cols[0].get('value', '')}: {cols[-1].get('value', '')}**")
+
+
+def _fmt_report_cells(vals, ncols, bold=False):
+    """Pad/truncate a report row to ncols and render as a markdown table row."""
+    out = [str(v).replace("|", "\\|") for v in vals]
+    out = (out + [""] * ncols)[:ncols]
+    if bold:
+        out = [f"**{v}**" if v else "" for v in out]
+    return "| " + " | ".join(out) + " |"
+
+
+def _format_report_table(report, lines, max_rows=400):
+    """Render a QuickBooks report as a full multi-column markdown table.
+
+    Unlike _parse_report_rows (which keeps only the first + last column, right
+    for summary statements), this preserves every column — needed for detail and
+    transaction reports (ProfitAndLossDetail, TransactionList, *BalanceDetail)
+    whose value is the per-line columns. Group headers and section summaries are
+    bolded; leaf rows are capped at max_rows with a truncation note."""
+    cols = [c.get("ColTitle", "") or "—"
+            for c in report.get("Columns", {}).get("Column", [])]
+    n = len(cols)
+    if n < 2:  # no column metadata — fall back to the summary parser
+        _parse_report_rows(report.get("Rows", {}).get("Row", []), lines)
+        return
+    lines.append(_fmt_report_cells(cols, n))
+    lines.append("|" + "|".join(["---"] * n) + "|")
+    state = {"count": 0, "truncated": False}
+
+    def walk(rows):
+        for sec in rows:
+            hdr = sec.get("Header", {}).get("ColData", [])
+            if hdr and hdr[0].get("value", ""):
+                lines.append(_fmt_report_cells([hdr[0].get("value", "")], n, bold=True))
+            cd = sec.get("ColData", [])
+            if cd:
+                if state["count"] >= max_rows:
+                    state["truncated"] = True
+                else:
+                    lines.append(_fmt_report_cells([c.get("value", "") for c in cd], n))
+                    state["count"] += 1
+            nested = sec.get("Rows", {}).get("Row", [])
+            if nested:
+                walk(nested)
+            summ = sec.get("Summary", {}).get("ColData", [])
+            if summ and any(c.get("value", "") for c in summ):
+                lines.append(_fmt_report_cells([c.get("value", "") for c in summ], n, bold=True))
+
+    walk(report.get("Rows", {}).get("Row", []))
+    if state["truncated"]:
+        lines.append(f"\n*Showing the first {max_rows} rows — narrow the date "
+                     "range or add a filter to see the rest.*")
 
 
 # ===================================================================
@@ -1241,7 +1338,7 @@ async def _resolve_tax_code(name_or_id: str) -> tuple[str, str]:
     Matches active TaxCodes case-insensitively on exact Name first, then by
     substring. Raises ValueError listing available names when nothing matches.
     """
-    result = await qb_query(
+    result = await qb_query_all(
         "SELECT Id, Name FROM TaxCode WHERE Active = true MAXRESULTS 1000"
     )
     codes = result.get("QueryResponse", {}).get("TaxCode", [])
@@ -1549,8 +1646,9 @@ async def qb_list_transactions(start_date: str, end_date: str, vendor_name: str 
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_deposits(start_date: str, end_date: str, max_results: int = 100) -> str:
-    """List deposits (income, owner investments, bank deposits) within a date range. Dates in YYYY-MM-DD format. Use this to find income or money deposited into business accounts."""
+async def qb_list_deposits(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+    """List deposits (income, owner investments, bank deposits) within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Use this to find income or money deposited into business accounts."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM Deposit WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
@@ -1595,8 +1693,9 @@ async def qb_list_deposits(start_date: str, end_date: str, max_results: int = 10
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_transfers(start_date: str, end_date: str, max_results: int = 100) -> str:
-    """List transfers between accounts within a date range. Dates in YYYY-MM-DD format. Use this to see money moved between business bank accounts or credit cards."""
+async def qb_list_transfers(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+    """List transfers between accounts within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Use this to see money moved between business bank accounts or credit cards."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM Transfer WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
@@ -1631,8 +1730,9 @@ async def qb_list_transfers(start_date: str, end_date: str, max_results: int = 1
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_journal_entries(start_date: str, end_date: str, max_results: int = 100) -> str:
-    """List journal entries (adjustments, reclassifications) within a date range. Dates in YYYY-MM-DD format. Useful for finding accounting adjustments, corrections, and manual entries."""
+async def qb_list_journal_entries(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+    """List journal entries (adjustments, reclassifications) within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Useful for finding accounting adjustments, corrections, and manual entries."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM JournalEntry WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
@@ -1722,8 +1822,9 @@ async def qb_list_bills(start_date: str, end_date: str, vendor_name: str = "", m
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_bill_payments(start_date: str, end_date: str, max_results: int = 100) -> str:
-    """List bill payments within a date range. Dates in YYYY-MM-DD. Shows payments made against bills (accounts payable)."""
+async def qb_list_bill_payments(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+    """List bill payments within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Shows payments made against bills (accounts payable)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM BillPayment WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
@@ -1761,8 +1862,9 @@ async def qb_list_bill_payments(start_date: str, end_date: str, max_results: int
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_sales_receipts(start_date: str, end_date: str, max_results: int = 100) -> str:
-    """List sales receipts (direct sales, not invoiced) within a date range. Dates in YYYY-MM-DD."""
+async def qb_list_sales_receipts(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+    """List sales receipts (direct sales, not invoiced) within a date range. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM SalesReceipt WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
@@ -1799,8 +1901,9 @@ async def qb_list_sales_receipts(start_date: str, end_date: str, max_results: in
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_payments(start_date: str, end_date: str, max_results: int = 100) -> str:
-    """List customer payments received within a date range. Dates in YYYY-MM-DD. Shows payments applied against invoices."""
+async def qb_list_payments(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+    """List customer payments received within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Shows payments applied against invoices."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM Payment WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
@@ -2005,13 +2108,14 @@ async def qb_search_transactions(start_date: str, end_date: str, search_term: st
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_expense_summary(start_date: str, end_date: str) -> str:
-    """Get expenses grouped by category/account for a date range. Useful for Schedule C and tax deduction tracking. Dates in YYYY-MM-DD format."""
+async def qb_expense_summary(start_date: str = "", end_date: str = "") -> str:
+    """Get expenses grouped by category/account for a date range. Useful for Schedule C and tax deduction tracking. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS 1000"
     )
-    result = await qb_query(query)
+    result = await qb_query_all(query)
     purchases = result.get("QueryResponse", {}).get("Purchase", [])
 
     categories = {}
@@ -2048,8 +2152,12 @@ async def qb_expense_summary(start_date: str, end_date: str) -> str:
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_profit_loss(start_date: str, end_date: str, summarize_by: str = "Total") -> str:
-    """Generate a Profit & Loss (Income Statement) report. Dates in YYYY-MM-DD. summarize_by: Total, Month, Quarter, Year."""
+async def qb_profit_loss(start_date: str = "", end_date: str = "", summarize_by: str = "Total", basis: str = "") -> str:
+    """Generate a Profit & Loss (Income Statement) report. Dates in YYYY-MM-DD
+    (default: current year-to-date). summarize_by: Total, Month, Quarter, Year.
+    basis: '' (QuickBooks default), 'cash', or 'accrual' — CPAs often book on
+    accrual but file on cash."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     # Demo mode: return mock P&L
     if _demo_active():
         return (
@@ -2074,14 +2182,19 @@ async def qb_profit_loss(start_date: str, end_date: str, summarize_by: str = "To
             "### Net Income: **$138,750.00**"
         )
 
-    report = await qb_request("GET", "reports/ProfitAndLoss", params={
+    params = {
         "start_date": start_date,
         "end_date": end_date,
         "summarize_column_by": summarize_by,
-    })
+    }
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/ProfitAndLoss", params=params)
 
     header = report.get("Header", {})
-    lines = [f"## Profit & Loss: {header.get('StartPeriod', '')} to {header.get('EndPeriod', '')}\n"]
+    basis_note = f" · {method} basis" if method else ""
+    lines = [f"## Profit & Loss: {header.get('StartPeriod', '')} to {header.get('EndPeriod', '')}{basis_note}\n"]
     rows = report.get("Rows", {}).get("Row", [])
     _parse_report_rows(rows, lines)
     return "\n".join(lines)
@@ -2092,8 +2205,11 @@ async def qb_profit_loss(start_date: str, end_date: str, summarize_by: str = "To
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_balance_sheet(as_of_date: str) -> str:
-    """Generate a Balance Sheet report as of a specific date. Date in YYYY-MM-DD format."""
+async def qb_balance_sheet(as_of_date: str = "", basis: str = "") -> str:
+    """Generate a Balance Sheet report as of a specific date. Date in YYYY-MM-DD
+    format (defaults to today). basis: '' (QuickBooks default), 'cash', or
+    'accrual'."""
+    as_of_date = _as_of_or_today(as_of_date)
     # Demo mode: return mock balance sheet
     if _demo_active():
         return (
@@ -2121,13 +2237,14 @@ async def qb_balance_sheet(as_of_date: str) -> str:
             "**Total Liabilities + Equity: $221,723.84**"
         )
 
-    report = await qb_request("GET", "reports/BalanceSheet", params={
-        "date_macro": "",
-        "start_date": as_of_date,
-        "end_date": as_of_date,
-    })
+    params = {"date_macro": "", "start_date": as_of_date, "end_date": as_of_date}
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/BalanceSheet", params=params)
 
-    lines = [f"## Balance Sheet as of {as_of_date}\n"]
+    basis_note = f" · {method} basis" if method else ""
+    lines = [f"## Balance Sheet as of {as_of_date}{basis_note}\n"]
     rows = report.get("Rows", {}).get("Row", [])
     _parse_report_rows(rows, lines)
     return "\n".join(lines)
@@ -2138,8 +2255,9 @@ async def qb_balance_sheet(as_of_date: str) -> str:
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_cash_flow(start_date: str, end_date: str) -> str:
-    """Generate a Statement of Cash Flows report. Dates in YYYY-MM-DD. Shows operating, investing, and financing cash activities."""
+async def qb_cash_flow(start_date: str = "", end_date: str = "") -> str:
+    """Generate a Statement of Cash Flows report. Dates in YYYY-MM-DD (default: current year-to-date). Shows operating, investing, and financing cash activities."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     report = await qb_request("GET", "reports/CashFlow", params={
         "start_date": start_date,
         "end_date": end_date,
@@ -2186,8 +2304,9 @@ async def qb_general_ledger(start_date: str, end_date: str, account_name: str = 
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_trial_balance(start_date: str, end_date: str) -> str:
-    """Generate a Trial Balance report. Dates in YYYY-MM-DD. Shows all account debits and credits to verify books are balanced."""
+async def qb_trial_balance(start_date: str = "", end_date: str = "") -> str:
+    """Generate a Trial Balance report. Dates in YYYY-MM-DD (default: current year-to-date). Shows all account debits and credits to verify books are balanced."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     report = await qb_request("GET", "reports/TrialBalance", params={
         "start_date": start_date,
         "end_date": end_date,
@@ -2197,6 +2316,107 @@ async def qb_trial_balance(start_date: str, end_date: str) -> str:
     lines = [f"## Trial Balance: {header.get('StartPeriod', '')} to {header.get('EndPeriod', '')}\n"]
     rows = report.get("Rows", {}).get("Row", [])
     _parse_report_rows(rows, lines)
+    return "\n".join(lines)
+
+
+# ===================================================================
+# REPORTS — Tier-1 native reports (sales / detail / open items)
+# ===================================================================
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_sales_by_customer(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+    """Total sales (income) by customer for a date range — who your biggest
+    customers are. Dates YYYY-MM-DD (default: current year-to-date). basis: ''
+    (QuickBooks default), 'cash', or 'accrual'."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    params = {"start_date": start_date, "end_date": end_date,
+              "summarize_column_by": "Total"}
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/SalesByCustomer", params=params)
+    h = report.get("Header", {})
+    basis_note = f" · {method} basis" if method else ""
+    lines = [f"## Sales by Customer: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"]
+    _parse_report_rows(report.get("Rows", {}).get("Row", []), lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_sales_by_product(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+    """Sales by product/service (item) for a date range — what's actually
+    selling, with quantity and amount. Dates YYYY-MM-DD (default: current
+    year-to-date). basis: '' (QuickBooks default), 'cash', or 'accrual'."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    params = {"start_date": start_date, "end_date": end_date,
+              "summarize_column_by": "Total"}
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/SalesByProduct", params=params)
+    h = report.get("Header", {})
+    basis_note = f" · {method} basis" if method else ""
+    lines = [f"## Sales by Product/Service: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"]
+    _format_report_table(report, lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_profit_loss_detail(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+    """Profit & Loss DETAIL — every transaction behind each P&L line, grouped by
+    account. Use this to drill into a number from qb_profit_loss. Dates YYYY-MM-DD
+    (default: current year-to-date). basis: '' (QuickBooks default), 'cash',
+    or 'accrual'."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    params = {"start_date": start_date, "end_date": end_date}
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/ProfitAndLossDetail", params=params)
+    h = report.get("Header", {})
+    basis_note = f" · {method} basis" if method else ""
+    lines = [f"## Profit & Loss Detail: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"]
+    _format_report_table(report, lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_transaction_list(start_date: str = "", end_date: str = "") -> str:
+    """A flexible transaction register — every transaction (date, type, num, name,
+    account, amount) in a date range, the workhorse for 'show me everything that
+    hit the books.' Dates YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    report = await qb_request("GET", "reports/TransactionList", params={
+        "start_date": start_date, "end_date": end_date})
+    h = report.get("Header", {})
+    lines = [f"## Transaction List: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}\n"]
+    _format_report_table(report, lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_customer_balance_detail(as_of_date: str = "") -> str:
+    """Open invoices per customer with line detail (date, invoice #, due date,
+    amount, open balance) — the drill-down behind qb_ar_aging. as_of_date:
+    YYYY-MM-DD (defaults to today)."""
+    as_of_date = _as_of_or_today(as_of_date)
+    report = await qb_request("GET", "reports/CustomerBalanceDetail",
+                              params={"report_date": as_of_date})
+    lines = [f"## Customer Balance Detail — as of {as_of_date}\n"]
+    _format_report_table(report, lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_vendor_balance_detail(as_of_date: str = "") -> str:
+    """Open bills per vendor with line detail (date, bill #, due date, amount,
+    open balance) — the drill-down behind qb_ap_aging. as_of_date: YYYY-MM-DD
+    (defaults to today)."""
+    as_of_date = _as_of_or_today(as_of_date)
+    report = await qb_request("GET", "reports/VendorBalanceDetail",
+                              params={"report_date": as_of_date})
+    lines = [f"## Vendor Balance Detail — as of {as_of_date}\n"]
+    _format_report_table(report, lines)
     return "\n".join(lines)
 
 
@@ -2242,7 +2462,7 @@ async def qb_reconciliation_status(as_of_date: str = "") -> str:
         lines.append(f"| {name} | {a.get('AccountType', '')} | {fmt(bal)} | "
                      f"{last_activity.get(name, 'no recent activity')} |")
 
-    all_accounts = (await qb_query("SELECT * FROM Account MAXRESULTS 500")) \
+    all_accounts = (await qb_query_all("SELECT * FROM Account MAXRESULTS 500")) \
         .get("QueryResponse", {}).get("Account", [])
     undeposited = [a for a in all_accounts
                    if "undeposited" in (a.get("Name", "")).lower()]
@@ -2289,6 +2509,55 @@ def _extract_report_amounts(report: dict) -> dict:
     return out
 
 
+def _ytd_range(start_date: str = "", end_date: str = "") -> tuple:
+    """Resolve a (start, end) date range, defaulting to the current calendar
+    year-to-date when either is blank — so report tools can be called with no
+    arguments instead of erroring (-32602) on a missing required param."""
+    from datetime import date as _d
+    today = _d.today()
+    start = start_date.strip() if start_date else f"{today.year}-01-01"
+    end = end_date.strip() if end_date else today.isoformat()
+    return start, end
+
+
+def _as_of_or_today(as_of_date: str = "") -> str:
+    """Resolve an as-of date, defaulting to today when blank."""
+    from datetime import date as _d
+    return as_of_date.strip() if as_of_date else _d.today().isoformat()
+
+
+def _accounting_method(basis: str) -> str:
+    """Map a 'cash'/'accrual' basis hint to the QBO accounting_method param
+    ('' = QuickBooks' default). CPAs often book accrual but file cash."""
+    b = (basis or "").strip().lower()
+    if b in ("cash", "c"):
+        return "Cash"
+    if b in ("accrual", "a"):
+        return "Accrual"
+    return ""
+
+
+def _merge_line_order(cur_keys: list, prior_keys: list) -> list:
+    """Order the union of two report line sequences so a line that exists only
+    in the prior year is placed next to its section siblings — right after the
+    shared line it followed in the prior report — instead of being dumped at the
+    end (after Net Income). Preserves the current report's order as the spine."""
+    cur_set = set(cur_keys)
+    # Group each prior-only line under the last shared line that preceded it.
+    anchored: dict = {}
+    last_shared = None
+    for k in prior_keys:
+        if k in cur_set:
+            last_shared = k
+        else:
+            anchored.setdefault(last_shared, []).append(k)
+    result = list(anchored.get(None, []))  # prior-only lines before any shared line
+    for ck in cur_keys:
+        result.append(ck)
+        result.extend(anchored.get(ck, []))
+    return result
+
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_comparative_statements(statement: str = "pl", year: int = 0) -> str:
     """Two-year comparative statement — the format CPAs read first. Renders
@@ -2331,7 +2600,7 @@ async def qb_comparative_statements(statement: str = "pl", year: int = 0) -> str
              f"| Line | {year} | {year-1} | Δ | Δ% |",
              "|---|---|---|---|---|"]
     flagged = []
-    seen = list(cur_amts) + [k for k in prior_amts if k not in cur_amts]
+    seen = _merge_line_order(list(cur_amts), list(prior_amts))
     for name in seen:
         c = cur_amts.get(name)
         p = prior_amts.get(name)
@@ -2382,7 +2651,7 @@ async def qb_tax_payments_made(tax_year: str = "") -> str:
 
     found = []
     for entity in ("Purchase",):
-        result = await qb_query(
+        result = await qb_query_all(
             f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
             f"AND TxnDate <= '{end}' MAXRESULTS 1000")
         for txn in result.get("QueryResponse", {}).get(entity, []):
@@ -2399,7 +2668,7 @@ async def qb_tax_payments_made(tax_year: str = "") -> str:
 
     # CA/AU/UK: TaxPayment entity records payments against filed returns
     try:
-        tp = await qb_query("SELECT * FROM TaxPayment MAXRESULTS 300")
+        tp = await qb_query_all("SELECT * FROM TaxPayment MAXRESULTS 300")
         for t in tp.get("QueryResponse", {}).get("TaxPayment", []):
             d = t.get("PaymentDate") or t.get("TxnDate") or ""
             if start <= d <= end:
@@ -2441,7 +2710,7 @@ async def qb_owner_draws(year: int = 0) -> str:
     year = int(year) or _date.today().year
     start, end = f"{year}-01-01", f"{year}-12-31"
 
-    all_accounts = (await qb_query("SELECT * FROM Account MAXRESULTS 500")) \
+    all_accounts = (await qb_query_all("SELECT * FROM Account MAXRESULTS 500")) \
         .get("QueryResponse", {}).get("Account", [])
     equity = [a for a in all_accounts
               if (a.get("AccountType") or "").lower() == "equity"]
@@ -2507,8 +2776,9 @@ async def qb_owner_draws(year: int = 0) -> str:
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_ar_aging(as_of_date: str) -> str:
-    """Generate an Accounts Receivable Aging report. Date in YYYY-MM-DD. Shows what customers owe you, grouped by how overdue."""
+async def qb_ar_aging(as_of_date: str = "") -> str:
+    """Generate an Accounts Receivable Aging report. Date in YYYY-MM-DD (defaults to today). Shows what customers owe you, grouped by how overdue."""
+    as_of_date = _as_of_or_today(as_of_date)
     report = await qb_request("GET", "reports/AgedReceivables", params={
         "date_macro": "",
         "start_date": as_of_date,
@@ -2526,8 +2796,9 @@ async def qb_ar_aging(as_of_date: str) -> str:
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_ap_aging(as_of_date: str) -> str:
-    """Generate an Accounts Payable Aging report. Date in YYYY-MM-DD. Shows what you owe vendors, grouped by how overdue."""
+async def qb_ap_aging(as_of_date: str = "") -> str:
+    """Generate an Accounts Payable Aging report. Date in YYYY-MM-DD (defaults to today). Shows what you owe vendors, grouped by how overdue."""
+    as_of_date = _as_of_or_today(as_of_date)
     report = await qb_request("GET", "reports/AgedPayables", params={
         "date_macro": "",
         "start_date": as_of_date,
@@ -2668,8 +2939,9 @@ def _map_expenses_to_schedule_c(expense_accounts: dict):
 
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("US", "For Canadian books use qb_t2125_summary.")
-async def qb_tax_summary(start_date: str, end_date: str) -> str:
-    """Generate a tax-oriented summary mapping QuickBooks data to Schedule C lines. Dates in YYYY-MM-DD."""
+async def qb_tax_summary(start_date: str = "", end_date: str = "") -> str:
+    """Generate a tax-oriented summary mapping QuickBooks data to Schedule C lines. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     report = await qb_request("GET", "reports/ProfitAndLoss", params={
         "start_date": start_date,
         "end_date": end_date,
@@ -3370,7 +3642,7 @@ async def qb_reconcile_invoices(start_date: str, end_date: str, invoice_data: st
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS 1000"
     )
-    result = await qb_query(query)
+    result = await qb_query_all(query)
     qb_purchases = result.get("QueryResponse", {}).get("Purchase", [])
 
     qb_by_vendor = {}
@@ -3516,8 +3788,9 @@ async def qb_uncategorized_transactions(start_date: str = "", end_date: str = ""
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_find_duplicates(start_date: str, end_date: str, tolerance_days: int = 3, max_results: int = 200) -> str:
-    """Find potential duplicate transactions within a date range. Matches by amount and vendor within tolerance_days window. Dates in YYYY-MM-DD."""
+async def qb_find_duplicates(start_date: str = "", end_date: str = "", tolerance_days: int = 3, max_results: int = 200) -> str:
+    """Find potential duplicate transactions within a date range. Matches by amount and vendor within tolerance_days window. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     result = await qb_query(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
     )
@@ -3560,9 +3833,10 @@ async def qb_find_duplicates(start_date: str, end_date: str, tolerance_days: int
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_auto_categorize_suggestions(start_date: str, end_date: str, max_results: int = 100) -> str:
+async def qb_auto_categorize_suggestions(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
     """Suggest categories for uncategorized transactions based on vendor history.
-    Analyzes past categorization patterns to recommend correct accounts. Dates in YYYY-MM-DD."""
+    Analyzes past categorization patterns to recommend correct accounts. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     # Get uncategorized purchases
     accts = await qb_query("SELECT Id FROM Account WHERE Name LIKE '%ncategorized%' MAXRESULTS 10")
     acct_list = accts.get("QueryResponse", {}).get("Account", [])
@@ -3583,7 +3857,7 @@ async def qb_auto_categorize_suggestions(start_date: str, end_date: str, max_res
         return "No uncategorized transactions found to categorize."
 
     # Build vendor → account history from categorized purchases
-    all_purchases = await qb_query(f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500")
+    all_purchases = await qb_query_all(f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500")
     categorized = all_purchases.get("QueryResponse", {}).get("Purchase", [])
 
     from collections import Counter
@@ -3888,6 +4162,44 @@ async def qb_compare_periods(report_type: str, period1_start: str, period1_end: 
     return "\n".join(lines)
 
 
+def _pl_income_expense_totals(pl_result: dict) -> tuple:
+    """(total_income, total_expenses) as positive magnitudes from a P&L report.
+
+    Income comes from the **Total Income** section ONLY — summary labels
+    containing net/gross/operating (Net Income, Gross Profit, Net Operating
+    Income) are excluded, because matching a bare "income" substring on those is
+    how the burn/runway tools were silently reading *Net Income* (a negative) as
+    revenue and double-counting the burn. Expenses are summed across all expense
+    sections. Both are >= 0 so callers compute burn = expenses - income."""
+    income = 0.0
+    expenses = 0.0
+    for section in pl_result.get("Rows", {}).get("Row", []):
+        cols = section.get("Summary", {}).get("ColData", [])
+        if len(cols) < 2:
+            continue
+        label = cols[0].get("value", "").lower().strip()
+        try:
+            val = float(cols[-1].get("value", "0") or 0)
+        except (ValueError, TypeError):
+            val = 0.0
+        if "income" in label and not any(w in label for w in ("net", "gross", "operating")):
+            income += val
+        elif "expense" in label and "net" not in label:
+            expenses += abs(val)
+    return max(0.0, income), expenses
+
+
+async def _bank_cash_on_hand() -> float:
+    """Sum of Bank-type account balances (cash on hand). Queries Account
+    directly — the balance-sheet 'bank' section-header scan missed nested rows."""
+    try:
+        r = await qb_query("SELECT * FROM Account WHERE AccountType = 'Bank' MAXRESULTS 50")
+        return sum(float(a.get("CurrentBalance", 0) or 0)
+                   for a in r.get("QueryResponse", {}).get("Account", []))
+    except Exception:
+        return 0.0
+
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_monthly_burn_rate(months_back: int = 6) -> str:
     """Calculate monthly burn rate based on the last N months of expenses.
@@ -3914,23 +4226,8 @@ async def qb_monthly_burn_rate(months_back: int = 6) -> str:
             "start_date": month_start, "end_date": month_end
         })
 
-        # Extract total expenses
-        total_expense = 0
-        total_income = 0
-        report_rows = result.get("Rows", {}).get("Row", [])
-        for section in report_rows:
-            summary = section.get("Summary", {})
-            cols = summary.get("ColData", [])
-            if len(cols) >= 2:
-                label = cols[0].get("value", "").lower()
-                try:
-                    val = float(cols[-1].get("value", "0"))
-                except (ValueError, TypeError):
-                    val = 0
-                if "expense" in label:
-                    total_expense = abs(val)
-                elif "income" in label:
-                    total_income = val
+        # Income (Total Income, not Net Income) + summed expenses, both positive
+        total_income, total_expense = _pl_income_expense_totals(result)
 
         from calendar import month_abbr
         monthly_data.append({
@@ -3972,21 +4269,7 @@ async def qb_runway_calculator(current_cash: float = 0, monthly_revenue: float =
     """Calculate runway (months until cash runs out). If amounts are 0, auto-calculates from last 3 months of QB data.
     Returns months of runway and recommendations."""
     if current_cash == 0:
-        # Auto-detect from balance sheet
-        bs = await qb_request("GET", "reports/BalanceSheet", params={
-            "date_macro": "Today"
-        })
-        report_rows = bs.get("Rows", {}).get("Row", [])
-        for section in report_rows:
-            header = section.get("Header", {}).get("ColData", [{}])
-            if header and "bank" in header[0].get("value", "").lower():
-                summary = section.get("Summary", {})
-                cols = summary.get("ColData", [])
-                if len(cols) >= 2:
-                    try:
-                        current_cash = float(cols[-1].get("value", "0"))
-                    except (ValueError, TypeError):
-                        pass
+        current_cash = await _bank_cash_on_hand()
 
     if monthly_expenses == 0 or monthly_revenue == 0:
         from datetime import date
@@ -3996,30 +4279,29 @@ async def qb_runway_calculator(current_cash: float = 0, monthly_revenue: float =
         result = await qb_request("GET", "reports/ProfitAndLoss", params={
             "start_date": start_3mo, "end_date": end
         })
-        report_rows = result.get("Rows", {}).get("Row", [])
-        for section in report_rows:
-            summary = section.get("Summary", {})
-            cols = summary.get("ColData", [])
-            if len(cols) >= 2:
-                label = cols[0].get("value", "").lower()
-                try:
-                    val = float(cols[-1].get("value", "0"))
-                except (ValueError, TypeError):
-                    val = 0
-                if "expense" in label:
-                    monthly_expenses = abs(val) / 3
-                elif "income" in label:
-                    monthly_revenue = val / 3
+        income, expenses = _pl_income_expense_totals(result)
+        monthly_revenue = income / 3
+        monthly_expenses = expenses / 3
 
     net_burn = monthly_expenses - monthly_revenue
-    if net_burn <= 0:
-        return (f"## Runway Calculator\n\n"
-                f"**Cash on hand:** {fmt(current_cash)}\n"
-                f"**Monthly revenue:** {fmt(monthly_revenue)}\n"
-                f"**Monthly expenses:** {fmt(monthly_expenses)}\n\n"
-                f"✅ **Cash-flow positive!** Revenue exceeds expenses by {fmt(abs(net_burn))}/month.")
 
-    runway_months = current_cash / net_burn if net_burn > 0 else float('inf')
+    header = (f"## Runway Calculator\n\n"
+              f"**Cash on hand:** {fmt(current_cash)}\n"
+              f"**Monthly revenue:** {fmt(monthly_revenue)}\n"
+              f"**Monthly expenses:** {fmt(monthly_expenses)}\n")
+
+    if net_burn <= 0:
+        return (header + f"\n✅ **Cash-flow positive!** Revenue covers expenses "
+                f"with {fmt(abs(net_burn))}/month to spare — no cash runway limit "
+                f"at the current rate.")
+
+    if current_cash <= 0:
+        return (header + f"**Net monthly burn:** {fmt(net_burn)}\n\n"
+                f"🔴 **No runway** — the cash balance is {fmt(current_cash)} "
+                f"(zero or negative) while burning {fmt(net_burn)}/month. Raise "
+                f"cash or cut costs immediately.")
+
+    runway_months = current_cash / net_burn
 
     lines = ["## Runway Calculator\n"]
     lines.append(f"**Cash on hand:** {fmt(current_cash)}")
@@ -4440,57 +4722,96 @@ async def qb_depreciation_schedule(tax_year: str = "") -> str:
     from datetime import date as _date
     if not tax_year:
         tax_year = str(_date.today().year)
-    # Get fixed asset accounts
-    assets = await qb_query("SELECT * FROM Account WHERE AccountType = 'Fixed Asset' MAXRESULTS 50")
+    # Fetch fixed-asset accounts (cost accounts + accumulated-depreciation contras)
+    assets = await qb_query(
+        "SELECT * FROM Account WHERE AccountType IN ('Fixed Asset', 'Other Asset') "
+        "MAXRESULTS 100")
     acct_list = assets.get("QueryResponse", {}).get("Account", [])
-
     if not acct_list:
         return f"No fixed asset accounts found for {tax_year}."
 
-    lines = [f"## Depreciation Schedule — {tax_year}\n"]
-    lines.append("| Asset Account | Balance | Useful Life | Method | Annual Depreciation |")
-    lines.append("|---|---|---|---|---|")
+    def _is_contra(nm: str) -> bool:
+        low = (nm or "").lower()
+        return ("accum" in low and "dep" in low) or low.strip().startswith("less")
 
-    total_depreciation = 0
+    def _tokens(nm: str) -> set:
+        stripped = _re.sub(
+            r"accumulated|accum\.?|depreciation|deprec\.?|amortization|less|"
+            r"[-–—:()]", " ", nm or "", flags=_re.IGNORECASE)
+        return {t.lower() for t in stripped.split() if len(t) > 2}
+
+    contras, costs = [], []
     for a in acct_list:
-        name = a.get("Name", "")
-        balance = float(a.get("CurrentBalance", 0))
-        if abs(balance) < 1:
+        nm = a.get("Name", "")
+        bal = float(a.get("CurrentBalance", 0) or 0)
+        (contras if _is_contra(nm) else costs).append((nm, bal, _tokens(nm)))
+
+    def _accum_for(cost_tokens: set) -> float:
+        return sum(abs(cb) for _, cb, ct in contras if ct & cost_tokens)
+
+    def _method_life(nm: str):
+        low = nm.lower()
+        if any(k in low for k in ("computer", "laptop", "tablet", "server", "hardware")):
+            return "MACRS 5-yr", 5
+        if "furniture" in low or "fixture" in low:
+            return "MACRS 7-yr", 7
+        if any(k in low for k in ("vehicle", "auto", "truck", "car")):
+            return "MACRS 5-yr", 5
+        if any(k in low for k in ("building", "improvement", "real property")):
+            return "SL 39-yr", 39
+        if any(k in low for k in ("land",)):
+            return "Not depreciable", 0
+        return "MACRS 5-yr (default)", 5
+
+    lines = [
+        f"## Fixed-Asset Register — {tax_year}\n",
+        "### On the books (from QuickBooks)",
+        "| Asset | Cost basis | Accumulated deprec. | Net book value | Est. method / life |",
+        "|---|---|---|---|---|",
+    ]
+    total_cost = total_accum = total_net = 0.0
+    asset_rows = []  # (name, cost_basis, method, life)
+    for name, bal, toks in costs:
+        accum = _accum_for(toks)
+        if abs(bal) < 1 and accum == 0:
             continue
-
-        # Determine method/life based on asset type
-        if "computer" in name.lower() or "laptop" in name.lower() or "tablet" in name.lower():
-            useful_life = 5
-            method = "Section 179 / MACRS 5-yr"
-            annual = balance  # Full Section 179
-        elif "furniture" in name.lower():
-            useful_life = 7
-            method = "MACRS 7-year"
-            annual = balance / 7
-        elif "vehicle" in name.lower() or "auto" in name.lower():
-            useful_life = 5
-            method = "MACRS 5-year"
-            annual = balance / 5
-        elif "building" in name.lower() or "improvement" in name.lower():
-            useful_life = 39
-            method = "Straight-line 39-yr"
-            annual = balance / 39
-        else:
-            useful_life = 5
-            method = "MACRS 5-year (default)"
-            annual = balance / 5
-
-        lines.append(f"| {name} | {fmt(balance)} | {useful_life} yr | {method} | {fmt(annual)} |")
-        total_depreciation += annual
-
-    lines.append(f"\n**Total Annual Depreciation: {fmt(total_depreciation)}**")
+        net = bal
+        cost = net + accum  # QBO CurrentBalance is net book value; gross = net + accum
+        method, life = _method_life(name)
+        total_cost += cost
+        total_accum += accum
+        total_net += net
+        asset_rows.append((name, cost, method, life))
+        life_s = f"{method}" if life else method
+        lines.append(f"| {name} | {fmt(cost)} | {fmt(accum)} | {fmt(net)} | {life_s} |")
     lines.append(
-        "\nNote: Section 179 allows full first-year expensing of qualifying assets "
-        "up to $2,560,000 for 2026 (phase-out begins at $4,090,000 of purchases; "
-        "OBBBA raised both, indexed annually). Requires an active trade or business "
-        "and can't create a loss — 100% bonus depreciation (permanent for property "
-        "acquired after Jan 19, 2025) has no income limit."
-    )
+        f"| **Totals** | **{fmt(total_cost)}** | **{fmt(total_accum)}** | "
+        f"**{fmt(total_net)}** | |")
+    lines.append(
+        "\n*Cost basis = net book value + the matched “Accumulated "
+        "Depreciation” contra account; where the books don’t separate "
+        "them, cost ≈ net. QuickBooks Online’s API does **not** expose "
+        "per-asset **acquisition / in-service dates** or the elected "
+        "**depreciation method** — confirm those from the purchase invoice "
+        "and prior-year Form 4562 before filing. Land is not depreciable.*")
+
+    # Forward-looking tax estimate (illustrative straight-line on cost basis)
+    lines.append("\n### Forward-looking tax depreciation estimate")
+    lines.append("| Asset | Cost basis | Method | Est. annual (SL) |")
+    lines.append("|---|---|---|---|")
+    total_est = 0.0
+    for name, cost, method, life in asset_rows:
+        annual = (cost / life) if life else 0.0
+        total_est += annual
+        lines.append(f"| {name} | {fmt(cost)} | {method} | {fmt(annual)} |")
+    lines.append(f"| **Total** | | | **{fmt(total_est)}** |")
+    lines.append(
+        "\n*Illustrative straight-line estimate on cost basis. Actual **MACRS**, "
+        "**§179** (full first-year expensing up to $2,560,000 for 2026), and "
+        "**100% bonus** (permanent for property acquired after Jan 19, 2025) depend "
+        "on the in-service year and elections and are applied by your CPA on Form "
+        "4562. This estimate will **not** match depreciation **booked in your P&L** "
+        "(actual recorded entries) — the two are reconciled at tax time.*")
 
     return "\n".join(lines) + tax_data_footer()
 
@@ -4510,7 +4831,7 @@ async def qb_match_invoices_to_transactions(invoices_json: str, start_date: str,
         return "Error: Invalid JSON for invoices."
 
     # Get all transactions in range
-    purchases = await qb_query(
+    purchases = await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
     )
     txns = purchases.get("QueryResponse", {}).get("Purchase", [])
@@ -4646,10 +4967,12 @@ async def qb_create_account(name: str, account_type: str, account_sub_type: str 
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_vendor_summary(start_date: str, end_date: str, top_n: int = 20) -> str:
+async def qb_vendor_summary(start_date: str = "", end_date: str = "", top_n: int = 20) -> str:
     """Rank vendors by total spend within a date range. Shows top N vendors with
-    transaction count and total amount. Useful for negotiation and cost analysis."""
-    result = await qb_query(
+    transaction count and total amount. Useful for negotiation and cost analysis.
+    Dates in YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    result = await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
     )
     purchases = result.get("QueryResponse", {}).get("Purchase", [])
@@ -4736,9 +5059,10 @@ async def qb_create_bill(vendor_name: str, amount: float, account_name: str, dat
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_profit_loss_by_class(start_date: str, end_date: str) -> str:
+async def qb_profit_loss_by_class(start_date: str = "", end_date: str = "") -> str:
     """Generate P&L report broken down by class/department. Useful for multi-segment businesses.
-    Dates in YYYY-MM-DD. Returns nothing if classes aren't used."""
+    Dates in YYYY-MM-DD (default: current year-to-date). Returns nothing if classes aren't used."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     result = await qb_request("GET", "reports/ProfitAndLoss", params={
         "start_date": start_date, "end_date": end_date,
         "summarize_column_by": "Class"
@@ -4758,9 +5082,10 @@ async def qb_profit_loss_by_class(start_date: str, end_date: str) -> str:
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_income_summary(start_date: str, end_date: str) -> str:
+async def qb_income_summary(start_date: str = "", end_date: str = "") -> str:
     """Get income grouped by source/category for a date range. Complements qb_expense_summary.
-    Shows all income accounts and their totals. Dates in YYYY-MM-DD."""
+    Shows all income accounts and their totals. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     result = await qb_request("GET", "reports/ProfitAndLoss", params={
         "start_date": start_date, "end_date": end_date
     })
@@ -4855,7 +5180,7 @@ async def qb_fiscal_year_close_checklist(tax_year: str = "2024") -> str:
 
     # 5. Check for personal accounts still active
     personal_keywords = ["personal", "mortgage", "student loan"]
-    all_accts = await qb_query("SELECT * FROM Account WHERE Active = true MAXRESULTS 200")
+    all_accts = await qb_query_all("SELECT * FROM Account WHERE Active = true MAXRESULTS 200")
     all_list = all_accts.get("QueryResponse", {}).get("Account", [])
     personal_active = [a for a in all_list if any(kw in a.get("Name", "").lower() for kw in personal_keywords)]
     if personal_active:
@@ -4977,6 +5302,145 @@ async def qb_list_attachments(entity_type: str = "", entity_id: str = "", max_re
         if ref_str:
             lines.append(f"  Linked to: {ref_str}")
         lines.append("")
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_missing_receipts(threshold: float = 75.0, start_date: str = "", end_date: str = "") -> str:
+    """Find expense transactions at/above a dollar threshold that have NO
+    receipt attached in QuickBooks — the IRS substantiation gap (receipts are
+    generally required for expenses >= $75; lodging at any amount). threshold:
+    default $75. Dates YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    threshold = _validate_amount(threshold, "threshold")
+
+    # Set of (entity, id) that already have an attachment.
+    attached = set()
+    try:
+        att = await qb_query_all("SELECT * FROM Attachable MAXRESULTS 1000")
+        for a in att.get("QueryResponse", {}).get("Attachable", []):
+            for r in a.get("AttachableRef", []):
+                ref = r.get("EntityRef", {})
+                if ref.get("value"):
+                    attached.add((str(ref.get("type", "")).lower(), str(ref.get("value"))))
+    except Exception as e:
+        logger.debug(f"Attachable query failed: {e}")
+
+    missing = []
+    for entity in ("Purchase", "Bill"):
+        r = await qb_query_all(
+            f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' AND "
+            f"TxnDate <= '{end_date}' MAXRESULTS 1000")
+        for t in r.get("QueryResponse", {}).get(entity, []):
+            amt = float(t.get("TotalAmt", 0) or 0)
+            if amt < threshold:
+                continue
+            if (entity.lower(), str(t.get("Id", ""))) in attached:
+                continue
+            payee = (t.get("EntityRef") or t.get("VendorRef") or {}).get("name", "(no payee)")
+            missing.append({"type": entity, "id": t.get("Id"),
+                            "date": t.get("TxnDate", "?"), "payee": payee, "amount": amt})
+
+    missing.sort(key=lambda x: x["amount"], reverse=True)
+    lines = [f"## Transactions Missing Receipts — {start_date} to {end_date}",
+             f"*Threshold: {fmt(threshold)} (IRS substantiation guideline).*\n"]
+    if not missing:
+        lines.append(f"✅ Every expense at or above {fmt(threshold)} has a receipt "
+                     "attached in QuickBooks.")
+        return "\n".join(lines)
+    total = sum(m["amount"] for m in missing)
+    lines.append(f"**{len(missing)} transactions ({fmt(total)}) are missing a receipt:**\n")
+    lines.append("| Date | Payee | Amount | Transaction |")
+    lines.append("|---|---|---|---|")
+    for m in missing[:100]:
+        lines.append(f"| {m['date']} | {m['payee']} | {fmt(m['amount'])} | {m['type']} #{m['id']} |")
+    if len(missing) > 100:
+        lines.append(f"\n*(showing the 100 largest of {len(missing)})*")
+    lines.append("\n*Attach receipts with qb_upload_receipt or in QuickBooks. Lodging "
+                 "requires a receipt at any amount; keep documentation for every "
+                 "deduction you claim.*")
+    return "\n".join(lines)
+
+
+def _cdc_iter(cdc_response: dict):
+    """Yield transaction dicts (with an injected '_entity' key) from a
+    QuickBooks CDC response, whatever entity buckets it contains."""
+    for block in cdc_response.get("CDCResponse", []) or []:
+        for qr in block.get("QueryResponse", []) or []:
+            for key, rows in qr.items():
+                if isinstance(rows, list):
+                    for t in rows:
+                        if isinstance(t, dict):
+                            t = dict(t)
+                            t["_entity"] = key
+                            yield t
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_change_audit_trail(since_date: str = "", entities: str = "") -> str:
+    """What changed in the books since a date — created, updated, and **deleted**
+    transactions, via QuickBooks Change Data Capture. Answers "what changed since
+    I last closed this period." since_date: YYYY-MM-DD (default: 7 days ago;
+    QuickBooks allows up to ~31 days back). entities: comma-separated (default:
+    the common transaction types)."""
+    from datetime import date as _d, timedelta as _td
+    since = (since_date[:10] if since_date
+             else (_d.today() - _td(days=7)).isoformat())
+    ent = entities.strip() or ("Purchase,Bill,Invoice,JournalEntry,Payment,"
+                               "Deposit,CreditMemo,VendorCredit,BillPayment")
+    try:
+        r = await qb_request("GET", "cdc",
+                             params={"entities": ent, "changedSince": f"{since}T00:00:00"})
+    except Exception as e:
+        return (f"Change data capture unavailable: {e}. QuickBooks CDC allows a "
+                "lookback of up to ~31 days — pick a more recent since_date.")
+
+    created, updated, deleted = [], [], []
+    for t in _cdc_iter(r):
+        status = str(t.get("status", "")).lower()
+        meta = t.get("MetaData", {})
+        rec = {
+            "entity": t.get("_entity", "?"), "id": t.get("Id", "?"),
+            "name": (t.get("EntityRef") or t.get("VendorRef")
+                     or t.get("CustomerRef") or {}).get("name", ""),
+            "amount": t.get("TotalAmt", ""),
+            "created": (meta.get("CreateTime", "") or "")[:10],
+            "updated": (meta.get("LastUpdatedTime", "") or "")[:10],
+        }
+        if status == "deleted":
+            deleted.append(rec)
+        elif rec["created"] and rec["created"] >= since:
+            created.append(rec)
+        else:
+            updated.append(rec)
+
+    def _amt(a):
+        try:
+            return fmt(float(a))
+        except (ValueError, TypeError):
+            return "—"
+
+    lines = [f"## Change Audit Trail — since {since}\n",
+             f"*Created {len(created)} · Updated {len(updated)} · "
+             f"**Deleted {len(deleted)}** (QuickBooks Change Data Capture).*"]
+    if not (created or updated or deleted):
+        lines.append("\nNo transaction changes recorded in this window.")
+        return "\n".join(lines)
+    for title, group in (("🗑️ Deleted", deleted), ("🆕 Created", created),
+                         ("✏️ Updated", updated)):
+        if not group:
+            continue
+        lines.append(f"\n### {title} ({len(group)})")
+        lines.append("| Entity | # | Party | Amount | Changed |")
+        lines.append("|---|---|---|---|---|")
+        for c in group[:50]:
+            lines.append(f"| {c['entity']} | {c['id']} | {c['name'] or '—'} | "
+                         f"{_amt(c['amount'])} | {c['updated'] or c['created']} |")
+        if len(group) > 50:
+            lines.append(f"\n*(showing 50 of {len(group)})*")
+    lines.append("\n*Deleted transactions are the ones to review first when the "
+                 "books changed after a close. QuickBooks CDC reflects the last "
+                 "~31 days.*")
     return "\n".join(lines)
 
 
@@ -5539,7 +6003,7 @@ async def qb_list_journal_entries_by_memo(search_text: str, max_results: int = 5
     search_text = _sanitize_input(search_text, "search_text")
 
     # QB query doesn't support LIKE on PrivateNote, so we fetch all and filter
-    result = await qb_query(f"SELECT * FROM JournalEntry MAXRESULTS 500")
+    result = await qb_query_all(f"SELECT * FROM JournalEntry MAXRESULTS 500")
     all_jes = result.get("QueryResponse", {}).get("JournalEntry", [])
 
     if not all_jes:
@@ -5583,11 +6047,12 @@ async def qb_list_journal_entries_by_memo(search_text: str, max_results: int = 5
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_account_transactions(account_name: str, start_date: str, end_date: str, max_results: int = 100) -> str:
+async def qb_account_transactions(account_name: str, start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
     """Get all transactions for a specific account within a date range.
     Shows every debit and credit hitting the account with vendor names, memos,
     transaction types, and IDs. Useful for account reconciliation and verifying balances.
-    account_name: exact or partial account name."""
+    account_name: exact or partial account name. Dates YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     account_name = _sanitize_input(account_name, "account_name")
     start_date = _validate_date(start_date, "start_date")
     end_date = _validate_date(end_date, "end_date")
@@ -6029,25 +6494,25 @@ async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 0
     threshold = _validate_amount(threshold, "threshold")
 
     # Get all vendors
-    vendor_result = await qb_query("SELECT * FROM Vendor MAXRESULTS 500")
+    vendor_result = await qb_query_all("SELECT * FROM Vendor MAXRESULTS 500")
     vendors = vendor_result.get("QueryResponse", {}).get("Vendor", [])
     if not vendors:
         return "No vendors found."
 
     # Get all purchases for the year
-    purchase_result = await qb_query(
+    purchase_result = await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )
     purchases = purchase_result.get("QueryResponse", {}).get("Purchase", [])
 
     # Get all bill payments for the year
-    billpay_result = await qb_query(
+    billpay_result = await qb_query_all(
         f"SELECT * FROM BillPayment WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )
     bill_payments = billpay_result.get("QueryResponse", {}).get("BillPayment", [])
 
     # Get all bills for the year (for bill-based payments)
-    bill_result = await qb_query(
+    bill_result = await qb_query_all(
         f"SELECT * FROM Bill WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )
     bills = bill_result.get("QueryResponse", {}).get("Bill", [])
@@ -6090,69 +6555,308 @@ async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 0
             vendor_map[vid]["total_paid"] += amount
             vendor_map[vid]["payment_count"] += 1
 
-    # Filter vendors above threshold
-    reportable = []
-    for vid, info in vendor_map.items():
-        if info["total_paid"] >= threshold:
-            reportable.append(info)
-
+    # 1099-NEC applies ONLY to vendors the business marked "Track payments for
+    # 1099" in QuickBooks (the Vendor1099 flag). Filtering by dollar amount
+    # alone wrongly swept in banks and credit-card/loan payments, SaaS
+    # corporations, product purchases, and owner draws — none of which are
+    # 1099-NEC reportable. Respect the flag: reportable = flagged vendors only.
+    any_flagged = any(info["vendor1099"] for info in vendor_map.values())
+    reportable, review = [], []
+    for info in vendor_map.values():
+        if info["total_paid"] < threshold:
+            continue
+        (reportable if info["vendor1099"] else review).append(info)
     reportable.sort(key=lambda x: x["total_paid"], reverse=True)
+    review.sort(key=lambda x: x["total_paid"], reverse=True)
 
     lines = [
         f"## 1099-NEC Contractor Report — {tax_year}",
-        f"**Threshold:** {fmt(threshold)}",
-        f"**Reportable Vendors:** {len(reportable)}\n",
+        f"**Threshold:** {fmt(threshold)} · reportable = vendors marked "
+        "“Track payments for 1099” in QuickBooks",
+        f"**Reportable vendors:** {len(reportable)}\n",
     ]
 
     grand_total = 0.0
     missing_tin = 0
     missing_addr = 0
 
-    for i, v in enumerate(reportable, 1):
-        grand_total += v["total_paid"]
-        tin_status = "✅ On file" if v["tin"] else "⚠️ MISSING"
-        flag_1099 = "Yes" if v["vendor1099"] else "No"
+    if reportable:
+        for i, v in enumerate(reportable, 1):
+            grand_total += v["total_paid"]
+            if not v["tin"]:
+                missing_tin += 1
+            if not v["address"]:
+                missing_addr += 1
+            tin_status = "✅ On file" if v["tin"] else "⚠️ MISSING"
+            lines.append(f"### {i}. {v['name']}")
+            lines.append(f"  **Total Paid:** {fmt(v['total_paid'])} ({v['payment_count']} payments)")
+            lines.append(f"  **TIN Status:** {tin_status}")
+            if v["company"]:
+                lines.append(f"  **Company:** {v['company']}")
+            lines.append("  **Address:** " + (v["address"] or
+                         "⚠️ MISSING — needed for 1099-NEC filing"))
+            if v["email"]:
+                lines.append(f"  **Email:** {v['email']}")
+            lines.append("")
+    elif not any_flagged:
+        lines.append(
+            "No vendors are marked for 1099 tracking in QuickBooks, so there is "
+            "nothing to report yet. In QuickBooks, open each **contractor** vendor "
+            "→ **Edit** → check **“Track payments for 1099”** (and collect "
+            "a W-9), then re-run. 1099-NEC covers non-employee **compensation** — "
+            "not corporations, credit-card/loan payments, product purchases, or "
+            "owner draws.\n")
+    else:
+        lines.append("No 1099-flagged vendors reached the threshold this year.\n")
 
-        if not v["tin"]:
-            missing_tin += 1
-        if not v["address"]:
-            missing_addr += 1
-
-        lines.append(f"### {i}. {v['name']}")
-        lines.append(f"  **Total Paid:** {fmt(v['total_paid'])} ({v['payment_count']} payments)")
-        lines.append(f"  **1099 Vendor Flag:** {flag_1099}")
-        lines.append(f"  **TIN Status:** {tin_status}")
-        if v["company"]:
-            lines.append(f"  **Company:** {v['company']}")
-        if v["address"]:
-            lines.append(f"  **Address:** {v['address']}")
-        else:
-            lines.append(f"  **Address:** ⚠️ MISSING — needed for 1099-NEC filing")
-        if v["email"]:
-            lines.append(f"  **Email:** {v['email']}")
+    # Advisory review list: paid over threshold but NOT flagged. These are NOT
+    # automatically reportable — most (banks, corporations, goods, owner draws)
+    # are excluded from 1099-NEC. Surfaced only so a real contractor that wasn't
+    # flagged can be caught and corrected in QuickBooks.
+    if review:
+        lines.append("---")
+        lines.append(f"### Not marked for 1099 — review ({len(review)})")
+        lines.append(
+            "*Paid over the threshold but not flagged in QuickBooks, so **not "
+            "counted above**. Corporations, product purchases, credit-card/loan "
+            "payments, and owner draws are not 1099-NEC reportable. If any below "
+            "is an individual/LLC you paid for services, mark them in QuickBooks "
+            "and re-run.*\n")
+        for v in review[:20]:
+            lines.append(f"  - {v['name']}: {fmt(v['total_paid'])} "
+                         f"({v['payment_count']} payments)")
         lines.append("")
 
     lines.extend([
         f"---",
         f"### Summary",
-        f"  Total reportable payments: {fmt(grand_total)}",
+        f"  Reportable (1099-flagged) payments: {fmt(grand_total)}",
         f"  Vendors requiring 1099-NEC: {len(reportable)}",
         f"  Missing TIN: {missing_tin}",
         f"  Missing address: {missing_addr}",
         "",
     ])
 
-    if missing_tin > 0 or missing_addr > 0:
+    if reportable and (missing_tin > 0 or missing_addr > 0):
         lines.append("### ⚠️ Action Items")
         if missing_tin > 0:
-            lines.append(f"  - Collect W-9 from {missing_tin} vendor(s) to get TIN")
+            lines.append(f"  - Collect W-9 from {missing_tin} flagged vendor(s) to get TIN")
         if missing_addr > 0:
-            lines.append(f"  - Collect mailing address from {missing_addr} vendor(s)")
+            lines.append(f"  - Collect mailing address from {missing_addr} flagged vendor(s)")
         lines.append(f"  - 1099-NEC filing deadline: January 31, {int(tax_year)+1}")
         lines.append(f"  - Use IRS FIRE system or approved e-file provider")
 
-    _audit_log("1099_REPORT", f"year={tax_year} vendors={len(reportable)} total={fmt(grand_total)}")
+    _audit_log("1099_REPORT", f"year={tax_year} reportable={len(reportable)} total={fmt(grand_total)}")
     return "\n".join(lines) + tax_data_footer(int(tax_year))
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "Canadian payroll differs — hand T4/T4A summaries to your accountant.")
+async def qb_payroll_checklist(tax_year: str = "") -> str:
+    """Payroll boundary checklist. AccountingQB does NOT run payroll or compute
+    payroll taxes — this inspects the books for payroll signals (wages, payroll-
+    tax liability accounts, 1099 contractors) and produces the checklist to hand
+    your CPA / payroll provider: W-2 vs 1099 classification, 941/940 reconciliation,
+    and year-end forms. tax_year: YYYY (default: current year)."""
+    from datetime import date as _d
+    if not tax_year:
+        tax_year = str(_d.today().year)
+    start, end = f"{tax_year}-01-01", f"{tax_year}-12-31"
+
+    pl = await qb_request("GET", "reports/ProfitAndLoss",
+                          params={"start_date": start, "end_date": end})
+    exp = _extract_pl_expense_accounts(pl)
+    wage_accts = {n: v for n, v in exp.items()
+                  if _re.search(r"\b(wage|salar|payroll)", n, _re.IGNORECASE)}
+    total_wages = sum(abs(v) for v in wage_accts.values())
+
+    payroll_liabs = {}
+    try:
+        liabs = await qb_query(
+            "SELECT * FROM Account WHERE AccountType IN ('Other Current Liability',"
+            "'Long Term Liability') MAXRESULTS 100")
+        for a in liabs.get("QueryResponse", {}).get("Account", []):
+            nm = a.get("Name", "")
+            if _re.search(r"payroll|941|940|futa|suta|fica|withhold|employ",
+                          nm, _re.IGNORECASE):
+                payroll_liabs[nm] = float(a.get("CurrentBalance", 0) or 0)
+    except Exception as e:
+        logger.debug(f"payroll liability query failed: {e}")
+
+    try:
+        vres = await qb_query("SELECT * FROM Vendor WHERE Vendor1099 = true MAXRESULTS 100")
+        contractors_1099 = len(vres.get("QueryResponse", {}).get("Vendor", []))
+    except Exception:
+        contractors_1099 = 0
+
+    lines = [
+        f"## Payroll Boundary Checklist — {tax_year}\n",
+        "AccountingQB does **not** run payroll, compute payroll taxes, or file "
+        "employment returns. Here's what your books show and what to hand your CPA "
+        "or payroll provider.\n",
+        "### What the books show",
+    ]
+    if wage_accts:
+        lines.append(f"- **Wages/salaries booked:** {fmt(total_wages)} across "
+                     f"{len(wage_accts)} account(s) — indicates **W-2 employees**.")
+        for n, v in sorted(wage_accts.items(), key=lambda x: -abs(x[1])):
+            lines.append(f"  - {n}: {fmt(abs(v))}")
+    else:
+        lines.append("- No wages/salary expense detected — likely no W-2 employees "
+                     "(a Schedule C owner's draws are **not** wages).")
+    if payroll_liabs:
+        lines.append(f"- **Payroll-tax liability accounts:** {len(payroll_liabs)} "
+                     "(year-end balances should tie to filed 941/940).")
+        for n, v in payroll_liabs.items():
+            lines.append(f"  - {n}: {fmt(v)}")
+    lines.append(f"- **Contractors flagged for 1099:** {contractors_1099} "
+                 "(run qb_1099_contractor_report).")
+
+    lines.append("\n### Hand to your CPA / payroll provider")
+    lines.append("- [ ] W-2 vs 1099 classification confirmed for every worker "
+                 "(misclassification is the #1 payroll audit issue)")
+    if wage_accts:
+        lines.append("- [ ] Form 941 (quarterly) reconciles to booked wages + withholding")
+        lines.append("- [ ] Form 940 (FUTA, annual) filed")
+        lines.append("- [ ] W-2 / W-3 issued to employees (due Jan 31)")
+        lines.append("- [ ] Payroll-tax liability accounts cleared after each deposit")
+    lines.append("- [ ] 1099-NEC issued to reportable contractors (due Jan 31)")
+    lines.append("- [ ] State unemployment (SUTA) + withholding returns filed")
+
+    lines.append("\n*Boundary checklist, not payroll-tax advice. Use a payroll "
+                 "provider (Gusto, QuickBooks Payroll, ADP) or your CPA to compute "
+                 "and file employment taxes.*")
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_bank_reconciliation(account_name: str, csv_data: str,
+                                 start_date: str = "", end_date: str = "",
+                                 tolerance_days: int = 4) -> str:
+    """Reconcile a bank / credit-card statement against the books. QuickBooks
+    Online's API does not expose cleared/reconciled status, so paste your
+    statement as CSV (columns like Date, Description, Amount) and this produces
+    the tie-out: matched, in-statement-not-in-books (missing entries to add), and
+    in-books-not-in-statement (uncleared / outstanding). account_name: the QB
+    account (for context). tolerance_days: date window for a match (default 4).
+    Dates default to the statement's own range."""
+    import csv as _csv
+    import io as _io
+
+    reader = _csv.reader(_io.StringIO(csv_data.strip()))
+    rows = [r for r in reader if any(c.strip() for c in r)]
+    if not rows:
+        return "No CSV rows found. Provide columns like Date, Description, Amount."
+    hdr = [h.strip().lower() for h in rows[0]]
+
+    def _col(*names):
+        for i, h in enumerate(hdr):
+            if any(n in h for n in names):
+                return i
+        return -1
+
+    di, ai, ni = _col("date"), _col("amount", "debit", "credit"), _col("desc", "memo", "payee", "name")
+    body = rows[1:] if (di >= 0 or ai >= 0) else rows
+    if di < 0:
+        di = 0
+    if ai < 0:
+        ai = len(hdr) - 1
+
+    def _num(x):
+        x = x.strip().replace("$", "").replace(",", "")
+        neg = x.startswith("(") and x.endswith(")")
+        x = x.strip("()")
+        try:
+            v = float(x)
+            return -v if neg else v
+        except ValueError:
+            return None
+
+    bank = []
+    for r in body:
+        if len(r) <= max(di, ai):
+            continue
+        amt = _num(r[ai])
+        if amt is None:
+            continue
+        bank.append({"date": r[di].strip()[:10],
+                     "desc": (r[ni].strip() if 0 <= ni < len(r) else ""),
+                     "amount": amt})
+    if not bank:
+        return ("Could not parse amounts from the CSV — expected a numeric Amount "
+                "column (Date, Description, Amount).")
+
+    dates = [b["date"] for b in bank if b["date"]]
+    start = start_date or (min(dates) if dates else "")
+    end = end_date or (max(dates) if dates else "")
+
+    book = []
+    for entity in ("Purchase", "BillPayment", "Deposit", "Payment",
+                   "SalesReceipt", "JournalEntry"):
+        try:
+            r = await qb_query_all(f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
+                               f"AND TxnDate <= '{end}' MAXRESULTS 1000")
+            for t in r.get("QueryResponse", {}).get(entity, []):
+                amt = float(t.get("TotalAmt", 0) or 0)
+                if amt == 0:
+                    continue
+                party = (t.get("EntityRef") or t.get("VendorRef")
+                         or t.get("CustomerRef") or {}).get("name", "")
+                book.append({"date": (t.get("TxnDate", "") or "")[:10], "amount": amt,
+                             "party": party, "type": entity, "id": t.get("Id"),
+                             "matched": False})
+        except Exception as e:
+            logger.debug(f"{entity} query failed in bank rec: {e}")
+
+    def _pd(x):
+        try:
+            return datetime.strptime((x or "")[:10], "%Y-%m-%d")
+        except ValueError:
+            return None
+
+    matched, unmatched_bank = [], []
+    for b in bank:
+        bd, target = _pd(b["date"]), abs(b["amount"])
+        hit = None
+        for k in book:
+            if k["matched"] or abs(abs(k["amount"]) - target) >= 0.01:
+                continue
+            kd = _pd(k["date"])
+            if (bd and kd and abs((kd - bd).days) <= tolerance_days) or not (bd and kd):
+                hit = k
+                break
+        if hit:
+            hit["matched"] = True
+            matched.append(b)
+        else:
+            unmatched_bank.append(b)
+    unmatched_book = [k for k in book if not k["matched"]]
+
+    lines = [
+        f"## Bank Reconciliation — {account_name or 'account'} ({start} to {end})",
+        f"*Statement lines: {len(bank)} · book transactions: {len(book)}*\n",
+        f"- ✅ **Matched:** {len(matched)}",
+        f"- 🔴 **In statement, not in books:** {len(unmatched_bank)} (missing entries to add)",
+        f"- 🟡 **In books, not in statement:** {len(unmatched_book)} (uncleared / outstanding)\n",
+    ]
+    if unmatched_bank:
+        lines.append("### 🔴 On the statement but not in QuickBooks")
+        lines.append("| Date | Description | Amount |")
+        lines.append("|---|---|---|")
+        for b in unmatched_bank[:50]:
+            lines.append(f"| {b['date']} | {b['desc'][:40]} | {fmt(b['amount'])} |")
+    if unmatched_book:
+        lines.append("\n### 🟡 In QuickBooks but not on the statement (uncleared)")
+        lines.append("| Date | Party | Amount | Transaction |")
+        lines.append("|---|---|---|---|")
+        for k in unmatched_book[:50]:
+            lines.append(f"| {k['date']} | {k['party'] or '—'} | {fmt(k['amount'])} "
+                         f"| {k['type']} #{k['id']} |")
+    lines.append("\n*Matched by amount within the date tolerance — verify before "
+                 "clearing. QuickBooks Online's API does not expose cleared/"
+                 "reconciled status, which is why this reconciles against your "
+                 "statement CSV.*")
+    return "\n".join(lines)
 
 
 # ===================================================================
@@ -6178,13 +6882,13 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
     z_limit = z_thresholds[sensitivity]
 
     # Fetch all purchases
-    purchase_result = await qb_query(
+    purchase_result = await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 1000"
     )
     purchases = purchase_result.get("QueryResponse", {}).get("Purchase", [])
 
     # Fetch bills
-    bill_result = await qb_query(
+    bill_result = await qb_query_all(
         f"SELECT * FROM Bill WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 1000"
     )
     bills = bill_result.get("QueryResponse", {}).get("Bill", [])
@@ -6266,6 +6970,21 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
     if not amounts:
         return "No non-zero transactions found."
 
+    # Recurring/subscription vendors: automated billing (SaaS, usage-based) runs
+    # on any day of the week and often repeats at identical amounts on adjacent
+    # days, so flagging those as "weekend" or "duplicate" is pure noise. Treat a
+    # vendor as recurring if it appears >=3 times in the period, or its expense
+    # account looks like software/subscription/SaaS.
+    from collections import Counter
+    _vendor_freq = Counter(t["vendor"] for t in biz_txns if t["vendor"] != "Unknown")
+    _saas_re = _re.compile(
+        r"\b(software|subscription|saas|hosting|cloud|web services|app|dues)\b",
+        _re.IGNORECASE)
+    recurring_vendors = {v for v, c in _vendor_freq.items() if c >= 3} | {
+        t["vendor"] for t in biz_txns
+        if t["vendor"] != "Unknown" and _saas_re.search(t.get("account_category", ""))
+    }
+
     # Statistical analysis
     import statistics
     mean_amt = statistics.mean(amounts)
@@ -6295,13 +7014,17 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
     for i in range(len(sorted_txns) - 1):
         a = sorted_txns[i]
         b = sorted_txns[i + 1]
-        if a["vendor"] == b["vendor"] and a["vendor"] != "Unknown":
+        if (a["vendor"] == b["vendor"] and a["vendor"] != "Unknown"
+                and a["vendor"] not in recurring_vendors):
             try:
                 date_a = datetime.strptime(a["date"], "%Y-%m-%d")
                 date_b = datetime.strptime(b["date"], "%Y-%m-%d")
                 day_diff = abs((date_b - date_a).days)
                 amt_diff = abs(a["amount"] - b["amount"])
-                if day_diff <= 3 and amt_diff < 0.01 and a["amount"] > 0:
+                # Same vendor + same amount + SAME DAY is the real double-charge
+                # signature. Adjacent-day identical charges are normal usage-based
+                # billing (Cursor/Windsurf), not duplicates.
+                if day_diff == 0 and amt_diff < 0.01 and a["amount"] > 0:
                     anomalies.append({
                         "category": "Potential Duplicate",
                         "severity": "HIGH",
@@ -6321,8 +7044,11 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
                 "txn": t,
             })
 
-    # 4. Weekend transactions — skip equity (people pay CC bills on weekends)
+    # 4. Weekend transactions — skip equity (CC bills) and recurring/subscription
+    # vendors (automated billing runs on weekends; flagging it is noise).
     for t in biz_txns:
+        if t["vendor"] in recurring_vendors:
+            continue
         try:
             d = datetime.strptime(t["date"], "%Y-%m-%d")
             if d.weekday() >= 5:  # Saturday=5, Sunday=6
@@ -6654,10 +7380,11 @@ async def qb_create_vendor_credit(vendor_name: str, amount: float, account_name:
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_sales_tax_summary(start_date: str, end_date: str) -> str:
+async def qb_sales_tax_summary(start_date: str = "", end_date: str = "") -> str:
     """Generate a sales tax summary report for a date range.
     Shows taxable sales, tax collected, tax rates, and liability by jurisdiction.
-    Useful for state/local sales tax filing. start_date/end_date in YYYY-MM-DD."""
+    Useful for state/local sales tax filing. Dates YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     start_date = _validate_date(start_date, "start_date")
     end_date = _validate_date(end_date, "end_date")
 
@@ -6672,15 +7399,25 @@ async def qb_sales_tax_summary(start_date: str, end_date: str) -> str:
         ]
 
     # Get invoices and sales receipts with tax
-    inv_result = await qb_query(
+    inv_result = await qb_query_all(
         f"SELECT * FROM Invoice WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
     )
     invoices = inv_result.get("QueryResponse", {}).get("Invoice", [])
 
-    sr_result = await qb_query(
+    sr_result = await qb_query_all(
         f"SELECT * FROM SalesReceipt WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
     )
     sales_receipts = sr_result.get("QueryResponse", {}).get("SalesReceipt", [])
+
+    # Customer cash refunds net back out of taxable sales and tax collected.
+    refunds = []
+    try:
+        ref_result = await qb_query_all(
+            f"SELECT * FROM RefundReceipt WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
+        )
+        refunds = ref_result.get("QueryResponse", {}).get("RefundReceipt", [])
+    except Exception as e:
+        logger.debug(f"RefundReceipt query failed: {e}")
 
     # Try to get the TaxAgency / TaxCode info
     tax_code_result = await qb_query("SELECT * FROM TaxCode MAXRESULTS 50")
@@ -6704,17 +7441,17 @@ async def qb_sales_tax_summary(start_date: str, end_date: str) -> str:
     total_gross = 0.0
     tax_by_rate = {}
 
-    for txn_list in [invoices, sales_receipts]:
+    for txn_list, sign in [(invoices, 1), (sales_receipts, 1), (refunds, -1)]:
         for txn in txn_list:
             total_amt = float(txn.get("TotalAmt", 0))
             tax_amt = float(txn.get("TxnTaxDetail", {}).get("TotalTax", 0))
-            total_gross += total_amt
-            total_tax += tax_amt
+            total_gross += total_amt * sign
+            total_tax += tax_amt * sign
 
             if tax_amt > 0:
-                total_taxable += (total_amt - tax_amt)
+                total_taxable += (total_amt - tax_amt) * sign
             else:
-                total_exempt += total_amt
+                total_exempt += total_amt * sign
 
             # Parse tax detail lines
             tax_lines = txn.get("TxnTaxDetail", {}).get("TaxLine", [])
@@ -6733,13 +7470,14 @@ async def qb_sales_tax_summary(start_date: str, end_date: str) -> str:
                         "taxable_amount": 0.0,
                         "tax_collected": 0.0,
                     }
-                tax_by_rate[key]["taxable_amount"] += tax_on
-                tax_by_rate[key]["tax_collected"] += tax_charged
+                tax_by_rate[key]["taxable_amount"] += tax_on * sign
+                tax_by_rate[key]["tax_collected"] += tax_charged * sign
 
     lines = ca_note + [
         f"## Sales Tax Summary",
         f"**Period:** {start_date} to {end_date}",
-        f"**Invoices:** {len(invoices)} | **Sales Receipts:** {len(sales_receipts)}\n",
+        f"**Invoices:** {len(invoices)} | **Sales Receipts:** {len(sales_receipts)}"
+        + (f" | **Refunds (netted):** {len(refunds)}" if refunds else "") + "\n",
         f"### Totals",
         f"  Gross Sales: {fmt(total_gross)}",
         f"  Taxable Sales: {fmt(total_taxable)}",
@@ -6779,12 +7517,143 @@ async def _tax_agency_names() -> dict:
     """Map TaxAgency Id -> DisplayName (best effort; names are cosmetic)."""
     names = {}
     try:
-        result = await qb_query("SELECT * FROM TaxAgency MAXRESULTS 1000")
+        result = await qb_query_all("SELECT * FROM TaxAgency MAXRESULTS 1000")
         for ta in result.get("QueryResponse", {}).get("TaxAgency", []):
             names[str(ta.get("Id", ""))] = ta.get("DisplayName", "?")
     except Exception as e:
         logger.debug(f"TaxAgency lookup failed: {e}")
     return names
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "Economic nexus is US-specific; Canadian GST/HST registration differs.")
+async def qb_sales_tax_nexus(year: str = "", approaching_pct: int = 80) -> str:
+    """Screen for state sales-tax ECONOMIC NEXUS exposure and show sales-tax
+    liability by state. Rolls up your sales by DESTINATION state (ship-to) and
+    compares to each state's sourced post-Wayfair threshold. This is a screening
+    reference, NOT a determination — confirm with the state and a tax professional
+    before registering. year: YYYY (default: current). approaching_pct: warn at
+    this % of a threshold (default 80)."""
+    from datetime import date as _d
+    if not year:
+        year = str(_d.today().year)
+    start, end = f"{year}-01-01", f"{year}-12-31"
+
+    nexus = _tt.TABLES["US_SALES_TAX_NEXUS"]
+    thresholds = nexus["values"]
+
+    # Customer -> state fallback (used when a sale has no ship/bill address)
+    cust_state = {}
+    try:
+        cres = await qb_query_all("SELECT * FROM Customer MAXRESULTS 1000")
+        for c in cres.get("QueryResponse", {}).get("Customer", []):
+            st = (c.get("ShipAddr") or c.get("BillAddr") or {}).get("CountrySubDivisionCode", "")
+            if st:
+                cust_state[c.get("Id", "")] = st.upper()
+    except Exception as e:
+        logger.debug(f"customer state map failed: {e}")
+
+    by_state = {}  # state -> {sales, txns, tax}
+    # Invoices + sales receipts add sales; RefundReceipts (customer cash refunds)
+    # net back out, so a refunded sale doesn't push a state over its threshold or
+    # overstate liability. A refund isn't a new sale, so it doesn't add to txns.
+    for entity, sign in (("Invoice", 1), ("SalesReceipt", 1), ("RefundReceipt", -1)):
+        try:
+            r = await qb_query_all(f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
+                               f"AND TxnDate <= '{end}' MAXRESULTS 1000")
+        except Exception as e:
+            logger.debug(f"nexus {entity} query failed: {e}")
+            continue
+        for t in r.get("QueryResponse", {}).get(entity, []):
+            st = ((t.get("ShipAddr") or {}).get("CountrySubDivisionCode")
+                  or (t.get("BillAddr") or {}).get("CountrySubDivisionCode")
+                  or cust_state.get((t.get("CustomerRef") or {}).get("value", ""), ""))
+            st = (st or "").upper()
+            if not st:
+                continue
+            d = by_state.setdefault(st, {"sales": 0.0, "txns": 0, "tax": 0.0})
+            d["sales"] += float(t.get("TotalAmt", 0) or 0) * sign
+            if sign > 0:
+                d["txns"] += 1
+            d["tax"] += float((t.get("TxnTaxDetail") or {}).get("TotalTax", 0) or 0) * sign
+
+    if not by_state:
+        return (f"No ship-to state found on invoices/sales receipts for {year}. "
+                "Economic-nexus screening needs destination (ship-to or bill-to) "
+                "states on your sales — add them in QuickBooks and re-run.")
+
+    exposure, approaching, below, untracked = [], [], [], []
+    for st, d in by_state.items():
+        if st in _tt._NO_SALES_TAX_STATES:
+            continue
+        rule = thresholds.get(st)
+        if not rule:
+            untracked.append(st)
+            continue
+        sales_ok = d["sales"] >= rule["sales"]
+        txn_ok = rule["txns"] is not None and d["txns"] >= rule["txns"]
+        met = (sales_ok and (rule["txns"] is None or txn_ok)) if rule["basis"] == "and" \
+            else (sales_ok or txn_ok)
+        pct = (d["sales"] / rule["sales"] * 100) if rule["sales"] else 0
+        rec = (st, d, rule, pct)
+        if met:
+            exposure.append(rec)
+        elif pct >= approaching_pct or (rule["txns"] and
+                                        d["txns"] >= rule["txns"] * approaching_pct / 100):
+            approaching.append(rec)
+        else:
+            below.append(rec)
+
+    def _thr(rule):
+        s = fmt(rule["sales"])
+        return f"{s} {rule['basis']} {rule['txns']} txns" if rule["txns"] else f"{s} (sales only)"
+
+    lines = [
+        f"## Sales-Tax Economic-Nexus Screen — {year}",
+        f"*Sales rolled up by ship-to state vs each state's post-Wayfair threshold. "
+        f"A screening reference, **not** a determination. Thresholds verified "
+        f"{nexus['verified']} ([source]({nexus['source_url']})).*\n",
+    ]
+    if exposure:
+        lines.append(f"### 🔴 Likely nexus — over the threshold ({len(exposure)})")
+        lines.append("| State | Your sales | Txns | Threshold |")
+        lines.append("|---|---|---|---|")
+        for st, d, rule, _ in sorted(exposure, key=lambda x: -x[1]["sales"]):
+            lines.append(f"| {st} | {fmt(d['sales'])} | {d['txns']} | {_thr(rule)} |")
+    if approaching:
+        lines.append(f"\n### 🟡 Approaching (≥{approaching_pct}% of threshold) ({len(approaching)})")
+        lines.append("| State | Your sales | Txns | Threshold | % |")
+        lines.append("|---|---|---|---|---|")
+        for st, d, rule, pct in sorted(approaching, key=lambda x: -x[3]):
+            lines.append(f"| {st} | {fmt(d['sales'])} | {d['txns']} | {_thr(rule)} | {pct:.0f}% |")
+    if below:
+        lines.append(f"\n### 🟢 Below threshold ({len(below)}): " +
+                     ", ".join(f"{st} ({fmt(d['sales'])})"
+                               for st, d, _, _ in sorted(below, key=lambda x: -x[1]["sales"])))
+    if untracked:
+        lines.append(f"\n### ⚠️ Not yet assessed ({len(untracked)}): " +
+                     ", ".join(sorted(untracked)) +
+                     " — no verified threshold on file; check the state DOR.")
+
+    total_tax = sum(d["tax"] for d in by_state.values())
+    lines.append(f"\n### Sales tax collected (liability) — {fmt(total_tax)} total")
+    tax_states = [(st, d) for st, d in by_state.items() if d["tax"] > 0]
+    if tax_states:
+        lines.append("| State | Tax collected | Sales |")
+        lines.append("|---|---|---|")
+        for st, d in sorted(tax_states, key=lambda x: -x[1]["tax"]):
+            lines.append(f"| {st} | {fmt(d['tax'])} | {fmt(d['sales'])} |")
+    lines.append("\n*Tax collected is money you owe the state — verify each "
+                 "jurisdiction's filing frequency and due dates in the state portal "
+                 "(QuickBooks' API doesn't expose remittance/filed status). Run "
+                 "qb_sales_tax_summary for the by-agency breakdown.*")
+    lines.append("\n*Nexus edges: marketplace-facilitated sales (Amazon/Etsy) "
+                 "usually don't count toward your own threshold; exempt/resale "
+                 "sales don't count; the measurement window (prior vs current "
+                 "calendar year) varies by state. This screen counts all ship-to "
+                 "sales (net of customer refunds) — a flag to investigate, not a "
+                 "final answer.*")
+    return "\n".join(lines) + tax_data_footer()
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -6794,7 +7663,7 @@ async def qb_list_tax_codes() -> str:
     create tools (qb_create_invoice, qb_create_expense, qb_create_bill, ...)."""
     region_info = await _get_region()
 
-    tc_result = await qb_query("SELECT * FROM TaxCode MAXRESULTS 1000")
+    tc_result = await qb_query_all("SELECT * FROM TaxCode MAXRESULTS 1000")
     tax_codes = [
         tc for tc in tc_result.get("QueryResponse", {}).get("TaxCode", [])
         if tc.get("Active", True)
@@ -6802,7 +7671,7 @@ async def qb_list_tax_codes() -> str:
     if not tax_codes:
         return "No tax codes found for this company."
 
-    tr_result = await qb_query("SELECT * FROM TaxRate MAXRESULTS 1000")
+    tr_result = await qb_query_all("SELECT * FROM TaxRate MAXRESULTS 1000")
     tax_rates = tr_result.get("QueryResponse", {}).get("TaxRate", [])
     agency_names = await _tax_agency_names()
 
@@ -6864,7 +7733,7 @@ async def qb_list_tax_codes() -> str:
 async def qb_list_tax_rates() -> str:
     """List this company's individual sales tax rates (rate % and tax agency).
     Tax codes (see qb_list_tax_codes) combine one or more of these rates."""
-    tr_result = await qb_query("SELECT * FROM TaxRate MAXRESULTS 1000")
+    tr_result = await qb_query_all("SELECT * FROM TaxRate MAXRESULTS 1000")
     tax_rates = tr_result.get("QueryResponse", {}).get("TaxRate", [])
     if not tax_rates:
         return "No tax rates found for this company."
@@ -7026,13 +7895,18 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
     ])
 
     if avg_expenses > avg_income and avg_expenses > 0:
-        runway_months = current_cash / (avg_expenses - avg_income)
-        lines.append(f"  ⚠️ **Burn rate:** {fmt(avg_expenses - avg_income)}/month")
-        lines.append(f"  **Runway:** {runway_months:.1f} months")
-        if runway_months < 6:
-            lines.append(f"  🔴 **CRITICAL:** Less than 6 months of runway")
-        elif runway_months < 12:
-            lines.append(f"  🟡 **CAUTION:** Less than 12 months of runway")
+        burn = avg_expenses - avg_income
+        lines.append(f"  ⚠️ **Burn rate:** {fmt(burn)}/month")
+        if current_cash > 0:
+            runway_months = current_cash / burn
+            lines.append(f"  **Runway:** {runway_months:.1f} months")
+            if runway_months < 6:
+                lines.append(f"  🔴 **CRITICAL:** Less than 6 months of runway")
+            elif runway_months < 12:
+                lines.append(f"  🟡 **CAUTION:** Less than 12 months of runway")
+        else:
+            lines.append(f"  🔴 **No runway** — cash balance is {fmt(current_cash)} "
+                         f"(zero or negative) while burning {fmt(burn)}/month.")
     elif avg_income > avg_expenses:
         lines.append(f"  ✅ **Positive cash flow:** {fmt(avg_income - avg_expenses)}/month")
         lines.append(f"  Cash position growing — no runway concerns")
@@ -7062,12 +7936,12 @@ async def qb_profit_margin_analysis(start_date: str, end_date: str, group_by: st
         return "group_by must be 'customer' or 'item'."
 
     # Get invoices and sales receipts
-    inv_result = await qb_query(
+    inv_result = await qb_query_all(
         f"SELECT * FROM Invoice WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
     )
     invoices = inv_result.get("QueryResponse", {}).get("Invoice", [])
 
-    sr_result = await qb_query(
+    sr_result = await qb_query_all(
         f"SELECT * FROM SalesReceipt WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
     )
     sales_receipts = sr_result.get("QueryResponse", {}).get("SalesReceipt", [])
@@ -7220,7 +8094,7 @@ async def qb_budget_vs_actual(fiscal_year: str = "2025") -> str:
 
     # Get actual account balances
     actual_by_acct = {}
-    accts_result = await qb_query("SELECT * FROM Account MAXRESULTS 200")
+    accts_result = await qb_query_all("SELECT * FROM Account MAXRESULTS 200")
     for a in accts_result.get("QueryResponse", {}).get("Account", []):
         actual_by_acct[a["Name"]] = float(a.get("CurrentBalance", 0))
 
@@ -7408,12 +8282,12 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
     score = 100  # start perfect, deduct for issues
 
     # --- 1. Unknown/missing vendor transactions (split active vs deleted accounts) ---
-    purchases = (await qb_query(
+    purchases = (await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )).get("QueryResponse", {}).get("Purchase", [])
 
     # Build active account lookup
-    all_accounts_raw = (await qb_query(
+    all_accounts_raw = (await qb_query_all(
         "SELECT Id, Name, Active FROM Account MAXRESULTS 500"
     )).get("QueryResponse", {}).get("Account", [])
     active_account_ids = {a["Id"] for a in all_accounts_raw if a.get("Active", True)}
@@ -7458,7 +8332,7 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
         )
 
     # --- 2. Uncategorized transactions ---
-    all_accounts = (await qb_query(
+    all_accounts = (await qb_query_all(
         "SELECT * FROM Account MAXRESULTS 200"
     )).get("QueryResponse", {}).get("Account", [])
     # Merge with raw account data if needed
@@ -7498,7 +8372,7 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
         passed.append("✅ Undeposited Funds account is clear")
 
     # --- 4. Open/overdue invoices ---
-    invoices = (await qb_query(
+    invoices = (await qb_query_all(
         f"SELECT * FROM Invoice WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
     )).get("QueryResponse", {}).get("Invoice", [])
 
@@ -7513,7 +8387,7 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
         passed.append("✅ No unpaid invoices")
 
     # --- 5. Open bills (AP) ---
-    bills = (await qb_query(
+    bills = (await qb_query_all(
         f"SELECT * FROM Bill WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
     )).get("QueryResponse", {}).get("Bill", [])
 
@@ -7568,7 +8442,7 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
         passed.append("✅ No significant duplicate patterns detected")
 
     # --- 8. Missing tax info (1099 readiness) ---
-    vendors = (await qb_query(
+    vendors = (await qb_query_all(
         "SELECT * FROM Vendor MAXRESULTS 200"
     )).get("QueryResponse", {}).get("Vendor", [])
 
@@ -7649,7 +8523,7 @@ async def qb_unknown_vendor_report(start_date: str = "", end_date: str = "", max
     purchases = (await qb_query(query)).get("QueryResponse", {}).get("Purchase", [])
 
     # Build active account lookup
-    all_accounts = (await qb_query(
+    all_accounts = (await qb_query_all(
         "SELECT Id, Name, Active FROM Account MAXRESULTS 500"
     )).get("QueryResponse", {}).get("Account", [])
     active_account_ids = {a["Id"] for a in all_accounts if a.get("Active", True)}
@@ -7926,15 +8800,15 @@ async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
     warnings_count = 0
 
     # --- 1. Transaction volume ---
-    purchases = (await qb_query(
+    purchases = (await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )).get("QueryResponse", {}).get("Purchase", [])
 
-    deposits = (await qb_query(
+    deposits = (await qb_query_all(
         f"SELECT * FROM Deposit WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
     )).get("QueryResponse", {}).get("Deposit", [])
 
-    journals = (await qb_query(
+    journals = (await qb_query_all(
         f"SELECT * FROM JournalEntry WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
     )).get("QueryResponse", {}).get("JournalEntry", [])
 
@@ -7956,7 +8830,7 @@ async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
         checklist.append("✅ All purchases have vendors assigned")
 
     # --- 3. Uncategorized amounts ---
-    all_accounts = (await qb_query(
+    all_accounts = (await qb_query_all(
         "SELECT * FROM Account MAXRESULTS 200"
     )).get("QueryResponse", {}).get("Account", [])
 
@@ -8589,7 +9463,7 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
 
     # ---- Resolve the tax agency for the reports/TaxSummary endpoint ----
     try:
-        agencies = (await qb_query("SELECT * FROM TaxAgency MAXRESULTS 1000")) \
+        agencies = (await qb_query_all("SELECT * FROM TaxAgency MAXRESULTS 1000")) \
             .get("QueryResponse", {}).get("TaxAgency", [])
     except Exception as e:
         logger.debug(f"TaxAgency query failed: {e}")
@@ -8648,7 +9522,7 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
     line_103 = 0.0  # GST/HST collected (TxnTaxDetail.TotalTax on sales docs)
     sales_count = 0
     for entity in ("Invoice", "SalesReceipt"):
-        result = await qb_query(
+        result = await qb_query_all(
             f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' "
             f"AND TxnDate <= '{end_date}' MAXRESULTS 1000"
         )
@@ -8663,7 +9537,7 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
     meals_restricted = 0.0  # disallowed half of meals & entertainment GST/HST
     purchase_count = 0
     for entity in ("Purchase", "Bill"):
-        result = await qb_query(
+        result = await qb_query_all(
             f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' "
             f"AND TxnDate <= '{end_date}' MAXRESULTS 1000"
         )
@@ -8721,7 +9595,7 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
     # payments against them.
     tax_payments = []
     try:
-        tp_result = await qb_query("SELECT * FROM TaxPayment MAXRESULTS 300")
+        tp_result = await qb_query_all("SELECT * FROM TaxPayment MAXRESULTS 300")
         for tp in tp_result.get("QueryResponse", {}).get("TaxPayment", []):
             pay_date = tp.get("PaymentDate") or tp.get("TxnDate") or ""
             if start_date <= pay_date <= end_date:
@@ -8768,11 +9642,13 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
 
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("CA", "Use qb_schedule_c / qb_schedule_c_detailed for the IRS Schedule C.")
-async def qb_t2125_summary(year: int) -> str:
+async def qb_t2125_summary(year: int = 0) -> str:
     """Generate a CRA T2125 (Statement of Business or Professional Activities)
     line-by-line mapping for a tax year. Maps QuickBooks expense accounts to
     T2125 Part 4 lines (8521 Advertising, 8523 Meals at 50%, 8910 Rent, ...)
-    the way qb_schedule_c maps to Schedule C. year: e.g. 2025."""
+    the way qb_schedule_c maps to Schedule C. year: e.g. 2025 (default: current year)."""
+    from datetime import date as _date
+    year = int(year) or _date.today().year
     start = f"{year}-01-01"
     end = f"{year}-12-31"
 
@@ -8906,7 +9782,7 @@ async def qb_cca_schedule(assets_json: str = "", year: int = 0) -> str:
 
     if not assets_json.strip():
         # Pull fixed-asset accounts as candidates (mirrors qb_depreciation_schedule)
-        result = await qb_query(
+        result = await qb_query_all(
             "SELECT * FROM Account WHERE AccountType = 'Fixed Asset' MAXRESULTS 200"
         )
         acct_list = result.get("QueryResponse", {}).get("Account", [])
@@ -9049,17 +9925,17 @@ async def qb_t4a_contractor_report(year: int) -> str:
     start = f"{year}-01-01"
     end = f"{year}-12-31"
 
-    vendor_result = await qb_query("SELECT * FROM Vendor MAXRESULTS 500")
+    vendor_result = await qb_query_all("SELECT * FROM Vendor MAXRESULTS 500")
     vendors = vendor_result.get("QueryResponse", {}).get("Vendor", [])
     if not vendors:
         return "No vendors found."
 
-    purchase_result = await qb_query(
+    purchase_result = await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )
     purchases = purchase_result.get("QueryResponse", {}).get("Purchase", [])
 
-    bill_result = await qb_query(
+    bill_result = await qb_query_all(
         f"SELECT * FROM Bill WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )
     bills = bill_result.get("QueryResponse", {}).get("Bill", [])

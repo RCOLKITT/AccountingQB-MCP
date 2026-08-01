@@ -150,6 +150,66 @@ _US_STATE_TAX = {
     "WV": (0.0458, "progressive_approx"),  # all rates reduced; top 4.58% effective Jan 1, 2026 (was 4.82%)
 }
 
+# Economic-nexus thresholds for STATE SALES TAX (post-Wayfair). Per state:
+#   sales = gross/retail sales-dollar threshold; txns = transaction-count
+#   threshold or None (many states dropped it in 2023-26); basis = "or" (either
+#   trips nexus) | "and" (both required) | "only" (sales only). The measurement
+#   window varies by state (prior/current calendar year or trailing 12 months) —
+#   this is a SCREENING indicator; verify the exact window per state. NH/OR/MT/DE
+#   have NO sales tax; AK has no *state* sales tax but local jurisdictions adopt
+#   economic nexus ($100k) via the ARSSTC. Source: Sales Tax Institute Economic
+#   Nexus State Guide (chart as of 2026-05-04), cross-checked to state DOR pages.
+_US_SALES_TAX_NEXUS = {
+    "AL": {"sales": 250_000, "txns": None, "basis": "only"},
+    "AK": {"sales": 100_000, "txns": None, "basis": "only"},  # local only (ARSSTC)
+    "AZ": {"sales": 100_000, "txns": None, "basis": "only"},
+    "AR": {"sales": 100_000, "txns": 200, "basis": "or"},
+    "CA": {"sales": 500_000, "txns": None, "basis": "only"},
+    "CO": {"sales": 100_000, "txns": None, "basis": "only"},
+    "CT": {"sales": 100_000, "txns": 200, "basis": "and"},
+    "DC": {"sales": 100_000, "txns": 200, "basis": "or"},
+    "FL": {"sales": 100_000, "txns": None, "basis": "only"},
+    "GA": {"sales": 100_000, "txns": 200, "basis": "or"},
+    "HI": {"sales": 100_000, "txns": 200, "basis": "or"},
+    "ID": {"sales": 100_000, "txns": None, "basis": "only"},
+    "IL": {"sales": 100_000, "txns": None, "basis": "only"},   # txns removed 2026-01-01
+    "IN": {"sales": 100_000, "txns": None, "basis": "only"},
+    "IA": {"sales": 100_000, "txns": None, "basis": "only"},
+    "KS": {"sales": 100_000, "txns": None, "basis": "only"},
+    "KY": {"sales": 100_000, "txns": None, "basis": "only"},   # txns removed 2026-08-01
+    "LA": {"sales": 100_000, "txns": None, "basis": "only"},
+    "ME": {"sales": 100_000, "txns": None, "basis": "only"},
+    "MD": {"sales": 100_000, "txns": 200, "basis": "or"},
+    "MA": {"sales": 100_000, "txns": None, "basis": "only"},
+    "MI": {"sales": 100_000, "txns": 200, "basis": "or"},
+    "MN": {"sales": 100_000, "txns": 200, "basis": "or"},
+    "MS": {"sales": 250_000, "txns": None, "basis": "only"},
+    "MO": {"sales": 100_000, "txns": None, "basis": "only"},
+    "NE": {"sales": 100_000, "txns": 200, "basis": "or"},
+    "NV": {"sales": 100_000, "txns": 200, "basis": "or"},
+    "NJ": {"sales": 100_000, "txns": 200, "basis": "or"},
+    "NM": {"sales": 100_000, "txns": None, "basis": "only"},
+    "NY": {"sales": 500_000, "txns": 100, "basis": "and"},
+    "NC": {"sales": 100_000, "txns": None, "basis": "only"},   # txns removed 2024-07-01
+    "ND": {"sales": 100_000, "txns": None, "basis": "only"},
+    "OH": {"sales": 100_000, "txns": 200, "basis": "or"},
+    "OK": {"sales": 100_000, "txns": None, "basis": "only"},
+    "PA": {"sales": 100_000, "txns": None, "basis": "only"},
+    "RI": {"sales": 100_000, "txns": 200, "basis": "or"},
+    "SC": {"sales": 100_000, "txns": None, "basis": "only"},
+    "SD": {"sales": 100_000, "txns": None, "basis": "only"},   # txns removed 2023-07-01
+    "TN": {"sales": 100_000, "txns": None, "basis": "only"},
+    "TX": {"sales": 500_000, "txns": None, "basis": "only"},
+    "UT": {"sales": 100_000, "txns": None, "basis": "only"},   # txns removed 2025-07-01
+    "VT": {"sales": 100_000, "txns": 200, "basis": "or"},
+    "VA": {"sales": 100_000, "txns": 200, "basis": "or"},
+    "WA": {"sales": 100_000, "txns": None, "basis": "only"},
+    "WV": {"sales": 100_000, "txns": 200, "basis": "or"},
+    "WI": {"sales": 100_000, "txns": None, "basis": "only"},
+    "WY": {"sales": 100_000, "txns": None, "basis": "only"},   # txns removed 2024-07-01
+}
+_NO_SALES_TAX_STATES = ("DE", "MT", "NH", "OR")  # AK: no state tax, local nexus applies
+
 
 # =========================================================================
 # Canada (moved from module level)
@@ -379,6 +439,13 @@ TABLES: dict = {
         source="Tax Foundation 2026 state rates; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01); AR SB 1 (signed 2026-05-06, top rate 3.7% retroactive 2026-01-01); SC H.4216 (signed 2026-04-16, 1.99%/$30K / 5.21% above, effective 2026-01-01)",
         source_url="https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
         verified="2026-08-01", review="annual-january", sanity={"min": 0.0, "max": 1.0}),
+    "US_SALES_TAX_NEXUS": dict(values=_US_SALES_TAX_NEXUS, year_keyed=False,
+        jurisdiction="US-state", kind="exact",
+        description="State sales-tax economic-nexus thresholds (post-Wayfair)",
+        source="Sales Tax Institute Economic Nexus State Guide (chart as of 2026-05-04), cross-checked to state DOR pages",
+        source_url="https://www.salestaxinstitute.com/resources/economic-nexus-state-guide",
+        verified="2026-08-01", review="legislative-watch",
+        sanity={"min": 0, "max": 1_000_000}),
     "TCJA_PHASE_DOWN": dict(values=_TCJA_PHASE_DOWN, year_keyed=True, terminal_value=0.0,
         jurisdiction="US-federal", kind="stable_statute",
         description="Bonus depreciation phase-down (property acquired on/before 2025-01-19)",

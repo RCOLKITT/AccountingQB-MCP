@@ -2,7 +2,7 @@
 
 The most comprehensive QuickBooks Online MCP server for Claude. Built for sole proprietors and small businesses who want to manage their books, run reports, and prep taxes through natural conversation.
 
-**108 tools** covering transactions, reports, tax prep (US **and** Canada), reconciliation, smart bookkeeping, 1099/T4A reporting, GST/HST returns, anomaly detection, credit memos, vendor credits, cash flow forecasting, and profit margin analysis — all from Claude Desktop. Includes a **CPA Workbook**: a 15-page year-end binder (comparative statements, reconciliation tie-outs, tax payments made, owner's draws, tax organizer) exported to Excel for your accountant.
+**119 tools** covering transactions, reports, tax prep (US **and** Canada), reconciliation, smart bookkeeping, 1099/T4A reporting, GST/HST returns, anomaly detection, credit memos, vendor credits, cash flow forecasting, and profit margin analysis — all from Claude Desktop. Includes a **CPA Workbook**: a 15-page year-end binder (comparative statements, reconciliation tie-outs, tax payments made, owner's draws, tax organizer) exported to Excel for your accountant.
 
 **Canada support:** works with Canadian QuickBooks Online companies out of the box — the server auto-detects the company's tax edition, applies sales tax codes (GST/HST/PST) on created transactions, and ships a full Canadian tax suite: GST/HST (GST34) return workpapers with the 50% meals ITC restriction, T2125 line mapping, CCA schedules (half-year rule + Accelerated Investment Incentive), T4A/T5018 contractor reporting, and CRA instalment + CPP estimates. Multicurrency companies see per-transaction currency and exchange rates.
 
@@ -78,7 +78,7 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 
 ---
 
-## Tools (108)
+## Tools (113)
 
 ### Company & Entities
 
@@ -151,8 +151,14 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 | Tool | Description |
 |------|-------------|
 | `qb_profit_loss` | P&L by total, month, quarter, or year |
+| `qb_profit_loss_detail` | P&L drill-down — every transaction behind each line, by account |
 | `qb_profit_loss_by_class` | P&L by department/class |
 | `qb_balance_sheet` | Balance sheet as of any date |
+| `qb_sales_by_customer` | Total sales (income) by customer |
+| `qb_sales_by_product` | Sales by product/service — quantity and amount |
+| `qb_transaction_list` | Flexible transaction register for a date range |
+| `qb_customer_balance_detail` | Open invoices per customer with line detail (AR drill-down) |
+| `qb_vendor_balance_detail` | Open bills per vendor with line detail (AP drill-down) |
 | `qb_cash_flow` | Statement of cash flows |
 | `qb_cash_flow_forecast` | Multi-period cash flow projections |
 | `qb_general_ledger` | All transactions by account |
@@ -162,6 +168,7 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 | `qb_expense_summary` | Expenses by category |
 | `qb_income_summary` | Income by source |
 | `qb_sales_tax_summary` | Sales tax collected by jurisdiction |
+| `qb_sales_tax_nexus` | Economic-nexus screen — sales by ship-to state vs each state's sourced Wayfair threshold + liability by state |
 | `qb_compare_periods` | Side-by-side period comparison |
 | `qb_vendor_summary` | Top vendors by spend |
 | `qb_profit_margin_analysis` | Profit margins by customer or item |
@@ -181,6 +188,7 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 | `qb_1099_contractor_report` | 1099-NEC contractor reporting with TIN/address validation |
 | `qb_home_office_calculator` | Form 8829 home office deduction calculator |
 | `qb_vehicle_depreciation_calculator` | Vehicle depreciation with business use % |
+| `qb_payroll_checklist` | Payroll boundary checklist — wages/liability signals + W-2/1099, 941/940 items to hand your CPA |
 
 ### Canadian Tax (GST/HST, T2125)
 
@@ -216,6 +224,9 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 | `qb_match_invoices_to_transactions` | Fuzzy-match with tolerance |
 | `qb_upload_receipt` | Attach receipts to transactions |
 | `qb_list_attachments` | List attached documents |
+| `qb_missing_receipts` | Expenses ≥ threshold (default $75) with no receipt attached — IRS substantiation gap |
+| `qb_change_audit_trail` | What changed since a date — created / updated / **deleted** transactions (QuickBooks CDC) |
+| `qb_bank_reconciliation` | Tie a bank/credit-card statement CSV to the books — matched / missing / uncleared |
 | `qb_account_balance` | Check any account balance |
 
 ### Connection & Multi-Company

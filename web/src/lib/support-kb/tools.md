@@ -1,4 +1,4 @@
-# AccountingQB Tools (101 Total)
+# AccountingQB Tools (119 Total)
 
 ## Company & Entities (12 tools)
 | Tool | Description |
@@ -63,11 +63,17 @@
 | qb_batch_create_bills | Bulk bill import |
 | qb_batch_create_journal_entries | Bulk JE import |
 
-## Reports & Analysis (17 tools)
+## Reports & Analysis (24 tools)
 | Tool | Description |
 |------|-------------|
 | qb_profit_loss | P&L by total, month, quarter, or year |
+| qb_profit_loss_detail | P&L drill-down — every transaction behind each line, by account |
 | qb_profit_loss_by_class | P&L by department/class |
+| qb_sales_by_customer | Total sales (income) by customer for a date range |
+| qb_sales_by_product | Sales by product/service (item) — quantity and amount |
+| qb_transaction_list | Flexible transaction register for a date range (all columns) |
+| qb_customer_balance_detail | Open invoices per customer with line detail (AR drill-down) |
+| qb_vendor_balance_detail | Open bills per vendor with line detail (AP drill-down) |
 | qb_balance_sheet | Balance sheet as of any date |
 | qb_cash_flow | Statement of cash flows |
 | qb_cash_flow_forecast | Multi-period cash flow projections |
@@ -78,6 +84,7 @@
 | qb_expense_summary | Expenses by category |
 | qb_income_summary | Income by source |
 | qb_sales_tax_summary | Sales tax collected by jurisdiction |
+| qb_sales_tax_nexus | Economic-nexus screen (sales by ship-to state vs sourced Wayfair thresholds) + liability by state |
 | qb_compare_periods | Side-by-side period comparison |
 | qb_vendor_summary | Top vendors by spend |
 | qb_profit_margin_analysis | Profit margins by customer or item |
@@ -121,13 +128,16 @@
 | qb_month_end_close | Month-end close checklist with status checks |
 | qb_unknown_vendor_report | Find transactions with missing vendor names |
 
-## Reconciliation & Attachments (5 tools)
+## Reconciliation & Attachments (8 tools)
 | Tool | Description |
 |------|-------------|
 | qb_reconcile_invoices | Match invoices against transactions |
 | qb_match_invoices_to_transactions | Fuzzy-match with tolerance |
 | qb_upload_receipt | Attach receipts to transactions |
 | qb_list_attachments | List attached documents |
+| qb_missing_receipts | Expenses >= threshold (default $75) with no receipt attached |
+| qb_change_audit_trail | What changed since a date — created/updated/deleted (QuickBooks CDC) |
+| qb_bank_reconciliation | Tie a bank/credit-card statement CSV to the books (matched/missing/uncleared) |
 | qb_account_balance | Check any account balance |
 
 ## Connection & Multi-Company (3 tools)

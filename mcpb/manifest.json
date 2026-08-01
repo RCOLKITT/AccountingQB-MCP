@@ -2,9 +2,9 @@
   "manifest_version": "0.3",
   "name": "accountingqb",
   "display_name": "AccountingQB \u2014 QuickBooks for Claude",
-  "version": "3.5.3",
+  "version": "3.7.0",
   "icon": "icon.png",
-  "description": "108 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
+  "description": "119 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
   "long_description": "Connect Claude to your QuickBooks Online with one click. Run P&L reports, reconcile transactions, prep for taxes, detect anomalies, and more. Full US and Canada support: Schedule C, quarterly estimates and 1099s for the US; GST/HST returns, T2125, CCA schedules, T4A reporting and CRA instalments for Canada. Your data stays on your machine \u2014 zero cloud routing.\n\n**Getting Started:**\n1. Enter your license key (get one at accountingqb.com)\n2. Click 'Connect QuickBooks' when prompted\n3. Start asking Claude about your books!\n\n**Requirements:** Python 3.10 or newer on your machine (all Python package dependencies are bundled with the extension).",
   "author": {
     "name": "Vaspera Capital",
@@ -234,22 +234,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
             "description": "Max Results",
             "default": 100
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -266,22 +264,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
             "description": "Max Results",
             "default": 100
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -298,22 +294,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
             "description": "Max Results",
             "default": 100
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -367,22 +361,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
             "description": "Max Results",
             "default": 100
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -399,22 +391,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
             "description": "Max Results",
             "default": 100
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -431,22 +421,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
             "description": "Max Results",
             "default": 100
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -542,17 +530,15 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -569,22 +555,25 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "summarize_by": {
             "type": "string",
             "description": "Summarize By",
             "default": "Total"
+          },
+          "basis": {
+            "type": "string",
+            "description": "Basis",
+            "default": ""
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -601,12 +590,15 @@
         "properties": {
           "as_of_date": {
             "type": "string",
-            "description": "As Of Date"
+            "description": "As Of Date",
+            "default": ""
+          },
+          "basis": {
+            "type": "string",
+            "description": "Basis",
+            "default": ""
           }
-        },
-        "required": [
-          "as_of_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -623,17 +615,15 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -682,17 +672,170 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_sales_by_customer",
+      "description": "Total sales (income) by customer for a date range \u2014 who your biggest",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "basis": {
+            "type": "string",
+            "description": "Basis",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_sales_by_product",
+      "description": "Sales by product/service (item) for a date range \u2014 what's actually",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "basis": {
+            "type": "string",
+            "description": "Basis",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_profit_loss_detail",
+      "description": "Profit & Loss DETAIL \u2014 every transaction behind each P&L line, grouped by",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "basis": {
+            "type": "string",
+            "description": "Basis",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_transaction_list",
+      "description": "A flexible transaction register \u2014 every transaction (date, type, num, name,",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_customer_balance_detail",
+      "description": "Open invoices per customer with line detail (date, invoice #, due date,",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "as_of_date": {
+            "type": "string",
+            "description": "As Of Date",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_vendor_balance_detail",
+      "description": "Open bills per vendor with line detail (date, bill #, due date, amount,",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "as_of_date": {
+            "type": "string",
+            "description": "As Of Date",
+            "default": ""
+          }
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -794,12 +937,10 @@
         "properties": {
           "as_of_date": {
             "type": "string",
-            "description": "As Of Date"
+            "description": "As Of Date",
+            "default": ""
           }
-        },
-        "required": [
-          "as_of_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -816,12 +957,10 @@
         "properties": {
           "as_of_date": {
             "type": "string",
-            "description": "As Of Date"
+            "description": "As Of Date",
+            "default": ""
           }
-        },
-        "required": [
-          "as_of_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -838,17 +977,15 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -1434,11 +1571,13 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "tolerance_days": {
             "type": "integer",
@@ -1450,11 +1589,7 @@
             "description": "Max Results",
             "default": 200
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -1471,22 +1606,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
             "description": "Max Results",
             "default": 100
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -1835,22 +1968,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "top_n": {
             "type": "integer",
             "description": "Top N",
             "default": 20
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -1924,17 +2055,15 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -1951,17 +2080,15 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -2052,6 +2179,61 @@
             "type": "integer",
             "description": "Max Results",
             "default": 25
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_missing_receipts",
+      "description": "Find expense transactions at/above a dollar threshold that have NO",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "threshold": {
+            "type": "number",
+            "description": "Threshold",
+            "default": 75.0
+          },
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_change_audit_trail",
+      "description": "What changed in the books since a date \u2014 created, updated, and **deleted**",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "since_date": {
+            "type": "string",
+            "description": "Since Date",
+            "default": ""
+          },
+          "entities": {
+            "type": "string",
+            "description": "Entities",
+            "default": ""
           }
         }
       },
@@ -2331,11 +2513,13 @@
           },
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
@@ -2344,9 +2528,7 @@
           }
         },
         "required": [
-          "account_name",
-          "start_date",
-          "end_date"
+          "account_name"
         ]
       },
       "annotations": {
@@ -2489,6 +2671,68 @@
             "default": 0.0
           }
         }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_payroll_checklist",
+      "description": "Payroll boundary checklist. AccountingQB does NOT run payroll or compute",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tax_year": {
+            "type": "string",
+            "description": "Tax Year",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_bank_reconciliation",
+      "description": "Reconcile a bank / credit-card statement against the books. QuickBooks",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_name": {
+            "type": "string",
+            "description": "Account Name"
+          },
+          "csv_data": {
+            "type": "string",
+            "description": "Csv Data"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "tolerance_days": {
+            "type": "integer",
+            "description": "Tolerance Days",
+            "default": 4
+          }
+        },
+        "required": [
+          "account_name",
+          "csv_data"
+        ]
       },
       "annotations": {
         "readOnlyHint": true
@@ -2710,17 +2954,40 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_sales_tax_nexus",
+      "description": "Screen for state sales-tax ECONOMIC NEXUS exposure and show sales-tax",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "string",
+            "description": "Year",
+            "default": ""
+          },
+          "approaching_pct": {
+            "type": "integer",
+            "description": "Approaching Pct",
+            "default": 80
+          }
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -3334,12 +3601,10 @@
         "properties": {
           "year": {
             "type": "integer",
-            "description": "Year"
+            "description": "Year",
+            "default": 0
           }
-        },
-        "required": [
-          "year"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true

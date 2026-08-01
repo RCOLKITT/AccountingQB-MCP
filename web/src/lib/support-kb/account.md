@@ -19,7 +19,7 @@ They're case-sensitive and must be entered exactly as shown.
 ## Pricing Plans
 
 ### Solopreneur - $39/month
-- All 108 QuickBooks tools
+- All 119 QuickBooks tools
 - US & Canadian tax prep (Schedule C / T2125)
 - Deduction finder
 - Anomaly detection
@@ -46,7 +46,7 @@ They're case-sensitive and must be entered exactly as shown.
 
 ## Free Trial
 
-All plans include a 14-day free trial with full access to all 108 tools.
+All plans include a 14-day free trial with full access to all 119 tools.
 
 ### After Trial Ends
 - You keep access to 25 essential read-only tools free forever
