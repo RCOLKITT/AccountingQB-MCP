@@ -1549,8 +1549,9 @@ async def qb_list_transactions(start_date: str, end_date: str, vendor_name: str 
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_deposits(start_date: str, end_date: str, max_results: int = 100) -> str:
-    """List deposits (income, owner investments, bank deposits) within a date range. Dates in YYYY-MM-DD format. Use this to find income or money deposited into business accounts."""
+async def qb_list_deposits(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+    """List deposits (income, owner investments, bank deposits) within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Use this to find income or money deposited into business accounts."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM Deposit WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
@@ -1595,8 +1596,9 @@ async def qb_list_deposits(start_date: str, end_date: str, max_results: int = 10
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_transfers(start_date: str, end_date: str, max_results: int = 100) -> str:
-    """List transfers between accounts within a date range. Dates in YYYY-MM-DD format. Use this to see money moved between business bank accounts or credit cards."""
+async def qb_list_transfers(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+    """List transfers between accounts within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Use this to see money moved between business bank accounts or credit cards."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM Transfer WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
@@ -1631,8 +1633,9 @@ async def qb_list_transfers(start_date: str, end_date: str, max_results: int = 1
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_journal_entries(start_date: str, end_date: str, max_results: int = 100) -> str:
-    """List journal entries (adjustments, reclassifications) within a date range. Dates in YYYY-MM-DD format. Useful for finding accounting adjustments, corrections, and manual entries."""
+async def qb_list_journal_entries(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+    """List journal entries (adjustments, reclassifications) within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Useful for finding accounting adjustments, corrections, and manual entries."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM JournalEntry WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
@@ -1722,8 +1725,9 @@ async def qb_list_bills(start_date: str, end_date: str, vendor_name: str = "", m
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_bill_payments(start_date: str, end_date: str, max_results: int = 100) -> str:
-    """List bill payments within a date range. Dates in YYYY-MM-DD. Shows payments made against bills (accounts payable)."""
+async def qb_list_bill_payments(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+    """List bill payments within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Shows payments made against bills (accounts payable)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM BillPayment WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
@@ -1761,8 +1765,9 @@ async def qb_list_bill_payments(start_date: str, end_date: str, max_results: int
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_sales_receipts(start_date: str, end_date: str, max_results: int = 100) -> str:
-    """List sales receipts (direct sales, not invoiced) within a date range. Dates in YYYY-MM-DD."""
+async def qb_list_sales_receipts(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+    """List sales receipts (direct sales, not invoiced) within a date range. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM SalesReceipt WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
@@ -1799,8 +1804,9 @@ async def qb_list_sales_receipts(start_date: str, end_date: str, max_results: in
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_payments(start_date: str, end_date: str, max_results: int = 100) -> str:
-    """List customer payments received within a date range. Dates in YYYY-MM-DD. Shows payments applied against invoices."""
+async def qb_list_payments(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+    """List customer payments received within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Shows payments applied against invoices."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM Payment WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
@@ -2005,8 +2011,9 @@ async def qb_search_transactions(start_date: str, end_date: str, search_term: st
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_expense_summary(start_date: str, end_date: str) -> str:
-    """Get expenses grouped by category/account for a date range. Useful for Schedule C and tax deduction tracking. Dates in YYYY-MM-DD format."""
+async def qb_expense_summary(start_date: str = "", end_date: str = "") -> str:
+    """Get expenses grouped by category/account for a date range. Useful for Schedule C and tax deduction tracking. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' "
         f"AND TxnDate <= '{end_date}' MAXRESULTS 1000"
@@ -2092,8 +2099,9 @@ async def qb_profit_loss(start_date: str, end_date: str, summarize_by: str = "To
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_balance_sheet(as_of_date: str) -> str:
-    """Generate a Balance Sheet report as of a specific date. Date in YYYY-MM-DD format."""
+async def qb_balance_sheet(as_of_date: str = "") -> str:
+    """Generate a Balance Sheet report as of a specific date. Date in YYYY-MM-DD format (defaults to today)."""
+    as_of_date = _as_of_or_today(as_of_date)
     # Demo mode: return mock balance sheet
     if _demo_active():
         return (
@@ -2138,8 +2146,9 @@ async def qb_balance_sheet(as_of_date: str) -> str:
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_cash_flow(start_date: str, end_date: str) -> str:
-    """Generate a Statement of Cash Flows report. Dates in YYYY-MM-DD. Shows operating, investing, and financing cash activities."""
+async def qb_cash_flow(start_date: str = "", end_date: str = "") -> str:
+    """Generate a Statement of Cash Flows report. Dates in YYYY-MM-DD (default: current year-to-date). Shows operating, investing, and financing cash activities."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     report = await qb_request("GET", "reports/CashFlow", params={
         "start_date": start_date,
         "end_date": end_date,
@@ -2186,8 +2195,9 @@ async def qb_general_ledger(start_date: str, end_date: str, account_name: str = 
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_trial_balance(start_date: str, end_date: str) -> str:
-    """Generate a Trial Balance report. Dates in YYYY-MM-DD. Shows all account debits and credits to verify books are balanced."""
+async def qb_trial_balance(start_date: str = "", end_date: str = "") -> str:
+    """Generate a Trial Balance report. Dates in YYYY-MM-DD (default: current year-to-date). Shows all account debits and credits to verify books are balanced."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     report = await qb_request("GET", "reports/TrialBalance", params={
         "start_date": start_date,
         "end_date": end_date,
@@ -2289,6 +2299,44 @@ def _extract_report_amounts(report: dict) -> dict:
     return out
 
 
+def _ytd_range(start_date: str = "", end_date: str = "") -> tuple:
+    """Resolve a (start, end) date range, defaulting to the current calendar
+    year-to-date when either is blank — so report tools can be called with no
+    arguments instead of erroring (-32602) on a missing required param."""
+    from datetime import date as _d
+    today = _d.today()
+    start = start_date.strip() if start_date else f"{today.year}-01-01"
+    end = end_date.strip() if end_date else today.isoformat()
+    return start, end
+
+
+def _as_of_or_today(as_of_date: str = "") -> str:
+    """Resolve an as-of date, defaulting to today when blank."""
+    from datetime import date as _d
+    return as_of_date.strip() if as_of_date else _d.today().isoformat()
+
+
+def _merge_line_order(cur_keys: list, prior_keys: list) -> list:
+    """Order the union of two report line sequences so a line that exists only
+    in the prior year is placed next to its section siblings — right after the
+    shared line it followed in the prior report — instead of being dumped at the
+    end (after Net Income). Preserves the current report's order as the spine."""
+    cur_set = set(cur_keys)
+    # Group each prior-only line under the last shared line that preceded it.
+    anchored: dict = {}
+    last_shared = None
+    for k in prior_keys:
+        if k in cur_set:
+            last_shared = k
+        else:
+            anchored.setdefault(last_shared, []).append(k)
+    result = list(anchored.get(None, []))  # prior-only lines before any shared line
+    for ck in cur_keys:
+        result.append(ck)
+        result.extend(anchored.get(ck, []))
+    return result
+
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_comparative_statements(statement: str = "pl", year: int = 0) -> str:
     """Two-year comparative statement — the format CPAs read first. Renders
@@ -2331,7 +2379,7 @@ async def qb_comparative_statements(statement: str = "pl", year: int = 0) -> str
              f"| Line | {year} | {year-1} | Δ | Δ% |",
              "|---|---|---|---|---|"]
     flagged = []
-    seen = list(cur_amts) + [k for k in prior_amts if k not in cur_amts]
+    seen = _merge_line_order(list(cur_amts), list(prior_amts))
     for name in seen:
         c = cur_amts.get(name)
         p = prior_amts.get(name)
@@ -2507,8 +2555,9 @@ async def qb_owner_draws(year: int = 0) -> str:
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_ar_aging(as_of_date: str) -> str:
-    """Generate an Accounts Receivable Aging report. Date in YYYY-MM-DD. Shows what customers owe you, grouped by how overdue."""
+async def qb_ar_aging(as_of_date: str = "") -> str:
+    """Generate an Accounts Receivable Aging report. Date in YYYY-MM-DD (defaults to today). Shows what customers owe you, grouped by how overdue."""
+    as_of_date = _as_of_or_today(as_of_date)
     report = await qb_request("GET", "reports/AgedReceivables", params={
         "date_macro": "",
         "start_date": as_of_date,
@@ -2526,8 +2575,9 @@ async def qb_ar_aging(as_of_date: str) -> str:
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_ap_aging(as_of_date: str) -> str:
-    """Generate an Accounts Payable Aging report. Date in YYYY-MM-DD. Shows what you owe vendors, grouped by how overdue."""
+async def qb_ap_aging(as_of_date: str = "") -> str:
+    """Generate an Accounts Payable Aging report. Date in YYYY-MM-DD (defaults to today). Shows what you owe vendors, grouped by how overdue."""
+    as_of_date = _as_of_or_today(as_of_date)
     report = await qb_request("GET", "reports/AgedPayables", params={
         "date_macro": "",
         "start_date": as_of_date,
@@ -2668,8 +2718,9 @@ def _map_expenses_to_schedule_c(expense_accounts: dict):
 
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("US", "For Canadian books use qb_t2125_summary.")
-async def qb_tax_summary(start_date: str, end_date: str) -> str:
-    """Generate a tax-oriented summary mapping QuickBooks data to Schedule C lines. Dates in YYYY-MM-DD."""
+async def qb_tax_summary(start_date: str = "", end_date: str = "") -> str:
+    """Generate a tax-oriented summary mapping QuickBooks data to Schedule C lines. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     report = await qb_request("GET", "reports/ProfitAndLoss", params={
         "start_date": start_date,
         "end_date": end_date,
@@ -3516,8 +3567,9 @@ async def qb_uncategorized_transactions(start_date: str = "", end_date: str = ""
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_find_duplicates(start_date: str, end_date: str, tolerance_days: int = 3, max_results: int = 200) -> str:
-    """Find potential duplicate transactions within a date range. Matches by amount and vendor within tolerance_days window. Dates in YYYY-MM-DD."""
+async def qb_find_duplicates(start_date: str = "", end_date: str = "", tolerance_days: int = 3, max_results: int = 200) -> str:
+    """Find potential duplicate transactions within a date range. Matches by amount and vendor within tolerance_days window. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     result = await qb_query(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
     )
@@ -3560,9 +3612,10 @@ async def qb_find_duplicates(start_date: str, end_date: str, tolerance_days: int
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_auto_categorize_suggestions(start_date: str, end_date: str, max_results: int = 100) -> str:
+async def qb_auto_categorize_suggestions(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
     """Suggest categories for uncategorized transactions based on vendor history.
-    Analyzes past categorization patterns to recommend correct accounts. Dates in YYYY-MM-DD."""
+    Analyzes past categorization patterns to recommend correct accounts. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     # Get uncategorized purchases
     accts = await qb_query("SELECT Id FROM Account WHERE Name LIKE '%ncategorized%' MAXRESULTS 10")
     acct_list = accts.get("QueryResponse", {}).get("Account", [])
@@ -4646,9 +4699,11 @@ async def qb_create_account(name: str, account_type: str, account_sub_type: str 
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_vendor_summary(start_date: str, end_date: str, top_n: int = 20) -> str:
+async def qb_vendor_summary(start_date: str = "", end_date: str = "", top_n: int = 20) -> str:
     """Rank vendors by total spend within a date range. Shows top N vendors with
-    transaction count and total amount. Useful for negotiation and cost analysis."""
+    transaction count and total amount. Useful for negotiation and cost analysis.
+    Dates in YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     result = await qb_query(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
     )
@@ -4736,9 +4791,10 @@ async def qb_create_bill(vendor_name: str, amount: float, account_name: str, dat
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_profit_loss_by_class(start_date: str, end_date: str) -> str:
+async def qb_profit_loss_by_class(start_date: str = "", end_date: str = "") -> str:
     """Generate P&L report broken down by class/department. Useful for multi-segment businesses.
-    Dates in YYYY-MM-DD. Returns nothing if classes aren't used."""
+    Dates in YYYY-MM-DD (default: current year-to-date). Returns nothing if classes aren't used."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     result = await qb_request("GET", "reports/ProfitAndLoss", params={
         "start_date": start_date, "end_date": end_date,
         "summarize_column_by": "Class"
@@ -4758,9 +4814,10 @@ async def qb_profit_loss_by_class(start_date: str, end_date: str) -> str:
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_income_summary(start_date: str, end_date: str) -> str:
+async def qb_income_summary(start_date: str = "", end_date: str = "") -> str:
     """Get income grouped by source/category for a date range. Complements qb_expense_summary.
-    Shows all income accounts and their totals. Dates in YYYY-MM-DD."""
+    Shows all income accounts and their totals. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     result = await qb_request("GET", "reports/ProfitAndLoss", params={
         "start_date": start_date, "end_date": end_date
     })
@@ -5583,11 +5640,12 @@ async def qb_list_journal_entries_by_memo(search_text: str, max_results: int = 5
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_account_transactions(account_name: str, start_date: str, end_date: str, max_results: int = 100) -> str:
+async def qb_account_transactions(account_name: str, start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
     """Get all transactions for a specific account within a date range.
     Shows every debit and credit hitting the account with vendor names, memos,
     transaction types, and IDs. Useful for account reconciliation and verifying balances.
-    account_name: exact or partial account name."""
+    account_name: exact or partial account name. Dates YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     account_name = _sanitize_input(account_name, "account_name")
     start_date = _validate_date(start_date, "start_date")
     end_date = _validate_date(end_date, "end_date")
@@ -6654,10 +6712,11 @@ async def qb_create_vendor_credit(vendor_name: str, amount: float, account_name:
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_sales_tax_summary(start_date: str, end_date: str) -> str:
+async def qb_sales_tax_summary(start_date: str = "", end_date: str = "") -> str:
     """Generate a sales tax summary report for a date range.
     Shows taxable sales, tax collected, tax rates, and liability by jurisdiction.
-    Useful for state/local sales tax filing. start_date/end_date in YYYY-MM-DD."""
+    Useful for state/local sales tax filing. Dates YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
     start_date = _validate_date(start_date, "start_date")
     end_date = _validate_date(end_date, "end_date")
 

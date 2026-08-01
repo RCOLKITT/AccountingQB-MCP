@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "accountingqb",
   "display_name": "AccountingQB \u2014 QuickBooks for Claude",
-  "version": "3.5.3",
+  "version": "3.5.4",
   "icon": "icon.png",
   "description": "108 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
   "long_description": "Connect Claude to your QuickBooks Online with one click. Run P&L reports, reconcile transactions, prep for taxes, detect anomalies, and more. Full US and Canada support: Schedule C, quarterly estimates and 1099s for the US; GST/HST returns, T2125, CCA schedules, T4A reporting and CRA instalments for Canada. Your data stays on your machine \u2014 zero cloud routing.\n\n**Getting Started:**\n1. Enter your license key (get one at accountingqb.com)\n2. Click 'Connect QuickBooks' when prompted\n3. Start asking Claude about your books!\n\n**Requirements:** Python 3.10 or newer on your machine (all Python package dependencies are bundled with the extension).",
@@ -234,22 +234,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
             "description": "Max Results",
             "default": 100
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -266,22 +264,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
             "description": "Max Results",
             "default": 100
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -298,22 +294,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
             "description": "Max Results",
             "default": 100
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -367,22 +361,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
             "description": "Max Results",
             "default": 100
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -399,22 +391,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
             "description": "Max Results",
             "default": 100
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -431,22 +421,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
             "description": "Max Results",
             "default": 100
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -542,17 +530,15 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -601,12 +587,10 @@
         "properties": {
           "as_of_date": {
             "type": "string",
-            "description": "As Of Date"
+            "description": "As Of Date",
+            "default": ""
           }
-        },
-        "required": [
-          "as_of_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -623,17 +607,15 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -682,17 +664,15 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -794,12 +774,10 @@
         "properties": {
           "as_of_date": {
             "type": "string",
-            "description": "As Of Date"
+            "description": "As Of Date",
+            "default": ""
           }
-        },
-        "required": [
-          "as_of_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -816,12 +794,10 @@
         "properties": {
           "as_of_date": {
             "type": "string",
-            "description": "As Of Date"
+            "description": "As Of Date",
+            "default": ""
           }
-        },
-        "required": [
-          "as_of_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -838,17 +814,15 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -1434,11 +1408,13 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "tolerance_days": {
             "type": "integer",
@@ -1450,11 +1426,7 @@
             "description": "Max Results",
             "default": 200
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -1471,22 +1443,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
             "description": "Max Results",
             "default": 100
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -1835,22 +1805,20 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "top_n": {
             "type": "integer",
             "description": "Top N",
             "default": 20
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -1924,17 +1892,15 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -1951,17 +1917,15 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
@@ -2331,11 +2295,13 @@
           },
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           },
           "max_results": {
             "type": "integer",
@@ -2344,9 +2310,7 @@
           }
         },
         "required": [
-          "account_name",
-          "start_date",
-          "end_date"
+          "account_name"
         ]
       },
       "annotations": {
@@ -2710,17 +2674,15 @@
         "properties": {
           "start_date": {
             "type": "string",
-            "description": "Start Date"
+            "description": "Start Date",
+            "default": ""
           },
           "end_date": {
             "type": "string",
-            "description": "End Date"
+            "description": "End Date",
+            "default": ""
           }
-        },
-        "required": [
-          "start_date",
-          "end_date"
-        ]
+        }
       },
       "annotations": {
         "readOnlyHint": true
