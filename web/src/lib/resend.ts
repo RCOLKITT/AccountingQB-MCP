@@ -77,7 +77,7 @@ export async function sendLicenseEmail({
               <!-- Trial Info -->
               <div style="background: rgba(99, 102, 241, 0.1); border-radius: 8px; padding: 16px; margin-bottom: 32px;">
                 <p style="margin: 0; font-size: 14px; color: #a5b4fc;">
-                  <strong style="color: #ffffff;">${trialDays}-day free trial</strong> — full access to all 108 tools.<br>
+                  <strong style="color: #ffffff;">${trialDays}-day free trial</strong> — full access to all 110 tools.<br>
                   Trial ends: ${trialEndDate}
                 </p>
               </div>

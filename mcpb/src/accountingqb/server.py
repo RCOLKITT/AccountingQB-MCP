@@ -5107,6 +5107,145 @@ async def qb_list_attachments(entity_type: str = "", entity_id: str = "", max_re
     return "\n".join(lines)
 
 
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_missing_receipts(threshold: float = 75.0, start_date: str = "", end_date: str = "") -> str:
+    """Find expense transactions at/above a dollar threshold that have NO
+    receipt attached in QuickBooks — the IRS substantiation gap (receipts are
+    generally required for expenses >= $75; lodging at any amount). threshold:
+    default $75. Dates YYYY-MM-DD (default: current year-to-date)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    threshold = _validate_amount(threshold, "threshold")
+
+    # Set of (entity, id) that already have an attachment.
+    attached = set()
+    try:
+        att = await qb_query("SELECT * FROM Attachable MAXRESULTS 1000")
+        for a in att.get("QueryResponse", {}).get("Attachable", []):
+            for r in a.get("AttachableRef", []):
+                ref = r.get("EntityRef", {})
+                if ref.get("value"):
+                    attached.add((str(ref.get("type", "")).lower(), str(ref.get("value"))))
+    except Exception as e:
+        logger.debug(f"Attachable query failed: {e}")
+
+    missing = []
+    for entity in ("Purchase", "Bill"):
+        r = await qb_query(
+            f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' AND "
+            f"TxnDate <= '{end_date}' MAXRESULTS 1000")
+        for t in r.get("QueryResponse", {}).get(entity, []):
+            amt = float(t.get("TotalAmt", 0) or 0)
+            if amt < threshold:
+                continue
+            if (entity.lower(), str(t.get("Id", ""))) in attached:
+                continue
+            payee = (t.get("EntityRef") or t.get("VendorRef") or {}).get("name", "(no payee)")
+            missing.append({"type": entity, "id": t.get("Id"),
+                            "date": t.get("TxnDate", "?"), "payee": payee, "amount": amt})
+
+    missing.sort(key=lambda x: x["amount"], reverse=True)
+    lines = [f"## Transactions Missing Receipts — {start_date} to {end_date}",
+             f"*Threshold: {fmt(threshold)} (IRS substantiation guideline).*\n"]
+    if not missing:
+        lines.append(f"✅ Every expense at or above {fmt(threshold)} has a receipt "
+                     "attached in QuickBooks.")
+        return "\n".join(lines)
+    total = sum(m["amount"] for m in missing)
+    lines.append(f"**{len(missing)} transactions ({fmt(total)}) are missing a receipt:**\n")
+    lines.append("| Date | Payee | Amount | Transaction |")
+    lines.append("|---|---|---|---|")
+    for m in missing[:100]:
+        lines.append(f"| {m['date']} | {m['payee']} | {fmt(m['amount'])} | {m['type']} #{m['id']} |")
+    if len(missing) > 100:
+        lines.append(f"\n*(showing the 100 largest of {len(missing)})*")
+    lines.append("\n*Attach receipts with qb_upload_receipt or in QuickBooks. Lodging "
+                 "requires a receipt at any amount; keep documentation for every "
+                 "deduction you claim.*")
+    return "\n".join(lines)
+
+
+def _cdc_iter(cdc_response: dict):
+    """Yield transaction dicts (with an injected '_entity' key) from a
+    QuickBooks CDC response, whatever entity buckets it contains."""
+    for block in cdc_response.get("CDCResponse", []) or []:
+        for qr in block.get("QueryResponse", []) or []:
+            for key, rows in qr.items():
+                if isinstance(rows, list):
+                    for t in rows:
+                        if isinstance(t, dict):
+                            t = dict(t)
+                            t["_entity"] = key
+                            yield t
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_change_audit_trail(since_date: str = "", entities: str = "") -> str:
+    """What changed in the books since a date — created, updated, and **deleted**
+    transactions, via QuickBooks Change Data Capture. Answers "what changed since
+    I last closed this period." since_date: YYYY-MM-DD (default: 7 days ago;
+    QuickBooks allows up to ~31 days back). entities: comma-separated (default:
+    the common transaction types)."""
+    from datetime import date as _d, timedelta as _td
+    since = (since_date[:10] if since_date
+             else (_d.today() - _td(days=7)).isoformat())
+    ent = entities.strip() or ("Purchase,Bill,Invoice,JournalEntry,Payment,"
+                               "Deposit,CreditMemo,VendorCredit,BillPayment")
+    try:
+        r = await qb_request("GET", "cdc",
+                             params={"entities": ent, "changedSince": f"{since}T00:00:00"})
+    except Exception as e:
+        return (f"Change data capture unavailable: {e}. QuickBooks CDC allows a "
+                "lookback of up to ~31 days — pick a more recent since_date.")
+
+    created, updated, deleted = [], [], []
+    for t in _cdc_iter(r):
+        status = str(t.get("status", "")).lower()
+        meta = t.get("MetaData", {})
+        rec = {
+            "entity": t.get("_entity", "?"), "id": t.get("Id", "?"),
+            "name": (t.get("EntityRef") or t.get("VendorRef")
+                     or t.get("CustomerRef") or {}).get("name", ""),
+            "amount": t.get("TotalAmt", ""),
+            "created": (meta.get("CreateTime", "") or "")[:10],
+            "updated": (meta.get("LastUpdatedTime", "") or "")[:10],
+        }
+        if status == "deleted":
+            deleted.append(rec)
+        elif rec["created"] and rec["created"] >= since:
+            created.append(rec)
+        else:
+            updated.append(rec)
+
+    def _amt(a):
+        try:
+            return fmt(float(a))
+        except (ValueError, TypeError):
+            return "—"
+
+    lines = [f"## Change Audit Trail — since {since}\n",
+             f"*Created {len(created)} · Updated {len(updated)} · "
+             f"**Deleted {len(deleted)}** (QuickBooks Change Data Capture).*"]
+    if not (created or updated or deleted):
+        lines.append("\nNo transaction changes recorded in this window.")
+        return "\n".join(lines)
+    for title, group in (("🗑️ Deleted", deleted), ("🆕 Created", created),
+                         ("✏️ Updated", updated)):
+        if not group:
+            continue
+        lines.append(f"\n### {title} ({len(group)})")
+        lines.append("| Entity | # | Party | Amount | Changed |")
+        lines.append("|---|---|---|---|---|")
+        for c in group[:50]:
+            lines.append(f"| {c['entity']} | {c['id']} | {c['name'] or '—'} | "
+                         f"{_amt(c['amount'])} | {c['updated'] or c['created']} |")
+        if len(group) > 50:
+            lines.append(f"\n*(showing 50 of {len(group)})*")
+    lines.append("\n*Deleted transactions are the ones to review first when the "
+                 "books changed after a close. QuickBooks CDC reflects the last "
+                 "~31 days.*")
+    return "\n".join(lines)
+
+
 # ===================================================================
 # RECURRING TRANSACTIONS
 # ===================================================================

@@ -132,7 +132,7 @@ function SetupContent() {
             <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-8">
               <h2 className="text-xl font-semibold">Step 1: Save Your License Key</h2>
               <p className="mt-2 text-gray-400">
-                This key unlocks all 108 QuickBooks tools. Keep it somewhere safe — you&apos;ll paste it into your config in Step 4.
+                This key unlocks all 110 QuickBooks tools. Keep it somewhere safe — you&apos;ll paste it into your config in Step 4.
               </p>
               {licenseKey ? (
                 <div className="mt-5 flex items-center gap-3">
