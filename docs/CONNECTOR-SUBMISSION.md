@@ -8,6 +8,7 @@ blockers were verified 2026-07-11 (see checklist at the bottom).
 - **Name:** AccountingQB
 - **Publisher:** Vaspera Capital
 - **Endpoint:** `https://mcp.accountingqb.com/mcp` (streamable HTTP, stateless)
+- **Spec:** current with the **2026-07-28 MCP spec** — stateless / load-balancer-ready (any instance serves any request; routable on `Mcp-Method`/`Mcp-Name`), cacheable `tools/list` (`ttlMs`/`cacheScope`), capability discovery at `/.well-known/mcp-capabilities`, and **zero deprecated features** (no Roots/Sampling/Logging, so nothing on the 12-month deprecation clock).
 - **Support:** support@vasperacapital.com
 - **Privacy policy:** https://accountingqb.com/privacy
 - **Website / docs:** https://accountingqb.com · https://accountingqb.com/canada · https://github.com/RCOLKITT/AccountingQB-MCP

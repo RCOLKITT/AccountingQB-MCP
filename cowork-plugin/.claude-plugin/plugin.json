@@ -1,6 +1,6 @@
 {
   "name": "accountingqb",
-  "version": "3.10.0",
+  "version": "3.11.0",
   "description": "AccountingQB — 126 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, bookkeeping, and tax prep for the US (Schedule C, 1099s) and Canada (GST/HST, T2125, CCA).",
   "author": {
     "name": "Vaspera Capital",
