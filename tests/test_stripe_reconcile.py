@@ -130,3 +130,42 @@ def test_unmapped_blocks_posting(monkeypatch):
     out = asyncio.run(s.qb_stripe_reconcile(
         "2026-07", json.dumps(weird), dry_run=False, expected_ending_balance=100.0))
     assert "unmapped" in out.lower() and "Not posting" in out
+
+
+# ---- live Stripe fetch (v2) ------------------------------------------------
+
+def test_no_report_no_key_is_helpful(monkeypatch):
+    monkeypatch.delenv("STRIPE_API_KEY", raising=False)
+    out = asyncio.run(s.qb_stripe_reconcile("2026-07"))
+    assert "STRIPE_API_KEY" in out and "export" in out
+
+
+def test_live_fetch_reconciles(monkeypatch):
+    _no_accounts(monkeypatch)
+    monkeypatch.setenv("STRIPE_API_KEY", "sk_test_x")
+
+    async def fake_fetch(period, api_key):
+        assert api_key == "sk_test_x"
+        return json.loads(REPORT), 112.04   # (txns, current balance)
+    monkeypatch.setattr(s, "_fetch_stripe_activity", fake_fetch)
+    # current month -> live balance auto-used as the tie-out target
+    monkeypatch.setattr(s, "_is_current_month", lambda p: True)
+
+    out = asyncio.run(s.qb_stripe_reconcile("2026-07"))
+    assert "source: live Stripe API" in out
+    assert "$112.04" in out and "ties" in out
+
+
+def test_live_historical_month_warns_no_autotie(monkeypatch):
+    _no_accounts(monkeypatch)
+    monkeypatch.setenv("STRIPE_API_KEY", "sk_test_x")
+
+    async def fake_fetch(period, api_key):
+        return json.loads(REPORT), 500.00
+    monkeypatch.setattr(s, "_fetch_stripe_activity", fake_fetch)
+    monkeypatch.setattr(s, "_is_current_month", lambda p: False)
+
+    out = asyncio.run(s.qb_stripe_reconcile("2026-04"))
+    # past month: current balance is NOT the tie-out target
+    assert "not the period-end balance" in out
+    assert "Pass expected_ending_balance" in out

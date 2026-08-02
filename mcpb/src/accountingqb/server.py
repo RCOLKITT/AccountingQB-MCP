@@ -2601,9 +2601,63 @@ def _classify_stripe(txns, scale):
     return b, unmapped
 
 
+_STRIPE_API = "https://api.stripe.com/v1"
+
+
+async def _stripe_get(path: str, api_key: str, params: dict = None) -> dict:
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.get(f"{_STRIPE_API}/{path}", params=params or {},
+                                headers={"Authorization": f"Bearer {api_key}"})
+    if resp.status_code == 401:
+        raise RuntimeError("Stripe rejected the API key (401) — use a valid "
+                           "read-only restricted key.")
+    if resp.status_code >= 400:
+        try:
+            msg = resp.json().get("error", {}).get("message", resp.text[:200])
+        except Exception:
+            msg = resp.text[:200]
+        raise RuntimeError(f"Stripe API error {resp.status_code}: {msg}")
+    return resp.json()
+
+
+async def _fetch_stripe_activity(period: str, api_key: str):
+    """Pull a month of balance_transactions + the current balance from Stripe.
+    Returns (list_of_balance_transaction_dicts, current_balance_in_dollars)."""
+    try:
+        y, m = (int(x) for x in period.split("-")[:2])
+        start = datetime(y, m, 1, tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        raise RuntimeError(f"period must be 'YYYY-MM' (got '{period}').")
+    end = (datetime(y + 1, 1, 1, tzinfo=timezone.utc) if m == 12
+           else datetime(y, m + 1, 1, tzinfo=timezone.utc))
+    gte, lt = int(start.timestamp()), int(end.timestamp())
+
+    txns, starting_after = [], None
+    for _ in range(200):  # guard: up to ~20k transactions
+        params = {"created[gte]": gte, "created[lt]": lt, "limit": 100}
+        if starting_after:
+            params["starting_after"] = starting_after
+        page = await _stripe_get("balance_transactions", api_key, params)
+        data = page.get("data", [])
+        txns.extend(data)
+        if not page.get("has_more") or not data:
+            break
+        starting_after = data[-1].get("id")
+
+    bal = await _stripe_get("balance", api_key)
+    cents = (sum(x.get("amount", 0) for x in bal.get("available", []))
+             + sum(x.get("amount", 0) for x in bal.get("pending", [])))
+    return txns, round(cents / 100.0, 2)
+
+
+def _is_current_month(period: str) -> bool:
+    now = _utcnow()
+    return period.strip() == f"{now.year:04d}-{now.month:02d}"
+
+
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_stripe_reconcile(
-        period: str, report_json: str, dry_run: bool = True,
+        period: str, report_json: str = "", dry_run: bool = True,
         income_account: str = "Sales", fee_account: str = "Merchant Fees",
         platform_fee_account: str = "Software & Apps",
         refund_account: str = "Refunds", clearing_account: str = "Stripe Clearing",
@@ -2615,12 +2669,41 @@ async def qb_stripe_reconcile(
     account, and tie the clearing balance to Stripe.
 
     period: 'YYYY-MM'. report_json: a JSON array of Stripe balance_transaction
-    objects (from the Stripe API / dashboard export). dry_run=True (default)
-    proposes the entry without posting; set False to post. Pass
-    expected_ending_balance (your Stripe dashboard balance) to assert the
-    tie-out — a mismatch blocks posting. Idempotent: a period already posted
-    (tagged [stripe:PERIOD]) will not be duplicated. amounts_in_cents=True
-    treats Stripe integer amounts as cents (the API convention)."""
+    objects (a dashboard/API export). Leave it empty to fetch the month LIVE
+    when STRIPE_API_KEY is set in the environment (self-hosted; a read-only
+    restricted key) — the current Stripe balance is used for the tie-out only
+    when reconciling the current month. dry_run=True (default) proposes the
+    entry without posting; set False to post. Pass expected_ending_balance
+    (your Stripe balance) to assert the tie-out — a mismatch blocks posting.
+    Idempotent: a period already posted (tagged [stripe:PERIOD]) is not
+    duplicated. amounts_in_cents=True treats Stripe integer amounts as cents."""
+    period = (period or "").strip()
+    source = "export"
+    live_note = ""
+    if not report_json:
+        api_key = os.environ.get("STRIPE_API_KEY", "").strip()
+        if not api_key:
+            return ("Provide report_json (a Stripe balance_transaction export), "
+                    "or set STRIPE_API_KEY in the environment to fetch the month "
+                    "live (self-hosted, read-only key).")
+        try:
+            txns_live, live_balance = await _fetch_stripe_activity(period, api_key)
+        except Exception as e:
+            return f"Live Stripe fetch failed: {e}"
+        if not txns_live:
+            return f"No Stripe activity found for {period}."
+        report_json = json.dumps(txns_live)
+        source = "live Stripe API"
+        # Stripe /balance is the CURRENT balance — only a valid period-end target
+        # when reconciling the current month.
+        if _is_current_month(period):
+            if not expected_ending_balance:
+                expected_ending_balance = live_balance
+        else:
+            live_note = (f"\n*Fetched live. Current Stripe balance {fmt(live_balance)} "
+                         "is not the period-end balance for a past month — pass "
+                         "expected_ending_balance to tie out.*")
+
     try:
         txns = json.loads(report_json) if isinstance(report_json, str) else report_json
     except (json.JSONDecodeError, TypeError) as e:
@@ -2637,7 +2720,8 @@ async def qb_stripe_reconcile(
     projected_clearing = round(prior_clearing + b["net_change"], 2)
 
     out = [f"## Stripe Reconciliation — {period}",
-           f"*{b['count']} balance transactions*\n",
+           f"*{b['count']} balance transactions · source: {source}*"
+           + (live_note or "") + "\n",
            "### Activity",
            f"- Gross sales: {fmt(b['gross'])}",
            f"- Refunds: ({fmt(b['refunds'])})",

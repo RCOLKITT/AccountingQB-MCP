@@ -14,6 +14,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.9.1",
+    date: "2026-08-02",
+    title: "Stripe reconciliation, now automatic",
+    tag: "Feature",
+    summary:
+      "qb_stripe_reconcile can now pull the month directly from Stripe — no export needed — when you run AccountingQB yourself with a read-only Stripe key.",
+    highlights: [
+      "Leave the report empty and it fetches the period's transactions (and current balance for the tie-out) live from the Stripe API",
+      "Self-hosted only via a STRIPE_API_KEY environment variable (read-only restricted key); the hosted connector never holds your Stripe key",
+      "Pasting a Stripe export still works exactly as before",
+    ],
+  },
+  {
     version: "3.9",
     date: "2026-08-02",
     title: "Stripe reconciliation, done right",
