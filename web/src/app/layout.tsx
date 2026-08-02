@@ -33,15 +33,17 @@ export const metadata: Metadata = {
   // No canonical here: it would cascade to every page that doesn't set its
   // own, telling Google they're duplicates of the homepage. Each page sets
   // its own alternates (client pages via a segment layout.tsx).
-  // Google Search Console ownership verification (Settings > Ownership >
-  // HTML tag). Set the token via env; omitted from markup when unset.
-  ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
-    ? {
-        verification: {
-          google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
-        },
-      }
-    : {}),
+  // Search-console ownership verification (Google Search Console + Bing Webmaster
+  // Tools — Bing feeds ChatGPT Search & Copilot). Set the tokens via env; each is
+  // omitted from markup when unset. DNS verification also works and needs neither.
+  ...(() => {
+    const google = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
+    const bing = process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION;
+    const verification: { google?: string; other?: Record<string, string> } = {};
+    if (google) verification.google = google;
+    if (bing) verification.other = { "msvalidate.01": bing };
+    return Object.keys(verification).length ? { verification } : {};
+  })(),
   openGraph: {
     type: "website",
     locale: "en_US",
