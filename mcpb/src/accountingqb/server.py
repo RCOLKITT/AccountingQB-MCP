@@ -2421,6 +2421,103 @@ async def qb_vendor_balance_detail(as_of_date: str = "") -> str:
 
 
 # ===================================================================
+# REPORTS — Tier-2 (class / department dimensions + inventory)
+# ===================================================================
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_list_classes() -> str:
+    """List QuickBooks classes (the segment tags used for class tracking, e.g.
+    program, product line, location). Empty if the company doesn't use classes."""
+    res = await qb_query_all("SELECT * FROM Class MAXRESULTS 1000")
+    classes = res.get("QueryResponse", {}).get("Class", [])
+    if not classes:
+        return ("No classes found. Turn on class tracking in QuickBooks "
+                "(Account and Settings → Advanced → Categories) to use "
+                "class-based reports like qb_sales_by_class.")
+    lines = [f"## Classes ({len(classes)})\n", "| Class | Status |", "|---|---|"]
+    for c in sorted(classes, key=lambda x: x.get("FullyQualifiedName") or x.get("Name", "")):
+        name = c.get("FullyQualifiedName") or c.get("Name", "?")
+        lines.append(f"| {name} | {'Active' if c.get('Active') else 'Inactive'} |")
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_list_departments() -> str:
+    """List QuickBooks departments/locations (the Location-tracking dimension).
+    Empty if the company doesn't use location tracking."""
+    res = await qb_query_all("SELECT * FROM Department MAXRESULTS 1000")
+    depts = res.get("QueryResponse", {}).get("Department", [])
+    if not depts:
+        return ("No departments/locations found. Turn on location tracking in "
+                "QuickBooks (Account and Settings → Advanced → Categories) to use "
+                "location-based reports like qb_sales_by_department.")
+    lines = [f"## Departments / Locations ({len(depts)})\n", "| Department | Status |", "|---|---|"]
+    for d in sorted(depts, key=lambda x: x.get("FullyQualifiedName") or x.get("Name", "")):
+        name = d.get("FullyQualifiedName") or d.get("Name", "?")
+        lines.append(f"| {name} | {'Active' if d.get('Active') else 'Inactive'} |")
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_sales_by_class(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+    """Sales broken out by class for a date range — segment/program performance.
+    Dates YYYY-MM-DD (default: current year-to-date). basis: '' (QuickBooks
+    default), 'cash', or 'accrual'. Requires class tracking (see qb_list_classes)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    params = {"start_date": start_date, "end_date": end_date}
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/SalesByClassSummary", params=params)
+    rows = report.get("Rows", {}).get("Row", [])
+    if not rows:
+        return ("No class-based sales found for this period. This report needs "
+                "QuickBooks class tracking enabled and classes on your sales.")
+    h = report.get("Header", {})
+    lines = [f"## Sales by Class: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}\n"]
+    _format_report_table(report, lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_sales_by_department(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+    """Sales broken out by department/location for a date range. Dates YYYY-MM-DD
+    (default: current year-to-date). basis: '' (QuickBooks default), 'cash', or
+    'accrual'. Requires location tracking (see qb_list_departments)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    params = {"start_date": start_date, "end_date": end_date}
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/SalesByDepartment", params=params)
+    rows = report.get("Rows", {}).get("Row", [])
+    if not rows:
+        return ("No location-based sales found for this period. This report needs "
+                "QuickBooks location tracking enabled and locations on your sales.")
+    h = report.get("Header", {})
+    lines = [f"## Sales by Department/Location: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}\n"]
+    _format_report_table(report, lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_inventory_valuation(as_of_date: str = "") -> str:
+    """Inventory valuation as of a date — on-hand quantity, asset value, and
+    average cost per inventory item, with the total asset value. as_of_date:
+    YYYY-MM-DD (defaults to today). Empty if the company doesn't track inventory."""
+    as_of_date = _as_of_or_today(as_of_date)
+    report = await qb_request("GET", "reports/InventoryValuationSummary",
+                              params={"start_date": as_of_date, "end_date": as_of_date})
+    rows = report.get("Rows", {}).get("Row", [])
+    if not rows:
+        return ("No inventory found. This report needs inventory-tracked items "
+                "in QuickBooks (items with 'I track quantity on hand' enabled).")
+    lines = [f"## Inventory Valuation — as of {as_of_date}\n"]
+    _format_report_table(report, lines)
+    return "\n".join(lines)
+
+
+# ===================================================================
 # CPA WORKBOOK SUPPORT — reconciliation, comparatives, tax payments, draws
 # ===================================================================
 

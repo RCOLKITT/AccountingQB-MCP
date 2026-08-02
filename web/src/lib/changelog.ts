@@ -14,6 +14,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.8",
+    date: "2026-08-02",
+    title: "Class, location & inventory reporting",
+    tag: "Feature",
+    summary:
+      "Break sales out by class or location, value your inventory on hand, and see the class/location tags your books use — the dimensional reports multi-segment and product businesses need.",
+    highlights: [
+      "qb_sales_by_class and qb_sales_by_department: segment, program, and location performance",
+      "qb_inventory_valuation: on-hand quantity, asset value, and average cost per item",
+      "qb_list_classes and qb_list_departments: see the class/location dimensions your company tracks",
+      "124 tools total across US & Canada",
+    ],
+  },
+  {
     version: "3.7",
     date: "2026-08-01",
     title: "Six new bookkeeper reports",
@@ -25,7 +39,7 @@ export const RELEASES: Release[] = [
       "qb_transaction_list: the flexible register — every transaction in a date range with full columns",
       "qb_profit_loss_detail: drill from any P&L number down to the transactions behind it",
       "qb_customer_balance_detail and qb_vendor_balance_detail: the line-item drill-down behind AR/AP aging",
-      "119 tools total across US & Canada",
+      "124 tools total across US & Canada",
     ],
   },
   {
@@ -79,7 +93,7 @@ export const RELEASES: Release[] = [
       "Reconciliation tie-outs, prior-year comparative statements (P&L + balance sheet), tax payments made, and owner's draws — the questions a CPA asks first, pre-answered",
       "A structured Tax Organizer replaces free-text notes: mileage, home office, health premiums, assets bought/sold, estimated payments",
       "Export the whole binder to Excel in one message",
-      "119 tools total across US & Canada",
+      "124 tools total across US & Canada",
     ],
   },
   {
