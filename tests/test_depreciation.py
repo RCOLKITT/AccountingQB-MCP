@@ -49,6 +49,9 @@ def _us_dispatcher(request):
         if "FullyQualifiedName = " in q:
             wanted = q.split("FullyQualifiedName = '")[1].split("'")[0]
             rows = [a for a in ACCOUNTS if a["FullyQualifiedName"] == wanted]
+        elif "Name = " in q and "LIKE" not in q:
+            wanted = q.split("Name = '")[1].split("'")[0]
+            rows = [a for a in ACCOUNTS if a["Name"] == wanted]
         elif "Name LIKE " in q:
             frag = q.split("Name LIKE '%")[1].split("%'")[0].lower()
             rows = [a for a in ACCOUNTS if frag in a["Name"].lower()]
@@ -224,8 +227,17 @@ def test_record_depreciation_requires_cost_basis(qb_ctx):
             return Response(200, json={"QueryResponse": {"CompanyInfo": [
                 {"CompanyName": "Test Co", "Country": "US"}]}})
         if "FROM Account" in q:
-            frag = q.split("LIKE '%")[1].split("%'")[0].lower() if "LIKE" in q else ""
-            rows = [a for a in zero_basis if frag in a["Name"].lower()]
+            if "FullyQualifiedName = " in q:
+                wanted = q.split("FullyQualifiedName = '")[1].split("'")[0]
+                rows = [a for a in zero_basis if a["FullyQualifiedName"] == wanted]
+            elif "Name = " in q and "LIKE" not in q:
+                wanted = q.split("Name = '")[1].split("'")[0]
+                rows = [a for a in zero_basis if a["Name"] == wanted]
+            elif "LIKE" in q:
+                frag = q.split("LIKE '%")[1].split("%'")[0].lower()
+                rows = [a for a in zero_basis if frag in a["Name"].lower()]
+            else:
+                rows = zero_basis
             return Response(200, json={"QueryResponse": {"Account": rows}})
         return Response(200, json={"QueryResponse": {}})
 

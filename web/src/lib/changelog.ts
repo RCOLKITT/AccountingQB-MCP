@@ -14,6 +14,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.8.1",
+    date: "2026-08-02",
+    title: "Never post to the wrong account",
+    tag: "Platform",
+    summary:
+      "Account name matching now refuses to guess — a partial name like 'Services' can no longer silently match 'Legal & accounting services' and post to the wrong account. Journal entries got safer too.",
+    highlights: [
+      "Every write tool (expenses, bills, deposits, transfers, journal entries, depreciation) resolves accounts by exact name first, and asks you to clarify instead of guessing when a name is ambiguous",
+      "Journal entries now reject unknown line fields (a mistyped 'type' used to make every line a debit) and accept an explicit account_id",
+      "Journal-entry confirmations show the real total instead of $0.00; qb_create_account validates name/description length before saving",
+    ],
+  },
+  {
     version: "3.8",
     date: "2026-08-02",
     title: "Class, location & inventory reporting",

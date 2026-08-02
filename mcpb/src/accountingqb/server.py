@@ -1103,24 +1103,57 @@ async def qb_read(entity: str, entity_id: str) -> dict:
     return await qb_request("GET", f"{entity.lower()}/{entity_id}")
 
 
-async def _resolve_account(acct_name: str) -> dict | None:
-    """Find an Account by name, accepting fully-qualified names.
+def _account_ambiguity_msg(name: str, hits: list) -> str:
+    listed = ", ".join(
+        f"{a.get('Name')} (ID:{a.get('Id')}, {a.get('AccountType')})"
+        for a in hits[:10])
+    more = "" if len(hits) <= 10 else f" (+{len(hits) - 10} more)"
+    return (f"Multiple accounts match '{name}': {listed}{more}. Please be more "
+            "specific — use the exact account name or the account ID.")
 
-    "Travel:Hotels" only matches FullyQualifiedName (Name holds the leaf),
-    so try an exact FullyQualifiedName match first, then fall back to a
-    LIKE on the leaf Name. Returns the Account dict or None."""
-    safe = acct_name.replace("'", "\\'")
-    if ":" in acct_name:
-        result = await qb_query(
-            f"SELECT * FROM Account WHERE FullyQualifiedName = '{safe}' MAXRESULTS 1")
-        found = result.get("QueryResponse", {}).get("Account", [])
-        if found:
-            return found[0]
-        safe = acct_name.rsplit(":", 1)[-1].replace("'", "\\'")
-    result = await qb_query(
-        f"SELECT * FROM Account WHERE Name LIKE '%{safe}%' MAXRESULTS 1")
-    found = result.get("QueryResponse", {}).get("Account", [])
-    return found[0] if found else None
+
+async def _resolve_account(acct_name: str, *, account_type: str = ""):
+    """Resolve an Account by name — safely, never silently guessing.
+
+    Returns ``(account_dict, None)`` on a single confident match, or
+    ``(None, error_message)`` when nothing matches or the name is ambiguous.
+    Resolution order: exact ``Name``, then exact ``FullyQualifiedName`` (for
+    "Parent:Child"), then a ``LIKE`` fallback on the leaf name that REFUSES to
+    pick when it matches more than one account. This is the fix for the
+    silent-wrong-account bug where "Services" matched "Legal & accounting
+    services" and posted revenue into an expense account. Pass ``account_type``
+    to constrain the search (e.g. "Expense")."""
+    name = (acct_name or "").strip()
+    if not name:
+        return None, "No account name was provided."
+    esc = lambda s: s.replace("'", "\\'")
+    tclause = f" AND AccountType = '{esc(account_type)}'" if account_type else ""
+
+    async def _q(where):
+        r = await qb_query(f"SELECT * FROM Account WHERE {where}{tclause} MAXRESULTS 25")
+        return r.get("QueryResponse", {}).get("Account", [])
+
+    # Exact matches are unambiguous intent — take a unique one immediately.
+    for field in ("Name", "FullyQualifiedName"):
+        hits = await _q(f"{field} = '{esc(name)}'")
+        if len(hits) == 1:
+            return hits[0], None
+        if len(hits) > 1:
+            return None, _account_ambiguity_msg(name, hits)
+
+    # LIKE fallback on the leaf name — but refuse to guess between many.
+    leaf = name.rsplit(":", 1)[-1]
+    hits = await _q(f"Name LIKE '%{esc(leaf)}%'")
+    if not hits:
+        return None, (f"Account '{name}' not found. Use qb_list_accounts to see "
+                      "available accounts, or pass the exact name / account ID.")
+    if len(hits) == 1:
+        return hits[0], None
+    # A single case-insensitive exact leaf match wins over partial matches.
+    exact = [a for a in hits if (a.get("Name") or "").lower() == leaf.lower()]
+    if len(exact) == 1:
+        return exact[0], None
+    return None, _account_ambiguity_msg(name, hits)
 
 
 def fmt(amount) -> str:
@@ -3274,11 +3307,9 @@ async def qb_create_expense(vendor_name: str, amount: float, account_name: str, 
         return f"Vendor '{vendor_name}' not found. Use qb_list_vendors to find existing vendors, or qb_create_vendor to create one."
     vendor = vendor_list[0]
 
-    accounts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' AND AccountType = 'Expense' MAXRESULTS 1")
-    account_list = accounts.get("QueryResponse", {}).get("Account", [])
-    if not account_list:
-        return f"Expense account '{account_name}' not found. Use qb_list_accounts to see available accounts."
-    account = account_list[0]
+    account, err = await _resolve_account(account_name, account_type="Expense")
+    if err:
+        return err
 
     purchase_body = {
         "PaymentType": "Cash",
@@ -3308,10 +3339,10 @@ async def qb_create_expense(vendor_name: str, amount: float, account_name: str, 
                           tax_id, tax_inclusive, region)
 
     if payment_method:
-        pay_accounts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{payment_method}%' MAXRESULTS 1")
-        pay_list = pay_accounts.get("QueryResponse", {}).get("Account", [])
-        if pay_list:
-            purchase_body["AccountRef"] = {"value": pay_list[0]["Id"], "name": pay_list[0]["Name"]}
+        pay_acct, pay_err = await _resolve_account(payment_method)
+        if pay_err:
+            return f"Payment method: {pay_err}"
+        purchase_body["AccountRef"] = {"value": pay_acct["Id"], "name": pay_acct["Name"]}
 
     result = await qb_request("POST", "purchase", json_body=purchase_body)
     p = result.get("Purchase", {})
@@ -3420,15 +3451,30 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
     je_lines = []
     total_debit = 0.0
     total_credit = 0.0
+    _allowed_keys = {"account_name", "account_id", "amount", "type", "description"}
 
-    for entry in entries:
-        acct_name = entry.get("account_name", "")
-        amount = float(entry.get("amount", 0))
+    for i, entry in enumerate(entries, 1):
+        unknown = set(entry) - _allowed_keys
+        if unknown:
+            return (f"Journal line {i} has unrecognized field(s): "
+                    f"{', '.join(sorted(unknown))}. Allowed per line: account_name "
+                    "(or account_id), amount, type ('Debit' or 'Credit'), description.")
         posting_type = entry.get("type", "Debit")
+        if posting_type not in ("Debit", "Credit"):
+            return (f"Journal line {i}: type must be 'Debit' or 'Credit' "
+                    f"(got '{posting_type}').")
+        amount = float(entry.get("amount", 0))
 
-        acct = await _resolve_account(acct_name)
-        if not acct:
-            return f"Account '{acct_name}' not found. Use qb_list_accounts to see available accounts."
+        acct_id = str(entry.get("account_id", "") or "").strip()
+        if acct_id:
+            acct = (await qb_read("account", acct_id)).get("Account")
+            if not acct:
+                return f"Journal line {i}: account_id '{acct_id}' not found."
+        else:
+            acct, err = await _resolve_account(entry.get("account_name", ""))
+            if err:
+                return f"Journal line {i}: {err}"
+        acct_name = acct.get("Name", "")
 
         # Depreciation must credit an Accumulated Depreciation contra
         # account — crediting the asset itself corrupts its cost basis.
@@ -3475,7 +3521,7 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
         f"Journal entry created!\n"
         f"- ID: {je.get('Id')}\n"
         f"- Date: {date}\n"
-        f"- Total: {fmt(je.get('TotalAmt'))}\n"
+        f"- Total: {fmt(total_debit)}\n"
         f"- Lines: {len(je_lines)}" +
         (f"\n- Memo: {memo}" if memo else "")
     )
@@ -3491,9 +3537,9 @@ async def qb_record_depreciation(asset_account: str, amount: float, date: str, m
     amount = _validate_amount(amount, "amount")
     date = _validate_date(date, "date")
 
-    asset = await _resolve_account(asset_account)
-    if not asset:
-        return f"Asset account '{asset_account}' not found. Use qb_list_accounts."
+    asset, err = await _resolve_account(asset_account)
+    if err:
+        return err
     if asset.get("AccountType") != "Fixed Asset":
         return (f"'{asset.get('Name')}' is a {asset.get('AccountType')} account, "
                 f"not a Fixed Asset — depreciation applies to fixed assets only.")
@@ -3512,7 +3558,7 @@ async def qb_record_depreciation(asset_account: str, amount: float, date: str, m
 
     # Find or create the Accumulated Depreciation contra sub-account
     accum_name = f"Accumulated Depreciation - {asset.get('Name')}"
-    accum = await _resolve_account(accum_name)
+    accum, _ = await _resolve_account(accum_name)
     created_accum = False
     if not accum or accum.get("AccountSubType") != "AccumulatedDepreciation":
         result = await qb_request("POST", "account", json_body={
@@ -3528,7 +3574,7 @@ async def qb_record_depreciation(asset_account: str, amount: float, date: str, m
         created_accum = True
 
     # Find or create Depreciation Expense
-    expense = await _resolve_account("Depreciation Expense")
+    expense, _ = await _resolve_account("Depreciation Expense")
     created_exp = False
     if not expense or expense.get("AccountType") != "Expense":
         result = await qb_request("POST", "account", json_body={
@@ -3581,10 +3627,9 @@ async def qb_record_depreciation(asset_account: str, amount: float, date: str, m
 async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str, memo: str = "", tax_code: str = "") -> str:
     """Create a bank deposit. date: YYYY-MM-DD. deposit_to_account: name of bank account receiving deposit. lines_json: JSON string [{"account_name": "...", "amount": 100.00, "description": "..."}].
     Canada/global editions: optional tax_code applies a sales tax code to each deposit line, e.g. 'HST ON' (deposits do not require one)."""
-    dep_accounts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{deposit_to_account}%' MAXRESULTS 1")
-    dep_list = dep_accounts.get("QueryResponse", {}).get("Account", [])
-    if not dep_list:
-        return f"Account '{deposit_to_account}' not found. Use qb_list_accounts to see available accounts."
+    dep_acct, dep_err = await _resolve_account(deposit_to_account)
+    if dep_err:
+        return dep_err
 
     entries = json.loads(lines_json) if isinstance(lines_json, str) else lines_json
     dep_lines = []
@@ -3593,11 +3638,9 @@ async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str,
         amount = float(entry.get("amount", 0))
         desc = entry.get("description", "")
 
-        accounts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{acct_name}%' MAXRESULTS 1")
-        acct_list = accounts.get("QueryResponse", {}).get("Account", [])
-        if not acct_list:
-            return f"Account '{acct_name}' not found."
-        acct = acct_list[0]
+        acct, err = await _resolve_account(acct_name)
+        if err:
+            return err
 
         dep_lines.append({
             "DetailType": "DepositLineDetail",
@@ -3610,7 +3653,7 @@ async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str,
 
     deposit_body = {
         "TxnDate": date,
-        "DepositToAccountRef": {"value": dep_list[0]["Id"], "name": dep_list[0]["Name"]},
+        "DepositToAccountRef": {"value": dep_acct["Id"], "name": dep_acct["Name"]},
         "Line": dep_lines,
     }
     if memo:
@@ -3633,7 +3676,7 @@ async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str,
         f"- ID: {dep.get('Id')}\n"
         f"- Date: {date}\n"
         f"- Total: {fmt(dep.get('TotalAmt'))}\n"
-        f"- Deposited to: {dep_list[0]['Name']}"
+        f"- Deposited to: {dep_acct['Name']}"
     )
 
 
@@ -3644,21 +3687,19 @@ async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str,
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_transfer(date: str, from_account: str, to_account: str, amount: float, memo: str = "") -> str:
     """Create a transfer between two accounts. date: YYYY-MM-DD. from_account and to_account are account names. amount is the transfer amount."""
-    from_accts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{from_account}%' MAXRESULTS 1")
-    from_list = from_accts.get("QueryResponse", {}).get("Account", [])
-    if not from_list:
-        return f"From account '{from_account}' not found."
+    from_acct, from_err = await _resolve_account(from_account)
+    if from_err:
+        return f"From account: {from_err}"
 
-    to_accts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{to_account}%' MAXRESULTS 1")
-    to_list = to_accts.get("QueryResponse", {}).get("Account", [])
-    if not to_list:
-        return f"To account '{to_account}' not found."
+    to_acct, to_err = await _resolve_account(to_account)
+    if to_err:
+        return f"To account: {to_err}"
 
     transfer_body = {
         "TxnDate": date,
         "Amount": amount,
-        "FromAccountRef": {"value": from_list[0]["Id"], "name": from_list[0]["Name"]},
-        "ToAccountRef": {"value": to_list[0]["Id"], "name": to_list[0]["Name"]},
+        "FromAccountRef": {"value": from_acct["Id"], "name": from_acct["Name"]},
+        "ToAccountRef": {"value": to_acct["Id"], "name": to_acct["Name"]},
     }
     if memo:
         transfer_body["PrivateNote"] = memo
@@ -3670,7 +3711,7 @@ async def qb_create_transfer(date: str, from_account: str, to_account: str, amou
         f"- ID: {t.get('Id')}\n"
         f"- Date: {date}\n"
         f"- Amount: {fmt(amount)}\n"
-        f"- From: {from_list[0]['Name']} → To: {to_list[0]['Name']}"
+        f"- From: {from_acct['Name']} → To: {to_acct['Name']}"
     )
 
 
@@ -5048,6 +5089,12 @@ async def qb_create_account(name: str, account_type: str, account_sub_type: str 
     Accounts Payable, Credit Card, Other Current Liability, Long Term Liability, Equity,
     Income, Cost of Goods Sold, Expense, Other Income, Other Expense.
     account_sub_type: varies by type (e.g., 'Checking' for Bank, 'OfficeGeneralAdministrativeExpenses' for Expense)."""
+    # QuickBooks caps these locally — validate before POST so the caller gets a
+    # useful message instead of raw QBO error 2050.
+    if len(name) > 100:
+        return f"Account name is {len(name)} characters; QuickBooks allows at most 100."
+    if len(description) > 100:
+        return f"Description is {len(description)} characters; QuickBooks allows at most 100."
     body = {
         "Name": name,
         "AccountType": account_type,
@@ -5119,11 +5166,10 @@ async def qb_create_bill(vendor_name: str, amount: float, account_name: str, dat
         vendor_ref = {"value": vendor_list[0]["Id"], "name": vendor_list[0]["DisplayName"]}
 
     # Look up expense account
-    accounts = await qb_query(f"SELECT Id, Name FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 1")
-    acct_list = accounts.get("QueryResponse", {}).get("Account", [])
-    if not acct_list:
-        return f"Error: Account '{account_name}' not found. Use `qb_list_accounts` to see available accounts."
-    acct_ref = {"value": acct_list[0]["Id"], "name": acct_list[0]["Name"]}
+    acct, acct_err = await _resolve_account(account_name)
+    if acct_err:
+        return acct_err
+    acct_ref = {"value": acct["Id"], "name": acct["Name"]}
 
     body = {
         "VendorRef": vendor_ref,
