@@ -14,6 +14,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.11",
+    date: "2026-08-02",
+    title: "Current with the 2026-07-28 MCP spec",
+    tag: "Platform",
+    summary:
+      "The hosted connector now advertises and implements the newest MCP spec's client-facing improvements — stateless, load-balancer-ready, with cacheable tool listings and zero deprecated features.",
+    highlights: [
+      "Cacheable tools/list (ttlMs + cacheScope) so gateways and clients can cache the tool catalog instead of re-fetching it",
+      "Capability discovery at /.well-known/mcp-capabilities and an MCP-Protocol-Version: 2026-07-28 header on responses",
+      "Already stateless and load-balancer-ready (routable on Mcp-Method/Mcp-Name); uses none of the deprecated Roots/Sampling/Logging features",
+    ],
+  },
+  {
     version: "3.10",
     date: "2026-08-02",
     title: "Books Hygiene audit",

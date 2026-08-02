@@ -192,3 +192,61 @@ def test_ctx_reset_after_request(client):
     client.post("/mcp", headers={"Authorization": f"Bearer {token}"})
     ctx = get_ctx()
     assert getattr(ctx, "license_key", None) != "LK-RESET"
+
+
+# ---------------------------------------------------------------------------
+# 2026-07-28 spec adoption (edge layer)
+# ---------------------------------------------------------------------------
+from accountingqb.remote import (  # noqa: E402
+    MCP_CAPABILITIES_PATH,
+    SPEC_PROTOCOL_VERSION,
+    TOOLS_LIST_TTL_MS,
+)
+
+
+async def tools_list_app(scope, receive, send):
+    """Downstream stand-in that returns a JSON-RPC tools/list result."""
+    body = json.dumps(
+        {"jsonrpc": "2.0", "id": 1, "result": {"tools": [{"name": "qb_profit_loss"}]}}
+    ).encode()
+    await send({"type": "http.response.start", "status": 200,
+                "headers": [(b"content-type", b"application/json")]})
+    await send({"type": "http.response.body", "body": body})
+
+
+def _authed_app(downstream):
+    return BearerAuthMiddleware(
+        downstream, jwt_secret=SECRET, resource_url=RESOURCE,
+        auth_server_url=AS_URL, realm_resolver=stub_realm_resolver,
+    )
+
+
+def test_capabilities_endpoint_advertises_2026_spec():
+    client = TestClient(_authed_app(echo_ctx_app))
+    r = client.get(MCP_CAPABILITIES_PATH)  # public, no auth
+    assert r.status_code == 200
+    data = r.json()
+    assert "2026-07-28" in data["protocolVersions"]
+    assert data["deprecatedFeaturesUsed"] == []          # our selling point
+    assert data["transport"]["stateless"] is True
+    assert data["cacheable"]["tools/list"]["cacheScope"] == "public"
+
+
+def test_tools_list_response_gets_cache_hints_and_version_header():
+    client = TestClient(_authed_app(tools_list_app))
+    token = make_token()
+    r = client.post("/mcp", headers={"Authorization": f"Bearer {token}"}, json={})
+    assert r.status_code == 200
+    assert r.headers.get("mcp-protocol-version") == SPEC_PROTOCOL_VERSION
+    result = r.json()["result"]
+    assert result["ttlMs"] == TOOLS_LIST_TTL_MS
+    assert result["cacheScope"] == "public"
+    assert result["tools"][0]["name"] == "qb_profit_loss"   # original preserved
+
+
+def test_non_tools_response_untouched_but_versioned():
+    client = TestClient(_authed_app(echo_ctx_app))
+    token = make_token()
+    r = client.post("/mcp", headers={"Authorization": f"Bearer {token}"}, json={})
+    assert r.headers.get("mcp-protocol-version") == SPEC_PROTOCOL_VERSION
+    assert "ttlMs" not in r.text and "cacheScope" not in r.text
