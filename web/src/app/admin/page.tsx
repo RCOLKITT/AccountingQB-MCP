@@ -17,30 +17,39 @@ async function getStats(): Promise<Stats> {
   const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
 
-  // Get license counts by status
+  // Get license counts by status. Exclude test/demo accounts (is_test) so these
+  // headline numbers match the Revenue/Funnel pages, which already filter them.
   const { count: totalUsers } = await supabase
     .from("licenses")
-    .select("*", { count: "exact", head: true });
+    .select("*", { count: "exact", head: true })
+    .eq("is_test", false);
 
   const { count: activeTrials } = await supabase
     .from("licenses")
     .select("*", { count: "exact", head: true })
+    .eq("is_test", false)
     .eq("status", "trialing");
 
+  // "Paid" means an actually-billing subscription — matches the Revenue page's
+  // definition (active AND a Stripe subscription), not merely status='active'.
   const { count: activeSubscriptions } = await supabase
     .from("licenses")
     .select("*", { count: "exact", head: true })
-    .eq("status", "active");
+    .eq("is_test", false)
+    .eq("status", "active")
+    .not("stripe_subscription_id", "is", null);
 
   const { count: canceledSubscriptions } = await supabase
     .from("licenses")
     .select("*", { count: "exact", head: true })
+    .eq("is_test", false)
     .in("status", ["canceled", "expired"]);
 
   // Trials ending this week
   const { count: trialsEndingThisWeek } = await supabase
     .from("licenses")
     .select("*", { count: "exact", head: true })
+    .eq("is_test", false)
     .eq("status", "trialing")
     .lte("trial_ends_at", oneWeekFromNow.toISOString())
     .gte("trial_ends_at", now.toISOString());
@@ -49,6 +58,7 @@ async function getStats(): Promise<Stats> {
   const { data: oldTrials } = await supabase
     .from("licenses")
     .select("key")
+    .eq("is_test", false)
     .eq("status", "trialing")
     .lt("created_at", threeDaysAgo.toISOString());
 
@@ -102,6 +112,7 @@ async function getRecentUsers(): Promise<RecentUser[]> {
   const { data } = await supabase
     .from("licenses")
     .select("key, email, tier, status, created_at, trial_ends_at")
+    .eq("is_test", false)
     .order("created_at", { ascending: false })
     .limit(10);
 

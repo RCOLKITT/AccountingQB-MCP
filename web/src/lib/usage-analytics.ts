@@ -63,18 +63,36 @@ export function normalizeDays(raw: string | undefined): number {
   return raw === "7" ? 7 : raw === "90" ? 90 : 30;
 }
 
+// tool_usage grows unbounded — page through it so usage metrics don't silently
+// plateau at Supabase's default 1000-row cap.
+async function fetchAllUsage(
+  sb: ReturnType<typeof getSupabase>,
+  since: string
+): Promise<UsageRow[]> {
+  const out: UsageRow[] = [];
+  const PAGE = 1000;
+  for (let from = 0; from <= 500000; from += PAGE) {
+    const { data } = await sb
+      .from("tool_usage")
+      .select("license_key, tool_name, time_saved_minutes, invoked_at")
+      .gte("invoked_at", since)
+      .order("invoked_at", { ascending: false })
+      .range(from, from + PAGE - 1);
+    const rows = (data as UsageRow[]) || [];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return out;
+}
+
 export async function getUsageAnalytics(days: number): Promise<UsageAnalytics> {
   const sb = getSupabase();
   const since = new Date(Date.now() - days * 86400000).toISOString();
 
-  const [{ data: licenses }, { data: tokens }, { data: usage }] = await Promise.all([
-    sb.from("licenses").select("key, email, tier, status, is_test"),
-    sb.from("oauth_tokens").select("license_key, company_name"),
-    sb
-      .from("tool_usage")
-      .select("license_key, tool_name, time_saved_minutes, invoked_at")
-      .gte("invoked_at", since)
-      .order("invoked_at", { ascending: false }),
+  const [{ data: licenses }, { data: tokens }, usage] = await Promise.all([
+    sb.from("licenses").select("key, email, tier, status, is_test").limit(50000),
+    sb.from("oauth_tokens").select("license_key, company_name").limit(50000),
+    fetchAllUsage(sb, since),
   ]);
 
   const licByKey = new Map<string, LicenseRow>();

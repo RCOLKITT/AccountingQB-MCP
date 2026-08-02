@@ -47,10 +47,22 @@ export async function POST(
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  // Calculate new trial end date
-  const currentTrialEnd = license.trial_ends_at
-    ? new Date(license.trial_ends_at)
-    : new Date();
+  // Only trials can be extended. Never silently flip a paying ('active') or a
+  // canceled paid subscription into 'trialing'.
+  if (license.status !== "trialing" && license.status !== "expired") {
+    return NextResponse.json(
+      { error: `Cannot extend a trial for a '${license.status}' license.` },
+      { status: 400 }
+    );
+  }
+
+  // Anchor off whichever is later — a long-expired trial must still land in the
+  // future, not "+N days" from an old, already-past date.
+  const anchor = new Date();
+  const currentTrialEnd =
+    license.trial_ends_at && new Date(license.trial_ends_at) > anchor
+      ? new Date(license.trial_ends_at)
+      : anchor;
   const newTrialEnd = new Date(
     currentTrialEnd.getTime() + days * 24 * 60 * 60 * 1000
   );

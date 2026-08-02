@@ -61,7 +61,9 @@ export async function GET(req: NextRequest) {
     query = query.or(`email.ilike.%${search}%,key.ilike.%${search}%`);
   }
 
-  const { data: licenses, error } = await query.limit(100);
+  // Cap high enough to avoid silently hiding users (the 'stuck' filter runs in
+  // JS after this fetch). TODO: true cursor pagination when the list outgrows this.
+  const { data: licenses, error } = await query.limit(1000);
 
   if (error) {
     console.error("Failed to fetch users:", error);

@@ -33,6 +33,25 @@ async function getData() {
     .limit(10000);
   const rows = (data || []) as (Lic & { is_test: boolean })[];
 
+  // Reliable cancellation dates come from the subscription-deleted webhook
+  // events — licenses.updated_at is bumped by ANY edit, so it is not a valid
+  // cancel date for a churn-by-month trend.
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  sixMonthsAgo.setDate(1);
+  const { data: cancelEvents } = await supabase
+    .from("event_logs")
+    .select("created_at")
+    .eq("action", "customer.subscription.deleted")
+    .eq("success", true)
+    .gte("created_at", sixMonthsAgo.toISOString())
+    .limit(10000);
+  const cancelsByMonth: Record<string, number> = {};
+  for (const e of cancelEvents || []) {
+    const k = monthKey(e.created_at as string);
+    cancelsByMonth[k] = (cancelsByMonth[k] || 0) + 1;
+  }
+
   const paying = rows.filter(
     (r) => r.status === "active" && r.stripe_subscription_id
   );
@@ -61,7 +80,7 @@ async function getData() {
     ? (paidChurn.length / (paying.length + paidChurn.length)) * 100
     : 0;
 
-  // 6-month trend: signups (created_at) + paid-cancels (updated_at)
+  // 6-month trend: signups (created_at) + cancellations (webhook events)
   const months: string[] = [];
   const now = new Date();
   for (let i = 5; i >= 0; i--) {
@@ -71,7 +90,7 @@ async function getData() {
   const trend = months.map((m) => ({
     month: m,
     signups: rows.filter((r) => monthKey(r.created_at) === m).length,
-    churned: paidChurn.filter((r) => r.updated_at && monthKey(r.updated_at) === m).length,
+    churned: cancelsByMonth[m] || 0,
   }));
 
   return {
