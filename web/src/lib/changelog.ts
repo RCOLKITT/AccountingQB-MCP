@@ -14,6 +14,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.10",
+    date: "2026-08-02",
+    title: "Books Hygiene audit",
+    tag: "Feature",
+    summary:
+      "A structural audit that catches what a health score misses — the kind of problems that quietly make every downstream number wrong.",
+    highlights: [
+      "qb_books_hygiene flags transactions posted to deleted/inactive accounts, wrong-sign balances, credit-card payments misfiled as expenses, and dormant accounts carrying large balances (opening-balance errors)",
+      "Optional statement attestation: hand it your real bank/card statement balances and it diffs them against QuickBooks — the single check that catches everything at once",
+      "Complements the existing health audit; every finding names the fix",
+    ],
+  },
+  {
     version: "3.9.2",
     date: "2026-08-02",
     title: "Complete counts, every time",
@@ -50,7 +63,7 @@ export const RELEASES: Release[] = [
       "qb_stripe_reconcile: posts a monthly journal entry through a Stripe Clearing account and ties the clearing balance to your Stripe balance",
       "Splits processing fees from platform fees (Sigma/Billing/Radar/Connect/Terminal) — in testing those platform fees were 3× the processing fees",
       "Dry-run by default (proposes the entry first), refuses to post if it doesn't tie or has unmapped transactions, and won't double-post a month",
-      "125 tools total across US & Canada",
+      "126 tools total across US & Canada",
     ],
   },
   {
@@ -77,7 +90,7 @@ export const RELEASES: Release[] = [
       "qb_sales_by_class and qb_sales_by_department: segment, program, and location performance",
       "qb_inventory_valuation: on-hand quantity, asset value, and average cost per item",
       "qb_list_classes and qb_list_departments: see the class/location dimensions your company tracks",
-      "125 tools total across US & Canada",
+      "126 tools total across US & Canada",
     ],
   },
   {
@@ -92,7 +105,7 @@ export const RELEASES: Release[] = [
       "qb_transaction_list: the flexible register — every transaction in a date range with full columns",
       "qb_profit_loss_detail: drill from any P&L number down to the transactions behind it",
       "qb_customer_balance_detail and qb_vendor_balance_detail: the line-item drill-down behind AR/AP aging",
-      "125 tools total across US & Canada",
+      "126 tools total across US & Canada",
     ],
   },
   {
@@ -146,7 +159,7 @@ export const RELEASES: Release[] = [
       "Reconciliation tie-outs, prior-year comparative statements (P&L + balance sheet), tax payments made, and owner's draws — the questions a CPA asks first, pre-answered",
       "A structured Tax Organizer replaces free-text notes: mileage, home office, health premiums, assets bought/sold, estimated payments",
       "Export the whole binder to Excel in one message",
-      "125 tools total across US & Canada",
+      "126 tools total across US & Canada",
     ],
   },
   {

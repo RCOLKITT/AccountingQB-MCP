@@ -1,7 +1,7 @@
 # AccountingQB
 
 > AccountingQB connects Claude (and any MCP-compatible AI) to QuickBooks
-> Online with 125 tools for reports, bookkeeping cleanup, transaction
+> Online with 126 tools for reports, bookkeeping cleanup, transaction
 > creation, and tax preparation for the United States (Schedule C, 1099,
 > quarterly estimates) and Canada (GST/HST return workpapers, T2125, CCA,
 > T4A, CRA instalments). Built by Vaspera Capital.

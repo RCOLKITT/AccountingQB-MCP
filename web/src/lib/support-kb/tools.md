@@ -1,4 +1,4 @@
-# AccountingQB Tools (125 Total)
+# AccountingQB Tools (126 Total)
 
 ## Company & Entities (14)
 | Tool | Description |
@@ -120,7 +120,7 @@
 | qb_list_tax_codes | List sales tax codes (GST/HST/PST) |
 | qb_list_tax_rates | List sales tax rates |
 
-## Smart Features (9)
+## Smart Features (10)
 | Tool | Description |
 |------|-------------|
 | qb_uncategorized_transactions | Find uncategorized transactions |
@@ -130,6 +130,7 @@
 | qb_runway_calculator | Months of cash runway |
 | qb_fiscal_year_close_checklist | Year-end close readiness check |
 | qb_books_health_audit | Comprehensive books health audit |
+| qb_books_hygiene | Structural audit — deleted-account postings, wrong-sign balances, misfiled card payments, dormant balances, statement attestation |
 | qb_month_end_close | Month-end close checklist with status checks |
 | qb_unknown_vendor_report | Find transactions with missing vendor names |
 

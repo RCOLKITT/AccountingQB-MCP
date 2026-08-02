@@ -8997,6 +8997,180 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
     return "\n".join(lines)
 
 
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_books_hygiene(start_date: str = "", end_date: str = "",
+                           statement_balances: str = "") -> str:
+    """Structural books-quality audit that catches what a health score misses:
+    transactions posted to deleted/inactive accounts, wrong-sign account balances,
+    credit-card payments misfiled as expenses, and dormant accounts carrying large
+    balances (opening-balance errors). Dates YYYY-MM-DD (default: current
+    year-to-date). statement_balances: optional JSON like
+    {"Checking": 4820.10, "Amex Business": -1560.00} to diff your real bank/card
+    statement balances against QuickBooks — the highest-value check, since it
+    catches everything else at once."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+
+    active = (await qb_query_all("SELECT * FROM Account")).get(
+        "QueryResponse", {}).get("Account", [])
+    inactive = (await qb_query_all("SELECT * FROM Account WHERE Active = false")).get(
+        "QueryResponse", {}).get("Account", [])
+    by_id = {a["Id"]: a for a in active + inactive}
+    inactive_ids = {a["Id"] for a in inactive}
+    atype = {a["Id"]: a.get("AccountType", "") for a in active + inactive}
+
+    async def _fetch(entity):
+        return (await qb_query_all(
+            f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' "
+            f"AND TxnDate <= '{end_date}'")).get("QueryResponse", {}).get(entity, [])
+    purchases, deposits, jes = await _fetch("Purchase"), await _fetch("Deposit"), await _fetch("JournalEntry")
+
+    def _refs(t, kind):
+        out = []
+        if kind == "Purchase":
+            if t.get("AccountRef", {}).get("value"):
+                out.append(("pay", t["AccountRef"]["value"]))
+            for l in t.get("Line", []):
+                v = l.get("AccountBasedExpenseLineDetail", {}).get("AccountRef", {}).get("value")
+                if v:
+                    out.append(("cat", v))
+        elif kind == "Deposit":
+            if t.get("DepositToAccountRef", {}).get("value"):
+                out.append(("pay", t["DepositToAccountRef"]["value"]))
+            for l in t.get("Line", []):
+                v = l.get("DepositLineDetail", {}).get("AccountRef", {}).get("value")
+                if v:
+                    out.append(("cat", v))
+        else:  # JournalEntry
+            for l in t.get("Line", []):
+                v = l.get("JournalEntryLineDetail", {}).get("AccountRef", {}).get("value")
+                if v:
+                    out.append(("cat", v))
+        return out
+
+    from collections import Counter
+    activity = Counter()
+    dangling, misfiled = [], []
+    for kind, txns in (("Purchase", purchases), ("Deposit", deposits), ("JournalEntry", jes)):
+        for t in txns:
+            refs = _refs(t, kind)
+            for _, aid in refs:
+                activity[aid] += 1
+                if aid in inactive_ids:
+                    dangling.append((kind, t.get("Id"), by_id.get(aid, {}).get("Name", aid),
+                                     float(t.get("TotalAmt", 0))))
+            if kind == "Purchase":
+                pay = [aid for r, aid in refs if r == "pay"]
+                if pay and atype.get(pay[0]) == "Credit Card":
+                    for c in [aid for r, aid in refs if r == "cat"]:
+                        if atype.get(c) in ("Bank", "Equity"):
+                            misfiled.append((t.get("Id"), by_id.get(c, {}).get("Name", c),
+                                             float(t.get("TotalAmt", 0))))
+
+    score = 100
+    lines = [f"## Books Hygiene Audit — {start_date} to {end_date}\n"]
+    issues, passed = [], []
+
+    # 1. Dangling references — posting to a deleted/inactive account
+    if dangling:
+        score -= 15
+        by_acct = Counter(d[2] for d in dangling)
+        total = sum(d[3] for d in dangling)
+        issues.append(f"🔴 **{len(dangling)} transaction(s) posted to inactive/deleted "
+                      f"accounts** ({fmt(total)}): "
+                      + ", ".join(f"{n} ({c})" for n, c in by_acct.most_common(5))
+                      + ". Reclassify to a live account (qb_reclassify_transaction).")
+    else:
+        passed.append("✅ No transactions posted to deleted/inactive accounts")
+
+    # 2. Wrong-sign balances (high-confidence cases only)
+    sign_flags = []
+    for a in active:
+        bal = float(a.get("CurrentBalance", 0) or 0)
+        t = a.get("AccountType", "")
+        if t == "Bank" and bal < -0.01:
+            sign_flags.append(f"{a.get('Name')} ({t}): {fmt(bal)} — negative bank balance "
+                              "(overdraft or opening-balance error)")
+        elif t == "Accounts Receivable" and bal < -0.01:
+            sign_flags.append(f"{a.get('Name')} ({t}): {fmt(bal)} — credit balance on AR")
+    if sign_flags:
+        score -= min(20, 10 * len(sign_flags))
+        issues.append("🔴 **Wrong-sign balances:**\n   " + "\n   ".join(sign_flags))
+    else:
+        passed.append("✅ Bank/AR balances point the right way")
+
+    # 3. Credit-card payments misfiled as expenses
+    if misfiled:
+        score -= 15
+        total = sum(m[2] for m in misfiled)
+        issues.append(f"🔴 **{len(misfiled)} credit-card purchase(s) categorized to a "
+                      f"bank/equity account** ({fmt(total)}) — almost always a card "
+                      "PAYMENT misfiled as an expense, which inflates the card liability. "
+                      "IDs: " + ", ".join(str(m[0]) for m in misfiled[:10]) + ".")
+    else:
+        passed.append("✅ No credit-card payments misfiled as expenses")
+
+    # 4. Dormant accounts carrying a large balance
+    dormant = []
+    for a in active:
+        bal = float(a.get("CurrentBalance", 0) or 0)
+        if abs(bal) >= 1000 and activity.get(a["Id"], 0) <= 2 \
+                and a.get("AccountType") in ("Bank", "Credit Card", "Other Current Asset",
+                                             "Other Current Liability", "Equity"):
+            dormant.append(f"{a.get('Name')}: {fmt(bal)} ({activity.get(a['Id'], 0)} txns in period)")
+    if dormant:
+        score -= min(20, 10 * len(dormant))
+        issues.append("🟡 **Large balance, near-zero activity** (likely an opening-balance "
+                      "error):\n   " + "\n   ".join(dormant))
+    else:
+        passed.append("✅ No dormant accounts carrying large balances")
+
+    # 5. Statement-balance attestation (optional, highest-value)
+    if statement_balances:
+        try:
+            claims = json.loads(statement_balances)
+        except (json.JSONDecodeError, TypeError):
+            claims = None
+        if not isinstance(claims, dict):
+            issues.append("⚠️ statement_balances must be JSON like "
+                          '{"Checking": 4820.10}. Skipped attestation.')
+        else:
+            mism = []
+            for name, real in claims.items():
+                acct, err = await _resolve_account(name)
+                if err:
+                    mism.append(f"{name}: {err}")
+                    continue
+                book = float(acct.get("CurrentBalance", 0) or 0)
+                diff = round(book - float(real), 2)
+                if abs(diff) > 0.01:
+                    mism.append(f"{acct.get('Name')}: QuickBooks {fmt(book)} vs statement "
+                                f"{fmt(float(real))} — **off by {fmt(diff)}**")
+            if mism:
+                score -= min(30, 15 * len(mism))
+                issues.append("🔴 **Statement attestation mismatches:**\n   "
+                              + "\n   ".join(mism))
+            else:
+                passed.append("✅ All attested balances match the statements")
+    else:
+        passed.append("ℹ️ No statement balances provided — pass statement_balances to "
+                      "diff your real bank/card statements (the strongest check).")
+
+    score = max(0, score)
+    grade = "🟢" if score >= 90 else "🟡" if score >= 70 else "🔴"
+    lines.append(f"### {grade} Hygiene score: {score}/100\n")
+    if issues:
+        lines.append("### Findings")
+        lines.extend(issues)
+        lines.append("")
+    lines.append("### Passed")
+    lines.extend(passed)
+    lines.append("\n*Structural checks; complements qb_books_health_audit. Not a "
+                 "substitute for a reconciliation against real statements.*")
+    _audit_log("BOOKS_HYGIENE", f"score={score} dangling={len(dangling)} "
+               f"misfiled={len(misfiled)}")
+    return "\n".join(lines)
+
+
 # ===================================================================
 # UNKNOWN VENDOR REPORT & BULK FIX
 # ===================================================================

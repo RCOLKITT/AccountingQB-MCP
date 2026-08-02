@@ -55,7 +55,7 @@ const tiers = [
     description: "For freelancers & sole proprietors",
     savings: "Save ~5 hrs/mo on bookkeeping & tax prep",
     features: [
-      "All 125 QuickBooks tools",
+      "All 126 QuickBooks tools",
       "US & Canadian tax prep (Schedule C / T2125)",
       "Deduction finder",
       "Anomaly detection",
@@ -121,7 +121,7 @@ const faqs = [
   },
   {
     q: "What happens after the 14-day trial?",
-    a: "You keep access to 25 essential read-only tools for free. To continue using all 125 tools including writes, tax prep, and advanced analytics, choose a paid plan.",
+    a: "You keep access to 25 essential read-only tools for free. To continue using all 126 tools including writes, tax prep, and advanced analytics, choose a paid plan.",
   },
   {
     q: "Can I use this with QuickBooks Desktop?",
@@ -215,7 +215,7 @@ export default async function Home() {
 
             {/* Subhead */}
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-400 sm:text-xl">
-              125 tools connecting Claude to your QuickBooks Online. Run reports,
+              126 tools connecting Claude to your QuickBooks Online. Run reports,
               reconcile books, prep for taxes, detect anomalies — all through
               natural conversation.{" "}
               <span className="text-gray-300">Run it locally or connect instantly — we never store your books.</span>
@@ -373,7 +373,7 @@ export default async function Home() {
               Features
             </div>
             <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
-              125 tools across every
+              126 tools across every
               <br />
               <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">accounting workflow</span>
             </h2>
@@ -393,7 +393,7 @@ export default async function Home() {
               { count: "13", label: "Modify, Delete & Bulk", color: "text-gray-400 border-gray-500/20 bg-gray-500/[0.06]" },
               { count: "8", label: "Entity Management", color: "text-indigo-400 border-indigo-500/20 bg-indigo-500/[0.06]" },
               { count: "7", label: "Reconciliation", color: "text-rose-400 border-rose-500/20 bg-rose-500/[0.06]" },
-              { count: "5", label: "Smart Bookkeeping", color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/[0.06]" },
+              { count: "6", label: "Smart Bookkeeping", color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/[0.06]" },
               { count: "4", label: "Cash Flow & Runway", color: "text-green-400 border-green-500/20 bg-green-500/[0.06]" },
               { count: "3", label: "Close & Audit", color: "text-orange-400 border-orange-500/20 bg-orange-500/[0.06]" },
               { count: "3", label: "Connection & Multi-Company", color: "text-teal-400 border-teal-500/20 bg-teal-500/[0.06]" },
@@ -532,7 +532,7 @@ export default async function Home() {
               {
                 step: "03",
                 title: "Start Talking to Your Books",
-                desc: "Ask Claude anything. \"What's my burn rate?\" \"Find missing deductions.\" 125 tools ready.",
+                desc: "Ask Claude anything. \"What's my burn rate?\" \"Find missing deductions.\" 126 tools ready.",
                 gradient: "from-indigo-500 to-purple-500",
               },
             ].map((s) => (
@@ -652,7 +652,7 @@ export default async function Home() {
               <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">in the first week</span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-gray-400">
-              125 tools means 125 tasks that used to be manual. Tax prep, invoice reconciliation, vendor cleanup, anomaly checks, month-end close — all in a conversation.
+              126 tools means 126 tasks that used to be manual. Tax prep, invoice reconciliation, vendor cleanup, anomaly checks, month-end close — all in a conversation.
             </p>
           </div>
 
@@ -752,7 +752,7 @@ export default async function Home() {
                 <p className="mt-3 text-gray-400">
                   If you&apos;re managing 20+ clients, your team is spending hundreds of hours a month on tasks
                   AccountingQB handles in minutes. Invoice reconciliation, month-end close, vendor cleanup,
-                  anomaly checks, tax prep — 125 tools covering every workflow that eats your margin.
+                  anomaly checks, tax prep — 126 tools covering every workflow that eats your margin.
                 </p>
               </div>
               <div className="rounded-xl bg-white/[0.03] p-6">
