@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase";
+import { getStripeRevenue } from "@/lib/stripe-revenue";
 
 // Revenue cockpit — MRR/ARR, paying customers, trial→paid conversion, paid
 // churn, and a 6-month trend. Real subscriptions only (has a Stripe sub, not
@@ -112,7 +113,7 @@ const usd = (n: number) =>
   "$" + Math.round(n).toLocaleString("en-US");
 
 export default async function RevenuePage() {
-  const d = await getData();
+  const [d, stripe] = await Promise.all([getData(), getStripeRevenue()]);
   const maxTrend = Math.max(1, ...d.trend.map((t) => Math.max(t.signups, t.churned)));
 
   return (
@@ -124,10 +125,45 @@ export default async function RevenuePage() {
         </p>
       </div>
 
-      {/* Headline metrics */}
+      {/* Live from Stripe — actual billed revenue + dunning + refunds */}
+      {stripe ? (
+        <div className="bg-[#131a2e] rounded-xl border border-white/10 p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white">Live from Stripe</h2>
+            <span className="text-xs text-emerald-400">actual billed amounts</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <Metric label="MRR (real)" value={usd(stripe.mrr)} accent />
+            <Metric label="Active subs" value={String(stripe.activeSubs)} />
+            <Metric
+              label="Past-due (dunning)"
+              value={String(stripe.dunningSubs)}
+              sub={`${usd(stripe.dunningMrr)}/mo at risk`}
+            />
+            <Metric
+              label="Refunds (30d)"
+              value={usd(stripe.refunds30d)}
+              sub={`${stripe.refundCount30d} refunds`}
+            />
+            <Metric
+              label="Stripe balance"
+              value={usd(stripe.balanceAvailable)}
+              sub={`${usd(stripe.balancePending)} pending`}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-white/10 bg-[#131a2e] p-6 text-sm text-gray-400">
+          Stripe not configured — the numbers below are list-price estimates. Set
+          STRIPE_SECRET_KEY to see real billed MRR, dunning (failed payments), and
+          refunds.
+        </div>
+      )}
+
+      {/* Headline metrics (estimated from list prices — see Stripe panel for real) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Metric label="MRR" value={usd(d.mrr)} accent />
-        <Metric label="ARR" value={usd(d.arr)} />
+        <Metric label="MRR (est.)" value={usd(d.mrr)} accent />
+        <Metric label="ARR (est.)" value={usd(d.arr)} />
         <Metric label="Paying customers" value={String(d.payingCount)} />
         <Metric label="ARPU" value={usd(d.arpu) + "/mo"} />
         <Metric label="Trial → paid" value={`${Math.round(d.conversion * 10) / 10}%`} sub="of completed trials" />
