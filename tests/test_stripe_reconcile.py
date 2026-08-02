@@ -88,8 +88,14 @@ def _post_setup(monkeypatch, dup=False):
     monkeypatch.setattr(s, "_resolve_account", fake_resolve)
 
     async def fake_query(q):
+        # A previously-posted reconciliation JE that touches Stripe Clearing (155)
+        # and carries our period marker — the idempotency scan must catch it.
         if "JournalEntry" in q and dup:
-            return {"QueryResponse": {"JournalEntry": [{"Id": "999"}]}}
+            return {"QueryResponse": {"JournalEntry": [{
+                "Id": "999",
+                "PrivateNote": "Stripe reconciliation 2026-07 [stripe:2026-07]",
+                "Line": [{"JournalEntryLineDetail": {"AccountRef": {"value": "155"}}}],
+            }]}}
         return {"QueryResponse": {}}
     monkeypatch.setattr(s, "qb_query", fake_query)
 
@@ -130,6 +136,57 @@ def test_unmapped_blocks_posting(monkeypatch):
     out = asyncio.run(s.qb_stripe_reconcile(
         "2026-07", json.dumps(weird), dry_run=False, expected_ending_balance=100.0))
     assert "unmapped" in out.lower() and "Not posting" in out
+
+
+def test_stripe_fee_uses_net_incl_tax(monkeypatch):
+    """On a stripe_fee, `amount` is the fee net of tax and `fee` is the tax —
+    the platform total must use `net` (amount+tax), not bare `amount`. Regression
+    for the review's $10.62-vs-$11.30 understatement."""
+    _no_accounts(monkeypatch)
+    report = json.dumps([
+        {"type": "charge", "amount": 5000, "fee": 175, "net": 4825},
+        # fee -$10.62 net of tax, +$0.68 sales tax => true fee $11.30 (net -11.30)
+        {"type": "stripe_fee", "amount": -1062, "fee": 68, "net": -1130,
+         "description": "Billing"},
+    ])
+    out = asyncio.run(s.qb_stripe_reconcile("2026-07", report))
+    assert "$11.30" in out and "$10.62" not in out
+    # Activity net and tie-out net change must agree (no 0.68 drift):
+    b, _ = s._classify_stripe(json.loads(report), 100.0)
+    assert abs(b["activity_net"] - b["net_change"]) < 0.01     # no payouts here
+
+
+def test_detects_manual_entry_in_period(monkeypatch):
+    """An untagged JE touching the clearing account in the period must block a
+    post (avoids double-booking a manually-entered reconciliation)."""
+    accts = {"Stripe Clearing": {"Id": "155", "Name": "Stripe Clearing"},
+             "Sales": {"Id": "5", "Name": "Sales"},
+             "Merchant Fees": {"Id": "60", "Name": "Merchant Fees"},
+             "Software & Apps": {"Id": "8", "Name": "Software & Apps"},
+             "Refunds": {"Id": "70", "Name": "Refunds"}}
+
+    async def fake_resolve(name, **kw):
+        a = accts.get(name)
+        return (a, None) if a else (None, f"'{name}' not found")
+    monkeypatch.setattr(s, "_resolve_account", fake_resolve)
+
+    async def fake_query(q):
+        if "JournalEntry" in q:
+            return {"QueryResponse": {"JournalEntry": [{
+                "Id": "888", "PrivateNote": "manual clearing cleanup",
+                "Line": [{"JournalEntryLineDetail": {"AccountRef": {"value": "155"}}}],
+            }]}}
+        return {"QueryResponse": {}}
+    monkeypatch.setattr(s, "qb_query", fake_query)
+
+    async def fake_request(method, endpoint, params=None, json_body=None):
+        return {"JournalEntry": {"Id": "2201"}}
+    monkeypatch.setattr(s, "qb_request", fake_request)
+
+    out = asyncio.run(s.qb_stripe_reconcile("2026-07", REPORT, dry_run=False,
+                                            expected_ending_balance=112.04))
+    assert "posted manually" in out and "Not posting" in out
+    assert "#888" in out
 
 
 # ---- live Stripe fetch (v2) ------------------------------------------------

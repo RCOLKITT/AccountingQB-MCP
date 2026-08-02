@@ -86,12 +86,13 @@ def test_search_finds_bank_feed_line_description(monkeypatch):
 
 
 def test_find_duplicates_sees_full_set(monkeypatch):
-    # Two identical charges that would land on different fetch pages.
+    # Two identical same-day charges at opposite ends of a set that would span
+    # fetch pages — must be caught under the default same-day window.
     purchases = ([{"Id": "1", "TxnDate": "2026-01-01", "TotalAmt": 498.0,
                    "EntityRef": {"name": "Tailor Brands"}}]
                  + [{"Id": str(i), "TxnDate": "2026-01-01", "TotalAmt": float(i),
                     "EntityRef": {"name": f"V{i}"}} for i in range(2, 260)]
-                 + [{"Id": "999", "TxnDate": "2026-01-02", "TotalAmt": 498.0,
+                 + [{"Id": "999", "TxnDate": "2026-01-01", "TotalAmt": 498.0,
                     "EntityRef": {"name": "Tailor Brands"}}])
 
     async def fake_query_all(q, **kw):

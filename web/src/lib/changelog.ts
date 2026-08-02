@@ -14,6 +14,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.13",
+    date: "2026-08-02",
+    title: "Correct tax returns, a real Trial Balance, and cleaner reconciliations",
+    tag: "Tax",
+    summary:
+      "A full end-to-end review against a live company surfaced reporting-layer bugs that produced confident-but-wrong numbers. This release fixes all of them — most importantly, business revenue now lands on the right tax-return lines.",
+    highlights: [
+      "Schedule C & T2125: gross receipts, returns/refunds, and other income (interest) now map to the correct lines — previously 'Other Income' overwrote sales, so revenue was dropped from the return. The same fix flows through the detailed Schedule C and the US/CA quarterly-tax and instalment estimators",
+      "Trial Balance rewritten: real Debit/Credit columns, correct signs, an as-of date (not a range), no blank accounts, and a debits-equal-credits check",
+      "Stripe reconcile: platform fees now include their sales tax (reconciled on net), the Activity and Tie-out figures can no longer disagree, historical periods tie to the period-start balance, accounts are validated in dry-run, and a manually-posted entry for the period blocks a double-book",
+      "qb_missing_receipts no longer flags credit-card payments, transfers, or interest; qb_find_duplicates now matches same-vendor + same-amount + same-day by default and suppresses recurring charges, with a count that reconciles to the health audit",
+      "129 tools total across US & Canada",
+    ],
+  },
+  {
     version: "3.12",
     date: "2026-08-02",
     title: "P&L by department, vendor spend & purchase orders",
