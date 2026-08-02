@@ -84,41 +84,43 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const offers = [
+    { name: "Solopreneur", price: "39.00" },
+    { name: "Business", price: "99.00" },
+    { name: "Firm", price: "299.00" },
+  ].map((o) => ({
+    "@type": "Offer",
+    name: o.name,
+    price: o.price,
+    priceCurrency: "USD",
+    priceValidUntil: "2027-12-31",
+    availability: "https://schema.org/InStock",
+  }));
+
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "AccountingQB",
-    applicationCategory: "BusinessApplication",
-    operatingSystem: "Windows, macOS, Linux",
-    description:
-      "129 AI tools connecting Claude to your QuickBooks Online for automated bookkeeping, tax prep, and financial analysis for US and Canadian businesses.",
-    offers: [
+    "@graph": [
       {
-        "@type": "Offer",
-        name: "Solopreneur",
-        price: "39.00",
-        priceCurrency: "USD",
-        priceValidUntil: "2027-12-31",
-        availability: "https://schema.org/InStock",
+        "@type": "SoftwareApplication",
+        name: "AccountingQB",
+        applicationCategory: "BusinessApplication",
+        operatingSystem: "Windows, macOS, Linux",
+        url: siteUrl,
+        description:
+          "129 AI tools connecting Claude to your QuickBooks Online for automated bookkeeping, tax prep, and financial analysis for US and Canadian businesses.",
+        offers,
       },
       {
-        "@type": "Offer",
-        name: "Business",
-        price: "99.00",
-        priceCurrency: "USD",
-        priceValidUntil: "2027-12-31",
-        availability: "https://schema.org/InStock",
-      },
-      {
-        "@type": "Offer",
-        name: "Firm",
-        price: "299.00",
-        priceCurrency: "USD",
-        priceValidUntil: "2027-12-31",
-        availability: "https://schema.org/InStock",
+        "@type": "Organization",
+        name: "AccountingQB",
+        url: siteUrl,
+        logo: `${siteUrl}/og-image.png`,
+        description:
+          "AI-powered QuickBooks Online bookkeeping, reporting, and US & Canadian tax prep for Claude.",
+        founder: { "@type": "Organization", name: "Vaspera Capital" },
+        sameAs: ["https://github.com/RCOLKITT/AccountingQB-MCP"],
       },
     ],
-    aggregateRating: undefined,
   };
 
   return (
