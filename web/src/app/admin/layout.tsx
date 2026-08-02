@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
+import { SignOutButton } from "@clerk/nextjs";
 import Link from "next/link";
 
 export default async function AdminLayout({
@@ -95,6 +96,11 @@ export default async function AdminLayout({
             >
               Exit Admin
             </Link>
+            <SignOutButton redirectUrl="/">
+              <button className="text-sm text-gray-400 hover:text-white transition">
+                Sign out
+              </button>
+            </SignOutButton>
           </div>
         </div>
       </header>
