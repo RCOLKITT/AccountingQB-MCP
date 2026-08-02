@@ -2348,18 +2348,81 @@ async def qb_general_ledger(start_date: str, end_date: str, account_name: str = 
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_trial_balance(start_date: str = "", end_date: str = "") -> str:
-    """Generate a Trial Balance report. Dates in YYYY-MM-DD (default: current year-to-date). Shows all account debits and credits to verify books are balanced."""
-    start_date, end_date = _ytd_range(start_date, end_date)
+async def qb_trial_balance(as_of_date: str = "") -> str:
+    """Generate a Trial Balance — every account's debit OR credit balance in two
+    columns, as of a single date, with totals that must be equal. as_of_date in
+    YYYY-MM-DD (default: today). Debits and credits are taken straight from
+    QuickBooks (correct normal-balance signs)."""
+    as_of = _as_of_or_today(as_of_date)
+    # A TB is as-of one date. QuickBooks needs a range; P&L accounts show
+    # fiscal-YTD activity (Jan 1 → as_of), balance-sheet accounts their balance
+    # as of that date — so we anchor the start at Jan 1 of the as-of year.
+    start = f"{as_of[:4]}-01-01"
     report = await qb_request("GET", "reports/TrialBalance", params={
-        "start_date": start_date,
-        "end_date": end_date,
+        "start_date": start, "end_date": as_of,
     })
 
-    header = report.get("Header", {})
-    lines = [f"## Trial Balance: {header.get('StartPeriod', '')} to {header.get('EndPeriod', '')}\n"]
-    rows = report.get("Rows", {}).get("Row", [])
-    _parse_report_rows(rows, lines)
+    # Locate the Debit / Credit columns by title (don't assume positions).
+    titles = [(c.get("ColTitle", "") or "").strip().lower()
+              for c in report.get("Columns", {}).get("Column", [])]
+    debit_idx = titles.index("debit") if "debit" in titles else 1
+    credit_idx = titles.index("credit") if "credit" in titles else 2
+
+    def _num(cell):
+        try:
+            return float((cell or {}).get("value", "") or 0)
+        except (ValueError, TypeError):
+            return 0.0
+
+    entries: list = []          # (account, debit, credit)
+    total_debit = total_credit = 0.0
+
+    def walk(rows):
+        nonlocal total_debit, total_credit
+        for sec in rows:
+            cd = sec.get("ColData", [])
+            if cd:
+                name = (cd[0].get("value", "") or "").strip()
+                debit = _num(cd[debit_idx]) if len(cd) > debit_idx else 0.0
+                credit = _num(cd[credit_idx]) if len(cd) > credit_idx else 0.0
+                if name and (debit or credit):
+                    entries.append((name, debit, credit))
+                    total_debit += debit
+                    total_credit += credit
+            nested = sec.get("Rows", {}).get("Row", [])
+            if nested:
+                walk(nested)
+            # (Summary/TOTAL rows are skipped — we sum our own totals.)
+
+    walk(report.get("Rows", {}).get("Row", []))
+
+    lines = [f"## Trial Balance — as of {as_of}\n"]
+    if not entries:
+        lines.append("_No accounts with balances found._")
+        return "\n".join(lines)
+
+    lines.append("| Account | Debit | Credit |")
+    lines.append("|---|---:|---:|")
+    for name, debit, credit in entries:
+        d = fmt(debit) if debit else ""
+        c = fmt(credit) if credit else ""
+        safe = name.replace("|", "\\|")
+        lines.append(f"| {safe} | {d} | {c} |")
+    lines.append(f"| **TOTAL** | **{fmt(total_debit)}** | **{fmt(total_credit)}** |")
+
+    diff = round(total_debit - total_credit, 2)
+    if abs(diff) < 0.01:
+        lines.append(f"\n✅ **In balance** — debits = credits = {fmt(total_debit)}.")
+    else:
+        lines.append(
+            f"\n⚠️ **Out of balance by {fmt(abs(diff))}** "
+            f"(debits {fmt(total_debit)} vs credits {fmt(total_credit)}). "
+            "This indicates a data or reporting issue — review before relying on it."
+        )
+    lines.append(
+        "\n*P&L account balances are fiscal-year-to-date "
+        f"({start} → {as_of}); balance-sheet accounts are as of {as_of}.*"
+    )
     return "\n".join(lines)
 
 
@@ -2633,7 +2696,11 @@ def _classify_stripe(txns, scale):
     for t in txns:
         typ = (t.get("type") or "").lower()
         amt, fee = money(t.get("amount")), money(t.get("fee"))
-        b["net_change"] += amt - fee
+        # `net` is authoritative (= amount − fee). On a stripe_fee row, `amount`
+        # is the fee NET of tax and `fee` holds the sales tax, so only `net`
+        # captures the full fee — always reconcile on net, never bare `amount`.
+        net = money(t.get("net")) if t.get("net") is not None else round(amt - fee, 2)
+        b["net_change"] += net
         b["count"] += 1
         if typ in ("charge", "payment"):
             b["gross"] += amt
@@ -2642,18 +2709,21 @@ def _classify_stripe(txns, scale):
             b["refunds"] += abs(amt)
             b["processing"] += fee            # usually 0; fee refunded if any
         elif typ in ("stripe_fee", "billing", "tax_fee", "application_fee"):
-            b["platform"] += abs(amt)
+            b["platform"] += abs(net)         # net = fee incl. its own sales tax
         elif typ == "payout":
-            b["payouts"] += abs(amt)
+            b["payouts"] += abs(amt)          # any payout fee flows via net_change
         elif typ == "adjustment":
             desc = (t.get("description") or "").lower()
             if any(h in desc for h in _STRIPE_PLATFORM_FEE_HINTS):
-                b["platform"] += abs(amt)
+                b["platform"] += abs(net)
             else:
                 unmapped.append(t)
         else:
             unmapped.append(t)
+    b["net_change"] = round(b["net_change"], 2)
     # Net retained in the processor from activity (excludes payouts to bank).
+    # By construction this equals net_change + payouts, so the Activity and
+    # Tie-out sections can never disagree (they share one net computation).
     b["activity_net"] = round(b["gross"] - b["refunds"] - b["processing"]
                               - b["platform"], 2)
     return b, unmapped
@@ -2711,6 +2781,48 @@ async def _fetch_stripe_activity(period: str, api_key: str):
 def _is_current_month(period: str) -> bool:
     now = _utcnow()
     return period.strip() == f"{now.year:04d}-{now.month:02d}"
+
+
+async def _clearing_balance_as_of(account_name: str, as_of: str) -> float:
+    """Balance of an account as of a date, from a Trial Balance (debit − credit).
+    Used as the reconciliation's *prior* clearing balance — the balance BEFORE
+    the period, not the live CurrentBalance (which already reflects later
+    activity). Returns 0.0 if the account has no balance / doesn't exist yet."""
+    try:
+        report = await qb_request("GET", "reports/TrialBalance", params={
+            "start_date": "2000-01-01", "end_date": as_of})
+    except Exception:
+        return 0.0
+    titles = [(c.get("ColTitle", "") or "").strip().lower()
+              for c in report.get("Columns", {}).get("Column", [])]
+    di = titles.index("debit") if "debit" in titles else 1
+    ci = titles.index("credit") if "credit" in titles else 2
+    target = account_name.strip().lower()
+
+    def _num(cell):
+        try:
+            return float((cell or {}).get("value", "") or 0)
+        except (ValueError, TypeError):
+            return 0.0
+
+    found = [0.0]
+
+    def walk(rows):
+        for sec in rows:
+            cd = sec.get("ColData", [])
+            if cd:
+                name = (cd[0].get("value", "") or "").strip().lower()
+                # match on full name or the leaf after a ':' sub-account path
+                if name == target or name.split(":")[-1].strip() == target:
+                    d = _num(cd[di]) if len(cd) > di else 0.0
+                    c = _num(cd[ci]) if len(cd) > ci else 0.0
+                    found[0] += d - c
+            nested = sec.get("Rows", {}).get("Row", [])
+            if nested:
+                walk(nested)
+
+    walk(report.get("Rows", {}).get("Row", []))
+    return round(found[0], 2)
 
 
 @mcp.tool(annotations={"destructiveHint": True})
@@ -2772,9 +2884,17 @@ async def qb_stripe_reconcile(
 
     b, unmapped = _classify_stripe(txns, 100.0 if amounts_in_cents else 1.0)
 
-    # Prior clearing balance (for the real tie-out); 0 if the account is new.
-    clearing_acct, _ = await _resolve_account(clearing_account)
-    prior_clearing = float(clearing_acct.get("CurrentBalance", 0) or 0) if clearing_acct else 0.0
+    # Prior clearing balance = the balance as of the day BEFORE the period, not
+    # the live CurrentBalance (which for a past period already includes later
+    # months' activity — using it made a historical tie-out reconcile against
+    # today's balance instead of $0.00 at period start).
+    from datetime import date as _date
+    try:
+        period_start = _date(int(period[:4]), int(period[5:7]), 1)
+    except (ValueError, IndexError):
+        return f"period must be 'YYYY-MM' (got '{period}')."
+    prior_end = (period_start - timedelta(days=1)).isoformat()
+    prior_clearing = await _clearing_balance_as_of(clearing_account, prior_end)
     projected_clearing = round(prior_clearing + b["net_change"], 2)
 
     out = [f"## Stripe Reconciliation — {period}",
@@ -2797,7 +2917,8 @@ async def qb_stripe_reconcile(
     # Tie-out
     out.append(f"\n### Tie-out")
     out.append(f"- Projected Stripe Clearing balance: {fmt(projected_clearing)} "
-               f"(prior {fmt(prior_clearing)} + net change {fmt(b['net_change'])})")
+               f"(prior {fmt(prior_clearing)} as of {prior_end} + net change "
+               f"{fmt(b['net_change'])})")
     tie_ok = True
     if expected_ending_balance:
         tie_ok = abs(projected_clearing - expected_ending_balance) < 0.01
@@ -2827,6 +2948,58 @@ async def qb_stripe_reconcile(
     debits = [(n, a) for n, a in debits if a > 0.005]
     credits = [(n, a) for n, a in credits if a > 0.005]
 
+    # Resolve every account NOW — even in dry_run — so a malformed or missing
+    # account name surfaces here instead of being silently echoed (or failing at
+    # post time). Accounts we auto-create on posting are flagged, not errored.
+    marker = f"[stripe:{period}]"
+    auto_creatable = {clearing_account, income_account, fee_account,
+                      platform_fee_account, refund_account}
+    resolved_accts: dict = {}
+    for n, _a in debits + credits:
+        if n not in resolved_accts:
+            resolved_accts[n] = await _resolve_account(n)
+    map_notes, unresolved = [], []
+    for n in resolved_accts:
+        acct, err = resolved_accts[n]
+        if acct:
+            qname = acct.get("FullyQualifiedName") or acct.get("Name") or n
+            map_notes.append(f"- {n} → **{qname}**"
+                             + ("" if qname.strip().lower() == n.strip().lower()
+                                else "  ⚠️ (fuzzy match — confirm this is right)"))
+        elif n in auto_creatable:
+            map_notes.append(f"- {n} → _not found; will be created on posting_")
+        else:
+            unresolved.append(n)
+            map_notes.append(f"- 🔴 {n} → {err or 'could not be resolved'}")
+
+    # Detect ANY journal entry already in this period that touches the clearing
+    # account — not only our own [stripe:PERIOD] tag — so a manually-posted
+    # reconciliation isn't silently double-booked.
+    period_end = ((_date(period_start.year + 1, 1, 1) if period_start.month == 12
+                   else _date(period_start.year, period_start.month + 1, 1))
+                  - timedelta(days=1)).isoformat()
+    clr_acct = resolved_accts.get(clearing_account, (None, ""))[0]
+    clr_id = clr_acct.get("Id") if clr_acct else None
+    our_marker_seen = False
+    manual_hits = []
+    if clr_id:
+        existing = await qb_query(
+            f"SELECT * FROM JournalEntry WHERE TxnDate >= '{period_start.isoformat()}' "
+            f"AND TxnDate <= '{period_end}'")
+        for je in existing.get("QueryResponse", {}).get("JournalEntry", []):
+            touches = any(
+                ((l.get("JournalEntryLineDetail", {}) or {}).get("AccountRef", {}) or {})
+                .get("value") == clr_id for l in je.get("Line", []))
+            if not touches:
+                continue
+            if marker in (je.get("PrivateNote", "") or ""):
+                our_marker_seen = True
+            else:
+                manual_hits.append(je.get("Id"))
+
+    out.append(f"\n### Account mapping")
+    out.extend(map_notes)
+
     out.append(f"\n### Proposed journal entry — {period}")
     out.append("| Account | Debit | Credit |")
     out.append("|---|---|---|")
@@ -2835,13 +3008,31 @@ async def qb_stripe_reconcile(
     for n, a in credits:
         out.append(f"| {n} | | {fmt(a)} |")
 
+    if our_marker_seen:
+        out.append(f"\n⚠️ **Already reconciled:** a journal entry tagged {marker} "
+                   "exists for this period. Posting again would double-book.")
+    if manual_hits:
+        out.append(f"\n⚠️ **{len(manual_hits)} existing journal entr(y/ies) touch "
+                   f"'{clearing_account}' in {period}** (untagged — likely posted "
+                   f"manually): #{', #'.join(str(h) for h in manual_hits)}. "
+                   "Posting would double-book this activity.")
+    if unresolved:
+        out.append(f"\n🔴 **Unresolved account(s):** {', '.join(unresolved)} — "
+                   "correct the name(s) before posting.")
+
     if dry_run:
-        out.append("\n*Dry run — nothing posted. Re-run with dry_run=false to post"
-                   + (" (tie-out is off — fix before posting)." if not tie_ok else ".")
-                   + "*")
-        if not clearing_acct:
-            out.append(f"*Note: '{clearing_account}' will be created (Other Current "
-                       "Asset) on posting.*")
+        blockers = []
+        if not tie_ok:
+            blockers.append("tie-out is off")
+        if unmapped:
+            blockers.append(f"{len(unmapped)} unmapped txn(s)")
+        if manual_hits or our_marker_seen:
+            blockers.append("an entry already exists for this period")
+        if unresolved:
+            blockers.append("unresolved account(s)")
+        tail = (f" — resolve first: {', '.join(blockers)}." if blockers else ".")
+        out.append(f"\n*Dry run — nothing posted. Re-run with dry_run=false to post"
+                   + tail + "*")
         return "\n".join(out)
 
     # ---- posting path ----
@@ -2851,13 +3042,13 @@ async def qb_stripe_reconcile(
     if unmapped:
         return ("\n".join(out) + f"\n\n🔴 Not posting: {len(unmapped)} unmapped "
                 "transaction(s). Map or remove them first.")
-
-    marker = f"[stripe:{period}]"
-    dup = await qb_query(
-        f"SELECT * FROM JournalEntry WHERE PrivateNote LIKE '%{marker}%' MAXRESULTS 1")
-    if dup.get("QueryResponse", {}).get("JournalEntry"):
-        return ("\n".join(out) + f"\n\n⚠️ Already reconciled: a journal entry tagged "
-                f"{marker} exists. Not posting again (idempotent).")
+    if unresolved:
+        return ("\n".join(out) + f"\n\n🔴 Not posting: unresolved account(s): "
+                f"{', '.join(unresolved)}.")
+    if our_marker_seen or manual_hits:
+        return ("\n".join(out) + f"\n\n⚠️ Not posting: a journal entry already "
+                f"touches '{clearing_account}' in {period} (idempotent — avoids "
+                "double-booking).")
 
     # Ensure accounts exist (create the clearing/fee accounts if missing).
     async def _ensure(name, atype, sub=""):
@@ -3400,6 +3591,67 @@ def _extract_pl_expense_accounts(pl_result: dict) -> dict:
         if header and "expense" in header[0].get("value", "").lower():
             walk(section.get("Rows", {}).get("Row", []))
     return out
+
+
+def _pl_income_breakdown(pl_result: dict):
+    """Split a P&L into Schedule C income lines:
+    ``(gross_receipts, returns_and_allowances, cogs, other_income)``.
+
+    Operating-Income accounts are split by sign — positive = receipts (Line 1),
+    negative = returns/refunds/discounts (Line 2, e.g. DiscountsRefundsGiven).
+    'Other Income' (interest, etc.) is Line 6, NOT gross receipts. COGS is
+    Line 4. (The old code read section summaries in a loop, so 'Total Other
+    Income' overwrote 'Total Income' and Sales/Refunds were dropped.)"""
+    gross = returns = cogs = other = 0.0
+
+    def leaf_values(rows):
+        for section in rows or []:
+            nested = section.get("Rows", {}).get("Row", [])
+            col = section.get("ColData", [])
+            if not nested and len(col) >= 2:
+                try:
+                    yield float(col[-1].get("value", "0") or 0)
+                except (ValueError, TypeError):
+                    yield 0.0
+            if nested:
+                yield from leaf_values(nested)
+
+    for section in pl_result.get("Rows", {}).get("Row", []):
+        header = (section.get("Header", {}).get("ColData", [{}]) or [{}])[0] \
+            .get("value", "").strip().lower()
+        summ = section.get("Summary", {}).get("ColData", [])
+        summ_label = (summ[0].get("value", "") if summ else "").strip().lower()
+        total = 0.0
+        if len(summ) >= 2:
+            try:
+                total = float(summ[-1].get("value", "0") or 0)
+            except (ValueError, TypeError):
+                total = 0.0
+
+        # Classify by header OR summary label, so this works on both real QBO
+        # reports (Header "Income" + leaf rows) and summary-only reports.
+        # Order matters: Other Income / COGS first (their labels also contain
+        # "income"/"cost"), then operating Income by an exact match.
+        is_other = "other income" in header or "other income" in summ_label
+        is_cogs = ("cost of goods" in header or "cost of goods" in summ_label
+                   or header == "cogs")
+        is_income = header == "income" or summ_label == "total income"
+
+        if is_other:
+            other += total
+        elif is_cogs:
+            cogs += total
+        elif is_income:
+            leaves = list(leaf_values(section.get("Rows", {}).get("Row", [])))
+            if leaves:                       # detail present — split by sign
+                for v in leaves:
+                    if v >= 0:
+                        gross += v
+                    else:
+                        returns += -v
+            else:                            # summary only — treat as net receipts
+                gross += total
+    return round(gross, 2), round(returns, 2), round(cogs, 2), round(other, 2)
 
 
 def _pl_expense_total(pl_result: dict) -> float:
@@ -4318,11 +4570,16 @@ async def qb_uncategorized_transactions(start_date: str = "", end_date: str = ""
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_find_duplicates(start_date: str = "", end_date: str = "", tolerance_days: int = 3, max_results: int = 200) -> str:
-    """Find potential duplicate transactions within a date range. Matches by amount and vendor within tolerance_days window. Dates in YYYY-MM-DD (default: current year-to-date)."""
+async def qb_find_duplicates(start_date: str = "", end_date: str = "", tolerance_days: int = 0, max_results: int = 200) -> str:
+    """Find likely duplicate purchases. By default a duplicate is same VENDOR +
+    same AMOUNT + same DAY (tolerance_days=0) — the pattern that is almost always
+    a double-entry. Widen tolerance_days to catch near-day repeats. Vendor+amount
+    combinations that recur across many days (subscriptions, daily spend) are
+    treated as recurring, not duplicates. Dates YYYY-MM-DD (default: current
+    year-to-date)."""
     start_date, end_date = _ytd_range(start_date, end_date)
     # Duplicate detection over a TRUNCATED set is meaningless — fetch the whole
-    # range (paginated). max_results caps only the displayed pairs below.
+    # range (paginated). max_results caps only the displayed clusters below.
     result = await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
     )
@@ -4331,38 +4588,76 @@ async def qb_find_duplicates(start_date: str = "", end_date: str = "", tolerance
         return f"No transactions found between {start_date} and {end_date}."
 
     from collections import defaultdict
-    groups = defaultdict(list)
+    by_va = defaultdict(list)
     for p in purchases:
+        if not p.get("TxnDate"):
+            continue
         key = (
-            round(float(p.get("TotalAmt", 0)), 2),
             (p.get("EntityRef", {}).get("name", "") or "").lower().strip(),
+            round(float(p.get("TotalAmt", 0)), 2),
         )
-        groups[key].append(p)
+        by_va[key].append(p)
 
-    dupes = []
-    for key, txns in groups.items():
+    def _day_clusters(txns, tol):
+        """Group same-amount/vendor txns whose dates fall within `tol` days of
+        the cluster's first member (tol=0 → exact same day)."""
+        clusters = []
+        for t in sorted(txns, key=lambda x: x["TxnDate"]):
+            d = datetime.strptime(t["TxnDate"], "%Y-%m-%d")
+            for c in clusters:
+                if abs((d - datetime.strptime(c[0]["TxnDate"], "%Y-%m-%d")).days) <= tol:
+                    c.append(t)
+                    break
+            else:
+                clusters.append([t])
+        return clusters
+
+    clusters, recurring_suppressed = [], 0
+    for (vendor, amt), txns in by_va.items():
         if len(txns) < 2:
             continue
-        txns.sort(key=lambda x: x.get("TxnDate", ""))
-        for i in range(len(txns)):
-            for j in range(i + 1, len(txns)):
-                d1 = datetime.strptime(txns[i]["TxnDate"], "%Y-%m-%d")
-                d2 = datetime.strptime(txns[j]["TxnDate"], "%Y-%m-%d")
-                if abs((d2 - d1).days) <= tolerance_days:
-                    dupes.append((txns[i], txns[j]))
+        distinct_days = {t["TxnDate"] for t in txns}
+        # Recurring charge (same vendor+amount on many different days): only a
+        # true same-day repeat counts as a duplicate; otherwise suppress it.
+        if len(distinct_days) >= 4:
+            hits = [c for c in _day_clusters(txns, 0) if len(c) >= 2]
+            if hits:
+                clusters.extend((vendor, amt, c) for c in hits)
+            else:
+                recurring_suppressed += 1
+            continue
+        clusters.extend((vendor, amt, c)
+                        for c in _day_clusters(txns, tolerance_days) if len(c) >= 2)
 
-    if not dupes:
-        return f"No potential duplicates found between {start_date} and {end_date}. Books look clean!"
+    extra = sum(len(c) - 1 for _, _, c in clusters)
+    if not clusters:
+        note = (f" ({recurring_suppressed} recurring vendor+amount pattern(s) "
+                "treated as legitimate)" if recurring_suppressed else "")
+        return (f"No likely duplicates between {start_date} and {end_date}"
+                f"{note}. Books look clean!")
 
-    shown = dupes[:max_results] if max_results and len(dupes) > max_results else dupes
-    cap_note = f" — showing the first {len(shown)}" if len(shown) < len(dupes) else ""
-    lines = [f"## Potential Duplicates ({len(dupes)} pairs found){cap_note}\n"]
-    for a, b in shown:
-        lines.append(f"**{a.get('EntityRef', {}).get('name', 'Unknown')}** — {fmt(float(a.get('TotalAmt', 0)))}:")
-        lines.append(f"  1. {a['TxnDate']} (ID: {a['Id']}) — {a.get('PrivateNote', '') or 'no memo'}")
-        lines.append(f"  2. {b['TxnDate']} (ID: {b['Id']}) — {b.get('PrivateNote', '') or 'no memo'}")
+    clusters.sort(key=lambda x: (len(x[2]), x[1]), reverse=True)
+    shown = clusters[:max_results]
+    win = "same day" if tolerance_days == 0 else f"within {tolerance_days} day(s)"
+    lines = [f"## Potential Duplicates — {len(clusters)} cluster(s), "
+             f"{extra} extra transaction(s)\n",
+             f"*Matched on same vendor + same amount + {win}. "
+             "The extra-transaction count is directly comparable to "
+             "qb_books_health_audit's duplicate check.*"]
+    if recurring_suppressed:
+        lines.append(f"*Suppressed {recurring_suppressed} recurring vendor+amount "
+                     "pattern(s) (spread across many days — likely legitimate).*")
+    if len(shown) < len(clusters):
+        lines.append(f"*Showing the {len(shown)} largest of {len(clusters)} clusters.*")
+    lines.append("")
+    for vendor, amt, txns in shown:
+        name = txns[0].get("EntityRef", {}).get("name", "Unknown")
+        lines.append(f"**{name}** — {fmt(amt)} × {len(txns)}:")
+        for t in txns:
+            lines.append(f"  - {t['TxnDate']} (ID: {t['Id']}) — "
+                         f"{t.get('PrivateNote', '') or 'no memo'}")
         lines.append("")
-    lines.append("Review each pair and void the duplicate using `qb_void_transaction`.")
+    lines.append("Review each cluster and void the extra copies with `qb_void_transaction`.")
     return "\n".join(lines)
 
 
@@ -4873,19 +5168,14 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
         "summarize_column_by": "Total"
     })
 
-    # Income (Gross receipts) from the P&L Income section summary
-    report_rows = result.get("Rows", {}).get("Row", [])
-    total_income = 0.0
-    for section in report_rows:
-        cols = section.get("Summary", {}).get("ColData", [])
-        if len(cols) >= 2:
-            label = cols[0].get("value", "").lower()
-            try:
-                val = float(cols[-1].get("value", "0") or 0)
-            except (ValueError, TypeError):
-                val = 0.0
-            if "income" in label and "net" not in label:
-                total_income = val
+    # Income lines, split correctly (the old code read section summaries in a
+    # loop, so 'Total Other Income' overwrote 'Total Income' and every Sales /
+    # Refund account was dropped). Sales → Line 1; refunds/discounts → Line 2;
+    # interest & other income → Line 6 (NOT gross receipts).
+    gross_receipts, returns_allow, cogs, other_income = _pl_income_breakdown(result)
+    net_receipts = round(gross_receipts - returns_allow, 2)     # Line 3
+    gross_profit = round(net_receipts - cogs, 2)                # Line 5
+    gross_income = round(gross_profit + other_income, 2)        # Line 7
 
     # Expenses: P&L period activity, word-boundary mapped, nothing dropped
     # (unmatched accounts flow to Line 27a so Line 28 reconciles to the P&L).
@@ -4898,8 +5188,16 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
         return (int(m.group(1)) if m else 999, m.group(2) if m else "")
 
     lines = [f"## IRS Schedule C — {tax_year}\n"]
-    lines.append(f"**Line 1 — Gross receipts:** {fmt(total_income)}")
-    lines.append(f"**Line 7 — Gross income:** {fmt(total_income)}\n")
+    lines.append(f"**Line 1 — Gross receipts or sales:** {fmt(gross_receipts)}")
+    if returns_allow:
+        lines.append(f"**Line 2 — Returns and allowances:** {fmt(returns_allow)}")
+        lines.append(f"**Line 3 — Net receipts:** {fmt(net_receipts)}")
+    if cogs:
+        lines.append(f"**Line 4 — Cost of goods sold:** {fmt(cogs)}")
+        lines.append(f"**Line 5 — Gross profit:** {fmt(gross_profit)}")
+    if other_income:
+        lines.append(f"**Line 6 — Other income (interest, etc.):** {fmt(other_income)}")
+    lines.append(f"**Line 7 — Gross income:** {fmt(gross_income)}\n")
 
     lines.append("### Expenses:")
     total_mapped = 0.0
@@ -4917,7 +5215,7 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
         lines.append(
             f"⚠️ Does not reconcile to P&L expenses ({fmt(pl_total)}) — "
             f"difference {fmt(abs(total_mapped - pl_total))}. Review.")
-    net_profit = total_income - total_mapped
+    net_profit = round(gross_income - total_mapped, 2)
     lines.append(f"**Line 31 — Net profit (loss): {fmt(net_profit)}**")
     if home_flagged:
         lines.append(
@@ -4950,24 +5248,26 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
         "start_date": start, "end_date": end
     })
 
-    total_income = 0
-    total_expenses = 0
+    # Income split correctly (never let 'Other Income' overwrite Sales); gross
+    # income = net receipts − COGS + other income. Expenses summed across BOTH
+    # 'Total Expenses' and 'Total Other Expenses' (the old `=` kept only the
+    # last section, understating expenses).
+    gr, ret, cogs, oth = _pl_income_breakdown(result)
+    total_income = round(gr - ret - cogs + oth, 2)
+    total_expenses = 0.0
     report_rows = result.get("Rows", {}).get("Row", [])
     for section in report_rows:
-        summary = section.get("Summary", {})
-        cols = summary.get("ColData", [])
+        cols = section.get("Summary", {}).get("ColData", [])
         if len(cols) >= 2:
             label = cols[0].get("value", "").lower()
             try:
-                val = float(cols[-1].get("value", "0"))
+                val = float(cols[-1].get("value", "0") or 0)
             except (ValueError, TypeError):
-                val = 0
-            if "income" in label and "net" not in label:
-                total_income = val
-            elif "expense" in label:
-                total_expenses = abs(val)
+                val = 0.0
+            if "expense" in label and "net" not in label:
+                total_expenses += abs(val)
 
-    net_income = total_income - total_expenses
+    net_income = round(total_income - total_expenses, 2)
 
     # Self-employment tax + federal brackets from the tax-data registry.
     # Future years fall back to the latest tables WITH a visible note
@@ -5877,7 +6177,40 @@ async def qb_missing_receipts(threshold: float = 75.0, start_date: str = "", end
     except Exception as e:
         logger.debug(f"Attachable query failed: {e}")
 
+    # Account-type map so we can tell a real expense from a credit-card PAYMENT
+    # or bank transfer (categorized to a Bank/Equity/liability account) — those
+    # don't need a receipt. Same signal qb_books_hygiene uses.
+    accts = (await qb_query_all("SELECT * FROM Account")).get(
+        "QueryResponse", {}).get("Account", [])
+    atype = {a["Id"]: a.get("AccountType", "") for a in accts}
+    aname = {a["Id"]: (a.get("Name", "") or "").lower() for a in accts}
+    _NON_EXPENSE = {"Bank", "Equity", "Credit Card", "Accounts Payable",
+                    "Accounts Receivable", "Other Current Liability",
+                    "Long Term Liability", "Other Current Asset", "Fixed Asset"}
+
+    def _needs_receipt(t) -> bool:
+        """True only if the transaction has a genuine, non-interest expense line.
+        A card payment / transfer (category = Bank/Equity/liability) or interest
+        is not a substantiation gap."""
+        cats = []
+        for l in t.get("Line", []):
+            d = (l.get("AccountBasedExpenseLineDetail")
+                 or l.get("ItemBasedExpenseLineDetail") or {})
+            aid = (d.get("AccountRef") or {}).get("value")
+            if aid:
+                cats.append(aid)
+        if not cats:
+            return True                      # can't tell — don't hide a real gap
+        for aid in cats:
+            if atype.get(aid, "") in _NON_EXPENSE:
+                continue
+            if "interest" in aname.get(aid, ""):
+                continue
+            return True                      # a real, non-interest expense line
+        return False
+
     missing = []
+    excluded = 0
     for entity in ("Purchase", "Bill"):
         r = await qb_query_all(
             f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' AND "
@@ -5888,13 +6221,18 @@ async def qb_missing_receipts(threshold: float = 75.0, start_date: str = "", end
                 continue
             if (entity.lower(), str(t.get("Id", ""))) in attached:
                 continue
+            if not _needs_receipt(t):
+                excluded += 1
+                continue
             payee = (t.get("EntityRef") or t.get("VendorRef") or {}).get("name", "(no payee)")
             missing.append({"type": entity, "id": t.get("Id"),
                             "date": t.get("TxnDate", "?"), "payee": payee, "amount": amt})
 
     missing.sort(key=lambda x: x["amount"], reverse=True)
+    excl_note = (f" · excluded {excluded} card-payment/transfer/interest "
+                 "transaction(s) that don't need a receipt" if excluded else "")
     lines = [f"## Transactions Missing Receipts — {start_date} to {end_date}",
-             f"*Threshold: {fmt(threshold)} (IRS substantiation guideline).*\n"]
+             f"*Threshold: {fmt(threshold)} (IRS substantiation guideline){excl_note}.*\n"]
     if not missing:
         lines.append(f"✅ Every expense at or above {fmt(threshold)} has a receipt "
                      "attached in QuickBooks.")
@@ -6783,17 +7121,12 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
     sc_lines = _map_expenses_to_schedule_c(expense_dict)
     pl_total = _pl_expense_total(result)
 
-    total_income = 0.0
-    for section in result.get("Rows", {}).get("Row", []):
-        cols = section.get("Summary", {}).get("ColData", [])
-        if len(cols) >= 2:
-            label = cols[0].get("value", "").lower()
-            try:
-                val = float(cols[-1].get("value", "0") or 0)
-            except (ValueError, TypeError):
-                val = 0.0
-            if "income" in label and "net" not in label:
-                total_income = val
+    # Income split correctly (see qb_schedule_c) — Sales → Line 1, refunds →
+    # Line 2, interest/other → Line 6; never let 'Other Income' overwrite Sales.
+    gross_receipts, returns_allow, cogs, other_income = _pl_income_breakdown(result)
+    net_receipts = round(gross_receipts - returns_allow, 2)
+    gross_profit = round(net_receipts - cogs, 2)
+    gross_income = round(gross_profit + other_income, 2)
 
     # Company name from the connected QuickBooks company (never hardcoded)
     company_name = ""
@@ -6813,7 +7146,13 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
         *( [f"**{company_name}**"] if company_name else [] ),
         f"**EIN:** Check QB Company Info",
         f"**Period:** {start} to {end}\n",
-        f"**Line 1 — Gross receipts: {fmt(total_income)}**\n",
+        f"**Line 1 — Gross receipts or sales: {fmt(gross_receipts)}**",
+        *( [f"**Line 2 — Returns and allowances: {fmt(returns_allow)}**",
+            f"**Line 3 — Net receipts: {fmt(net_receipts)}**"] if returns_allow else [] ),
+        *( [f"**Line 4 — Cost of goods sold: {fmt(cogs)}**",
+            f"**Line 5 — Gross profit: {fmt(gross_profit)}**"] if cogs else [] ),
+        *( [f"**Line 6 — Other income (interest, etc.): {fmt(other_income)}**"] if other_income else [] ),
+        f"**Line 7 — Gross income: {fmt(gross_income)}**\n",
         "### Expenses (by Schedule C line, from P&L):",
     ]
 
@@ -6827,13 +7166,13 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
         total_expenses += data["amount"]
         home_flagged = home_flagged or data["home"]
 
-    net = total_income - total_expenses
+    net = round(gross_income - total_expenses, 2)
     recon = ("" if not pl_total or abs(total_expenses - pl_total) <= 0.01 else
              f"\n  ⚠️ Line 28 does not reconcile to P&L expenses ({fmt(pl_total)}) — review.")
     lines.extend([
         f"\n---",
         f"### **Summary**",
-        f"  Total Income (Line 1): {fmt(total_income)}",
+        f"  Gross income (Line 7): {fmt(gross_income)}",
         f"  Total Expenses (Line 28): {fmt(total_expenses)}",
         f"  **Net Profit/Loss (Line 31): {fmt(net)}**{recon}",
         ("\n*Items flagged ⚠️ (home office, homeowner insurance, home utilities) "
@@ -6843,7 +7182,7 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
         f"CPA should verify account-to-line mappings before filing.*",
     ])
 
-    _audit_log("SCHEDULE_C_DETAIL", f"year={tax_year} income={fmt(total_income)} expenses={fmt(total_expenses)}")
+    _audit_log("SCHEDULE_C_DETAIL", f"year={tax_year} income={fmt(gross_income)} expenses={fmt(total_expenses)}")
     return "\n".join(lines) + tax_data_footer(int(tax_year))
 
 
@@ -9161,10 +9500,13 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
     if misfiled:
         score -= 15
         total = sum(m[2] for m in misfiled)
+        id_list = ", ".join(str(m[0]) for m in misfiled[:10])
+        id_note = (f" (showing first 10 of {len(misfiled)})"
+                   if len(misfiled) > 10 else "")
         issues.append(f"🔴 **{len(misfiled)} credit-card purchase(s) categorized to a "
                       f"bank/equity account** ({fmt(total)}) — almost always a card "
                       "PAYMENT misfiled as an expense, which inflates the card liability. "
-                      "IDs: " + ", ".join(str(m[0]) for m in misfiled[:10]) + ".")
+                      f"IDs{id_note}: " + id_list + ".")
     else:
         passed.append("✅ No credit-card payments misfiled as expenses")
 
@@ -10407,7 +10749,6 @@ async def qb_t2125_summary(year: int = 0) -> str:
                 extract_expenses(nested, result_dict)
 
     expense_dict = {}
-    total_income = 0.0
     report_rows = result.get("Rows", {}).get("Row", [])
     for section in report_rows:
         header = section.get("Header", {}).get("ColData", [{}])
@@ -10415,16 +10756,13 @@ async def qb_t2125_summary(year: int = 0) -> str:
             nested = section.get("Rows", {}).get("Row", [])
             if nested:
                 extract_expenses(nested, expense_dict)
-        summary = section.get("Summary", {})
-        cols = summary.get("ColData", [])
-        if len(cols) >= 2:
-            label = cols[0].get("value", "").lower()
-            try:
-                val = float(cols[-1].get("value", "0"))
-            except (ValueError, TypeError):
-                val = 0
-            if "income" in label and "net" not in label:
-                total_income = val
+
+    # Income split correctly — Sales/fees → gross sales; refunds → reduce it;
+    # interest & other income → its own line (may be non-business, reportable
+    # elsewhere). The old loop let 'Total Other Income' overwrite 'Total Income'.
+    gross_receipts, returns_allow, _cogs, other_income = _pl_income_breakdown(result)
+    net_sales = round(gross_receipts - returns_allow, 2)
+    gross_business_income = round(net_sales + other_income, 2)
 
     # Map expense accounts to T2125 lines by keyword
     from collections import defaultdict
@@ -10452,8 +10790,17 @@ async def qb_t2125_summary(year: int = 0) -> str:
 
     lines = [f"## CRA T2125 — Statement of Business Activities — {year}\n"]
     lines.append("### Income")
-    lines.append(f"  Line 8000 — Gross sales, commissions or fees: {fmt(total_income)}")
-    lines.append(f"  Line 8299 — Gross business income: {fmt(total_income)}")
+    lines.append(f"  Line 8000 — Gross sales, commissions or fees: {fmt(gross_receipts)}")
+    if returns_allow:
+        lines.append(f"  Line 8000a — Returns, allowances & discounts: ({fmt(returns_allow)})")
+        lines.append(f"  Net sales: {fmt(net_sales)}")
+    if other_income:
+        lines.append(f"  Line 8230 — Other income (interest, etc.): {fmt(other_income)}")
+        lines.append(
+            "    *Interest/investment income may be reportable on Schedule 4 "
+            "(T5), not T2125 — confirm it is business income before including.*"
+        )
+    lines.append(f"  Line 8299 — Gross business income: {fmt(gross_business_income)}")
     lines.append(
         "  *GST/HST registrants: report revenue net of GST/HST collected "
         "(QuickBooks sales figures above exclude tax when tax codes are used).*\n"
@@ -10479,7 +10826,7 @@ async def qb_t2125_summary(year: int = 0) -> str:
         "carries forward)."
     )
 
-    net = total_income - total_expenses
+    net = round(gross_business_income - total_expenses, 2)
     lines.append(f"\n**Line 9368 — Total expenses: {fmt(total_expenses)}**")
     lines.append(f"**Line 9369 — Net income (loss) before adjustments: {fmt(net)}**")
 
@@ -10495,7 +10842,7 @@ async def qb_t2125_summary(year: int = 0) -> str:
         "\n*Workpaper only — verify mappings with your accountant before filing.*",
     ])
 
-    _audit_log("T2125_SUMMARY", f"year={year} income={fmt(total_income)} expenses={fmt(total_expenses)}")
+    _audit_log("T2125_SUMMARY", f"year={year} income={fmt(gross_business_income)} expenses={fmt(total_expenses)}")
     return "\n".join(lines) + tax_data_footer(year)
 
 
@@ -10771,21 +11118,23 @@ async def qb_estimate_instalments(year: int = 0, province: str = "") -> str:
         "start_date": start, "end_date": end,
     })
 
-    total_income = total_expenses = 0.0
+    # Income split correctly (never let 'Other Income' overwrite Sales); sum
+    # expenses across both 'Total Expenses' and 'Total Other Expenses'.
+    gr, ret, cogs, oth = _pl_income_breakdown(result)
+    total_income = round(gr - ret - cogs + oth, 2)
+    total_expenses = 0.0
     for section in result.get("Rows", {}).get("Row", []):
         cols = section.get("Summary", {}).get("ColData", [])
         if len(cols) >= 2:
             label = cols[0].get("value", "").lower()
             try:
-                val = float(cols[-1].get("value", "0"))
+                val = float(cols[-1].get("value", "0") or 0)
             except (ValueError, TypeError):
-                val = 0
-            if "income" in label and "net" not in label:
-                total_income = val
-            elif "expense" in label:
-                total_expenses = abs(val)
+                val = 0.0
+            if "expense" in label and "net" not in label:
+                total_expenses += abs(val)
 
-    net_income = total_income - total_expenses
+    net_income = round(total_income - total_expenses, 2)
 
     # ---- CPP (exact for 2025/2026) ----
     params = _CPP_PARAMS.get(year)
