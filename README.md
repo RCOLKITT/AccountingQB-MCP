@@ -2,7 +2,7 @@
 
 The most comprehensive QuickBooks Online MCP server for Claude. Built for sole proprietors and small businesses who want to manage their books, run reports, and prep taxes through natural conversation.
 
-**124 tools** covering transactions, reports, tax prep (US **and** Canada), reconciliation, smart bookkeeping, 1099/T4A reporting, GST/HST returns, anomaly detection, credit memos, vendor credits, cash flow forecasting, and profit margin analysis — all from Claude Desktop. Includes a **CPA Workbook**: a 15-page year-end binder (comparative statements, reconciliation tie-outs, tax payments made, owner's draws, tax organizer) exported to Excel for your accountant.
+**125 tools** covering transactions, reports, tax prep (US **and** Canada), reconciliation, smart bookkeeping, 1099/T4A reporting, GST/HST returns, anomaly detection, credit memos, vendor credits, cash flow forecasting, and profit margin analysis — all from Claude Desktop. Includes a **CPA Workbook**: a 15-page year-end binder (comparative statements, reconciliation tie-outs, tax payments made, owner's draws, tax organizer) exported to Excel for your accountant.
 
 **Canada support:** works with Canadian QuickBooks Online companies out of the box — the server auto-detects the company's tax edition, applies sales tax codes (GST/HST/PST) on created transactions, and ships a full Canadian tax suite: GST/HST (GST34) return workpapers with the 50% meals ITC restriction, T2125 line mapping, CCA schedules (half-year rule + Accelerated Investment Incentive), T4A/T5018 contractor reporting, and CRA instalment + CPP estimates. Multicurrency companies see per-transaction currency and exchange rates.
 
@@ -78,7 +78,7 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 
 ---
 
-## Tools (124)
+## Tools (125)
 
 ### Company & Entities
 
@@ -232,6 +232,7 @@ To get your refresh token manually, use the [Intuit OAuth Playground](https://de
 | `qb_missing_receipts` | Expenses ≥ threshold (default $75) with no receipt attached — IRS substantiation gap |
 | `qb_change_audit_trail` | What changed since a date — created / updated / **deleted** transactions (QuickBooks CDC) |
 | `qb_bank_reconciliation` | Tie a bank/credit-card statement CSV to the books — matched / missing / uncleared |
+| `qb_stripe_reconcile` | Reconcile Stripe activity — nets processing **and** platform fees (Sigma/Billing/Radar) through a clearing account and ties to the Stripe balance |
 | `qb_account_balance` | Check any account balance |
 
 ### Connection & Multi-Company

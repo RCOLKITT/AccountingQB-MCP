@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     template: "%s | AccountingQB",
   },
   description:
-    "124 AI tools connecting Claude to your QuickBooks Online. Run reports, reconcile books, prep US & Canadian taxes, detect anomalies — all through natural conversation. Runs locally or through our zero-retention connector — we never store your books.",
+    "125 AI tools connecting Claude to your QuickBooks Online. Run reports, reconcile books, prep US & Canadian taxes, detect anomalies — all through natural conversation. Runs locally or through our zero-retention connector — we never store your books.",
   keywords: [
     "quickbooks ai",
     "claude quickbooks",
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     siteName: "AccountingQB",
     title: "AccountingQB — AI-Powered QuickBooks for Claude",
     description:
-      "124 AI tools connecting Claude to your QuickBooks Online. Run it locally or via our zero-retention connector — we never store your books. 14-day free trial.",
+      "125 AI tools connecting Claude to your QuickBooks Online. Run it locally or via our zero-retention connector — we never store your books. 14-day free trial.",
     images: [
       {
         url: `${siteUrl}/og-image.png`,
@@ -63,7 +63,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "AccountingQB — AI-Powered QuickBooks for Claude",
     description:
-      "124 AI tools connecting Claude to your QuickBooks Online. Runs locally or via our zero-retention connector — we never store your books.",
+      "125 AI tools connecting Claude to your QuickBooks Online. Runs locally or via our zero-retention connector — we never store your books.",
     images: [`${siteUrl}/og-image.png`],
   },
   robots: {
@@ -91,7 +91,7 @@ export default function RootLayout({
     applicationCategory: "BusinessApplication",
     operatingSystem: "Windows, macOS, Linux",
     description:
-      "124 AI tools connecting Claude to your QuickBooks Online for automated bookkeeping, tax prep, and financial analysis for US and Canadian businesses.",
+      "125 AI tools connecting Claude to your QuickBooks Online for automated bookkeeping, tax prep, and financial analysis for US and Canadian businesses.",
     offers: [
       {
         "@type": "Offer",

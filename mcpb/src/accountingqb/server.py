@@ -2551,6 +2551,229 @@ async def qb_inventory_valuation(as_of_date: str = "") -> str:
 
 
 # ===================================================================
+# PROCESSOR RECONCILIATION — Stripe → books (v1, export-based)
+# ===================================================================
+
+# Standalone balance-transaction descriptions that are PLATFORM fees (Sigma,
+# Billing, Radar, ...) rather than per-charge processing fees — the ones most
+# people miss, which is why their clearing account never ties.
+_STRIPE_PLATFORM_FEE_HINTS = (
+    "sigma", "billing", "radar", "connect", "terminal", "invoic", "atlas",
+    "capital", "subscription", "financial report", "app")
+
+
+def _classify_stripe(txns, scale):
+    """Split a list of Stripe balance_transaction objects into GL buckets.
+    Returns a dict of dollar totals + the list of unmapped rows (which must
+    block the tie-out rather than be swept into revenue)."""
+    def money(v):
+        return round(float(v or 0) / scale, 2)
+
+    b = {"gross": 0.0, "refunds": 0.0, "processing": 0.0, "platform": 0.0,
+         "payouts": 0.0, "net_change": 0.0, "count": 0}
+    unmapped = []
+    for t in txns:
+        typ = (t.get("type") or "").lower()
+        amt, fee = money(t.get("amount")), money(t.get("fee"))
+        b["net_change"] += amt - fee
+        b["count"] += 1
+        if typ in ("charge", "payment"):
+            b["gross"] += amt
+            b["processing"] += fee
+        elif typ in ("refund", "payment_refund", "payment_failure_refund"):
+            b["refunds"] += abs(amt)
+            b["processing"] += fee            # usually 0; fee refunded if any
+        elif typ in ("stripe_fee", "billing", "tax_fee", "application_fee"):
+            b["platform"] += abs(amt)
+        elif typ == "payout":
+            b["payouts"] += abs(amt)
+        elif typ == "adjustment":
+            desc = (t.get("description") or "").lower()
+            if any(h in desc for h in _STRIPE_PLATFORM_FEE_HINTS):
+                b["platform"] += abs(amt)
+            else:
+                unmapped.append(t)
+        else:
+            unmapped.append(t)
+    # Net retained in the processor from activity (excludes payouts to bank).
+    b["activity_net"] = round(b["gross"] - b["refunds"] - b["processing"]
+                              - b["platform"], 2)
+    return b, unmapped
+
+
+@mcp.tool(annotations={"destructiveHint": True})
+async def qb_stripe_reconcile(
+        period: str, report_json: str, dry_run: bool = True,
+        income_account: str = "Sales", fee_account: str = "Merchant Fees",
+        platform_fee_account: str = "Software & Apps",
+        refund_account: str = "Refunds", clearing_account: str = "Stripe Clearing",
+        payout_bank_account: str = "", expected_ending_balance: float = 0.0,
+        amounts_in_cents: bool = True) -> str:
+    """Reconcile a month of Stripe activity into QuickBooks the right way: net
+    revenue against BOTH processing fees AND platform fees (Sigma, Billing,
+    Radar, ...), post a monthly journal entry through a Stripe Clearing asset
+    account, and tie the clearing balance to Stripe.
+
+    period: 'YYYY-MM'. report_json: a JSON array of Stripe balance_transaction
+    objects (from the Stripe API / dashboard export). dry_run=True (default)
+    proposes the entry without posting; set False to post. Pass
+    expected_ending_balance (your Stripe dashboard balance) to assert the
+    tie-out — a mismatch blocks posting. Idempotent: a period already posted
+    (tagged [stripe:PERIOD]) will not be duplicated. amounts_in_cents=True
+    treats Stripe integer amounts as cents (the API convention)."""
+    try:
+        txns = json.loads(report_json) if isinstance(report_json, str) else report_json
+    except (json.JSONDecodeError, TypeError) as e:
+        return f"Could not parse report_json as JSON: {e}"
+    if not isinstance(txns, list) or not txns:
+        return ("report_json must be a non-empty JSON array of Stripe "
+                "balance_transaction objects.")
+
+    b, unmapped = _classify_stripe(txns, 100.0 if amounts_in_cents else 1.0)
+
+    # Prior clearing balance (for the real tie-out); 0 if the account is new.
+    clearing_acct, _ = await _resolve_account(clearing_account)
+    prior_clearing = float(clearing_acct.get("CurrentBalance", 0) or 0) if clearing_acct else 0.0
+    projected_clearing = round(prior_clearing + b["net_change"], 2)
+
+    out = [f"## Stripe Reconciliation — {period}",
+           f"*{b['count']} balance transactions*\n",
+           "### Activity",
+           f"- Gross sales: {fmt(b['gross'])}",
+           f"- Refunds: ({fmt(b['refunds'])})",
+           f"- Processing fees: ({fmt(b['processing'])})",
+           f"- **Platform fees (Sigma/Billing/Radar/…): ({fmt(b['platform'])})**",
+           f"- Net retained in Stripe: {fmt(b['activity_net'])}"]
+    if b["payouts"]:
+        out.append(f"- Payouts to bank: ({fmt(b['payouts'])})")
+    # The differentiator, made explicit:
+    if b["processing"]:
+        ratio = b["platform"] / b["processing"]
+        out.append(f"\n*Platform fees are {ratio:.1f}× your processing fees — "
+                   "these are what most reconciliations miss.*")
+
+    # Tie-out
+    out.append(f"\n### Tie-out")
+    out.append(f"- Projected Stripe Clearing balance: {fmt(projected_clearing)} "
+               f"(prior {fmt(prior_clearing)} + net change {fmt(b['net_change'])})")
+    tie_ok = True
+    if expected_ending_balance:
+        tie_ok = abs(projected_clearing - expected_ending_balance) < 0.01
+        mark = "✅ ties" if tie_ok else "🔴 OFF"
+        out.append(f"- Stripe reported balance: {fmt(expected_ending_balance)} — {mark}")
+        if not tie_ok:
+            out.append(f"- **Unreconciled difference: "
+                       f"{fmt(projected_clearing - expected_ending_balance)}** — "
+                       "likely an unmapped fee type or a pending/available timing "
+                       "difference at the period boundary.")
+    else:
+        out.append("- Pass expected_ending_balance (your Stripe dashboard balance) "
+                   "to confirm the tie-out.")
+    if unmapped:
+        kinds = ", ".join(sorted({(t.get('type') or '?') for t in unmapped}))
+        out.append(f"- ⚠️ {len(unmapped)} unmapped transaction(s) [{kinds}] — "
+                   "not booked; resolve before relying on this.")
+
+    # Proposed journal entry (activity)
+    debits = [(refund_account, b["refunds"]), (fee_account, b["processing"]),
+              (platform_fee_account, b["platform"])]
+    credits = [(income_account, b["gross"])]
+    if b["activity_net"] >= 0:
+        debits.append((clearing_account, b["activity_net"]))
+    else:
+        credits.append((clearing_account, -b["activity_net"]))
+    debits = [(n, a) for n, a in debits if a > 0.005]
+    credits = [(n, a) for n, a in credits if a > 0.005]
+
+    out.append(f"\n### Proposed journal entry — {period}")
+    out.append("| Account | Debit | Credit |")
+    out.append("|---|---|---|")
+    for n, a in debits:
+        out.append(f"| {n} | {fmt(a)} | |")
+    for n, a in credits:
+        out.append(f"| {n} | | {fmt(a)} |")
+
+    if dry_run:
+        out.append("\n*Dry run — nothing posted. Re-run with dry_run=false to post"
+                   + (" (tie-out is off — fix before posting)." if not tie_ok else ".")
+                   + "*")
+        if not clearing_acct:
+            out.append(f"*Note: '{clearing_account}' will be created (Other Current "
+                       "Asset) on posting.*")
+        return "\n".join(out)
+
+    # ---- posting path ----
+    if not tie_ok:
+        return ("\n".join(out) + "\n\n🔴 Not posting: the clearing balance does not "
+                "tie to Stripe. Resolve the difference above first.")
+    if unmapped:
+        return ("\n".join(out) + f"\n\n🔴 Not posting: {len(unmapped)} unmapped "
+                "transaction(s). Map or remove them first.")
+
+    marker = f"[stripe:{period}]"
+    dup = await qb_query(
+        f"SELECT * FROM JournalEntry WHERE PrivateNote LIKE '%{marker}%' MAXRESULTS 1")
+    if dup.get("QueryResponse", {}).get("JournalEntry"):
+        return ("\n".join(out) + f"\n\n⚠️ Already reconciled: a journal entry tagged "
+                f"{marker} exists. Not posting again (idempotent).")
+
+    # Ensure accounts exist (create the clearing/fee accounts if missing).
+    async def _ensure(name, atype, sub=""):
+        acct, _ = await _resolve_account(name)
+        if acct:
+            return acct
+        body = {"Name": name, "AccountType": atype}
+        if sub:
+            body["AccountSubType"] = sub
+        return (await qb_request("POST", "account", json_body=body)).get("Account", {})
+
+    resolved = {}
+    for name, atype, sub in (
+            (clearing_account, "Other Current Asset", "OtherCurrentAssets"),
+            (income_account, "Income", "SalesOfProductIncome"),
+            (fee_account, "Expense", "OtherMiscServiceCost"),
+            (platform_fee_account, "Expense", "OtherMiscServiceCost"),
+            (refund_account, "Income", "DiscountsRefundsGiven")):
+        resolved[name] = await _ensure(name, atype, sub)
+
+    def _line(name, amount, posting):
+        a = resolved[name]
+        return {"DetailType": "JournalEntryLineDetail", "Amount": round(amount, 2),
+                "JournalEntryLineDetail": {"PostingType": posting,
+                    "AccountRef": {"value": a["Id"], "name": a["Name"]}}}
+
+    je_lines = [_line(n, a, "Debit") for n, a in debits] + \
+               [_line(n, a, "Credit") for n, a in credits]
+    je = await qb_request("POST", "journalentry", json_body={
+        "TxnDate": f"{period}-01",
+        "PrivateNote": f"Stripe reconciliation {period} {marker}",
+        "Line": je_lines})
+    je_id = je.get("JournalEntry", {}).get("Id", "?")
+    out.append(f"\n✅ Posted activity journal entry #{je_id} tagged {marker}.")
+
+    # Separate payout entry (clearing -> bank), only for real payouts.
+    if b["payouts"] and payout_bank_account:
+        bank = await _ensure(payout_bank_account, "Bank", "Checking")
+        clr = resolved[clearing_account]
+        pje = await qb_request("POST", "journalentry", json_body={
+            "TxnDate": f"{period}-01",
+            "PrivateNote": f"Stripe payouts {period} {marker}",
+            "Line": [
+                {"DetailType": "JournalEntryLineDetail", "Amount": b["payouts"],
+                 "JournalEntryLineDetail": {"PostingType": "Debit",
+                    "AccountRef": {"value": bank["Id"], "name": bank["Name"]}}},
+                {"DetailType": "JournalEntryLineDetail", "Amount": b["payouts"],
+                 "JournalEntryLineDetail": {"PostingType": "Credit",
+                    "AccountRef": {"value": clr["Id"], "name": clr["Name"]}}}]})
+        out.append(f"✅ Posted payout journal entry #{pje.get('JournalEntry', {}).get('Id', '?')} "
+                   f"({fmt(b['payouts'])} to {payout_bank_account}).")
+    elif b["payouts"]:
+        out.append(f"\n*Note: {fmt(b['payouts'])} of payouts were NOT booked to the "
+                   "bank — pass payout_bank_account to record clearing → bank.*")
+    return "\n".join(out)
+
+
+# ===================================================================
 # CPA WORKBOOK SUPPORT — reconciliation, comparatives, tax payments, draws
 # ===================================================================
 

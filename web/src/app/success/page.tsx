@@ -290,7 +290,7 @@ function SuccessContent() {
         </div>
 
         <p className="mt-8 text-sm text-gray-500">
-          Your trial includes full access to all 124 QuickBooks tools.
+          Your trial includes full access to all 125 QuickBooks tools.
           <br />
           No credit card was charged. Cancel anytime.
         </p>
