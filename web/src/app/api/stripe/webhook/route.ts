@@ -64,7 +64,12 @@ export async function POST(req: NextRequest) {
 
     case "customer.subscription.updated": {
       const sub = event.data.object as Stripe.Subscription;
-      const status = sub.status === "active" ? "active" :
+      // past_due / unpaid = a failed charge that Stripe is STILL retrying
+      // (dunning). Keep access during that window — revoking it instantly kills
+      // recovery. Stripe fires subscription.deleted once dunning is exhausted,
+      // which we map to 'canceled'. incomplete/incomplete_expired (initial
+      // payment never succeeded) fall through to 'expired'.
+      const status = sub.status === "active" || sub.status === "past_due" || sub.status === "unpaid" ? "active" :
                      sub.status === "trialing" ? "trialing" :
                      sub.status === "canceled" ? "canceled" : "expired";
 
