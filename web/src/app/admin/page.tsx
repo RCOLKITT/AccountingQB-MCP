@@ -9,6 +9,12 @@ interface Stats {
   stuckUsers: number;
   trialsEndingThisWeek: number;
   recentEscalations: number;
+  support: {
+    total: number;
+    selfResolvedPct: number;
+    escalatedPct: number;
+    topTopics: { topic: string; count: number }[];
+  };
 }
 
 async function getStats(): Promise<Stats> {
@@ -86,6 +92,29 @@ async function getStats(): Promise<Stats> {
     .eq("status", "escalated")
     .gte("updated_at", sevenDaysAgo.toISOString());
 
+  // Support health (last 30 days) from support_analytics — self-resolution and
+  // escalation rates + the topics driving contacts.
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const { data: supportRows } = await supabase
+    .from("support_analytics")
+    .select("topic, resolved_self, escalated, created_at")
+    .gte("created_at", thirtyDaysAgo.toISOString())
+    .limit(50000);
+  const sup = (supportRows || []) as {
+    topic: string;
+    resolved_self: boolean;
+    escalated: boolean;
+  }[];
+  const supTotal = sup.length;
+  const supSelf = sup.filter((r) => r.resolved_self && !r.escalated).length;
+  const supEsc = sup.filter((r) => r.escalated).length;
+  const topicCounts: Record<string, number> = {};
+  for (const r of sup) topicCounts[r.topic] = (topicCounts[r.topic] || 0) + 1;
+  const topTopics = Object.entries(topicCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([topic, count]) => ({ topic, count }));
+
   return {
     totalUsers: totalUsers || 0,
     activeTrials: activeTrials || 0,
@@ -94,6 +123,12 @@ async function getStats(): Promise<Stats> {
     stuckUsers,
     trialsEndingThisWeek: trialsEndingThisWeek || 0,
     recentEscalations: recentEscalations || 0,
+    support: {
+      total: supTotal,
+      selfResolvedPct: supTotal ? Math.round((supSelf / supTotal) * 100) : 0,
+      escalatedPct: supTotal ? Math.round((supEsc / supTotal) * 100) : 0,
+      topTopics,
+    },
   };
 }
 
@@ -177,6 +212,47 @@ export default async function AdminDashboard() {
           href="/admin/emails?filter=escalated"
           color="red"
         />
+      </div>
+
+      {/* Support health (30d) */}
+      <div className="rounded-xl border border-white/10 bg-[#131a2e] p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-white">Support health · 30d</h2>
+          <span className="text-xs text-gray-500">{stats.support.total} contacts</span>
+        </div>
+        {stats.support.total === 0 ? (
+          <p className="text-sm text-gray-500">No support activity in the last 30 days.</p>
+        ) : (
+          <div className="flex flex-wrap items-start gap-8">
+            <div>
+              <p className="text-2xl font-bold text-emerald-400">
+                {stats.support.selfResolvedPct}%
+              </p>
+              <p className="text-xs text-gray-400">self-resolved</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-amber-300">
+                {stats.support.escalatedPct}%
+              </p>
+              <p className="text-xs text-gray-400">escalated to human</p>
+            </div>
+            {stats.support.topTopics.length > 0 && (
+              <div className="min-w-[12rem]">
+                <p className="mb-1 text-xs text-gray-400">Top topics</p>
+                <div className="flex flex-wrap gap-2">
+                  {stats.support.topTopics.map((t) => (
+                    <span
+                      key={t.topic}
+                      className="rounded bg-white/5 px-2 py-0.5 text-xs text-gray-300"
+                    >
+                      {t.topic} · {t.count}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Recent Users */}
