@@ -1,5 +1,6 @@
 import { getSupabase } from "@/lib/supabase";
 import { getStripeRevenue } from "@/lib/stripe-revenue";
+import { getNrr } from "@/lib/nrr";
 
 // Revenue cockpit — MRR/ARR, paying customers, trial→paid conversion, paid
 // churn, and a 6-month trend. Real subscriptions only (has a Stripe sub, not
@@ -113,8 +114,9 @@ const usd = (n: number) =>
   "$" + Math.round(n).toLocaleString("en-US");
 
 export default async function RevenuePage() {
-  const [d, stripe] = await Promise.all([getData(), getStripeRevenue()]);
+  const [d, stripe, nrr] = await Promise.all([getData(), getStripeRevenue(), getNrr()]);
   const maxTrend = Math.max(1, ...d.trend.map((t) => Math.max(t.signups, t.churned)));
+  const maxSnap = Math.max(1, ...nrr.trend.map((t) => t.mrr));
 
   return (
     <div className="space-y-8">
@@ -159,6 +161,49 @@ export default async function RevenuePage() {
           refunds.
         </div>
       )}
+
+      {/* Net Revenue Retention (from monthly MRR snapshots) */}
+      <div className="rounded-xl border border-white/10 bg-[#131a2e] p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-white">Net Revenue Retention</h2>
+          <span className="text-xs text-gray-500">
+            {nrr.accruing ? "accruing — needs 2 monthly snapshots" : `${nrr.prevMonth} → ${nrr.curMonth}`}
+          </span>
+        </div>
+        {nrr.accruing ? (
+          <p className="text-sm text-gray-400">
+            The monthly MRR snapshot is capturing data. NRR, expansion/contraction,
+            and the MRR trend appear once two months of snapshots exist.
+          </p>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <Metric label="NRR" value={`${Math.round(nrr.nrr ?? 0)}%`} accent />
+              <Metric label="GRR" value={`${Math.round(nrr.grr ?? 0)}%`} />
+              <Metric label="Expansion" value={usd(nrr.expansion)} sub="upgrades" />
+              <Metric label="Contraction" value={usd(nrr.contraction)} sub="downgrades" />
+              <Metric label="Churned MRR" value={usd(nrr.churned)} sub="lost" />
+            </div>
+            {nrr.trend.length > 1 && (
+              <div className="mt-6">
+                <p className="mb-2 text-xs text-gray-400">MRR trend</p>
+                <div className="flex h-24 items-end gap-2">
+                  {nrr.trend.map((t) => (
+                    <div key={t.month} className="flex flex-1 flex-col items-center gap-1">
+                      <div
+                        className="w-full rounded-t bg-cyan-500/40"
+                        style={{ height: `${(t.mrr / maxSnap) * 100}%` }}
+                        title={usd(t.mrr)}
+                      />
+                      <span className="text-[10px] text-gray-500">{t.month.slice(5)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Headline metrics (estimated from list prices — see Stripe panel for real) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
