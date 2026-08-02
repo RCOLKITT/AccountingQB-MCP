@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe, getTierPrice } from "@/lib/stripe";
+import { getSupabase } from "@/lib/supabase";
 import {
   getCheckoutLimiter,
   getClientIP,
@@ -41,6 +42,26 @@ export async function GET(req: NextRequest) {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin;
+
+  // Duplicate-subscription guard: if we know the email and it already has a live
+  // (active/trialing) license, send them to their dashboard instead of creating a
+  // SECOND subscription (which is how one customer ended up billed on two subs).
+  // Expired/canceled emails fall through and can re-subscribe normally.
+  if (email) {
+    const { data: existing } = await getSupabase()
+      .from("licenses")
+      .select("key")
+      .eq("email", email)
+      .in("status", ["active", "trialing"])
+      .limit(1)
+      .maybeSingle();
+    if (existing?.key) {
+      return NextResponse.redirect(
+        `${baseUrl}/dashboard?key=${encodeURIComponent(existing.key)}`,
+        303
+      );
+    }
+  }
 
   try {
     const session = await getStripe().checkout.sessions.create({

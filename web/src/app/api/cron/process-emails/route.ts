@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { sendEmail, EmailType } from "@/lib/emails/send-email";
+import { isSuppressed } from "@/lib/emails/unsubscribe";
 import { campaignEmail, type CampaignContent } from "@/lib/emails/templates/campaign";
 import {
   welcomeEmail,
@@ -120,6 +121,27 @@ export async function GET(req: NextRequest) {
           });
           continue;
         }
+      }
+
+      // Compliance (CAN-SPAM / CASL): never send MARKETING mail to an
+      // unsubscribed address, even if it was queued before they opted out.
+      // Transactional/lifecycle mail (welcome, trial warnings, payment
+      // failures, renewals) is exempt.
+      const MARKETING_TYPES: EmailType[] = ["campaign", "reengagement"];
+      if (
+        MARKETING_TYPES.includes(schedule.email_type) &&
+        (await isSuppressed(license.email))
+      ) {
+        await supabase
+          .from("email_schedules")
+          .update({ cancelled: true, error_message: "Suppressed (unsubscribed)" })
+          .eq("id", schedule.id);
+        results.push({
+          id: schedule.id,
+          success: true,
+          error: "Skipped - unsubscribed",
+        });
+        continue;
       }
 
       // Generate email content based on type

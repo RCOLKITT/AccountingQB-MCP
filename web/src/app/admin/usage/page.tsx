@@ -5,6 +5,7 @@ import {
   type UsageAnalytics,
   type ToolStat,
 } from "@/lib/usage-analytics";
+import { getEngagement, type Engagement } from "@/lib/engagement";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +22,8 @@ export default async function UsagePage({
 }) {
   const sp = await searchParams;
   const days = normalizeDays(sp.days);
-  const u = await getUsageAnalytics(days);
-  return <Dashboard u={u} days={days} />;
+  const [u, eng] = await Promise.all([getUsageAnalytics(days), getEngagement()]);
+  return <Dashboard u={u} eng={eng} days={days} />;
 }
 
 function fmtDate(iso: string | null): string {
@@ -35,7 +36,7 @@ function fmtDate(iso: string | null): string {
   });
 }
 
-function Dashboard({ u, days }: { u: UsageAnalytics; days: number }) {
+function Dashboard({ u, eng, days }: { u: UsageAnalytics; eng: Engagement; days: number }) {
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -61,6 +62,63 @@ function Dashboard({ u, days }: { u: UsageAnalytics; days: number }) {
             </Link>
           ))}
         </div>
+      </div>
+
+      {/* Engagement health — fixed 1/7/30-day windows, independent of the range above */}
+      <div className="bg-[#131a2e] rounded-xl border border-white/10 p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-white">Engagement health</h2>
+          <span className="text-xs text-gray-500">active = ran a tool</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <BigMetric label="DAU" value={eng.dau} accent sub="active today" />
+          <BigMetric label="WAU" value={eng.wau} sub="last 7 days" />
+          <BigMetric label="MAU" value={eng.mau} sub="last 30 days" />
+          <BigMetric label="Stickiness" value={`${Math.round(eng.stickiness)}%`} sub="DAU / MAU" />
+        </div>
+        {eng.atRiskCount > 0 && (
+          <div className="mt-6">
+            <div className="mb-2 flex items-center gap-2 text-sm">
+              <span className="font-semibold text-amber-300">
+                ⚠️ {eng.atRiskCount} at-risk account{eng.atRiskCount === 1 ? "" : "s"}
+              </span>
+              <span className="text-gray-500">
+                — active in the prior 30d, silent the last 7 days (churn risk)
+              </span>
+            </div>
+            <div className="overflow-hidden rounded-lg border border-white/5">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/5 text-left text-xs text-gray-400">
+                    <th className="px-4 py-2 font-medium">Account</th>
+                    <th className="px-4 py-2 font-medium">Tier</th>
+                    <th className="px-4 py-2 font-medium">Status</th>
+                    <th className="px-4 py-2 font-medium">Prior calls</th>
+                    <th className="px-4 py-2 font-medium">Last active</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {eng.atRisk.map((a) => (
+                    <tr key={a.license_key} className="border-b border-white/5">
+                      <td className="px-4 py-2 text-white">
+                        <Link
+                          href={`/admin/users/${a.license_key}`}
+                          className="hover:text-cyan-400"
+                        >
+                          {a.email}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2 capitalize text-gray-300">{a.tier}</td>
+                      <td className="px-4 py-2 capitalize text-gray-400">{a.status}</td>
+                      <td className="px-4 py-2 text-gray-300">{a.priorCalls}</td>
+                      <td className="px-4 py-2 text-gray-400">{fmtDate(a.lastActive)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {u.empty ? (
@@ -162,10 +220,12 @@ function BigMetric({
   label,
   value,
   accent,
+  sub,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   accent?: boolean;
+  sub?: string;
 }) {
   return (
     <div
@@ -175,8 +235,9 @@ function BigMetric({
     >
       <p className="text-xs text-gray-400">{label}</p>
       <p className={`mt-1 text-2xl font-bold ${accent ? "text-cyan-300" : "text-white"}`}>
-        {value.toLocaleString()}
+        {typeof value === "number" ? value.toLocaleString() : value}
       </p>
+      {sub && <p className="mt-0.5 text-xs text-gray-500">{sub}</p>}
     </div>
   );
 }

@@ -24,10 +24,13 @@ export async function GET(req: NextRequest) {
   const supabase = getSupabase();
 
   if (type === "escalations") {
-    // Get escalated support conversations
+    // Only conversations actually escalated (the tab implies escalated-only).
+    // NOTE: support_conversations has no user_email column — identity is derived
+    // from the linked license or the conversation metadata below.
     const { data: conversations, error } = await supabase
       .from("support_conversations")
-      .select("id, license_key, user_email, status, created_at, updated_at")
+      .select("id, license_key, anonymous_id, status, metadata, created_at, updated_at")
+      .eq("status", "escalated")
       .order("updated_at", { ascending: false })
       .limit(100);
 
@@ -39,7 +42,20 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Get message counts for each conversation
+    // Resolve a display identity: linked license email > metadata email > anon id.
+    const licenseKeys = [
+      ...new Set((conversations || []).map((c) => c.license_key).filter(Boolean)),
+    ] as string[];
+    const emailByKey: Record<string, string> = {};
+    if (licenseKeys.length) {
+      const { data: lics } = await supabase
+        .from("licenses")
+        .select("key, email")
+        .in("key", licenseKeys);
+      for (const l of lics || []) emailByKey[l.key] = l.email;
+    }
+
+    // Get message counts + attach the resolved identity for each conversation
     const escalations = await Promise.all(
       (conversations || []).map(async (conv) => {
         const { count } = await supabase
@@ -47,8 +63,15 @@ export async function GET(req: NextRequest) {
           .select("*", { count: "exact", head: true })
           .eq("conversation_id", conv.id);
 
+        const meta = (conv.metadata || {}) as { email?: string };
+        const user_email =
+          (conv.license_key && emailByKey[conv.license_key]) ||
+          meta.email ||
+          (conv.anonymous_id ? `anon:${conv.anonymous_id.slice(0, 8)}` : "Anonymous");
+
         return {
           ...conv,
+          user_email,
           message_count: count || 0,
         };
       })

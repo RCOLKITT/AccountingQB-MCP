@@ -1,4 +1,6 @@
 import { getSupabase } from "@/lib/supabase";
+import { getStripeRevenue } from "@/lib/stripe-revenue";
+import { getNrr } from "@/lib/nrr";
 
 // Revenue cockpit — MRR/ARR, paying customers, trial→paid conversion, paid
 // churn, and a 6-month trend. Real subscriptions only (has a Stripe sub, not
@@ -33,6 +35,25 @@ async function getData() {
     .limit(10000);
   const rows = (data || []) as (Lic & { is_test: boolean })[];
 
+  // Reliable cancellation dates come from the subscription-deleted webhook
+  // events — licenses.updated_at is bumped by ANY edit, so it is not a valid
+  // cancel date for a churn-by-month trend.
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  sixMonthsAgo.setDate(1);
+  const { data: cancelEvents } = await supabase
+    .from("event_logs")
+    .select("created_at")
+    .eq("action", "customer.subscription.deleted")
+    .eq("success", true)
+    .gte("created_at", sixMonthsAgo.toISOString())
+    .limit(10000);
+  const cancelsByMonth: Record<string, number> = {};
+  for (const e of cancelEvents || []) {
+    const k = monthKey(e.created_at as string);
+    cancelsByMonth[k] = (cancelsByMonth[k] || 0) + 1;
+  }
+
   const paying = rows.filter(
     (r) => r.status === "active" && r.stripe_subscription_id
   );
@@ -61,7 +82,7 @@ async function getData() {
     ? (paidChurn.length / (paying.length + paidChurn.length)) * 100
     : 0;
 
-  // 6-month trend: signups (created_at) + paid-cancels (updated_at)
+  // 6-month trend: signups (created_at) + cancellations (webhook events)
   const months: string[] = [];
   const now = new Date();
   for (let i = 5; i >= 0; i--) {
@@ -71,7 +92,7 @@ async function getData() {
   const trend = months.map((m) => ({
     month: m,
     signups: rows.filter((r) => monthKey(r.created_at) === m).length,
-    churned: paidChurn.filter((r) => r.updated_at && monthKey(r.updated_at) === m).length,
+    churned: cancelsByMonth[m] || 0,
   }));
 
   return {
@@ -93,8 +114,9 @@ const usd = (n: number) =>
   "$" + Math.round(n).toLocaleString("en-US");
 
 export default async function RevenuePage() {
-  const d = await getData();
+  const [d, stripe, nrr] = await Promise.all([getData(), getStripeRevenue(), getNrr()]);
   const maxTrend = Math.max(1, ...d.trend.map((t) => Math.max(t.signups, t.churned)));
+  const maxSnap = Math.max(1, ...nrr.trend.map((t) => t.mrr));
 
   return (
     <div className="space-y-8">
@@ -105,10 +127,88 @@ export default async function RevenuePage() {
         </p>
       </div>
 
-      {/* Headline metrics */}
+      {/* Live from Stripe — actual billed revenue + dunning + refunds */}
+      {stripe ? (
+        <div className="bg-[#131a2e] rounded-xl border border-white/10 p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white">Live from Stripe</h2>
+            <span className="text-xs text-emerald-400">actual billed amounts</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <Metric label="MRR (real)" value={usd(stripe.mrr)} accent />
+            <Metric label="Active subs" value={String(stripe.activeSubs)} />
+            <Metric
+              label="Past-due (dunning)"
+              value={String(stripe.dunningSubs)}
+              sub={`${usd(stripe.dunningMrr)}/mo at risk`}
+            />
+            <Metric
+              label="Refunds (30d)"
+              value={usd(stripe.refunds30d)}
+              sub={`${stripe.refundCount30d} refunds`}
+            />
+            <Metric
+              label="Stripe balance"
+              value={usd(stripe.balanceAvailable)}
+              sub={`${usd(stripe.balancePending)} pending`}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-white/10 bg-[#131a2e] p-6 text-sm text-gray-400">
+          Stripe not configured — the numbers below are list-price estimates. Set
+          STRIPE_SECRET_KEY to see real billed MRR, dunning (failed payments), and
+          refunds.
+        </div>
+      )}
+
+      {/* Net Revenue Retention (from monthly MRR snapshots) */}
+      <div className="rounded-xl border border-white/10 bg-[#131a2e] p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-white">Net Revenue Retention</h2>
+          <span className="text-xs text-gray-500">
+            {nrr.accruing ? "accruing — needs 2 monthly snapshots" : `${nrr.prevMonth} → ${nrr.curMonth}`}
+          </span>
+        </div>
+        {nrr.accruing ? (
+          <p className="text-sm text-gray-400">
+            The monthly MRR snapshot is capturing data. NRR, expansion/contraction,
+            and the MRR trend appear once two months of snapshots exist.
+          </p>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <Metric label="NRR" value={`${Math.round(nrr.nrr ?? 0)}%`} accent />
+              <Metric label="GRR" value={`${Math.round(nrr.grr ?? 0)}%`} />
+              <Metric label="Expansion" value={usd(nrr.expansion)} sub="upgrades" />
+              <Metric label="Contraction" value={usd(nrr.contraction)} sub="downgrades" />
+              <Metric label="Churned MRR" value={usd(nrr.churned)} sub="lost" />
+            </div>
+            {nrr.trend.length > 1 && (
+              <div className="mt-6">
+                <p className="mb-2 text-xs text-gray-400">MRR trend</p>
+                <div className="flex h-24 items-end gap-2">
+                  {nrr.trend.map((t) => (
+                    <div key={t.month} className="flex flex-1 flex-col items-center gap-1">
+                      <div
+                        className="w-full rounded-t bg-cyan-500/40"
+                        style={{ height: `${(t.mrr / maxSnap) * 100}%` }}
+                        title={usd(t.mrr)}
+                      />
+                      <span className="text-[10px] text-gray-500">{t.month.slice(5)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Headline metrics (estimated from list prices — see Stripe panel for real) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Metric label="MRR" value={usd(d.mrr)} accent />
-        <Metric label="ARR" value={usd(d.arr)} />
+        <Metric label="MRR (est.)" value={usd(d.mrr)} accent />
+        <Metric label="ARR (est.)" value={usd(d.arr)} />
         <Metric label="Paying customers" value={String(d.payingCount)} />
         <Metric label="ARPU" value={usd(d.arpu) + "/mo"} />
         <Metric label="Trial → paid" value={`${Math.round(d.conversion * 10) / 10}%`} sub="of completed trials" />

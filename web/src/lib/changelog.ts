@@ -14,6 +14,128 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.13",
+    date: "2026-08-02",
+    title: "Correct tax returns, a real Trial Balance, and cleaner reconciliations",
+    tag: "Tax",
+    summary:
+      "A full end-to-end review against a live company surfaced reporting-layer bugs that produced confident-but-wrong numbers. This release fixes all of them — most importantly, business revenue now lands on the right tax-return lines.",
+    highlights: [
+      "Schedule C & T2125: gross receipts, returns/refunds, and other income (interest) now map to the correct lines — previously 'Other Income' overwrote sales, so revenue was dropped from the return. The same fix flows through the detailed Schedule C and the US/CA quarterly-tax and instalment estimators",
+      "Trial Balance rewritten: real Debit/Credit columns, correct signs, an as-of date (not a range), no blank accounts, and a debits-equal-credits check",
+      "Stripe reconcile: platform fees now include their sales tax (reconciled on net), the Activity and Tie-out figures can no longer disagree, historical periods tie to the period-start balance, accounts are validated in dry-run, and a manually-posted entry for the period blocks a double-book",
+      "qb_missing_receipts no longer flags credit-card payments, transfers, or interest; qb_find_duplicates now matches same-vendor + same-amount + same-day by default and suppresses recurring charges, with a count that reconciles to the health audit",
+      "129 tools total across US & Canada",
+    ],
+  },
+  {
+    version: "3.12",
+    date: "2026-08-02",
+    title: "P&L by department, vendor spend & purchase orders",
+    tag: "Feature",
+    summary:
+      "Three more native reports — and a fix so P&L-by-class actually returns class data.",
+    highlights: [
+      "Fixed qb_profit_loss_by_class: it asked QuickBooks for the wrong (singular) grouping value, so it always came back empty — now returns real class breakdowns",
+      "qb_profit_loss_by_department: the same P&L broken out by department/location",
+      "qb_vendor_expenses: total spend by vendor; qb_list_purchase_orders: open/closed POs with vendor, amount, and status",
+      "129 tools total across US & Canada",
+    ],
+  },
+  {
+    version: "3.11",
+    date: "2026-08-02",
+    title: "Current with the 2026-07-28 MCP spec",
+    tag: "Platform",
+    summary:
+      "The hosted connector now advertises and implements the newest MCP spec's client-facing improvements — stateless, load-balancer-ready, with cacheable tool listings and zero deprecated features.",
+    highlights: [
+      "Cacheable tools/list (ttlMs + cacheScope) so gateways and clients can cache the tool catalog instead of re-fetching it",
+      "Capability discovery at /.well-known/mcp-capabilities and an MCP-Protocol-Version: 2026-07-28 header on responses",
+      "Already stateless and load-balancer-ready (routable on Mcp-Method/Mcp-Name); uses none of the deprecated Roots/Sampling/Logging features",
+    ],
+  },
+  {
+    version: "3.10",
+    date: "2026-08-02",
+    title: "Books Hygiene audit",
+    tag: "Feature",
+    summary:
+      "A structural audit that catches what a health score misses — the kind of problems that quietly make every downstream number wrong.",
+    highlights: [
+      "qb_books_hygiene flags transactions posted to deleted/inactive accounts, wrong-sign balances, credit-card payments misfiled as expenses, and dormant accounts carrying large balances (opening-balance errors)",
+      "Optional statement attestation: hand it your real bank/card statement balances and it diffs them against QuickBooks — the single check that catches everything at once",
+      "Complements the existing health audit; every finding names the fix",
+    ],
+  },
+  {
+    version: "3.9.2",
+    date: "2026-08-02",
+    title: "Complete counts, every time",
+    tag: "Platform",
+    summary:
+      "Fixed silent truncation in the reconciliation and cleanup tools — they now read every matching transaction before reporting a count, so a busy account can't come back showing a fraction of its activity.",
+    highlights: [
+      "qb_account_transactions, qb_search_transactions, qb_uncategorized_transactions and qb_find_duplicates now page through the full result set and report the true total (with an honest 'showing the first N' when a display cap applies)",
+      "qb_list_accounts fetches the whole chart (no more silent cut-off on large charts) and gained real account_type and active_only filters",
+      "Transaction search now matches bank-feed descriptors on the line, not just the top-level memo — 'MOBILE PAYMENT' and the like are findable again",
+    ],
+  },
+  {
+    version: "3.9.1",
+    date: "2026-08-02",
+    title: "Stripe reconciliation, now automatic",
+    tag: "Feature",
+    summary:
+      "qb_stripe_reconcile can now pull the month directly from Stripe — no export needed — when you run AccountingQB yourself with a read-only Stripe key.",
+    highlights: [
+      "Leave the report empty and it fetches the period's transactions (and current balance for the tie-out) live from the Stripe API",
+      "Self-hosted only via a STRIPE_API_KEY environment variable (read-only restricted key); the hosted connector never holds your Stripe key",
+      "Pasting a Stripe export still works exactly as before",
+    ],
+  },
+  {
+    version: "3.9",
+    date: "2026-08-02",
+    title: "Stripe reconciliation, done right",
+    tag: "Feature",
+    summary:
+      "Reconcile a month of Stripe into your books the way most people can't: netting revenue against BOTH processing fees and the platform fees (Sigma, Billing, Radar) everyone forgets — the reason clearing accounts never tie.",
+    highlights: [
+      "qb_stripe_reconcile: posts a monthly journal entry through a Stripe Clearing account and ties the clearing balance to your Stripe balance",
+      "Splits processing fees from platform fees (Sigma/Billing/Radar/Connect/Terminal) — in testing those platform fees were 3× the processing fees",
+      "Dry-run by default (proposes the entry first), refuses to post if it doesn't tie or has unmapped transactions, and won't double-post a month",
+      "129 tools total across US & Canada",
+    ],
+  },
+  {
+    version: "3.8.1",
+    date: "2026-08-02",
+    title: "Never post to the wrong account",
+    tag: "Platform",
+    summary:
+      "Account name matching now refuses to guess — a partial name like 'Services' can no longer silently match 'Legal & accounting services' and post to the wrong account. Journal entries got safer too.",
+    highlights: [
+      "Every write tool (expenses, bills, deposits, transfers, journal entries, depreciation) resolves accounts by exact name first, and asks you to clarify instead of guessing when a name is ambiguous",
+      "Journal entries now reject unknown line fields (a mistyped 'type' used to make every line a debit) and accept an explicit account_id",
+      "Journal-entry confirmations show the real total instead of $0.00; qb_create_account validates name/description length before saving",
+    ],
+  },
+  {
+    version: "3.8",
+    date: "2026-08-02",
+    title: "Class, location & inventory reporting",
+    tag: "Feature",
+    summary:
+      "Break sales out by class or location, value your inventory on hand, and see the class/location tags your books use — the dimensional reports multi-segment and product businesses need.",
+    highlights: [
+      "qb_sales_by_class and qb_sales_by_department: segment, program, and location performance",
+      "qb_inventory_valuation: on-hand quantity, asset value, and average cost per item",
+      "qb_list_classes and qb_list_departments: see the class/location dimensions your company tracks",
+      "129 tools total across US & Canada",
+    ],
+  },
+  {
     version: "3.7",
     date: "2026-08-01",
     title: "Six new bookkeeper reports",
@@ -25,7 +147,7 @@ export const RELEASES: Release[] = [
       "qb_transaction_list: the flexible register — every transaction in a date range with full columns",
       "qb_profit_loss_detail: drill from any P&L number down to the transactions behind it",
       "qb_customer_balance_detail and qb_vendor_balance_detail: the line-item drill-down behind AR/AP aging",
-      "119 tools total across US & Canada",
+      "129 tools total across US & Canada",
     ],
   },
   {
@@ -79,7 +201,7 @@ export const RELEASES: Release[] = [
       "Reconciliation tie-outs, prior-year comparative statements (P&L + balance sheet), tax payments made, and owner's draws — the questions a CPA asks first, pre-answered",
       "A structured Tax Organizer replaces free-text notes: mileage, home office, health premiums, assets bought/sold, estimated payments",
       "Export the whole binder to Excel in one message",
-      "119 tools total across US & Canada",
+      "129 tools total across US & Canada",
     ],
   },
   {

@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
+import { SignOutButton } from "@clerk/nextjs";
 import Link from "next/link";
+
+// Private surface — keep it out of every index (belt-and-suspenders with robots).
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function AdminLayout({
   children,
@@ -95,6 +102,11 @@ export default async function AdminLayout({
             >
               Exit Admin
             </Link>
+            <SignOutButton redirectUrl="/">
+              <button className="text-sm text-gray-400 hover:text-white transition">
+                Sign out
+              </button>
+            </SignOutButton>
           </div>
         </div>
       </header>

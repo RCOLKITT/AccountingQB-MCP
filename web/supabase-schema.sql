@@ -538,3 +538,20 @@ CREATE TRIGGER set_artifacts_updated_at
   BEFORE UPDATE ON artifacts
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+
+-- ============================================================================
+-- MRR snapshots — monthly MRR-by-account for NRR / expansion / MRR trend
+-- (see migrations/2026-08-mrr-snapshots.sql)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS mrr_snapshots (
+  month        TEXT NOT NULL,
+  license_key  TEXT NOT NULL REFERENCES licenses(key) ON DELETE CASCADE,
+  mrr_cents    INTEGER NOT NULL,
+  tier         TEXT,
+  status       TEXT,
+  captured_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (month, license_key)
+);
+CREATE INDEX IF NOT EXISTS idx_mrr_snapshots_month ON mrr_snapshots(month);
+ALTER TABLE mrr_snapshots ENABLE ROW LEVEL SECURITY;

@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase";
+import { getRetention } from "@/lib/retention";
 import Link from "next/link";
 
 // Activation funnel: Signed up -> Connected QuickBooks -> Configured Claude ->
@@ -133,7 +134,10 @@ export default async function FunnelPage({
   const range: Range =
     sp.range === "90" ? "90" : sp.range === "all" ? "all" : "30";
   const includeTest = sp.test === "1";
-  const f = await getFunnel(range, includeTest);
+  const [f, cohorts] = await Promise.all([
+    getFunnel(range, includeTest),
+    getRetention(),
+  ]);
   const top = f.signedUp || 1;
 
   const ranges: { key: Range; label: string }[] = [
@@ -276,6 +280,48 @@ export default async function FunnelPage({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Retention by signup cohort */}
+      <div className="bg-[#131a2e] rounded-xl border border-white/10 overflow-hidden">
+        <div className="flex items-center justify-between border-b border-white/5 px-6 py-3">
+          <h2 className="text-sm font-semibold text-white">Retention by signup cohort</h2>
+          <span className="text-xs text-gray-500">
+            % of each month&rsquo;s signups paying now
+          </span>
+        </div>
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-white/5 text-left text-xs text-gray-400">
+              <th className="px-6 py-2 font-medium">Cohort</th>
+              <th className="px-6 py-2 font-medium">Signups</th>
+              <th className="px-6 py-2 font-medium">Paying now</th>
+              <th className="px-6 py-2 font-medium">In trial</th>
+              <th className="px-6 py-2 font-medium">Churned</th>
+              <th className="px-6 py-2 font-medium">Retention</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cohorts
+              .filter((c) => c.size > 0)
+              .map((c) => (
+                <tr key={c.month} className="border-b border-white/5">
+                  <td className="px-6 py-3 text-sm text-white">{c.month}</td>
+                  <td className="px-6 py-3 text-sm text-gray-300">{c.size}</td>
+                  <td className="px-6 py-3 text-sm text-emerald-400">{c.paying}</td>
+                  <td className="px-6 py-3 text-sm text-gray-400">{c.trialing}</td>
+                  <td className="px-6 py-3 text-sm text-gray-400">{c.churned}</td>
+                  <td className="px-6 py-3 text-sm text-cyan-400">
+                    {Math.round(c.retentionPct)}%
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+        <p className="px-6 py-3 text-xs text-gray-600">
+          Newer cohorts show more &ldquo;in trial&rdquo; — they haven&rsquo;t settled
+          yet. Read the older rows for a true retention signal.
+        </p>
       </div>
 
       <p className="text-xs text-gray-600">

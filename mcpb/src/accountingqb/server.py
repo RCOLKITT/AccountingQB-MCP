@@ -1103,24 +1103,57 @@ async def qb_read(entity: str, entity_id: str) -> dict:
     return await qb_request("GET", f"{entity.lower()}/{entity_id}")
 
 
-async def _resolve_account(acct_name: str) -> dict | None:
-    """Find an Account by name, accepting fully-qualified names.
+def _account_ambiguity_msg(name: str, hits: list) -> str:
+    listed = ", ".join(
+        f"{a.get('Name')} (ID:{a.get('Id')}, {a.get('AccountType')})"
+        for a in hits[:10])
+    more = "" if len(hits) <= 10 else f" (+{len(hits) - 10} more)"
+    return (f"Multiple accounts match '{name}': {listed}{more}. Please be more "
+            "specific — use the exact account name or the account ID.")
 
-    "Travel:Hotels" only matches FullyQualifiedName (Name holds the leaf),
-    so try an exact FullyQualifiedName match first, then fall back to a
-    LIKE on the leaf Name. Returns the Account dict or None."""
-    safe = acct_name.replace("'", "\\'")
-    if ":" in acct_name:
-        result = await qb_query(
-            f"SELECT * FROM Account WHERE FullyQualifiedName = '{safe}' MAXRESULTS 1")
-        found = result.get("QueryResponse", {}).get("Account", [])
-        if found:
-            return found[0]
-        safe = acct_name.rsplit(":", 1)[-1].replace("'", "\\'")
-    result = await qb_query(
-        f"SELECT * FROM Account WHERE Name LIKE '%{safe}%' MAXRESULTS 1")
-    found = result.get("QueryResponse", {}).get("Account", [])
-    return found[0] if found else None
+
+async def _resolve_account(acct_name: str, *, account_type: str = ""):
+    """Resolve an Account by name — safely, never silently guessing.
+
+    Returns ``(account_dict, None)`` on a single confident match, or
+    ``(None, error_message)`` when nothing matches or the name is ambiguous.
+    Resolution order: exact ``Name``, then exact ``FullyQualifiedName`` (for
+    "Parent:Child"), then a ``LIKE`` fallback on the leaf name that REFUSES to
+    pick when it matches more than one account. This is the fix for the
+    silent-wrong-account bug where "Services" matched "Legal & accounting
+    services" and posted revenue into an expense account. Pass ``account_type``
+    to constrain the search (e.g. "Expense")."""
+    name = (acct_name or "").strip()
+    if not name:
+        return None, "No account name was provided."
+    esc = lambda s: s.replace("'", "\\'")
+    tclause = f" AND AccountType = '{esc(account_type)}'" if account_type else ""
+
+    async def _q(where):
+        r = await qb_query(f"SELECT * FROM Account WHERE {where}{tclause} MAXRESULTS 25")
+        return r.get("QueryResponse", {}).get("Account", [])
+
+    # Exact matches are unambiguous intent — take a unique one immediately.
+    for field in ("Name", "FullyQualifiedName"):
+        hits = await _q(f"{field} = '{esc(name)}'")
+        if len(hits) == 1:
+            return hits[0], None
+        if len(hits) > 1:
+            return None, _account_ambiguity_msg(name, hits)
+
+    # LIKE fallback on the leaf name — but refuse to guess between many.
+    leaf = name.rsplit(":", 1)[-1]
+    hits = await _q(f"Name LIKE '%{esc(leaf)}%'")
+    if not hits:
+        return None, (f"Account '{name}' not found. Use qb_list_accounts to see "
+                      "available accounts, or pass the exact name / account ID.")
+    if len(hits) == 1:
+        return hits[0], None
+    # A single case-insensitive exact leaf match wins over partial matches.
+    exact = [a for a in hits if (a.get("Name") or "").lower() == leaf.lower()]
+    if len(exact) == 1:
+        return exact[0], None
+    return None, _account_ambiguity_msg(name, hits)
 
 
 def fmt(amount) -> str:
@@ -2070,11 +2103,20 @@ async def qb_search_transactions(start_date: str, end_date: str, search_term: st
 
     for qb_entity, response_key, transform in entity_configs:
         try:
-            q = f"SELECT * FROM {qb_entity} WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
-            res = await qb_query(q)
+            # Fetch the WHOLE range (paginated) then filter in Python — a bare
+            # MAXRESULTS would truncate before the search_term match runs.
+            q = f"SELECT * FROM {qb_entity} WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
+            res = await qb_query_all(q)
             items = res.get("QueryResponse", {}).get(response_key, [])
             for item in items:
                 txn = transform(item)
+                # Bank-feed descriptors live on the LINE Description, not
+                # PrivateNote — fold them in so search actually finds them.
+                desc = " ".join(l.get("Description", "") for l in item.get("Line", [])
+                                if l.get("Description"))
+                txn["desc"] = desc
+                if not txn.get("memo"):
+                    txn["memo"] = desc[:120]
                 if not term or any(term in str(v).lower() for v in txn.values()):
                     all_txns.append(txn)
         except Exception:
@@ -2099,7 +2141,9 @@ async def qb_search_transactions(start_date: str, end_date: str, search_term: st
         if txn.get("memo"):
             lines.append(f"  Memo: {txn['memo']}")
 
-    lines.append(f"\n**{len(all_txns)} transactions | Total: {fmt(total)}**")
+    cap_note = (f" — showing the first {max_results}"
+                if len(all_txns) > max_results else "")
+    lines.append(f"\n**{len(all_txns)} transactions | Total: {fmt(total)}**{cap_note}")
     return "\n".join(lines)
 
 
@@ -2304,18 +2348,81 @@ async def qb_general_ledger(start_date: str, end_date: str, account_name: str = 
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_trial_balance(start_date: str = "", end_date: str = "") -> str:
-    """Generate a Trial Balance report. Dates in YYYY-MM-DD (default: current year-to-date). Shows all account debits and credits to verify books are balanced."""
-    start_date, end_date = _ytd_range(start_date, end_date)
+async def qb_trial_balance(as_of_date: str = "") -> str:
+    """Generate a Trial Balance — every account's debit OR credit balance in two
+    columns, as of a single date, with totals that must be equal. as_of_date in
+    YYYY-MM-DD (default: today). Debits and credits are taken straight from
+    QuickBooks (correct normal-balance signs)."""
+    as_of = _as_of_or_today(as_of_date)
+    # A TB is as-of one date. QuickBooks needs a range; P&L accounts show
+    # fiscal-YTD activity (Jan 1 → as_of), balance-sheet accounts their balance
+    # as of that date — so we anchor the start at Jan 1 of the as-of year.
+    start = f"{as_of[:4]}-01-01"
     report = await qb_request("GET", "reports/TrialBalance", params={
-        "start_date": start_date,
-        "end_date": end_date,
+        "start_date": start, "end_date": as_of,
     })
 
-    header = report.get("Header", {})
-    lines = [f"## Trial Balance: {header.get('StartPeriod', '')} to {header.get('EndPeriod', '')}\n"]
-    rows = report.get("Rows", {}).get("Row", [])
-    _parse_report_rows(rows, lines)
+    # Locate the Debit / Credit columns by title (don't assume positions).
+    titles = [(c.get("ColTitle", "") or "").strip().lower()
+              for c in report.get("Columns", {}).get("Column", [])]
+    debit_idx = titles.index("debit") if "debit" in titles else 1
+    credit_idx = titles.index("credit") if "credit" in titles else 2
+
+    def _num(cell):
+        try:
+            return float((cell or {}).get("value", "") or 0)
+        except (ValueError, TypeError):
+            return 0.0
+
+    entries: list = []          # (account, debit, credit)
+    total_debit = total_credit = 0.0
+
+    def walk(rows):
+        nonlocal total_debit, total_credit
+        for sec in rows:
+            cd = sec.get("ColData", [])
+            if cd:
+                name = (cd[0].get("value", "") or "").strip()
+                debit = _num(cd[debit_idx]) if len(cd) > debit_idx else 0.0
+                credit = _num(cd[credit_idx]) if len(cd) > credit_idx else 0.0
+                if name and (debit or credit):
+                    entries.append((name, debit, credit))
+                    total_debit += debit
+                    total_credit += credit
+            nested = sec.get("Rows", {}).get("Row", [])
+            if nested:
+                walk(nested)
+            # (Summary/TOTAL rows are skipped — we sum our own totals.)
+
+    walk(report.get("Rows", {}).get("Row", []))
+
+    lines = [f"## Trial Balance — as of {as_of}\n"]
+    if not entries:
+        lines.append("_No accounts with balances found._")
+        return "\n".join(lines)
+
+    lines.append("| Account | Debit | Credit |")
+    lines.append("|---|---:|---:|")
+    for name, debit, credit in entries:
+        d = fmt(debit) if debit else ""
+        c = fmt(credit) if credit else ""
+        safe = name.replace("|", "\\|")
+        lines.append(f"| {safe} | {d} | {c} |")
+    lines.append(f"| **TOTAL** | **{fmt(total_debit)}** | **{fmt(total_credit)}** |")
+
+    diff = round(total_debit - total_credit, 2)
+    if abs(diff) < 0.01:
+        lines.append(f"\n✅ **In balance** — debits = credits = {fmt(total_debit)}.")
+    else:
+        lines.append(
+            f"\n⚠️ **Out of balance by {fmt(abs(diff))}** "
+            f"(debits {fmt(total_debit)} vs credits {fmt(total_credit)}). "
+            "This indicates a data or reporting issue — review before relying on it."
+        )
+    lines.append(
+        "\n*P&L account balances are fiscal-year-to-date "
+        f"({start} → {as_of}); balance-sheet accounts are as of {as_of}.*"
+    )
     return "\n".join(lines)
 
 
@@ -2418,6 +2525,585 @@ async def qb_vendor_balance_detail(as_of_date: str = "") -> str:
     lines = [f"## Vendor Balance Detail — as of {as_of_date}\n"]
     _format_report_table(report, lines)
     return "\n".join(lines)
+
+
+# ===================================================================
+# REPORTS — Tier-2 (class / department dimensions + inventory)
+# ===================================================================
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_list_classes() -> str:
+    """List QuickBooks classes (the segment tags used for class tracking, e.g.
+    program, product line, location). Empty if the company doesn't use classes."""
+    res = await qb_query_all("SELECT * FROM Class MAXRESULTS 1000")
+    classes = res.get("QueryResponse", {}).get("Class", [])
+    if not classes:
+        return ("No classes found. Turn on class tracking in QuickBooks "
+                "(Account and Settings → Advanced → Categories) to use "
+                "class-based reports like qb_sales_by_class.")
+    lines = [f"## Classes ({len(classes)})\n", "| Class | Status |", "|---|---|"]
+    for c in sorted(classes, key=lambda x: x.get("FullyQualifiedName") or x.get("Name", "")):
+        name = c.get("FullyQualifiedName") or c.get("Name", "?")
+        lines.append(f"| {name} | {'Active' if c.get('Active') else 'Inactive'} |")
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_list_departments() -> str:
+    """List QuickBooks departments/locations (the Location-tracking dimension).
+    Empty if the company doesn't use location tracking."""
+    res = await qb_query_all("SELECT * FROM Department MAXRESULTS 1000")
+    depts = res.get("QueryResponse", {}).get("Department", [])
+    if not depts:
+        return ("No departments/locations found. Turn on location tracking in "
+                "QuickBooks (Account and Settings → Advanced → Categories) to use "
+                "location-based reports like qb_sales_by_department.")
+    lines = [f"## Departments / Locations ({len(depts)})\n", "| Department | Status |", "|---|---|"]
+    for d in sorted(depts, key=lambda x: x.get("FullyQualifiedName") or x.get("Name", "")):
+        name = d.get("FullyQualifiedName") or d.get("Name", "?")
+        lines.append(f"| {name} | {'Active' if d.get('Active') else 'Inactive'} |")
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_sales_by_class(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+    """Sales broken out by class for a date range — segment/program performance.
+    Dates YYYY-MM-DD (default: current year-to-date). basis: '' (QuickBooks
+    default), 'cash', or 'accrual'. Requires class tracking (see qb_list_classes)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    params = {"start_date": start_date, "end_date": end_date}
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/SalesByClassSummary", params=params)
+    rows = report.get("Rows", {}).get("Row", [])
+    if not rows:
+        return ("No class-based sales found for this period. This report needs "
+                "QuickBooks class tracking enabled and classes on your sales.")
+    h = report.get("Header", {})
+    lines = [f"## Sales by Class: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}\n"]
+    _format_report_table(report, lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_sales_by_department(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+    """Sales broken out by department/location for a date range. Dates YYYY-MM-DD
+    (default: current year-to-date). basis: '' (QuickBooks default), 'cash', or
+    'accrual'. Requires location tracking (see qb_list_departments)."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    params = {"start_date": start_date, "end_date": end_date}
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/SalesByDepartment", params=params)
+    rows = report.get("Rows", {}).get("Row", [])
+    if not rows:
+        return ("No location-based sales found for this period. This report needs "
+                "QuickBooks location tracking enabled and locations on your sales.")
+    h = report.get("Header", {})
+    lines = [f"## Sales by Department/Location: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}\n"]
+    _format_report_table(report, lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_inventory_valuation(as_of_date: str = "") -> str:
+    """Inventory valuation as of a date — on-hand quantity, asset value, and
+    average cost per inventory item, with the total asset value. as_of_date:
+    YYYY-MM-DD (defaults to today). Empty if the company doesn't track inventory."""
+    as_of_date = _as_of_or_today(as_of_date)
+    report = await qb_request("GET", "reports/InventoryValuationSummary",
+                              params={"start_date": as_of_date, "end_date": as_of_date})
+    rows = report.get("Rows", {}).get("Row", [])
+    if not rows:
+        return ("No inventory found. This report needs inventory-tracked items "
+                "in QuickBooks (items with 'I track quantity on hand' enabled).")
+    lines = [f"## Inventory Valuation — as of {as_of_date}\n"]
+    _format_report_table(report, lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_vendor_expenses(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+    """Total spend by vendor for a date range (QuickBooks VendorExpenses report).
+    Dates YYYY-MM-DD (default: current year-to-date). basis: '' (QuickBooks
+    default), 'cash', or 'accrual'."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    params = {"start_date": start_date, "end_date": end_date,
+              "summarize_column_by": "Total"}
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/VendorExpenses", params=params)
+    h = report.get("Header", {})
+    basis_note = f" · {method} basis" if method else ""
+    lines = [f"## Vendor Expenses: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"]
+    _parse_report_rows(report.get("Rows", {}).get("Row", []), lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_list_purchase_orders(start_date: str = "", end_date: str = "", status: str = "") -> str:
+    """List purchase orders in a date range — date, PO number, vendor, amount, and
+    status (Open/Closed). Dates YYYY-MM-DD (default: current year-to-date).
+    status: 'Open', 'Closed', or '' for all."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    res = await qb_query_all(
+        f"SELECT * FROM PurchaseOrder WHERE TxnDate >= '{start_date}' "
+        f"AND TxnDate <= '{end_date}'")
+    pos = res.get("QueryResponse", {}).get("PurchaseOrder", [])
+    if status:
+        pos = [p for p in pos if (p.get("POStatus", "").lower() == status.lower())]
+    if not pos:
+        suffix = f" (status {status})" if status else ""
+        return f"No purchase orders found between {start_date} and {end_date}{suffix}."
+    pos.sort(key=lambda p: p.get("TxnDate", ""), reverse=True)
+    total = sum(float(p.get("TotalAmt", 0) or 0) for p in pos)
+    lines = [f"## Purchase Orders: {start_date} to {end_date} ({len(pos)})\n",
+             "| Date | PO # | Vendor | Amount | Status |", "|---|---|---|---|---|"]
+    for p in pos:
+        lines.append(
+            f"| {p.get('TxnDate', '?')} | {p.get('DocNumber', '—')} | "
+            f"{(p.get('VendorRef') or {}).get('name', '—')} | {fmt(p.get('TotalAmt'))} | "
+            f"{p.get('POStatus', '—')} |")
+    lines.append(f"\n**Total: {fmt(total)}**")
+    return "\n".join(lines)
+
+
+# ===================================================================
+# PROCESSOR RECONCILIATION — Stripe → books (v1, export-based)
+# ===================================================================
+
+# Standalone balance-transaction descriptions that are PLATFORM fees (Sigma,
+# Billing, Radar, ...) rather than per-charge processing fees — the ones most
+# people miss, which is why their clearing account never ties.
+_STRIPE_PLATFORM_FEE_HINTS = (
+    "sigma", "billing", "radar", "connect", "terminal", "invoic", "atlas",
+    "capital", "subscription", "financial report", "app")
+
+
+def _classify_stripe(txns, scale):
+    """Split a list of Stripe balance_transaction objects into GL buckets.
+    Returns a dict of dollar totals + the list of unmapped rows (which must
+    block the tie-out rather than be swept into revenue)."""
+    def money(v):
+        return round(float(v or 0) / scale, 2)
+
+    b = {"gross": 0.0, "refunds": 0.0, "processing": 0.0, "platform": 0.0,
+         "payouts": 0.0, "net_change": 0.0, "count": 0}
+    unmapped = []
+    for t in txns:
+        typ = (t.get("type") or "").lower()
+        amt, fee = money(t.get("amount")), money(t.get("fee"))
+        # `net` is authoritative (= amount − fee). On a stripe_fee row, `amount`
+        # is the fee NET of tax and `fee` holds the sales tax, so only `net`
+        # captures the full fee — always reconcile on net, never bare `amount`.
+        net = money(t.get("net")) if t.get("net") is not None else round(amt - fee, 2)
+        b["net_change"] += net
+        b["count"] += 1
+        if typ in ("charge", "payment"):
+            b["gross"] += amt
+            b["processing"] += fee
+        elif typ in ("refund", "payment_refund", "payment_failure_refund"):
+            b["refunds"] += abs(amt)
+            b["processing"] += fee            # usually 0; fee refunded if any
+        elif typ in ("stripe_fee", "billing", "tax_fee", "application_fee"):
+            b["platform"] += abs(net)         # net = fee incl. its own sales tax
+        elif typ == "payout":
+            b["payouts"] += abs(amt)          # any payout fee flows via net_change
+        elif typ == "adjustment":
+            desc = (t.get("description") or "").lower()
+            if any(h in desc for h in _STRIPE_PLATFORM_FEE_HINTS):
+                b["platform"] += abs(net)
+            else:
+                unmapped.append(t)
+        else:
+            unmapped.append(t)
+    b["net_change"] = round(b["net_change"], 2)
+    # Net retained in the processor from activity (excludes payouts to bank).
+    # By construction this equals net_change + payouts, so the Activity and
+    # Tie-out sections can never disagree (they share one net computation).
+    b["activity_net"] = round(b["gross"] - b["refunds"] - b["processing"]
+                              - b["platform"], 2)
+    return b, unmapped
+
+
+_STRIPE_API = "https://api.stripe.com/v1"
+
+
+async def _stripe_get(path: str, api_key: str, params: dict = None) -> dict:
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.get(f"{_STRIPE_API}/{path}", params=params or {},
+                                headers={"Authorization": f"Bearer {api_key}"})
+    if resp.status_code == 401:
+        raise RuntimeError("Stripe rejected the API key (401) — use a valid "
+                           "read-only restricted key.")
+    if resp.status_code >= 400:
+        try:
+            msg = resp.json().get("error", {}).get("message", resp.text[:200])
+        except Exception:
+            msg = resp.text[:200]
+        raise RuntimeError(f"Stripe API error {resp.status_code}: {msg}")
+    return resp.json()
+
+
+async def _fetch_stripe_activity(period: str, api_key: str):
+    """Pull a month of balance_transactions + the current balance from Stripe.
+    Returns (list_of_balance_transaction_dicts, current_balance_in_dollars)."""
+    try:
+        y, m = (int(x) for x in period.split("-")[:2])
+        start = datetime(y, m, 1, tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        raise RuntimeError(f"period must be 'YYYY-MM' (got '{period}').")
+    end = (datetime(y + 1, 1, 1, tzinfo=timezone.utc) if m == 12
+           else datetime(y, m + 1, 1, tzinfo=timezone.utc))
+    gte, lt = int(start.timestamp()), int(end.timestamp())
+
+    txns, starting_after = [], None
+    for _ in range(200):  # guard: up to ~20k transactions
+        params = {"created[gte]": gte, "created[lt]": lt, "limit": 100}
+        if starting_after:
+            params["starting_after"] = starting_after
+        page = await _stripe_get("balance_transactions", api_key, params)
+        data = page.get("data", [])
+        txns.extend(data)
+        if not page.get("has_more") or not data:
+            break
+        starting_after = data[-1].get("id")
+
+    bal = await _stripe_get("balance", api_key)
+    cents = (sum(x.get("amount", 0) for x in bal.get("available", []))
+             + sum(x.get("amount", 0) for x in bal.get("pending", [])))
+    return txns, round(cents / 100.0, 2)
+
+
+def _is_current_month(period: str) -> bool:
+    now = _utcnow()
+    return period.strip() == f"{now.year:04d}-{now.month:02d}"
+
+
+async def _clearing_balance_as_of(account_name: str, as_of: str) -> float:
+    """Balance of an account as of a date, from a Trial Balance (debit − credit).
+    Used as the reconciliation's *prior* clearing balance — the balance BEFORE
+    the period, not the live CurrentBalance (which already reflects later
+    activity). Returns 0.0 if the account has no balance / doesn't exist yet."""
+    try:
+        report = await qb_request("GET", "reports/TrialBalance", params={
+            "start_date": "2000-01-01", "end_date": as_of})
+    except Exception:
+        return 0.0
+    titles = [(c.get("ColTitle", "") or "").strip().lower()
+              for c in report.get("Columns", {}).get("Column", [])]
+    di = titles.index("debit") if "debit" in titles else 1
+    ci = titles.index("credit") if "credit" in titles else 2
+    target = account_name.strip().lower()
+
+    def _num(cell):
+        try:
+            return float((cell or {}).get("value", "") or 0)
+        except (ValueError, TypeError):
+            return 0.0
+
+    found = [0.0]
+
+    def walk(rows):
+        for sec in rows:
+            cd = sec.get("ColData", [])
+            if cd:
+                name = (cd[0].get("value", "") or "").strip().lower()
+                # match on full name or the leaf after a ':' sub-account path
+                if name == target or name.split(":")[-1].strip() == target:
+                    d = _num(cd[di]) if len(cd) > di else 0.0
+                    c = _num(cd[ci]) if len(cd) > ci else 0.0
+                    found[0] += d - c
+            nested = sec.get("Rows", {}).get("Row", [])
+            if nested:
+                walk(nested)
+
+    walk(report.get("Rows", {}).get("Row", []))
+    return round(found[0], 2)
+
+
+@mcp.tool(annotations={"destructiveHint": True})
+async def qb_stripe_reconcile(
+        period: str, report_json: str = "", dry_run: bool = True,
+        income_account: str = "Sales", fee_account: str = "Merchant Fees",
+        platform_fee_account: str = "Software & Apps",
+        refund_account: str = "Refunds", clearing_account: str = "Stripe Clearing",
+        payout_bank_account: str = "", expected_ending_balance: float = 0.0,
+        amounts_in_cents: bool = True) -> str:
+    """Reconcile a month of Stripe activity into QuickBooks the right way: net
+    revenue against BOTH processing fees AND platform fees (Sigma, Billing,
+    Radar, ...), post a monthly journal entry through a Stripe Clearing asset
+    account, and tie the clearing balance to Stripe.
+
+    period: 'YYYY-MM'. report_json: a JSON array of Stripe balance_transaction
+    objects (a dashboard/API export). Leave it empty to fetch the month LIVE
+    when STRIPE_API_KEY is set in the environment (self-hosted; a read-only
+    restricted key) — the current Stripe balance is used for the tie-out only
+    when reconciling the current month. dry_run=True (default) proposes the
+    entry without posting; set False to post. Pass expected_ending_balance
+    (your Stripe balance) to assert the tie-out — a mismatch blocks posting.
+    Idempotent: a period already posted (tagged [stripe:PERIOD]) is not
+    duplicated. amounts_in_cents=True treats Stripe integer amounts as cents."""
+    period = (period or "").strip()
+    source = "export"
+    live_note = ""
+    if not report_json:
+        api_key = os.environ.get("STRIPE_API_KEY", "").strip()
+        if not api_key:
+            return ("Provide report_json (a Stripe balance_transaction export), "
+                    "or set STRIPE_API_KEY in the environment to fetch the month "
+                    "live (self-hosted, read-only key).")
+        try:
+            txns_live, live_balance = await _fetch_stripe_activity(period, api_key)
+        except Exception as e:
+            return f"Live Stripe fetch failed: {e}"
+        if not txns_live:
+            return f"No Stripe activity found for {period}."
+        report_json = json.dumps(txns_live)
+        source = "live Stripe API"
+        # Stripe /balance is the CURRENT balance — only a valid period-end target
+        # when reconciling the current month.
+        if _is_current_month(period):
+            if not expected_ending_balance:
+                expected_ending_balance = live_balance
+        else:
+            live_note = (f"\n*Fetched live. Current Stripe balance {fmt(live_balance)} "
+                         "is not the period-end balance for a past month — pass "
+                         "expected_ending_balance to tie out.*")
+
+    try:
+        txns = json.loads(report_json) if isinstance(report_json, str) else report_json
+    except (json.JSONDecodeError, TypeError) as e:
+        return f"Could not parse report_json as JSON: {e}"
+    if not isinstance(txns, list) or not txns:
+        return ("report_json must be a non-empty JSON array of Stripe "
+                "balance_transaction objects.")
+
+    b, unmapped = _classify_stripe(txns, 100.0 if amounts_in_cents else 1.0)
+
+    # Prior clearing balance = the balance as of the day BEFORE the period, not
+    # the live CurrentBalance (which for a past period already includes later
+    # months' activity — using it made a historical tie-out reconcile against
+    # today's balance instead of $0.00 at period start).
+    from datetime import date as _date
+    try:
+        period_start = _date(int(period[:4]), int(period[5:7]), 1)
+    except (ValueError, IndexError):
+        return f"period must be 'YYYY-MM' (got '{period}')."
+    prior_end = (period_start - timedelta(days=1)).isoformat()
+    prior_clearing = await _clearing_balance_as_of(clearing_account, prior_end)
+    projected_clearing = round(prior_clearing + b["net_change"], 2)
+
+    out = [f"## Stripe Reconciliation — {period}",
+           f"*{b['count']} balance transactions · source: {source}*"
+           + (live_note or "") + "\n",
+           "### Activity",
+           f"- Gross sales: {fmt(b['gross'])}",
+           f"- Refunds: ({fmt(b['refunds'])})",
+           f"- Processing fees: ({fmt(b['processing'])})",
+           f"- **Platform fees (Sigma/Billing/Radar/…): ({fmt(b['platform'])})**",
+           f"- Net retained in Stripe: {fmt(b['activity_net'])}"]
+    if b["payouts"]:
+        out.append(f"- Payouts to bank: ({fmt(b['payouts'])})")
+    # The differentiator, made explicit:
+    if b["processing"]:
+        ratio = b["platform"] / b["processing"]
+        out.append(f"\n*Platform fees are {ratio:.1f}× your processing fees — "
+                   "these are what most reconciliations miss.*")
+
+    # Tie-out
+    out.append(f"\n### Tie-out")
+    out.append(f"- Projected Stripe Clearing balance: {fmt(projected_clearing)} "
+               f"(prior {fmt(prior_clearing)} as of {prior_end} + net change "
+               f"{fmt(b['net_change'])})")
+    tie_ok = True
+    if expected_ending_balance:
+        tie_ok = abs(projected_clearing - expected_ending_balance) < 0.01
+        mark = "✅ ties" if tie_ok else "🔴 OFF"
+        out.append(f"- Stripe reported balance: {fmt(expected_ending_balance)} — {mark}")
+        if not tie_ok:
+            out.append(f"- **Unreconciled difference: "
+                       f"{fmt(projected_clearing - expected_ending_balance)}** — "
+                       "likely an unmapped fee type or a pending/available timing "
+                       "difference at the period boundary.")
+    else:
+        out.append("- Pass expected_ending_balance (your Stripe dashboard balance) "
+                   "to confirm the tie-out.")
+    if unmapped:
+        kinds = ", ".join(sorted({(t.get('type') or '?') for t in unmapped}))
+        out.append(f"- ⚠️ {len(unmapped)} unmapped transaction(s) [{kinds}] — "
+                   "not booked; resolve before relying on this.")
+
+    # Proposed journal entry (activity)
+    debits = [(refund_account, b["refunds"]), (fee_account, b["processing"]),
+              (platform_fee_account, b["platform"])]
+    credits = [(income_account, b["gross"])]
+    if b["activity_net"] >= 0:
+        debits.append((clearing_account, b["activity_net"]))
+    else:
+        credits.append((clearing_account, -b["activity_net"]))
+    debits = [(n, a) for n, a in debits if a > 0.005]
+    credits = [(n, a) for n, a in credits if a > 0.005]
+
+    # Resolve every account NOW — even in dry_run — so a malformed or missing
+    # account name surfaces here instead of being silently echoed (or failing at
+    # post time). Accounts we auto-create on posting are flagged, not errored.
+    marker = f"[stripe:{period}]"
+    auto_creatable = {clearing_account, income_account, fee_account,
+                      platform_fee_account, refund_account}
+    resolved_accts: dict = {}
+    for n, _a in debits + credits:
+        if n not in resolved_accts:
+            resolved_accts[n] = await _resolve_account(n)
+    map_notes, unresolved = [], []
+    for n in resolved_accts:
+        acct, err = resolved_accts[n]
+        if acct:
+            qname = acct.get("FullyQualifiedName") or acct.get("Name") or n
+            map_notes.append(f"- {n} → **{qname}**"
+                             + ("" if qname.strip().lower() == n.strip().lower()
+                                else "  ⚠️ (fuzzy match — confirm this is right)"))
+        elif n in auto_creatable:
+            map_notes.append(f"- {n} → _not found; will be created on posting_")
+        else:
+            unresolved.append(n)
+            map_notes.append(f"- 🔴 {n} → {err or 'could not be resolved'}")
+
+    # Detect ANY journal entry already in this period that touches the clearing
+    # account — not only our own [stripe:PERIOD] tag — so a manually-posted
+    # reconciliation isn't silently double-booked.
+    period_end = ((_date(period_start.year + 1, 1, 1) if period_start.month == 12
+                   else _date(period_start.year, period_start.month + 1, 1))
+                  - timedelta(days=1)).isoformat()
+    clr_acct = resolved_accts.get(clearing_account, (None, ""))[0]
+    clr_id = clr_acct.get("Id") if clr_acct else None
+    our_marker_seen = False
+    manual_hits = []
+    if clr_id:
+        existing = await qb_query(
+            f"SELECT * FROM JournalEntry WHERE TxnDate >= '{period_start.isoformat()}' "
+            f"AND TxnDate <= '{period_end}'")
+        for je in existing.get("QueryResponse", {}).get("JournalEntry", []):
+            touches = any(
+                ((l.get("JournalEntryLineDetail", {}) or {}).get("AccountRef", {}) or {})
+                .get("value") == clr_id for l in je.get("Line", []))
+            if not touches:
+                continue
+            if marker in (je.get("PrivateNote", "") or ""):
+                our_marker_seen = True
+            else:
+                manual_hits.append(je.get("Id"))
+
+    out.append(f"\n### Account mapping")
+    out.extend(map_notes)
+
+    out.append(f"\n### Proposed journal entry — {period}")
+    out.append("| Account | Debit | Credit |")
+    out.append("|---|---|---|")
+    for n, a in debits:
+        out.append(f"| {n} | {fmt(a)} | |")
+    for n, a in credits:
+        out.append(f"| {n} | | {fmt(a)} |")
+
+    if our_marker_seen:
+        out.append(f"\n⚠️ **Already reconciled:** a journal entry tagged {marker} "
+                   "exists for this period. Posting again would double-book.")
+    if manual_hits:
+        out.append(f"\n⚠️ **{len(manual_hits)} existing journal entr(y/ies) touch "
+                   f"'{clearing_account}' in {period}** (untagged — likely posted "
+                   f"manually): #{', #'.join(str(h) for h in manual_hits)}. "
+                   "Posting would double-book this activity.")
+    if unresolved:
+        out.append(f"\n🔴 **Unresolved account(s):** {', '.join(unresolved)} — "
+                   "correct the name(s) before posting.")
+
+    if dry_run:
+        blockers = []
+        if not tie_ok:
+            blockers.append("tie-out is off")
+        if unmapped:
+            blockers.append(f"{len(unmapped)} unmapped txn(s)")
+        if manual_hits or our_marker_seen:
+            blockers.append("an entry already exists for this period")
+        if unresolved:
+            blockers.append("unresolved account(s)")
+        tail = (f" — resolve first: {', '.join(blockers)}." if blockers else ".")
+        out.append(f"\n*Dry run — nothing posted. Re-run with dry_run=false to post"
+                   + tail + "*")
+        return "\n".join(out)
+
+    # ---- posting path ----
+    if not tie_ok:
+        return ("\n".join(out) + "\n\n🔴 Not posting: the clearing balance does not "
+                "tie to Stripe. Resolve the difference above first.")
+    if unmapped:
+        return ("\n".join(out) + f"\n\n🔴 Not posting: {len(unmapped)} unmapped "
+                "transaction(s). Map or remove them first.")
+    if unresolved:
+        return ("\n".join(out) + f"\n\n🔴 Not posting: unresolved account(s): "
+                f"{', '.join(unresolved)}.")
+    if our_marker_seen or manual_hits:
+        return ("\n".join(out) + f"\n\n⚠️ Not posting: a journal entry already "
+                f"touches '{clearing_account}' in {period} (idempotent — avoids "
+                "double-booking).")
+
+    # Ensure accounts exist (create the clearing/fee accounts if missing).
+    async def _ensure(name, atype, sub=""):
+        acct, _ = await _resolve_account(name)
+        if acct:
+            return acct
+        body = {"Name": name, "AccountType": atype}
+        if sub:
+            body["AccountSubType"] = sub
+        return (await qb_request("POST", "account", json_body=body)).get("Account", {})
+
+    resolved = {}
+    for name, atype, sub in (
+            (clearing_account, "Other Current Asset", "OtherCurrentAssets"),
+            (income_account, "Income", "SalesOfProductIncome"),
+            (fee_account, "Expense", "OtherMiscServiceCost"),
+            (platform_fee_account, "Expense", "OtherMiscServiceCost"),
+            (refund_account, "Income", "DiscountsRefundsGiven")):
+        resolved[name] = await _ensure(name, atype, sub)
+
+    def _line(name, amount, posting):
+        a = resolved[name]
+        return {"DetailType": "JournalEntryLineDetail", "Amount": round(amount, 2),
+                "JournalEntryLineDetail": {"PostingType": posting,
+                    "AccountRef": {"value": a["Id"], "name": a["Name"]}}}
+
+    je_lines = [_line(n, a, "Debit") for n, a in debits] + \
+               [_line(n, a, "Credit") for n, a in credits]
+    je = await qb_request("POST", "journalentry", json_body={
+        "TxnDate": f"{period}-01",
+        "PrivateNote": f"Stripe reconciliation {period} {marker}",
+        "Line": je_lines})
+    je_id = je.get("JournalEntry", {}).get("Id", "?")
+    out.append(f"\n✅ Posted activity journal entry #{je_id} tagged {marker}.")
+
+    # Separate payout entry (clearing -> bank), only for real payouts.
+    if b["payouts"] and payout_bank_account:
+        bank = await _ensure(payout_bank_account, "Bank", "Checking")
+        clr = resolved[clearing_account]
+        pje = await qb_request("POST", "journalentry", json_body={
+            "TxnDate": f"{period}-01",
+            "PrivateNote": f"Stripe payouts {period} {marker}",
+            "Line": [
+                {"DetailType": "JournalEntryLineDetail", "Amount": b["payouts"],
+                 "JournalEntryLineDetail": {"PostingType": "Debit",
+                    "AccountRef": {"value": bank["Id"], "name": bank["Name"]}}},
+                {"DetailType": "JournalEntryLineDetail", "Amount": b["payouts"],
+                 "JournalEntryLineDetail": {"PostingType": "Credit",
+                    "AccountRef": {"value": clr["Id"], "name": clr["Name"]}}}]})
+        out.append(f"✅ Posted payout journal entry #{pje.get('JournalEntry', {}).get('Id', '?')} "
+                   f"({fmt(b['payouts'])} to {payout_bank_account}).")
+    elif b["payouts"]:
+        out.append(f"\n*Note: {fmt(b['payouts'])} of payouts were NOT booked to the "
+                   "bank — pass payout_bank_account to record clearing → bank.*")
+    return "\n".join(out)
 
 
 # ===================================================================
@@ -2907,6 +3593,67 @@ def _extract_pl_expense_accounts(pl_result: dict) -> dict:
     return out
 
 
+def _pl_income_breakdown(pl_result: dict):
+    """Split a P&L into Schedule C income lines:
+    ``(gross_receipts, returns_and_allowances, cogs, other_income)``.
+
+    Operating-Income accounts are split by sign — positive = receipts (Line 1),
+    negative = returns/refunds/discounts (Line 2, e.g. DiscountsRefundsGiven).
+    'Other Income' (interest, etc.) is Line 6, NOT gross receipts. COGS is
+    Line 4. (The old code read section summaries in a loop, so 'Total Other
+    Income' overwrote 'Total Income' and Sales/Refunds were dropped.)"""
+    gross = returns = cogs = other = 0.0
+
+    def leaf_values(rows):
+        for section in rows or []:
+            nested = section.get("Rows", {}).get("Row", [])
+            col = section.get("ColData", [])
+            if not nested and len(col) >= 2:
+                try:
+                    yield float(col[-1].get("value", "0") or 0)
+                except (ValueError, TypeError):
+                    yield 0.0
+            if nested:
+                yield from leaf_values(nested)
+
+    for section in pl_result.get("Rows", {}).get("Row", []):
+        header = (section.get("Header", {}).get("ColData", [{}]) or [{}])[0] \
+            .get("value", "").strip().lower()
+        summ = section.get("Summary", {}).get("ColData", [])
+        summ_label = (summ[0].get("value", "") if summ else "").strip().lower()
+        total = 0.0
+        if len(summ) >= 2:
+            try:
+                total = float(summ[-1].get("value", "0") or 0)
+            except (ValueError, TypeError):
+                total = 0.0
+
+        # Classify by header OR summary label, so this works on both real QBO
+        # reports (Header "Income" + leaf rows) and summary-only reports.
+        # Order matters: Other Income / COGS first (their labels also contain
+        # "income"/"cost"), then operating Income by an exact match.
+        is_other = "other income" in header or "other income" in summ_label
+        is_cogs = ("cost of goods" in header or "cost of goods" in summ_label
+                   or header == "cogs")
+        is_income = header == "income" or summ_label == "total income"
+
+        if is_other:
+            other += total
+        elif is_cogs:
+            cogs += total
+        elif is_income:
+            leaves = list(leaf_values(section.get("Rows", {}).get("Row", [])))
+            if leaves:                       # detail present — split by sign
+                for v in leaves:
+                    if v >= 0:
+                        gross += v
+                    else:
+                        returns += -v
+            else:                            # summary only — treat as net receipts
+                gross += total
+    return round(gross, 2), round(returns, 2), round(cogs, 2), round(other, 2)
+
+
 def _pl_expense_total(pl_result: dict) -> float:
     """Total from the P&L Expenses section summary row — the reconciliation
     target for Schedule C Line 28."""
@@ -2979,25 +3726,49 @@ async def qb_tax_summary(start_date: str = "", end_date: str = "") -> str:
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_accounts(max_results: int = 100) -> str:
-    """List all chart of accounts (expense categories, income accounts, etc.) in QuickBooks."""
-    # Demo mode: return mock accounts
+async def qb_list_accounts(account_type: str = "", active_only: bool = False,
+                           max_results: int = 0) -> str:
+    """List the chart of accounts. Fetches the FULL chart (paginated) so a large
+    CoA isn't silently truncated. Optionally filter by account_type (e.g. 'Bank',
+    'Credit Card', 'Expense', 'Income', 'Accounts Payable', 'Fixed Asset') and/or
+    active_only. max_results > 0 caps only the number of rows displayed."""
     if _demo_active():
-        accounts = DEMO_ACCOUNTS[:max_results]
+        accounts = list(DEMO_ACCOUNTS)
+        if account_type:
+            accounts = [a for a in accounts if a.get("AccountType") == account_type]
+        if active_only:
+            accounts = [a for a in accounts if a.get("Active", True)]
     else:
-        query = f"SELECT * FROM Account MAXRESULTS {max_results}"
-        result = await qb_query(query)
+        where = []
+        if account_type:
+            where.append(f"AccountType = '{account_type.replace(chr(39), chr(92) + chr(39))}'")
+        if active_only:
+            where.append("Active = true")
+        query = "SELECT * FROM Account" + (" WHERE " + " AND ".join(where) if where else "")
+        result = await qb_query_all(query)
         accounts = result.get("QueryResponse", {}).get("Account", [])
 
     if not accounts:
-        return "No accounts found."
+        filt = ", ".join(filter(None, [account_type, "active only" if active_only else ""]))
+        return "No accounts found." + (f" (filter: {filt})" if filt else "")
+
+    total = len(accounts)
+    if max_results and total > max_results:
+        accounts = accounts[:max_results]
 
     grouped = {}
     for a in accounts:
         atype = a.get("AccountType", "Other")
         grouped.setdefault(atype, []).append(a)
 
-    lines = ["## Chart of Accounts\n"]
+    hdr = f"## Chart of Accounts ({total} account{'s' if total != 1 else ''}"
+    if len(accounts) < total:
+        hdr += f", showing {len(accounts)}"
+    if account_type:
+        hdr += f", type={account_type}"
+    if active_only:
+        hdr += ", active only"
+    lines = [hdr + ")\n"]
     for atype in sorted(grouped.keys()):
         lines.append(f"### {atype}")
         for a in grouped[atype]:
@@ -3177,11 +3948,9 @@ async def qb_create_expense(vendor_name: str, amount: float, account_name: str, 
         return f"Vendor '{vendor_name}' not found. Use qb_list_vendors to find existing vendors, or qb_create_vendor to create one."
     vendor = vendor_list[0]
 
-    accounts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' AND AccountType = 'Expense' MAXRESULTS 1")
-    account_list = accounts.get("QueryResponse", {}).get("Account", [])
-    if not account_list:
-        return f"Expense account '{account_name}' not found. Use qb_list_accounts to see available accounts."
-    account = account_list[0]
+    account, err = await _resolve_account(account_name, account_type="Expense")
+    if err:
+        return err
 
     purchase_body = {
         "PaymentType": "Cash",
@@ -3211,10 +3980,10 @@ async def qb_create_expense(vendor_name: str, amount: float, account_name: str, 
                           tax_id, tax_inclusive, region)
 
     if payment_method:
-        pay_accounts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{payment_method}%' MAXRESULTS 1")
-        pay_list = pay_accounts.get("QueryResponse", {}).get("Account", [])
-        if pay_list:
-            purchase_body["AccountRef"] = {"value": pay_list[0]["Id"], "name": pay_list[0]["Name"]}
+        pay_acct, pay_err = await _resolve_account(payment_method)
+        if pay_err:
+            return f"Payment method: {pay_err}"
+        purchase_body["AccountRef"] = {"value": pay_acct["Id"], "name": pay_acct["Name"]}
 
     result = await qb_request("POST", "purchase", json_body=purchase_body)
     p = result.get("Purchase", {})
@@ -3323,15 +4092,30 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
     je_lines = []
     total_debit = 0.0
     total_credit = 0.0
+    _allowed_keys = {"account_name", "account_id", "amount", "type", "description"}
 
-    for entry in entries:
-        acct_name = entry.get("account_name", "")
-        amount = float(entry.get("amount", 0))
+    for i, entry in enumerate(entries, 1):
+        unknown = set(entry) - _allowed_keys
+        if unknown:
+            return (f"Journal line {i} has unrecognized field(s): "
+                    f"{', '.join(sorted(unknown))}. Allowed per line: account_name "
+                    "(or account_id), amount, type ('Debit' or 'Credit'), description.")
         posting_type = entry.get("type", "Debit")
+        if posting_type not in ("Debit", "Credit"):
+            return (f"Journal line {i}: type must be 'Debit' or 'Credit' "
+                    f"(got '{posting_type}').")
+        amount = float(entry.get("amount", 0))
 
-        acct = await _resolve_account(acct_name)
-        if not acct:
-            return f"Account '{acct_name}' not found. Use qb_list_accounts to see available accounts."
+        acct_id = str(entry.get("account_id", "") or "").strip()
+        if acct_id:
+            acct = (await qb_read("account", acct_id)).get("Account")
+            if not acct:
+                return f"Journal line {i}: account_id '{acct_id}' not found."
+        else:
+            acct, err = await _resolve_account(entry.get("account_name", ""))
+            if err:
+                return f"Journal line {i}: {err}"
+        acct_name = acct.get("Name", "")
 
         # Depreciation must credit an Accumulated Depreciation contra
         # account — crediting the asset itself corrupts its cost basis.
@@ -3378,7 +4162,7 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
         f"Journal entry created!\n"
         f"- ID: {je.get('Id')}\n"
         f"- Date: {date}\n"
-        f"- Total: {fmt(je.get('TotalAmt'))}\n"
+        f"- Total: {fmt(total_debit)}\n"
         f"- Lines: {len(je_lines)}" +
         (f"\n- Memo: {memo}" if memo else "")
     )
@@ -3394,9 +4178,9 @@ async def qb_record_depreciation(asset_account: str, amount: float, date: str, m
     amount = _validate_amount(amount, "amount")
     date = _validate_date(date, "date")
 
-    asset = await _resolve_account(asset_account)
-    if not asset:
-        return f"Asset account '{asset_account}' not found. Use qb_list_accounts."
+    asset, err = await _resolve_account(asset_account)
+    if err:
+        return err
     if asset.get("AccountType") != "Fixed Asset":
         return (f"'{asset.get('Name')}' is a {asset.get('AccountType')} account, "
                 f"not a Fixed Asset — depreciation applies to fixed assets only.")
@@ -3415,7 +4199,7 @@ async def qb_record_depreciation(asset_account: str, amount: float, date: str, m
 
     # Find or create the Accumulated Depreciation contra sub-account
     accum_name = f"Accumulated Depreciation - {asset.get('Name')}"
-    accum = await _resolve_account(accum_name)
+    accum, _ = await _resolve_account(accum_name)
     created_accum = False
     if not accum or accum.get("AccountSubType") != "AccumulatedDepreciation":
         result = await qb_request("POST", "account", json_body={
@@ -3431,7 +4215,7 @@ async def qb_record_depreciation(asset_account: str, amount: float, date: str, m
         created_accum = True
 
     # Find or create Depreciation Expense
-    expense = await _resolve_account("Depreciation Expense")
+    expense, _ = await _resolve_account("Depreciation Expense")
     created_exp = False
     if not expense or expense.get("AccountType") != "Expense":
         result = await qb_request("POST", "account", json_body={
@@ -3484,10 +4268,9 @@ async def qb_record_depreciation(asset_account: str, amount: float, date: str, m
 async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str, memo: str = "", tax_code: str = "") -> str:
     """Create a bank deposit. date: YYYY-MM-DD. deposit_to_account: name of bank account receiving deposit. lines_json: JSON string [{"account_name": "...", "amount": 100.00, "description": "..."}].
     Canada/global editions: optional tax_code applies a sales tax code to each deposit line, e.g. 'HST ON' (deposits do not require one)."""
-    dep_accounts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{deposit_to_account}%' MAXRESULTS 1")
-    dep_list = dep_accounts.get("QueryResponse", {}).get("Account", [])
-    if not dep_list:
-        return f"Account '{deposit_to_account}' not found. Use qb_list_accounts to see available accounts."
+    dep_acct, dep_err = await _resolve_account(deposit_to_account)
+    if dep_err:
+        return dep_err
 
     entries = json.loads(lines_json) if isinstance(lines_json, str) else lines_json
     dep_lines = []
@@ -3496,11 +4279,9 @@ async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str,
         amount = float(entry.get("amount", 0))
         desc = entry.get("description", "")
 
-        accounts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{acct_name}%' MAXRESULTS 1")
-        acct_list = accounts.get("QueryResponse", {}).get("Account", [])
-        if not acct_list:
-            return f"Account '{acct_name}' not found."
-        acct = acct_list[0]
+        acct, err = await _resolve_account(acct_name)
+        if err:
+            return err
 
         dep_lines.append({
             "DetailType": "DepositLineDetail",
@@ -3513,7 +4294,7 @@ async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str,
 
     deposit_body = {
         "TxnDate": date,
-        "DepositToAccountRef": {"value": dep_list[0]["Id"], "name": dep_list[0]["Name"]},
+        "DepositToAccountRef": {"value": dep_acct["Id"], "name": dep_acct["Name"]},
         "Line": dep_lines,
     }
     if memo:
@@ -3536,7 +4317,7 @@ async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str,
         f"- ID: {dep.get('Id')}\n"
         f"- Date: {date}\n"
         f"- Total: {fmt(dep.get('TotalAmt'))}\n"
-        f"- Deposited to: {dep_list[0]['Name']}"
+        f"- Deposited to: {dep_acct['Name']}"
     )
 
 
@@ -3547,21 +4328,19 @@ async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str,
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_transfer(date: str, from_account: str, to_account: str, amount: float, memo: str = "") -> str:
     """Create a transfer between two accounts. date: YYYY-MM-DD. from_account and to_account are account names. amount is the transfer amount."""
-    from_accts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{from_account}%' MAXRESULTS 1")
-    from_list = from_accts.get("QueryResponse", {}).get("Account", [])
-    if not from_list:
-        return f"From account '{from_account}' not found."
+    from_acct, from_err = await _resolve_account(from_account)
+    if from_err:
+        return f"From account: {from_err}"
 
-    to_accts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{to_account}%' MAXRESULTS 1")
-    to_list = to_accts.get("QueryResponse", {}).get("Account", [])
-    if not to_list:
-        return f"To account '{to_account}' not found."
+    to_acct, to_err = await _resolve_account(to_account)
+    if to_err:
+        return f"To account: {to_err}"
 
     transfer_body = {
         "TxnDate": date,
         "Amount": amount,
-        "FromAccountRef": {"value": from_list[0]["Id"], "name": from_list[0]["Name"]},
-        "ToAccountRef": {"value": to_list[0]["Id"], "name": to_list[0]["Name"]},
+        "FromAccountRef": {"value": from_acct["Id"], "name": from_acct["Name"]},
+        "ToAccountRef": {"value": to_acct["Id"], "name": to_acct["Name"]},
     }
     if memo:
         transfer_body["PrivateNote"] = memo
@@ -3573,7 +4352,7 @@ async def qb_create_transfer(date: str, from_account: str, to_account: str, amou
         f"- ID: {t.get('Id')}\n"
         f"- Date: {date}\n"
         f"- Amount: {fmt(amount)}\n"
-        f"- From: {from_list[0]['Name']} → To: {to_list[0]['Name']}"
+        f"- From: {from_acct['Name']} → To: {to_acct['Name']}"
     )
 
 
@@ -3756,9 +4535,11 @@ async def qb_uncategorized_transactions(start_date: str = "", end_date: str = ""
 
     all_uncategorized = []
     for acct_id in acct_ids:
-        q = f"SELECT * FROM Purchase WHERE AccountRef = '{acct_id}'{date_filter} MAXRESULTS {max_results}"
+        # Fetch every matching purchase (paginated) — a cap here would understate
+        # how much is uncategorized, defeating the point of the tool.
+        q = f"SELECT * FROM Purchase WHERE AccountRef = '{acct_id}'{date_filter}"
         try:
-            result = await qb_query(q)
+            result = await qb_query_all(q)
             purchases = result.get("QueryResponse", {}).get("Purchase", [])
             for p in purchases:
                 all_uncategorized.append({
@@ -3776,59 +4557,107 @@ async def qb_uncategorized_transactions(start_date: str = "", end_date: str = ""
         return "No uncategorized transactions found — everything is categorized!"
 
     all_uncategorized.sort(key=lambda x: x["date"] or "", reverse=True)
-    lines = [f"## Uncategorized Transactions ({len(all_uncategorized)} found)\n"]
-    total = 0.0
-    for t in all_uncategorized:
+    total = sum(t["amount"] for t in all_uncategorized)  # true total, all rows
+    shown = all_uncategorized[:max_results] if max_results else all_uncategorized
+    cap_note = f" — showing the first {len(shown)}" if len(shown) < len(all_uncategorized) else ""
+    lines = [f"## Uncategorized Transactions ({len(all_uncategorized)} found){cap_note}\n"]
+    for t in shown:
         lines.append(f"- **{t['date']}** | {t['vendor']} | {fmt(t['amount'])} | {t['account']} | ID: {t['id']}")
         if t["memo"]:
             lines.append(f"  Memo: {t['memo']}")
-        total += t["amount"]
     lines.append(f"\n**Total uncategorized: {fmt(total)}**")
     return "\n".join(lines)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_find_duplicates(start_date: str = "", end_date: str = "", tolerance_days: int = 3, max_results: int = 200) -> str:
-    """Find potential duplicate transactions within a date range. Matches by amount and vendor within tolerance_days window. Dates in YYYY-MM-DD (default: current year-to-date)."""
+async def qb_find_duplicates(start_date: str = "", end_date: str = "", tolerance_days: int = 0, max_results: int = 200) -> str:
+    """Find likely duplicate purchases. By default a duplicate is same VENDOR +
+    same AMOUNT + same DAY (tolerance_days=0) — the pattern that is almost always
+    a double-entry. Widen tolerance_days to catch near-day repeats. Vendor+amount
+    combinations that recur across many days (subscriptions, daily spend) are
+    treated as recurring, not duplicates. Dates YYYY-MM-DD (default: current
+    year-to-date)."""
     start_date, end_date = _ytd_range(start_date, end_date)
-    result = await qb_query(
-        f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
+    # Duplicate detection over a TRUNCATED set is meaningless — fetch the whole
+    # range (paginated). max_results caps only the displayed clusters below.
+    result = await qb_query_all(
+        f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
     )
     purchases = result.get("QueryResponse", {}).get("Purchase", [])
     if not purchases:
         return f"No transactions found between {start_date} and {end_date}."
 
     from collections import defaultdict
-    groups = defaultdict(list)
+    by_va = defaultdict(list)
     for p in purchases:
+        if not p.get("TxnDate"):
+            continue
         key = (
-            round(float(p.get("TotalAmt", 0)), 2),
             (p.get("EntityRef", {}).get("name", "") or "").lower().strip(),
+            round(float(p.get("TotalAmt", 0)), 2),
         )
-        groups[key].append(p)
+        by_va[key].append(p)
 
-    dupes = []
-    for key, txns in groups.items():
+    def _day_clusters(txns, tol):
+        """Group same-amount/vendor txns whose dates fall within `tol` days of
+        the cluster's first member (tol=0 → exact same day)."""
+        clusters = []
+        for t in sorted(txns, key=lambda x: x["TxnDate"]):
+            d = datetime.strptime(t["TxnDate"], "%Y-%m-%d")
+            for c in clusters:
+                if abs((d - datetime.strptime(c[0]["TxnDate"], "%Y-%m-%d")).days) <= tol:
+                    c.append(t)
+                    break
+            else:
+                clusters.append([t])
+        return clusters
+
+    clusters, recurring_suppressed = [], 0
+    for (vendor, amt), txns in by_va.items():
         if len(txns) < 2:
             continue
-        txns.sort(key=lambda x: x.get("TxnDate", ""))
-        for i in range(len(txns)):
-            for j in range(i + 1, len(txns)):
-                d1 = datetime.strptime(txns[i]["TxnDate"], "%Y-%m-%d")
-                d2 = datetime.strptime(txns[j]["TxnDate"], "%Y-%m-%d")
-                if abs((d2 - d1).days) <= tolerance_days:
-                    dupes.append((txns[i], txns[j]))
+        distinct_days = {t["TxnDate"] for t in txns}
+        # Recurring charge (same vendor+amount on many different days): only a
+        # true same-day repeat counts as a duplicate; otherwise suppress it.
+        if len(distinct_days) >= 4:
+            hits = [c for c in _day_clusters(txns, 0) if len(c) >= 2]
+            if hits:
+                clusters.extend((vendor, amt, c) for c in hits)
+            else:
+                recurring_suppressed += 1
+            continue
+        clusters.extend((vendor, amt, c)
+                        for c in _day_clusters(txns, tolerance_days) if len(c) >= 2)
 
-    if not dupes:
-        return f"No potential duplicates found between {start_date} and {end_date}. Books look clean!"
+    extra = sum(len(c) - 1 for _, _, c in clusters)
+    if not clusters:
+        note = (f" ({recurring_suppressed} recurring vendor+amount pattern(s) "
+                "treated as legitimate)" if recurring_suppressed else "")
+        return (f"No likely duplicates between {start_date} and {end_date}"
+                f"{note}. Books look clean!")
 
-    lines = [f"## Potential Duplicates ({len(dupes)} pairs found)\n"]
-    for a, b in dupes:
-        lines.append(f"**{a.get('EntityRef', {}).get('name', 'Unknown')}** — {fmt(float(a.get('TotalAmt', 0)))}:")
-        lines.append(f"  1. {a['TxnDate']} (ID: {a['Id']}) — {a.get('PrivateNote', '') or 'no memo'}")
-        lines.append(f"  2. {b['TxnDate']} (ID: {b['Id']}) — {b.get('PrivateNote', '') or 'no memo'}")
+    clusters.sort(key=lambda x: (len(x[2]), x[1]), reverse=True)
+    shown = clusters[:max_results]
+    win = "same day" if tolerance_days == 0 else f"within {tolerance_days} day(s)"
+    lines = [f"## Potential Duplicates — {len(clusters)} cluster(s), "
+             f"{extra} extra transaction(s)\n",
+             f"*Matched on same vendor + same amount + {win}. "
+             "The extra-transaction count is directly comparable to "
+             "qb_books_health_audit's duplicate check.*"]
+    if recurring_suppressed:
+        lines.append(f"*Suppressed {recurring_suppressed} recurring vendor+amount "
+                     "pattern(s) (spread across many days — likely legitimate).*")
+    if len(shown) < len(clusters):
+        lines.append(f"*Showing the {len(shown)} largest of {len(clusters)} clusters.*")
+    lines.append("")
+    for vendor, amt, txns in shown:
+        name = txns[0].get("EntityRef", {}).get("name", "Unknown")
+        lines.append(f"**{name}** — {fmt(amt)} × {len(txns)}:")
+        for t in txns:
+            lines.append(f"  - {t['TxnDate']} (ID: {t['Id']}) — "
+                         f"{t.get('PrivateNote', '') or 'no memo'}")
         lines.append("")
-    lines.append("Review each pair and void the duplicate using `qb_void_transaction`.")
+    lines.append("Review each cluster and void the extra copies with `qb_void_transaction`.")
     return "\n".join(lines)
 
 
@@ -4339,19 +5168,14 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
         "summarize_column_by": "Total"
     })
 
-    # Income (Gross receipts) from the P&L Income section summary
-    report_rows = result.get("Rows", {}).get("Row", [])
-    total_income = 0.0
-    for section in report_rows:
-        cols = section.get("Summary", {}).get("ColData", [])
-        if len(cols) >= 2:
-            label = cols[0].get("value", "").lower()
-            try:
-                val = float(cols[-1].get("value", "0") or 0)
-            except (ValueError, TypeError):
-                val = 0.0
-            if "income" in label and "net" not in label:
-                total_income = val
+    # Income lines, split correctly (the old code read section summaries in a
+    # loop, so 'Total Other Income' overwrote 'Total Income' and every Sales /
+    # Refund account was dropped). Sales → Line 1; refunds/discounts → Line 2;
+    # interest & other income → Line 6 (NOT gross receipts).
+    gross_receipts, returns_allow, cogs, other_income = _pl_income_breakdown(result)
+    net_receipts = round(gross_receipts - returns_allow, 2)     # Line 3
+    gross_profit = round(net_receipts - cogs, 2)                # Line 5
+    gross_income = round(gross_profit + other_income, 2)        # Line 7
 
     # Expenses: P&L period activity, word-boundary mapped, nothing dropped
     # (unmatched accounts flow to Line 27a so Line 28 reconciles to the P&L).
@@ -4364,8 +5188,16 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
         return (int(m.group(1)) if m else 999, m.group(2) if m else "")
 
     lines = [f"## IRS Schedule C — {tax_year}\n"]
-    lines.append(f"**Line 1 — Gross receipts:** {fmt(total_income)}")
-    lines.append(f"**Line 7 — Gross income:** {fmt(total_income)}\n")
+    lines.append(f"**Line 1 — Gross receipts or sales:** {fmt(gross_receipts)}")
+    if returns_allow:
+        lines.append(f"**Line 2 — Returns and allowances:** {fmt(returns_allow)}")
+        lines.append(f"**Line 3 — Net receipts:** {fmt(net_receipts)}")
+    if cogs:
+        lines.append(f"**Line 4 — Cost of goods sold:** {fmt(cogs)}")
+        lines.append(f"**Line 5 — Gross profit:** {fmt(gross_profit)}")
+    if other_income:
+        lines.append(f"**Line 6 — Other income (interest, etc.):** {fmt(other_income)}")
+    lines.append(f"**Line 7 — Gross income:** {fmt(gross_income)}\n")
 
     lines.append("### Expenses:")
     total_mapped = 0.0
@@ -4383,7 +5215,7 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
         lines.append(
             f"⚠️ Does not reconcile to P&L expenses ({fmt(pl_total)}) — "
             f"difference {fmt(abs(total_mapped - pl_total))}. Review.")
-    net_profit = total_income - total_mapped
+    net_profit = round(gross_income - total_mapped, 2)
     lines.append(f"**Line 31 — Net profit (loss): {fmt(net_profit)}**")
     if home_flagged:
         lines.append(
@@ -4416,24 +5248,26 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
         "start_date": start, "end_date": end
     })
 
-    total_income = 0
-    total_expenses = 0
+    # Income split correctly (never let 'Other Income' overwrite Sales); gross
+    # income = net receipts − COGS + other income. Expenses summed across BOTH
+    # 'Total Expenses' and 'Total Other Expenses' (the old `=` kept only the
+    # last section, understating expenses).
+    gr, ret, cogs, oth = _pl_income_breakdown(result)
+    total_income = round(gr - ret - cogs + oth, 2)
+    total_expenses = 0.0
     report_rows = result.get("Rows", {}).get("Row", [])
     for section in report_rows:
-        summary = section.get("Summary", {})
-        cols = summary.get("ColData", [])
+        cols = section.get("Summary", {}).get("ColData", [])
         if len(cols) >= 2:
             label = cols[0].get("value", "").lower()
             try:
-                val = float(cols[-1].get("value", "0"))
+                val = float(cols[-1].get("value", "0") or 0)
             except (ValueError, TypeError):
-                val = 0
-            if "income" in label and "net" not in label:
-                total_income = val
-            elif "expense" in label:
-                total_expenses = abs(val)
+                val = 0.0
+            if "expense" in label and "net" not in label:
+                total_expenses += abs(val)
 
-    net_income = total_income - total_expenses
+    net_income = round(total_income - total_expenses, 2)
 
     # Self-employment tax + federal brackets from the tax-data registry.
     # Future years fall back to the latest tables WITH a visible note
@@ -4951,6 +5785,12 @@ async def qb_create_account(name: str, account_type: str, account_sub_type: str 
     Accounts Payable, Credit Card, Other Current Liability, Long Term Liability, Equity,
     Income, Cost of Goods Sold, Expense, Other Income, Other Expense.
     account_sub_type: varies by type (e.g., 'Checking' for Bank, 'OfficeGeneralAdministrativeExpenses' for Expense)."""
+    # QuickBooks caps these locally — validate before POST so the caller gets a
+    # useful message instead of raw QBO error 2050.
+    if len(name) > 100:
+        return f"Account name is {len(name)} characters; QuickBooks allows at most 100."
+    if len(description) > 100:
+        return f"Description is {len(description)} characters; QuickBooks allows at most 100."
     body = {
         "Name": name,
         "AccountType": account_type,
@@ -5022,11 +5862,10 @@ async def qb_create_bill(vendor_name: str, amount: float, account_name: str, dat
         vendor_ref = {"value": vendor_list[0]["Id"], "name": vendor_list[0]["DisplayName"]}
 
     # Look up expense account
-    accounts = await qb_query(f"SELECT Id, Name FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 1")
-    acct_list = accounts.get("QueryResponse", {}).get("Account", [])
-    if not acct_list:
-        return f"Error: Account '{account_name}' not found. Use `qb_list_accounts` to see available accounts."
-    acct_ref = {"value": acct_list[0]["Id"], "name": acct_list[0]["Name"]}
+    acct, acct_err = await _resolve_account(account_name)
+    if acct_err:
+        return acct_err
+    acct_ref = {"value": acct["Id"], "name": acct["Name"]}
 
     body = {
         "VendorRef": vendor_ref,
@@ -5058,27 +5897,39 @@ async def qb_create_bill(vendor_name: str, amount: float, account_name: str, dat
             f"  Category: {acct_list[0]['Name']}")
 
 
-@mcp.tool(annotations={"readOnlyHint": True})
-async def qb_profit_loss_by_class(start_date: str = "", end_date: str = "") -> str:
-    """Generate P&L report broken down by class/department. Useful for multi-segment businesses.
-    Dates in YYYY-MM-DD (default: current year-to-date). Returns nothing if classes aren't used."""
+async def _profit_loss_by_dimension(start_date, end_date, column, label, needs):
+    """Shared P&L-by-dimension. column is the QBO summarize_column_by value —
+    which is PLURAL ('Classes'/'Departments'); the singular form is silently
+    ignored by QBO and yields a non-columnar P&L (the old 'No class data' bug)."""
     start_date, end_date = _ytd_range(start_date, end_date)
     result = await qb_request("GET", "reports/ProfitAndLoss", params={
         "start_date": start_date, "end_date": end_date,
-        "summarize_column_by": "Class"
+        "summarize_column_by": column,
     })
-
-    header = result.get("Header", {})
-    columns = result.get("Columns", {}).get("Column", [])
-    col_names = [c.get("ColTitle", "") for c in columns]
-
+    col_names = [c.get("ColTitle", "") for c in result.get("Columns", {}).get("Column", [])]
     if len(col_names) <= 2:
-        return "No class data found. This report requires QuickBooks classes to be enabled."
-
-    lines = [f"## Profit & Loss by Class: {start_date} to {end_date}\n"]
-    report_rows = result.get("Rows", {}).get("Row", [])
-    _parse_report_rows(report_rows, lines)
+        return f"No {label} data found. This report requires QuickBooks {needs}."
+    lines = [f"## Profit & Loss by {label.title()}: {start_date} to {end_date}\n"]
+    _parse_report_rows(result.get("Rows", {}).get("Row", []), lines)
     return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_profit_loss_by_class(start_date: str = "", end_date: str = "") -> str:
+    """Generate a P&L broken down by class (segment/program). Useful for
+    multi-segment businesses. Dates in YYYY-MM-DD (default: current year-to-date).
+    Returns nothing if class tracking isn't enabled."""
+    return await _profit_loss_by_dimension(
+        start_date, end_date, "Classes", "class", "class tracking to be enabled")
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_profit_loss_by_department(start_date: str = "", end_date: str = "") -> str:
+    """Generate a P&L broken down by department/location. Dates in YYYY-MM-DD
+    (default: current year-to-date). Returns nothing if location tracking isn't
+    enabled."""
+    return await _profit_loss_by_dimension(
+        start_date, end_date, "Departments", "department", "location tracking to be enabled")
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -5326,7 +6177,40 @@ async def qb_missing_receipts(threshold: float = 75.0, start_date: str = "", end
     except Exception as e:
         logger.debug(f"Attachable query failed: {e}")
 
+    # Account-type map so we can tell a real expense from a credit-card PAYMENT
+    # or bank transfer (categorized to a Bank/Equity/liability account) — those
+    # don't need a receipt. Same signal qb_books_hygiene uses.
+    accts = (await qb_query_all("SELECT * FROM Account")).get(
+        "QueryResponse", {}).get("Account", [])
+    atype = {a["Id"]: a.get("AccountType", "") for a in accts}
+    aname = {a["Id"]: (a.get("Name", "") or "").lower() for a in accts}
+    _NON_EXPENSE = {"Bank", "Equity", "Credit Card", "Accounts Payable",
+                    "Accounts Receivable", "Other Current Liability",
+                    "Long Term Liability", "Other Current Asset", "Fixed Asset"}
+
+    def _needs_receipt(t) -> bool:
+        """True only if the transaction has a genuine, non-interest expense line.
+        A card payment / transfer (category = Bank/Equity/liability) or interest
+        is not a substantiation gap."""
+        cats = []
+        for l in t.get("Line", []):
+            d = (l.get("AccountBasedExpenseLineDetail")
+                 or l.get("ItemBasedExpenseLineDetail") or {})
+            aid = (d.get("AccountRef") or {}).get("value")
+            if aid:
+                cats.append(aid)
+        if not cats:
+            return True                      # can't tell — don't hide a real gap
+        for aid in cats:
+            if atype.get(aid, "") in _NON_EXPENSE:
+                continue
+            if "interest" in aname.get(aid, ""):
+                continue
+            return True                      # a real, non-interest expense line
+        return False
+
     missing = []
+    excluded = 0
     for entity in ("Purchase", "Bill"):
         r = await qb_query_all(
             f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' AND "
@@ -5337,13 +6221,18 @@ async def qb_missing_receipts(threshold: float = 75.0, start_date: str = "", end
                 continue
             if (entity.lower(), str(t.get("Id", ""))) in attached:
                 continue
+            if not _needs_receipt(t):
+                excluded += 1
+                continue
             payee = (t.get("EntityRef") or t.get("VendorRef") or {}).get("name", "(no payee)")
             missing.append({"type": entity, "id": t.get("Id"),
                             "date": t.get("TxnDate", "?"), "payee": payee, "amount": amt})
 
     missing.sort(key=lambda x: x["amount"], reverse=True)
+    excl_note = (f" · excluded {excluded} card-payment/transfer/interest "
+                 "transaction(s) that don't need a receipt" if excluded else "")
     lines = [f"## Transactions Missing Receipts — {start_date} to {end_date}",
-             f"*Threshold: {fmt(threshold)} (IRS substantiation guideline).*\n"]
+             f"*Threshold: {fmt(threshold)} (IRS substantiation guideline){excl_note}.*\n"]
     if not missing:
         lines.append(f"✅ Every expense at or above {fmt(threshold)} has a receipt "
                      "attached in QuickBooks.")
@@ -6079,21 +6968,25 @@ async def qb_account_transactions(account_name: str, start_date: str = "", end_d
         "",
     ]
 
-    # Query multiple transaction types that could hit this account
+    # Query multiple transaction types that could hit this account. These are
+    # fetched IN FULL (qb_query_all paginates) and filtered to the account in
+    # Python — the account lives on line items, so a bare MAXRESULTS cap would
+    # truncate BEFORE filtering and report a confidently wrong count. max_results
+    # caps only the displayed rows below.
     txn_types = {
-        "Purchase": f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}",
-        "Deposit": f"SELECT * FROM Deposit WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}",
-        "JournalEntry": f"SELECT * FROM JournalEntry WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}",
-        "Transfer": f"SELECT * FROM Transfer WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}",
-        "Bill": f"SELECT * FROM Bill WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}",
-        "BillPayment": f"SELECT * FROM BillPayment WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}",
+        "Purchase": f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'",
+        "Deposit": f"SELECT * FROM Deposit WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'",
+        "JournalEntry": f"SELECT * FROM JournalEntry WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'",
+        "Transfer": f"SELECT * FROM Transfer WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'",
+        "Bill": f"SELECT * FROM Bill WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'",
+        "BillPayment": f"SELECT * FROM BillPayment WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'",
     }
 
     all_txns = []
 
     for txn_type, query in txn_types.items():
         try:
-            result = (await qb_query(query)).get("QueryResponse", {}).get(txn_type, [])
+            result = (await qb_query_all(query)).get("QueryResponse", {}).get(txn_type, [])
         except Exception:
             continue
 
@@ -6171,13 +7064,17 @@ async def qb_account_transactions(account_name: str, start_date: str = "", end_d
             lines.append("No transactions found for this account in the date range.")
         return "\n".join(lines)
 
-    # Build detailed output
+    # Build detailed output. The count + total reflect ALL matching transactions
+    # (fully paginated); max_results caps only how many rows we print.
     total_amount = sum(t["amount"] for t in all_txns)
-    lines.append(f"**Transactions Found:** {len(all_txns)} | **Total:** {fmt(total_amount)}\n")
+    shown = all_txns[:max_results] if max_results and len(all_txns) > max_results else all_txns
+    cap_note = (f" — showing the first {len(shown)}"
+                if len(shown) < len(all_txns) else "")
+    lines.append(f"**Transactions Found:** {len(all_txns)} | **Total:** {fmt(total_amount)}{cap_note}\n")
     lines.append("| Date | Type | ID | Vendor | Amount | Memo |")
     lines.append("|------|------|----|--------|--------|------|")
 
-    for t in all_txns:
+    for t in shown:
         memo_short = t["memo"][:40] + "..." if len(t["memo"]) > 40 else t["memo"]
         lines.append(
             f"| {t['date']} | {t['type']} | {t['id']} | {t['vendor']} | {fmt(t['amount'])} | {memo_short} |"
@@ -6224,17 +7121,12 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
     sc_lines = _map_expenses_to_schedule_c(expense_dict)
     pl_total = _pl_expense_total(result)
 
-    total_income = 0.0
-    for section in result.get("Rows", {}).get("Row", []):
-        cols = section.get("Summary", {}).get("ColData", [])
-        if len(cols) >= 2:
-            label = cols[0].get("value", "").lower()
-            try:
-                val = float(cols[-1].get("value", "0") or 0)
-            except (ValueError, TypeError):
-                val = 0.0
-            if "income" in label and "net" not in label:
-                total_income = val
+    # Income split correctly (see qb_schedule_c) — Sales → Line 1, refunds →
+    # Line 2, interest/other → Line 6; never let 'Other Income' overwrite Sales.
+    gross_receipts, returns_allow, cogs, other_income = _pl_income_breakdown(result)
+    net_receipts = round(gross_receipts - returns_allow, 2)
+    gross_profit = round(net_receipts - cogs, 2)
+    gross_income = round(gross_profit + other_income, 2)
 
     # Company name from the connected QuickBooks company (never hardcoded)
     company_name = ""
@@ -6254,7 +7146,13 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
         *( [f"**{company_name}**"] if company_name else [] ),
         f"**EIN:** Check QB Company Info",
         f"**Period:** {start} to {end}\n",
-        f"**Line 1 — Gross receipts: {fmt(total_income)}**\n",
+        f"**Line 1 — Gross receipts or sales: {fmt(gross_receipts)}**",
+        *( [f"**Line 2 — Returns and allowances: {fmt(returns_allow)}**",
+            f"**Line 3 — Net receipts: {fmt(net_receipts)}**"] if returns_allow else [] ),
+        *( [f"**Line 4 — Cost of goods sold: {fmt(cogs)}**",
+            f"**Line 5 — Gross profit: {fmt(gross_profit)}**"] if cogs else [] ),
+        *( [f"**Line 6 — Other income (interest, etc.): {fmt(other_income)}**"] if other_income else [] ),
+        f"**Line 7 — Gross income: {fmt(gross_income)}**\n",
         "### Expenses (by Schedule C line, from P&L):",
     ]
 
@@ -6268,13 +7166,13 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
         total_expenses += data["amount"]
         home_flagged = home_flagged or data["home"]
 
-    net = total_income - total_expenses
+    net = round(gross_income - total_expenses, 2)
     recon = ("" if not pl_total or abs(total_expenses - pl_total) <= 0.01 else
              f"\n  ⚠️ Line 28 does not reconcile to P&L expenses ({fmt(pl_total)}) — review.")
     lines.extend([
         f"\n---",
         f"### **Summary**",
-        f"  Total Income (Line 1): {fmt(total_income)}",
+        f"  Gross income (Line 7): {fmt(gross_income)}",
         f"  Total Expenses (Line 28): {fmt(total_expenses)}",
         f"  **Net Profit/Loss (Line 31): {fmt(net)}**{recon}",
         ("\n*Items flagged ⚠️ (home office, homeowner insurance, home utilities) "
@@ -6284,7 +7182,7 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
         f"CPA should verify account-to-line mappings before filing.*",
     ])
 
-    _audit_log("SCHEDULE_C_DETAIL", f"year={tax_year} income={fmt(total_income)} expenses={fmt(total_expenses)}")
+    _audit_log("SCHEDULE_C_DETAIL", f"year={tax_year} income={fmt(gross_income)} expenses={fmt(total_expenses)}")
     return "\n".join(lines) + tax_data_footer(int(tax_year))
 
 
@@ -8497,6 +9395,183 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
     return "\n".join(lines)
 
 
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_books_hygiene(start_date: str = "", end_date: str = "",
+                           statement_balances: str = "") -> str:
+    """Structural books-quality audit that catches what a health score misses:
+    transactions posted to deleted/inactive accounts, wrong-sign account balances,
+    credit-card payments misfiled as expenses, and dormant accounts carrying large
+    balances (opening-balance errors). Dates YYYY-MM-DD (default: current
+    year-to-date). statement_balances: optional JSON like
+    {"Checking": 4820.10, "Amex Business": -1560.00} to diff your real bank/card
+    statement balances against QuickBooks — the highest-value check, since it
+    catches everything else at once."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+
+    active = (await qb_query_all("SELECT * FROM Account")).get(
+        "QueryResponse", {}).get("Account", [])
+    inactive = (await qb_query_all("SELECT * FROM Account WHERE Active = false")).get(
+        "QueryResponse", {}).get("Account", [])
+    by_id = {a["Id"]: a for a in active + inactive}
+    inactive_ids = {a["Id"] for a in inactive}
+    atype = {a["Id"]: a.get("AccountType", "") for a in active + inactive}
+
+    async def _fetch(entity):
+        return (await qb_query_all(
+            f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' "
+            f"AND TxnDate <= '{end_date}'")).get("QueryResponse", {}).get(entity, [])
+    purchases, deposits, jes = await _fetch("Purchase"), await _fetch("Deposit"), await _fetch("JournalEntry")
+
+    def _refs(t, kind):
+        out = []
+        if kind == "Purchase":
+            if t.get("AccountRef", {}).get("value"):
+                out.append(("pay", t["AccountRef"]["value"]))
+            for l in t.get("Line", []):
+                v = l.get("AccountBasedExpenseLineDetail", {}).get("AccountRef", {}).get("value")
+                if v:
+                    out.append(("cat", v))
+        elif kind == "Deposit":
+            if t.get("DepositToAccountRef", {}).get("value"):
+                out.append(("pay", t["DepositToAccountRef"]["value"]))
+            for l in t.get("Line", []):
+                v = l.get("DepositLineDetail", {}).get("AccountRef", {}).get("value")
+                if v:
+                    out.append(("cat", v))
+        else:  # JournalEntry
+            for l in t.get("Line", []):
+                v = l.get("JournalEntryLineDetail", {}).get("AccountRef", {}).get("value")
+                if v:
+                    out.append(("cat", v))
+        return out
+
+    from collections import Counter
+    activity = Counter()
+    dangling, misfiled = [], []
+    for kind, txns in (("Purchase", purchases), ("Deposit", deposits), ("JournalEntry", jes)):
+        for t in txns:
+            refs = _refs(t, kind)
+            for _, aid in refs:
+                activity[aid] += 1
+                if aid in inactive_ids:
+                    dangling.append((kind, t.get("Id"), by_id.get(aid, {}).get("Name", aid),
+                                     float(t.get("TotalAmt", 0))))
+            if kind == "Purchase":
+                pay = [aid for r, aid in refs if r == "pay"]
+                if pay and atype.get(pay[0]) == "Credit Card":
+                    for c in [aid for r, aid in refs if r == "cat"]:
+                        if atype.get(c) in ("Bank", "Equity"):
+                            misfiled.append((t.get("Id"), by_id.get(c, {}).get("Name", c),
+                                             float(t.get("TotalAmt", 0))))
+
+    score = 100
+    lines = [f"## Books Hygiene Audit — {start_date} to {end_date}\n"]
+    issues, passed = [], []
+
+    # 1. Dangling references — posting to a deleted/inactive account
+    if dangling:
+        score -= 15
+        by_acct = Counter(d[2] for d in dangling)
+        total = sum(d[3] for d in dangling)
+        issues.append(f"🔴 **{len(dangling)} transaction(s) posted to inactive/deleted "
+                      f"accounts** ({fmt(total)}): "
+                      + ", ".join(f"{n} ({c})" for n, c in by_acct.most_common(5))
+                      + ". Reclassify to a live account (qb_reclassify_transaction).")
+    else:
+        passed.append("✅ No transactions posted to deleted/inactive accounts")
+
+    # 2. Wrong-sign balances (high-confidence cases only)
+    sign_flags = []
+    for a in active:
+        bal = float(a.get("CurrentBalance", 0) or 0)
+        t = a.get("AccountType", "")
+        if t == "Bank" and bal < -0.01:
+            sign_flags.append(f"{a.get('Name')} ({t}): {fmt(bal)} — negative bank balance "
+                              "(overdraft or opening-balance error)")
+        elif t == "Accounts Receivable" and bal < -0.01:
+            sign_flags.append(f"{a.get('Name')} ({t}): {fmt(bal)} — credit balance on AR")
+    if sign_flags:
+        score -= min(20, 10 * len(sign_flags))
+        issues.append("🔴 **Wrong-sign balances:**\n   " + "\n   ".join(sign_flags))
+    else:
+        passed.append("✅ Bank/AR balances point the right way")
+
+    # 3. Credit-card payments misfiled as expenses
+    if misfiled:
+        score -= 15
+        total = sum(m[2] for m in misfiled)
+        id_list = ", ".join(str(m[0]) for m in misfiled[:10])
+        id_note = (f" (showing first 10 of {len(misfiled)})"
+                   if len(misfiled) > 10 else "")
+        issues.append(f"🔴 **{len(misfiled)} credit-card purchase(s) categorized to a "
+                      f"bank/equity account** ({fmt(total)}) — almost always a card "
+                      "PAYMENT misfiled as an expense, which inflates the card liability. "
+                      f"IDs{id_note}: " + id_list + ".")
+    else:
+        passed.append("✅ No credit-card payments misfiled as expenses")
+
+    # 4. Dormant accounts carrying a large balance
+    dormant = []
+    for a in active:
+        bal = float(a.get("CurrentBalance", 0) or 0)
+        if abs(bal) >= 1000 and activity.get(a["Id"], 0) <= 2 \
+                and a.get("AccountType") in ("Bank", "Credit Card", "Other Current Asset",
+                                             "Other Current Liability", "Equity"):
+            dormant.append(f"{a.get('Name')}: {fmt(bal)} ({activity.get(a['Id'], 0)} txns in period)")
+    if dormant:
+        score -= min(20, 10 * len(dormant))
+        issues.append("🟡 **Large balance, near-zero activity** (likely an opening-balance "
+                      "error):\n   " + "\n   ".join(dormant))
+    else:
+        passed.append("✅ No dormant accounts carrying large balances")
+
+    # 5. Statement-balance attestation (optional, highest-value)
+    if statement_balances:
+        try:
+            claims = json.loads(statement_balances)
+        except (json.JSONDecodeError, TypeError):
+            claims = None
+        if not isinstance(claims, dict):
+            issues.append("⚠️ statement_balances must be JSON like "
+                          '{"Checking": 4820.10}. Skipped attestation.')
+        else:
+            mism = []
+            for name, real in claims.items():
+                acct, err = await _resolve_account(name)
+                if err:
+                    mism.append(f"{name}: {err}")
+                    continue
+                book = float(acct.get("CurrentBalance", 0) or 0)
+                diff = round(book - float(real), 2)
+                if abs(diff) > 0.01:
+                    mism.append(f"{acct.get('Name')}: QuickBooks {fmt(book)} vs statement "
+                                f"{fmt(float(real))} — **off by {fmt(diff)}**")
+            if mism:
+                score -= min(30, 15 * len(mism))
+                issues.append("🔴 **Statement attestation mismatches:**\n   "
+                              + "\n   ".join(mism))
+            else:
+                passed.append("✅ All attested balances match the statements")
+    else:
+        passed.append("ℹ️ No statement balances provided — pass statement_balances to "
+                      "diff your real bank/card statements (the strongest check).")
+
+    score = max(0, score)
+    grade = "🟢" if score >= 90 else "🟡" if score >= 70 else "🔴"
+    lines.append(f"### {grade} Hygiene score: {score}/100\n")
+    if issues:
+        lines.append("### Findings")
+        lines.extend(issues)
+        lines.append("")
+    lines.append("### Passed")
+    lines.extend(passed)
+    lines.append("\n*Structural checks; complements qb_books_health_audit. Not a "
+                 "substitute for a reconciliation against real statements.*")
+    _audit_log("BOOKS_HYGIENE", f"score={score} dangling={len(dangling)} "
+               f"misfiled={len(misfiled)}")
+    return "\n".join(lines)
+
+
 # ===================================================================
 # UNKNOWN VENDOR REPORT & BULK FIX
 # ===================================================================
@@ -9674,7 +10749,6 @@ async def qb_t2125_summary(year: int = 0) -> str:
                 extract_expenses(nested, result_dict)
 
     expense_dict = {}
-    total_income = 0.0
     report_rows = result.get("Rows", {}).get("Row", [])
     for section in report_rows:
         header = section.get("Header", {}).get("ColData", [{}])
@@ -9682,16 +10756,13 @@ async def qb_t2125_summary(year: int = 0) -> str:
             nested = section.get("Rows", {}).get("Row", [])
             if nested:
                 extract_expenses(nested, expense_dict)
-        summary = section.get("Summary", {})
-        cols = summary.get("ColData", [])
-        if len(cols) >= 2:
-            label = cols[0].get("value", "").lower()
-            try:
-                val = float(cols[-1].get("value", "0"))
-            except (ValueError, TypeError):
-                val = 0
-            if "income" in label and "net" not in label:
-                total_income = val
+
+    # Income split correctly — Sales/fees → gross sales; refunds → reduce it;
+    # interest & other income → its own line (may be non-business, reportable
+    # elsewhere). The old loop let 'Total Other Income' overwrite 'Total Income'.
+    gross_receipts, returns_allow, _cogs, other_income = _pl_income_breakdown(result)
+    net_sales = round(gross_receipts - returns_allow, 2)
+    gross_business_income = round(net_sales + other_income, 2)
 
     # Map expense accounts to T2125 lines by keyword
     from collections import defaultdict
@@ -9719,8 +10790,17 @@ async def qb_t2125_summary(year: int = 0) -> str:
 
     lines = [f"## CRA T2125 — Statement of Business Activities — {year}\n"]
     lines.append("### Income")
-    lines.append(f"  Line 8000 — Gross sales, commissions or fees: {fmt(total_income)}")
-    lines.append(f"  Line 8299 — Gross business income: {fmt(total_income)}")
+    lines.append(f"  Line 8000 — Gross sales, commissions or fees: {fmt(gross_receipts)}")
+    if returns_allow:
+        lines.append(f"  Line 8000a — Returns, allowances & discounts: ({fmt(returns_allow)})")
+        lines.append(f"  Net sales: {fmt(net_sales)}")
+    if other_income:
+        lines.append(f"  Line 8230 — Other income (interest, etc.): {fmt(other_income)}")
+        lines.append(
+            "    *Interest/investment income may be reportable on Schedule 4 "
+            "(T5), not T2125 — confirm it is business income before including.*"
+        )
+    lines.append(f"  Line 8299 — Gross business income: {fmt(gross_business_income)}")
     lines.append(
         "  *GST/HST registrants: report revenue net of GST/HST collected "
         "(QuickBooks sales figures above exclude tax when tax codes are used).*\n"
@@ -9746,7 +10826,7 @@ async def qb_t2125_summary(year: int = 0) -> str:
         "carries forward)."
     )
 
-    net = total_income - total_expenses
+    net = round(gross_business_income - total_expenses, 2)
     lines.append(f"\n**Line 9368 — Total expenses: {fmt(total_expenses)}**")
     lines.append(f"**Line 9369 — Net income (loss) before adjustments: {fmt(net)}**")
 
@@ -9762,7 +10842,7 @@ async def qb_t2125_summary(year: int = 0) -> str:
         "\n*Workpaper only — verify mappings with your accountant before filing.*",
     ])
 
-    _audit_log("T2125_SUMMARY", f"year={year} income={fmt(total_income)} expenses={fmt(total_expenses)}")
+    _audit_log("T2125_SUMMARY", f"year={year} income={fmt(gross_business_income)} expenses={fmt(total_expenses)}")
     return "\n".join(lines) + tax_data_footer(year)
 
 
@@ -10038,21 +11118,23 @@ async def qb_estimate_instalments(year: int = 0, province: str = "") -> str:
         "start_date": start, "end_date": end,
     })
 
-    total_income = total_expenses = 0.0
+    # Income split correctly (never let 'Other Income' overwrite Sales); sum
+    # expenses across both 'Total Expenses' and 'Total Other Expenses'.
+    gr, ret, cogs, oth = _pl_income_breakdown(result)
+    total_income = round(gr - ret - cogs + oth, 2)
+    total_expenses = 0.0
     for section in result.get("Rows", {}).get("Row", []):
         cols = section.get("Summary", {}).get("ColData", [])
         if len(cols) >= 2:
             label = cols[0].get("value", "").lower()
             try:
-                val = float(cols[-1].get("value", "0"))
+                val = float(cols[-1].get("value", "0") or 0)
             except (ValueError, TypeError):
-                val = 0
-            if "income" in label and "net" not in label:
-                total_income = val
-            elif "expense" in label:
-                total_expenses = abs(val)
+                val = 0.0
+            if "expense" in label and "net" not in label:
+                total_expenses += abs(val)
 
-    net_income = total_income - total_expenses
+    net_income = round(total_income - total_expenses, 2)
 
     # ---- CPP (exact for 2025/2026) ----
     params = _CPP_PARAMS.get(year)

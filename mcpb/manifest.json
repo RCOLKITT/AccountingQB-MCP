@@ -2,9 +2,9 @@
   "manifest_version": "0.3",
   "name": "accountingqb",
   "display_name": "AccountingQB \u2014 QuickBooks for Claude",
-  "version": "3.7.0",
+  "version": "3.13.0",
   "icon": "icon.png",
-  "description": "119 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
+  "description": "129 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
   "long_description": "Connect Claude to your QuickBooks Online with one click. Run P&L reports, reconcile transactions, prep for taxes, detect anomalies, and more. Full US and Canada support: Schedule C, quarterly estimates and 1099s for the US; GST/HST returns, T2125, CCA schedules, T4A reporting and CRA instalments for Canada. Your data stays on your machine \u2014 zero cloud routing.\n\n**Getting Started:**\n1. Enter your license key (get one at accountingqb.com)\n2. Click 'Connect QuickBooks' when prompted\n3. Start asking Claude about your books!\n\n**Requirements:** Python 3.10 or newer on your machine (all Python package dependencies are bundled with the extension).",
   "author": {
     "name": "Vaspera Capital",
@@ -670,14 +670,9 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "start_date": {
+          "as_of_date": {
             "type": "string",
-            "description": "Start Date",
-            "default": ""
-          },
-          "end_date": {
-            "type": "string",
-            "description": "End Date",
+            "description": "As Of Date",
             "default": ""
           }
         }
@@ -845,6 +840,248 @@
       "codeExecution": false
     },
     {
+      "name": "qb_list_classes",
+      "description": "List QuickBooks classes (the segment tags used for class tracking, e.g.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_list_departments",
+      "description": "List QuickBooks departments/locations (the Location-tracking dimension).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_sales_by_class",
+      "description": "Sales broken out by class for a date range \u2014 segment/program performance.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "basis": {
+            "type": "string",
+            "description": "Basis",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_sales_by_department",
+      "description": "Sales broken out by department/location for a date range. Dates YYYY-MM-DD",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "basis": {
+            "type": "string",
+            "description": "Basis",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_inventory_valuation",
+      "description": "Inventory valuation as of a date \u2014 on-hand quantity, asset value, and",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "as_of_date": {
+            "type": "string",
+            "description": "As Of Date",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_vendor_expenses",
+      "description": "Total spend by vendor for a date range (QuickBooks VendorExpenses report).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "basis": {
+            "type": "string",
+            "description": "Basis",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_list_purchase_orders",
+      "description": "List purchase orders in a date range \u2014 date, PO number, vendor, amount, and",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "description": "Status",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_stripe_reconcile",
+      "description": "Reconcile a month of Stripe activity into QuickBooks the right way: net",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "description": "Period"
+          },
+          "report_json": {
+            "type": "string",
+            "description": "Report Json",
+            "default": ""
+          },
+          "dry_run": {
+            "type": "boolean",
+            "description": "Dry Run",
+            "default": true
+          },
+          "income_account": {
+            "type": "string",
+            "description": "Income Account",
+            "default": "Sales"
+          },
+          "fee_account": {
+            "type": "string",
+            "description": "Fee Account",
+            "default": "Merchant Fees"
+          },
+          "platform_fee_account": {
+            "type": "string",
+            "description": "Platform Fee Account",
+            "default": "Software & Apps"
+          },
+          "refund_account": {
+            "type": "string",
+            "description": "Refund Account",
+            "default": "Refunds"
+          },
+          "clearing_account": {
+            "type": "string",
+            "description": "Clearing Account",
+            "default": "Stripe Clearing"
+          },
+          "payout_bank_account": {
+            "type": "string",
+            "description": "Payout Bank Account",
+            "default": ""
+          },
+          "expected_ending_balance": {
+            "type": "number",
+            "description": "Expected Ending Balance",
+            "default": 0.0
+          },
+          "amounts_in_cents": {
+            "type": "boolean",
+            "description": "Amounts In Cents",
+            "default": true
+          }
+        },
+        "required": [
+          "period"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
+    },
+    {
       "name": "qb_reconciliation_status",
       "description": "Bank and credit-card tie-out summary for CPA handoff: per-account book",
       "inputSchema": {
@@ -1000,10 +1237,20 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "account_type": {
+            "type": "string",
+            "description": "Account Type",
+            "default": ""
+          },
+          "active_only": {
+            "type": "boolean",
+            "description": "Active Only",
+            "default": false
+          },
           "max_results": {
             "type": "integer",
             "description": "Max Results",
-            "default": 100
+            "default": 0
           }
         }
       },
@@ -1582,7 +1829,7 @@
           "tolerance_days": {
             "type": "integer",
             "description": "Tolerance Days",
-            "default": 3
+            "default": 0
           },
           "max_results": {
             "type": "integer",
@@ -2050,6 +2297,31 @@
     {
       "name": "qb_profit_loss_by_class",
       "description": "P&L by class/department",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_profit_loss_by_department",
+      "description": "Generate a P&L broken down by department/location. Dates in YYYY-MM-DD",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3175,6 +3447,36 @@
             "type": "string",
             "description": "Tax Year",
             "default": "2025"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_books_hygiene",
+      "description": "Structural books-quality audit that catches what a health score misses:",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "statement_balances": {
+            "type": "string",
+            "description": "Statement Balances",
+            "default": ""
           }
         }
       },

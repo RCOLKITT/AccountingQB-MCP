@@ -30,6 +30,24 @@ async function getConversation(id: string): Promise<{ conversation: Conversation
 
   if (!conversation) return null;
 
+  // support_conversations has no user_email column — derive identity from the
+  // linked license, then the conversation metadata, then the anonymous id.
+  const conv = conversation as Record<string, unknown>;
+  let userEmail: string | null = null;
+  const licenseKey = conv.license_key as string | null;
+  if (licenseKey) {
+    const { data: lic } = await supabase
+      .from("licenses")
+      .select("email")
+      .eq("key", licenseKey)
+      .single();
+    userEmail = lic?.email ?? null;
+  }
+  if (!userEmail) {
+    const meta = (conv.metadata || {}) as { email?: string };
+    userEmail = meta.email ?? (conv.anonymous_id ? `anon:${String(conv.anonymous_id).slice(0, 8)}` : null);
+  }
+
   const { data: messages } = await supabase
     .from("support_messages")
     .select("id, role, content, created_at")
@@ -37,7 +55,7 @@ async function getConversation(id: string): Promise<{ conversation: Conversation
     .order("created_at", { ascending: true });
 
   return {
-    conversation: conversation as Conversation,
+    conversation: { ...(conversation as Conversation), user_email: userEmail },
     messages: (messages || []) as Message[],
   };
 }

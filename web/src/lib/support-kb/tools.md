@@ -1,9 +1,11 @@
-# AccountingQB Tools (119 Total)
+# AccountingQB Tools (129 Total)
 
-## Company & Entities (12 tools)
+## Company & Entities (14)
 | Tool | Description |
 |------|-------------|
 | qb_company_info | Company name, EIN, address, fiscal year |
+| qb_list_classes | List classes (class-tracking segments) |
+| qb_list_departments | List departments/locations (location tracking) |
 | qb_list_accounts | Full chart of accounts with balances |
 | qb_list_vendors | Search vendors/suppliers |
 | qb_list_customers | Search customers |
@@ -16,7 +18,7 @@
 | qb_create_sub_account | Create a sub-account under a parent |
 | qb_inactivate_account | Hide unused accounts |
 
-## Transactions (17 tools)
+## Transactions (18)
 | Tool | Description |
 |------|-------------|
 | qb_list_transactions | Purchases/expenses with filters |
@@ -33,11 +35,12 @@
 | qb_list_vendor_credits | Vendor credits received |
 | qb_list_estimates | Estimates/quotes with status filter |
 | qb_search_transactions | Search across ALL transaction types |
+| qb_list_purchase_orders | List purchase orders — vendor, amount, Open/Closed status |
 | qb_list_recurring_transactions | Recurring templates and schedules |
 | qb_transaction_detail | Full detail for any single transaction |
 | qb_account_transactions | All transactions hitting a specific account |
 
-## Create & Modify (22 tools)
+## Create & Modify (22)
 | Tool | Description |
 |------|-------------|
 | qb_create_expense | Record a purchase/expense |
@@ -63,14 +66,19 @@
 | qb_batch_create_bills | Bulk bill import |
 | qb_batch_create_journal_entries | Bulk JE import |
 
-## Reports & Analysis (24 tools)
+## Reports & Analysis (29)
 | Tool | Description |
 |------|-------------|
 | qb_profit_loss | P&L by total, month, quarter, or year |
 | qb_profit_loss_detail | P&L drill-down — every transaction behind each line, by account |
-| qb_profit_loss_by_class | P&L by department/class |
+| qb_profit_loss_by_class | P&L broken out by class (segment/program) |
+| qb_profit_loss_by_department | P&L broken out by department/location |
+| qb_vendor_expenses | Total spend by vendor (VendorExpenses report) |
 | qb_sales_by_customer | Total sales (income) by customer for a date range |
 | qb_sales_by_product | Sales by product/service (item) — quantity and amount |
+| qb_sales_by_class | Sales broken out by class (segment/program) |
+| qb_sales_by_department | Sales broken out by department/location |
+| qb_inventory_valuation | Inventory on-hand quantity, asset value, and average cost as of a date |
 | qb_transaction_list | Flexible transaction register for a date range (all columns) |
 | qb_customer_balance_detail | Open invoices per customer with line detail (AR drill-down) |
 | qb_vendor_balance_detail | Open bills per vendor with line detail (AP drill-down) |
@@ -91,7 +99,7 @@
 | qb_budget_vs_actual | Compare budget to actual spending |
 | qb_anomaly_detection | Statistical anomaly and fraud detection |
 
-## Tax Preparation (16 tools)
+## Tax Preparation (16)
 | Tool | Description |
 |------|-------------|
 | qb_tax_summary | Expenses mapped to Schedule C lines |
@@ -115,7 +123,7 @@
 | qb_list_tax_codes | List sales tax codes (GST/HST/PST) |
 | qb_list_tax_rates | List sales tax rates |
 
-## Smart Features (9 tools)
+## Smart Features (10)
 | Tool | Description |
 |------|-------------|
 | qb_uncategorized_transactions | Find uncategorized transactions |
@@ -125,10 +133,11 @@
 | qb_runway_calculator | Months of cash runway |
 | qb_fiscal_year_close_checklist | Year-end close readiness check |
 | qb_books_health_audit | Comprehensive books health audit |
+| qb_books_hygiene | Structural audit — deleted-account postings, wrong-sign balances, misfiled card payments, dormant balances, statement attestation |
 | qb_month_end_close | Month-end close checklist with status checks |
 | qb_unknown_vendor_report | Find transactions with missing vendor names |
 
-## Reconciliation & Attachments (8 tools)
+## Reconciliation & Attachments (9)
 | Tool | Description |
 |------|-------------|
 | qb_reconcile_invoices | Match invoices against transactions |
@@ -138,9 +147,10 @@
 | qb_missing_receipts | Expenses >= threshold (default $75) with no receipt attached |
 | qb_change_audit_trail | What changed since a date — created/updated/deleted (QuickBooks CDC) |
 | qb_bank_reconciliation | Tie a bank/credit-card statement CSV to the books (matched/missing/uncleared) |
+| qb_stripe_reconcile | Reconcile Stripe activity — nets processing + platform fees (Sigma/Billing/Radar) through a clearing account and ties to the Stripe balance |
 | qb_account_balance | Check any account balance |
 
-## Connection & Multi-Company (3 tools)
+## Connection & Multi-Company (3)
 | Tool | Description |
 |------|-------------|
 | qb_list_companies | List connected QuickBooks companies |

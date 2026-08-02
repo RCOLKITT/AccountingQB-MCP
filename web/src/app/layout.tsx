@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     template: "%s | AccountingQB",
   },
   description:
-    "119 AI tools connecting Claude to your QuickBooks Online. Run reports, reconcile books, prep US & Canadian taxes, detect anomalies — all through natural conversation. Runs locally or through our zero-retention connector — we never store your books.",
+    "129 AI tools connecting Claude to your QuickBooks Online. Run reports, reconcile books, prep US & Canadian taxes, detect anomalies — all through natural conversation. Runs locally or through our zero-retention connector — we never store your books.",
   keywords: [
     "quickbooks ai",
     "claude quickbooks",
@@ -33,15 +33,17 @@ export const metadata: Metadata = {
   // No canonical here: it would cascade to every page that doesn't set its
   // own, telling Google they're duplicates of the homepage. Each page sets
   // its own alternates (client pages via a segment layout.tsx).
-  // Google Search Console ownership verification (Settings > Ownership >
-  // HTML tag). Set the token via env; omitted from markup when unset.
-  ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
-    ? {
-        verification: {
-          google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
-        },
-      }
-    : {}),
+  // Search-console ownership verification (Google Search Console + Bing Webmaster
+  // Tools — Bing feeds ChatGPT Search & Copilot). Set the tokens via env; each is
+  // omitted from markup when unset. DNS verification also works and needs neither.
+  ...(() => {
+    const google = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
+    const bing = process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION;
+    const verification: { google?: string; other?: Record<string, string> } = {};
+    if (google) verification.google = google;
+    if (bing) verification.other = { "msvalidate.01": bing };
+    return Object.keys(verification).length ? { verification } : {};
+  })(),
   openGraph: {
     type: "website",
     locale: "en_US",
@@ -49,7 +51,7 @@ export const metadata: Metadata = {
     siteName: "AccountingQB",
     title: "AccountingQB — AI-Powered QuickBooks for Claude",
     description:
-      "119 AI tools connecting Claude to your QuickBooks Online. Run it locally or via our zero-retention connector — we never store your books. 14-day free trial.",
+      "129 AI tools connecting Claude to your QuickBooks Online. Run it locally or via our zero-retention connector — we never store your books. 14-day free trial.",
     images: [
       {
         url: `${siteUrl}/og-image.png`,
@@ -63,7 +65,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "AccountingQB — AI-Powered QuickBooks for Claude",
     description:
-      "119 AI tools connecting Claude to your QuickBooks Online. Runs locally or via our zero-retention connector — we never store your books.",
+      "129 AI tools connecting Claude to your QuickBooks Online. Runs locally or via our zero-retention connector — we never store your books.",
     images: [`${siteUrl}/og-image.png`],
   },
   robots: {
@@ -84,41 +86,43 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const offers = [
+    { name: "Solopreneur", price: "39.00" },
+    { name: "Business", price: "99.00" },
+    { name: "Firm", price: "299.00" },
+  ].map((o) => ({
+    "@type": "Offer",
+    name: o.name,
+    price: o.price,
+    priceCurrency: "USD",
+    priceValidUntil: "2027-12-31",
+    availability: "https://schema.org/InStock",
+  }));
+
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "AccountingQB",
-    applicationCategory: "BusinessApplication",
-    operatingSystem: "Windows, macOS, Linux",
-    description:
-      "119 AI tools connecting Claude to your QuickBooks Online for automated bookkeeping, tax prep, and financial analysis for US and Canadian businesses.",
-    offers: [
+    "@graph": [
       {
-        "@type": "Offer",
-        name: "Solopreneur",
-        price: "39.00",
-        priceCurrency: "USD",
-        priceValidUntil: "2027-12-31",
-        availability: "https://schema.org/InStock",
+        "@type": "SoftwareApplication",
+        name: "AccountingQB",
+        applicationCategory: "BusinessApplication",
+        operatingSystem: "Windows, macOS, Linux",
+        url: siteUrl,
+        description:
+          "129 AI tools connecting Claude to your QuickBooks Online for automated bookkeeping, tax prep, and financial analysis for US and Canadian businesses.",
+        offers,
       },
       {
-        "@type": "Offer",
-        name: "Business",
-        price: "99.00",
-        priceCurrency: "USD",
-        priceValidUntil: "2027-12-31",
-        availability: "https://schema.org/InStock",
-      },
-      {
-        "@type": "Offer",
-        name: "Firm",
-        price: "299.00",
-        priceCurrency: "USD",
-        priceValidUntil: "2027-12-31",
-        availability: "https://schema.org/InStock",
+        "@type": "Organization",
+        name: "AccountingQB",
+        url: siteUrl,
+        logo: `${siteUrl}/og-image.png`,
+        description:
+          "AI-powered QuickBooks Online bookkeeping, reporting, and US & Canadian tax prep for Claude.",
+        founder: { "@type": "Organization", name: "Vaspera Capital" },
+        sameAs: ["https://github.com/RCOLKITT/AccountingQB-MCP"],
       },
     ],
-    aggregateRating: undefined,
   };
 
   return (

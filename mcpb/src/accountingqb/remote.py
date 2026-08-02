@@ -79,6 +79,56 @@ DEFAULT_REALM_TTL_SECONDS = 45 * 60
 
 PROTECTED_RESOURCE_PATH = "/.well-known/oauth-protected-resource"
 
+# --- 2026-07-28 MCP spec adoption (edge layer) -----------------------------
+# We are already stateless (streamable-HTTP, no session affinity) and use NONE
+# of the deprecated features (Roots/Sampling/Logging — SEP-2577), so the 12-month
+# deprecation clock does not touch us. This edge layer advertises spec-currency
+# and adds the two client-visible 2026-07-28 affordances without an SDK change:
+#   * cacheable tools/list results (ttlMs/cacheScope — SEP-2549), and
+#   * MCP-Protocol-Version advertising + a capability-discovery endpoint.
+# Header-based routing (Mcp-Method/Mcp-Name — SEP-2243) needs nothing here: the
+# transport already accepts arbitrary request headers, so any load balancer can
+# route/meter on them. Full protocol compliance (no-initialize, native
+# server/discover) lands when FastMCP 4.0 leaves beta.
+SPEC_PROTOCOL_VERSION = "2026-07-28"
+SUPPORTED_PROTOCOL_VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18"]
+# tools/list changes only on deploy, so it is safely cacheable for a while.
+TOOLS_LIST_TTL_MS = 60 * 60 * 1000  # 1 hour
+MCP_CAPABILITIES_PATH = "/.well-known/mcp-capabilities"
+
+
+def _augment_tools_list(body: bytes) -> bytes:
+    """Inject ttlMs/cacheScope into a JSON-RPC tools/list result (SEP-2549).
+
+    Only touches a response whose ``result`` carries a ``tools`` array — every
+    other response is returned byte-for-byte. Forward-compatible: pre-2026-07-28
+    clients ignore the extra fields."""
+    try:
+        obj = json.loads(body)
+    except (ValueError, TypeError):
+        return body
+
+    changed = False
+
+    def _aug(o: object) -> None:
+        nonlocal changed
+        if isinstance(o, dict):
+            res = o.get("result")
+            if isinstance(res, dict) and isinstance(res.get("tools"), list):
+                res.setdefault("ttlMs", TOOLS_LIST_TTL_MS)
+                res.setdefault("cacheScope", "public")
+                changed = True
+
+    if isinstance(obj, list):
+        for o in obj:
+            _aug(o)
+    else:
+        _aug(obj)
+
+    if not changed:
+        return body
+    return json.dumps(obj, separators=(",", ":")).encode()
+
 
 # ---------------------------------------------------------------------------
 # Default-realm TTL cache
@@ -245,6 +295,28 @@ class BearerAuthMiddleware:
             await self._send_response(send, 200, body, "application/json")
             return
 
+        if path == MCP_CAPABILITIES_PATH:
+            # Public capability discovery: advertise 2026-07-28 spec-currency,
+            # the stateless transport, cacheable tools/list, and — notably — that
+            # we use zero deprecated features.
+            body = json.dumps(
+                {
+                    "protocolVersions": SUPPORTED_PROTOCOL_VERSIONS,
+                    "capabilities": {"tools": {"listChanged": False}},
+                    "deprecatedFeaturesUsed": [],
+                    "transport": {"type": "streamable-http", "stateless": True},
+                    "cacheable": {
+                        "tools/list": {
+                            "ttlMs": TOOLS_LIST_TTL_MS,
+                            "cacheScope": "public",
+                        }
+                    },
+                    "headerRouting": {"supported": True, "headers": ["Mcp-Method", "Mcp-Name"]},
+                }
+            ).encode()
+            await self._send_response(send, 200, body, "application/json")
+            return
+
         # Everything else (/mcp and any future endpoint) requires a Bearer JWT.
         try:
             claims = self._verify_bearer(scope)
@@ -272,9 +344,59 @@ class BearerAuthMiddleware:
 
         token = set_ctx(ctx)
         try:
-            await self.app(scope, receive, send)
+            await self.app(scope, receive, self._augmenting_send(send))
         finally:
             reset_ctx(token)
+
+    def _augmenting_send(self, send):
+        """Wrap the downstream ASGI send to (1) advertise the 2026-07-28
+        protocol version on every response and (2) inject ttlMs/cacheScope into
+        a JSON tools/list result. JSON responses are buffered so content-length
+        stays correct; streaming (SSE) responses pass straight through."""
+        state = {"start": None, "json": False, "passthrough": False, "body": b""}
+
+        async def wrapped(message):
+            mtype = message["type"]
+            if mtype == "http.response.start":
+                headers = list(message.get("headers") or [])
+                ctype = b""
+                for k, v in headers:
+                    if k.lower() == b"content-type":
+                        ctype = v
+                        break
+                if b"application/json" in ctype:
+                    state["json"] = True
+                    state["start"] = message
+                else:
+                    # Non-JSON / streaming: forward now, just add the version header.
+                    state["passthrough"] = True
+                    headers.append((b"mcp-protocol-version", SPEC_PROTOCOL_VERSION.encode()))
+                    await send({**message, "headers": headers})
+                return
+
+            if mtype == "http.response.body":
+                if state["passthrough"]:
+                    await send(message)
+                    return
+                state["body"] += message.get("body", b"")
+                if message.get("more_body"):
+                    return
+                body = _augment_tools_list(state["body"])
+                start = state["start"]
+                new_headers = [
+                    (k, v)
+                    for (k, v) in start.get("headers") or []
+                    if k.lower() != b"content-length"
+                ]
+                new_headers.append((b"content-length", str(len(body)).encode()))
+                new_headers.append((b"mcp-protocol-version", SPEC_PROTOCOL_VERSION.encode()))
+                await send({**start, "headers": new_headers})
+                await send({"type": "http.response.body", "body": body, "more_body": False})
+                return
+
+            await send(message)
+
+        return wrapped
 
 
 # ---------------------------------------------------------------------------

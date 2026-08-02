@@ -53,6 +53,24 @@ export async function POST(req: NextRequest) {
           email: result.email,
           tier: result.tier,
         });
+        // Duplicate-subscription alert: if this email now has more than one live
+        // license, flag it so a customer isn't silently billed on two subs (the
+        // checkout guard only fires when the email is known up front).
+        if (result.email) {
+          const { data: live } = await supabase
+            .from("licenses")
+            .select("key")
+            .eq("email", result.email)
+            .in("status", ["active", "trialing"]);
+          if ((live?.length || 0) > 1) {
+            await sendAlert("⚠️ Duplicate subscription", [
+              `Email: ${result.email}`,
+              `Now has ${live!.length} live licenses/subscriptions.`,
+              `New license: ${result.licenseKey}`,
+              `Likely a re-checkout — cancel the extra in Stripe / see /admin/users.`,
+            ]);
+          }
+        }
       } else {
         // Log duplicate event (idempotent)
         await eventLogger.success(result.licenseKey, {
@@ -64,7 +82,12 @@ export async function POST(req: NextRequest) {
 
     case "customer.subscription.updated": {
       const sub = event.data.object as Stripe.Subscription;
-      const status = sub.status === "active" ? "active" :
+      // past_due = a failed charge Stripe is STILL retrying (dunning). Keep
+      // access during that window — revoking it instantly kills recovery.
+      // 'unpaid' means retries are EXHAUSTED (dead), so it falls through to
+      // 'expired' along with incomplete/incomplete_expired. Stripe fires
+      // subscription.deleted once it finally cancels, which we map to 'canceled'.
+      const status = sub.status === "active" || sub.status === "past_due" ? "active" :
                      sub.status === "trialing" ? "trialing" :
                      sub.status === "canceled" ? "canceled" : "expired";
 
