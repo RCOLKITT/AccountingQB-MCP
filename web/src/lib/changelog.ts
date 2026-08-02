@@ -14,6 +14,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.12",
+    date: "2026-08-02",
+    title: "P&L by department, vendor spend & purchase orders",
+    tag: "Feature",
+    summary:
+      "Three more native reports — and a fix so P&L-by-class actually returns class data.",
+    highlights: [
+      "Fixed qb_profit_loss_by_class: it asked QuickBooks for the wrong (singular) grouping value, so it always came back empty — now returns real class breakdowns",
+      "qb_profit_loss_by_department: the same P&L broken out by department/location",
+      "qb_vendor_expenses: total spend by vendor; qb_list_purchase_orders: open/closed POs with vendor, amount, and status",
+      "129 tools total across US & Canada",
+    ],
+  },
+  {
     version: "3.11",
     date: "2026-08-02",
     title: "Current with the 2026-07-28 MCP spec",
@@ -76,7 +90,7 @@ export const RELEASES: Release[] = [
       "qb_stripe_reconcile: posts a monthly journal entry through a Stripe Clearing account and ties the clearing balance to your Stripe balance",
       "Splits processing fees from platform fees (Sigma/Billing/Radar/Connect/Terminal) — in testing those platform fees were 3× the processing fees",
       "Dry-run by default (proposes the entry first), refuses to post if it doesn't tie or has unmapped transactions, and won't double-post a month",
-      "126 tools total across US & Canada",
+      "129 tools total across US & Canada",
     ],
   },
   {
@@ -103,7 +117,7 @@ export const RELEASES: Release[] = [
       "qb_sales_by_class and qb_sales_by_department: segment, program, and location performance",
       "qb_inventory_valuation: on-hand quantity, asset value, and average cost per item",
       "qb_list_classes and qb_list_departments: see the class/location dimensions your company tracks",
-      "126 tools total across US & Canada",
+      "129 tools total across US & Canada",
     ],
   },
   {
@@ -118,7 +132,7 @@ export const RELEASES: Release[] = [
       "qb_transaction_list: the flexible register — every transaction in a date range with full columns",
       "qb_profit_loss_detail: drill from any P&L number down to the transactions behind it",
       "qb_customer_balance_detail and qb_vendor_balance_detail: the line-item drill-down behind AR/AP aging",
-      "126 tools total across US & Canada",
+      "129 tools total across US & Canada",
     ],
   },
   {
@@ -172,7 +186,7 @@ export const RELEASES: Release[] = [
       "Reconciliation tie-outs, prior-year comparative statements (P&L + balance sheet), tax payments made, and owner's draws — the questions a CPA asks first, pre-answered",
       "A structured Tax Organizer replaces free-text notes: mileage, home office, health premiums, assets bought/sold, estimated payments",
       "Export the whole binder to Excel in one message",
-      "126 tools total across US & Canada",
+      "129 tools total across US & Canada",
     ],
   },
   {

@@ -2561,6 +2561,53 @@ async def qb_inventory_valuation(as_of_date: str = "") -> str:
     return "\n".join(lines)
 
 
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_vendor_expenses(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+    """Total spend by vendor for a date range (QuickBooks VendorExpenses report).
+    Dates YYYY-MM-DD (default: current year-to-date). basis: '' (QuickBooks
+    default), 'cash', or 'accrual'."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    params = {"start_date": start_date, "end_date": end_date,
+              "summarize_column_by": "Total"}
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/VendorExpenses", params=params)
+    h = report.get("Header", {})
+    basis_note = f" · {method} basis" if method else ""
+    lines = [f"## Vendor Expenses: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"]
+    _parse_report_rows(report.get("Rows", {}).get("Row", []), lines)
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_list_purchase_orders(start_date: str = "", end_date: str = "", status: str = "") -> str:
+    """List purchase orders in a date range — date, PO number, vendor, amount, and
+    status (Open/Closed). Dates YYYY-MM-DD (default: current year-to-date).
+    status: 'Open', 'Closed', or '' for all."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    res = await qb_query_all(
+        f"SELECT * FROM PurchaseOrder WHERE TxnDate >= '{start_date}' "
+        f"AND TxnDate <= '{end_date}'")
+    pos = res.get("QueryResponse", {}).get("PurchaseOrder", [])
+    if status:
+        pos = [p for p in pos if (p.get("POStatus", "").lower() == status.lower())]
+    if not pos:
+        suffix = f" (status {status})" if status else ""
+        return f"No purchase orders found between {start_date} and {end_date}{suffix}."
+    pos.sort(key=lambda p: p.get("TxnDate", ""), reverse=True)
+    total = sum(float(p.get("TotalAmt", 0) or 0) for p in pos)
+    lines = [f"## Purchase Orders: {start_date} to {end_date} ({len(pos)})\n",
+             "| Date | PO # | Vendor | Amount | Status |", "|---|---|---|---|---|"]
+    for p in pos:
+        lines.append(
+            f"| {p.get('TxnDate', '?')} | {p.get('DocNumber', '—')} | "
+            f"{(p.get('VendorRef') or {}).get('name', '—')} | {fmt(p.get('TotalAmt'))} | "
+            f"{p.get('POStatus', '—')} |")
+    lines.append(f"\n**Total: {fmt(total)}**")
+    return "\n".join(lines)
+
+
 # ===================================================================
 # PROCESSOR RECONCILIATION — Stripe → books (v1, export-based)
 # ===================================================================
@@ -5550,27 +5597,39 @@ async def qb_create_bill(vendor_name: str, amount: float, account_name: str, dat
             f"  Category: {acct_list[0]['Name']}")
 
 
-@mcp.tool(annotations={"readOnlyHint": True})
-async def qb_profit_loss_by_class(start_date: str = "", end_date: str = "") -> str:
-    """Generate P&L report broken down by class/department. Useful for multi-segment businesses.
-    Dates in YYYY-MM-DD (default: current year-to-date). Returns nothing if classes aren't used."""
+async def _profit_loss_by_dimension(start_date, end_date, column, label, needs):
+    """Shared P&L-by-dimension. column is the QBO summarize_column_by value —
+    which is PLURAL ('Classes'/'Departments'); the singular form is silently
+    ignored by QBO and yields a non-columnar P&L (the old 'No class data' bug)."""
     start_date, end_date = _ytd_range(start_date, end_date)
     result = await qb_request("GET", "reports/ProfitAndLoss", params={
         "start_date": start_date, "end_date": end_date,
-        "summarize_column_by": "Class"
+        "summarize_column_by": column,
     })
-
-    header = result.get("Header", {})
-    columns = result.get("Columns", {}).get("Column", [])
-    col_names = [c.get("ColTitle", "") for c in columns]
-
+    col_names = [c.get("ColTitle", "") for c in result.get("Columns", {}).get("Column", [])]
     if len(col_names) <= 2:
-        return "No class data found. This report requires QuickBooks classes to be enabled."
-
-    lines = [f"## Profit & Loss by Class: {start_date} to {end_date}\n"]
-    report_rows = result.get("Rows", {}).get("Row", [])
-    _parse_report_rows(report_rows, lines)
+        return f"No {label} data found. This report requires QuickBooks {needs}."
+    lines = [f"## Profit & Loss by {label.title()}: {start_date} to {end_date}\n"]
+    _parse_report_rows(result.get("Rows", {}).get("Row", []), lines)
     return "\n".join(lines)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_profit_loss_by_class(start_date: str = "", end_date: str = "") -> str:
+    """Generate a P&L broken down by class (segment/program). Useful for
+    multi-segment businesses. Dates in YYYY-MM-DD (default: current year-to-date).
+    Returns nothing if class tracking isn't enabled."""
+    return await _profit_loss_by_dimension(
+        start_date, end_date, "Classes", "class", "class tracking to be enabled")
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_profit_loss_by_department(start_date: str = "", end_date: str = "") -> str:
+    """Generate a P&L broken down by department/location. Dates in YYYY-MM-DD
+    (default: current year-to-date). Returns nothing if location tracking isn't
+    enabled."""
+    return await _profit_loss_by_dimension(
+        start_date, end_date, "Departments", "department", "location tracking to be enabled")
 
 
 @mcp.tool(annotations={"readOnlyHint": True})

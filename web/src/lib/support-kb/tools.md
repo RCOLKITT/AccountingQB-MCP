@@ -1,4 +1,4 @@
-# AccountingQB Tools (126 Total)
+# AccountingQB Tools (129 Total)
 
 ## Company & Entities (14)
 | Tool | Description |
@@ -18,7 +18,7 @@
 | qb_create_sub_account | Create a sub-account under a parent |
 | qb_inactivate_account | Hide unused accounts |
 
-## Transactions (17)
+## Transactions (18)
 | Tool | Description |
 |------|-------------|
 | qb_list_transactions | Purchases/expenses with filters |
@@ -35,6 +35,7 @@
 | qb_list_vendor_credits | Vendor credits received |
 | qb_list_estimates | Estimates/quotes with status filter |
 | qb_search_transactions | Search across ALL transaction types |
+| qb_list_purchase_orders | List purchase orders — vendor, amount, Open/Closed status |
 | qb_list_recurring_transactions | Recurring templates and schedules |
 | qb_transaction_detail | Full detail for any single transaction |
 | qb_account_transactions | All transactions hitting a specific account |
@@ -65,12 +66,14 @@
 | qb_batch_create_bills | Bulk bill import |
 | qb_batch_create_journal_entries | Bulk JE import |
 
-## Reports & Analysis (27)
+## Reports & Analysis (29)
 | Tool | Description |
 |------|-------------|
 | qb_profit_loss | P&L by total, month, quarter, or year |
 | qb_profit_loss_detail | P&L drill-down — every transaction behind each line, by account |
-| qb_profit_loss_by_class | P&L by department/class |
+| qb_profit_loss_by_class | P&L broken out by class (segment/program) |
+| qb_profit_loss_by_department | P&L broken out by department/location |
+| qb_vendor_expenses | Total spend by vendor (VendorExpenses report) |
 | qb_sales_by_customer | Total sales (income) by customer for a date range |
 | qb_sales_by_product | Sales by product/service (item) — quantity and amount |
 | qb_sales_by_class | Sales broken out by class (segment/program) |

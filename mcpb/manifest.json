@@ -2,9 +2,9 @@
   "manifest_version": "0.3",
   "name": "accountingqb",
   "display_name": "AccountingQB \u2014 QuickBooks for Claude",
-  "version": "3.11.0",
+  "version": "3.12.0",
   "icon": "icon.png",
-  "description": "126 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
+  "description": "129 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
   "long_description": "Connect Claude to your QuickBooks Online with one click. Run P&L reports, reconcile transactions, prep for taxes, detect anomalies, and more. Full US and Canada support: Schedule C, quarterly estimates and 1099s for the US; GST/HST returns, T2125, CCA schedules, T4A reporting and CRA instalments for Canada. Your data stays on your machine \u2014 zero cloud routing.\n\n**Getting Started:**\n1. Enter your license key (get one at accountingqb.com)\n2. Click 'Connect QuickBooks' when prompted\n3. Start asking Claude about your books!\n\n**Requirements:** Python 3.10 or newer on your machine (all Python package dependencies are bundled with the extension).",
   "author": {
     "name": "Vaspera Capital",
@@ -943,6 +943,66 @@
           "as_of_date": {
             "type": "string",
             "description": "As Of Date",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_vendor_expenses",
+      "description": "Total spend by vendor for a date range (QuickBooks VendorExpenses report).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "basis": {
+            "type": "string",
+            "description": "Basis",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_list_purchase_orders",
+      "description": "List purchase orders in a date range \u2014 date, PO number, vendor, amount, and",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "description": "Status",
             "default": ""
           }
         }
@@ -2242,6 +2302,31 @@
     {
       "name": "qb_profit_loss_by_class",
       "description": "P&L by class/department",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "Start Date",
+            "default": ""
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End Date",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_profit_loss_by_department",
+      "description": "Generate a P&L broken down by department/location. Dates in YYYY-MM-DD",
       "inputSchema": {
         "type": "object",
         "properties": {
