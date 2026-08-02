@@ -2103,11 +2103,20 @@ async def qb_search_transactions(start_date: str, end_date: str, search_term: st
 
     for qb_entity, response_key, transform in entity_configs:
         try:
-            q = f"SELECT * FROM {qb_entity} WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
-            res = await qb_query(q)
+            # Fetch the WHOLE range (paginated) then filter in Python — a bare
+            # MAXRESULTS would truncate before the search_term match runs.
+            q = f"SELECT * FROM {qb_entity} WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
+            res = await qb_query_all(q)
             items = res.get("QueryResponse", {}).get(response_key, [])
             for item in items:
                 txn = transform(item)
+                # Bank-feed descriptors live on the LINE Description, not
+                # PrivateNote — fold them in so search actually finds them.
+                desc = " ".join(l.get("Description", "") for l in item.get("Line", [])
+                                if l.get("Description"))
+                txn["desc"] = desc
+                if not txn.get("memo"):
+                    txn["memo"] = desc[:120]
                 if not term or any(term in str(v).lower() for v in txn.values()):
                     all_txns.append(txn)
         except Exception:
@@ -2132,7 +2141,9 @@ async def qb_search_transactions(start_date: str, end_date: str, search_term: st
         if txn.get("memo"):
             lines.append(f"  Memo: {txn['memo']}")
 
-    lines.append(f"\n**{len(all_txns)} transactions | Total: {fmt(total)}**")
+    cap_note = (f" — showing the first {max_results}"
+                if len(all_txns) > max_results else "")
+    lines.append(f"\n**{len(all_txns)} transactions | Total: {fmt(total)}**{cap_note}")
     return "\n".join(lines)
 
 
@@ -3416,25 +3427,49 @@ async def qb_tax_summary(start_date: str = "", end_date: str = "") -> str:
 # ===================================================================
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_accounts(max_results: int = 100) -> str:
-    """List all chart of accounts (expense categories, income accounts, etc.) in QuickBooks."""
-    # Demo mode: return mock accounts
+async def qb_list_accounts(account_type: str = "", active_only: bool = False,
+                           max_results: int = 0) -> str:
+    """List the chart of accounts. Fetches the FULL chart (paginated) so a large
+    CoA isn't silently truncated. Optionally filter by account_type (e.g. 'Bank',
+    'Credit Card', 'Expense', 'Income', 'Accounts Payable', 'Fixed Asset') and/or
+    active_only. max_results > 0 caps only the number of rows displayed."""
     if _demo_active():
-        accounts = DEMO_ACCOUNTS[:max_results]
+        accounts = list(DEMO_ACCOUNTS)
+        if account_type:
+            accounts = [a for a in accounts if a.get("AccountType") == account_type]
+        if active_only:
+            accounts = [a for a in accounts if a.get("Active", True)]
     else:
-        query = f"SELECT * FROM Account MAXRESULTS {max_results}"
-        result = await qb_query(query)
+        where = []
+        if account_type:
+            where.append(f"AccountType = '{account_type.replace(chr(39), chr(92) + chr(39))}'")
+        if active_only:
+            where.append("Active = true")
+        query = "SELECT * FROM Account" + (" WHERE " + " AND ".join(where) if where else "")
+        result = await qb_query_all(query)
         accounts = result.get("QueryResponse", {}).get("Account", [])
 
     if not accounts:
-        return "No accounts found."
+        filt = ", ".join(filter(None, [account_type, "active only" if active_only else ""]))
+        return "No accounts found." + (f" (filter: {filt})" if filt else "")
+
+    total = len(accounts)
+    if max_results and total > max_results:
+        accounts = accounts[:max_results]
 
     grouped = {}
     for a in accounts:
         atype = a.get("AccountType", "Other")
         grouped.setdefault(atype, []).append(a)
 
-    lines = ["## Chart of Accounts\n"]
+    hdr = f"## Chart of Accounts ({total} account{'s' if total != 1 else ''}"
+    if len(accounts) < total:
+        hdr += f", showing {len(accounts)}"
+    if account_type:
+        hdr += f", type={account_type}"
+    if active_only:
+        hdr += ", active only"
+    lines = [hdr + ")\n"]
     for atype in sorted(grouped.keys()):
         lines.append(f"### {atype}")
         for a in grouped[atype]:
@@ -4201,9 +4236,11 @@ async def qb_uncategorized_transactions(start_date: str = "", end_date: str = ""
 
     all_uncategorized = []
     for acct_id in acct_ids:
-        q = f"SELECT * FROM Purchase WHERE AccountRef = '{acct_id}'{date_filter} MAXRESULTS {max_results}"
+        # Fetch every matching purchase (paginated) — a cap here would understate
+        # how much is uncategorized, defeating the point of the tool.
+        q = f"SELECT * FROM Purchase WHERE AccountRef = '{acct_id}'{date_filter}"
         try:
-            result = await qb_query(q)
+            result = await qb_query_all(q)
             purchases = result.get("QueryResponse", {}).get("Purchase", [])
             for p in purchases:
                 all_uncategorized.append({
@@ -4221,13 +4258,14 @@ async def qb_uncategorized_transactions(start_date: str = "", end_date: str = ""
         return "No uncategorized transactions found — everything is categorized!"
 
     all_uncategorized.sort(key=lambda x: x["date"] or "", reverse=True)
-    lines = [f"## Uncategorized Transactions ({len(all_uncategorized)} found)\n"]
-    total = 0.0
-    for t in all_uncategorized:
+    total = sum(t["amount"] for t in all_uncategorized)  # true total, all rows
+    shown = all_uncategorized[:max_results] if max_results else all_uncategorized
+    cap_note = f" — showing the first {len(shown)}" if len(shown) < len(all_uncategorized) else ""
+    lines = [f"## Uncategorized Transactions ({len(all_uncategorized)} found){cap_note}\n"]
+    for t in shown:
         lines.append(f"- **{t['date']}** | {t['vendor']} | {fmt(t['amount'])} | {t['account']} | ID: {t['id']}")
         if t["memo"]:
             lines.append(f"  Memo: {t['memo']}")
-        total += t["amount"]
     lines.append(f"\n**Total uncategorized: {fmt(total)}**")
     return "\n".join(lines)
 
@@ -4236,8 +4274,10 @@ async def qb_uncategorized_transactions(start_date: str = "", end_date: str = ""
 async def qb_find_duplicates(start_date: str = "", end_date: str = "", tolerance_days: int = 3, max_results: int = 200) -> str:
     """Find potential duplicate transactions within a date range. Matches by amount and vendor within tolerance_days window. Dates in YYYY-MM-DD (default: current year-to-date)."""
     start_date, end_date = _ytd_range(start_date, end_date)
-    result = await qb_query(
-        f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
+    # Duplicate detection over a TRUNCATED set is meaningless — fetch the whole
+    # range (paginated). max_results caps only the displayed pairs below.
+    result = await qb_query_all(
+        f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
     )
     purchases = result.get("QueryResponse", {}).get("Purchase", [])
     if not purchases:
@@ -4267,8 +4307,10 @@ async def qb_find_duplicates(start_date: str = "", end_date: str = "", tolerance
     if not dupes:
         return f"No potential duplicates found between {start_date} and {end_date}. Books look clean!"
 
-    lines = [f"## Potential Duplicates ({len(dupes)} pairs found)\n"]
-    for a, b in dupes:
+    shown = dupes[:max_results] if max_results and len(dupes) > max_results else dupes
+    cap_note = f" — showing the first {len(shown)}" if len(shown) < len(dupes) else ""
+    lines = [f"## Potential Duplicates ({len(dupes)} pairs found){cap_note}\n"]
+    for a, b in shown:
         lines.append(f"**{a.get('EntityRef', {}).get('name', 'Unknown')}** — {fmt(float(a.get('TotalAmt', 0)))}:")
         lines.append(f"  1. {a['TxnDate']} (ID: {a['Id']}) — {a.get('PrivateNote', '') or 'no memo'}")
         lines.append(f"  2. {b['TxnDate']} (ID: {b['Id']}) — {b.get('PrivateNote', '') or 'no memo'}")
@@ -6529,21 +6571,25 @@ async def qb_account_transactions(account_name: str, start_date: str = "", end_d
         "",
     ]
 
-    # Query multiple transaction types that could hit this account
+    # Query multiple transaction types that could hit this account. These are
+    # fetched IN FULL (qb_query_all paginates) and filtered to the account in
+    # Python — the account lives on line items, so a bare MAXRESULTS cap would
+    # truncate BEFORE filtering and report a confidently wrong count. max_results
+    # caps only the displayed rows below.
     txn_types = {
-        "Purchase": f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}",
-        "Deposit": f"SELECT * FROM Deposit WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}",
-        "JournalEntry": f"SELECT * FROM JournalEntry WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}",
-        "Transfer": f"SELECT * FROM Transfer WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}",
-        "Bill": f"SELECT * FROM Bill WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}",
-        "BillPayment": f"SELECT * FROM BillPayment WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}",
+        "Purchase": f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'",
+        "Deposit": f"SELECT * FROM Deposit WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'",
+        "JournalEntry": f"SELECT * FROM JournalEntry WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'",
+        "Transfer": f"SELECT * FROM Transfer WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'",
+        "Bill": f"SELECT * FROM Bill WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'",
+        "BillPayment": f"SELECT * FROM BillPayment WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'",
     }
 
     all_txns = []
 
     for txn_type, query in txn_types.items():
         try:
-            result = (await qb_query(query)).get("QueryResponse", {}).get(txn_type, [])
+            result = (await qb_query_all(query)).get("QueryResponse", {}).get(txn_type, [])
         except Exception:
             continue
 
@@ -6621,13 +6667,17 @@ async def qb_account_transactions(account_name: str, start_date: str = "", end_d
             lines.append("No transactions found for this account in the date range.")
         return "\n".join(lines)
 
-    # Build detailed output
+    # Build detailed output. The count + total reflect ALL matching transactions
+    # (fully paginated); max_results caps only how many rows we print.
     total_amount = sum(t["amount"] for t in all_txns)
-    lines.append(f"**Transactions Found:** {len(all_txns)} | **Total:** {fmt(total_amount)}\n")
+    shown = all_txns[:max_results] if max_results and len(all_txns) > max_results else all_txns
+    cap_note = (f" — showing the first {len(shown)}"
+                if len(shown) < len(all_txns) else "")
+    lines.append(f"**Transactions Found:** {len(all_txns)} | **Total:** {fmt(total_amount)}{cap_note}\n")
     lines.append("| Date | Type | ID | Vendor | Amount | Memo |")
     lines.append("|------|------|----|--------|--------|------|")
 
-    for t in all_txns:
+    for t in shown:
         memo_short = t["memo"][:40] + "..." if len(t["memo"]) > 40 else t["memo"]
         lines.append(
             f"| {t['date']} | {t['type']} | {t['id']} | {t['vendor']} | {fmt(t['amount'])} | {memo_short} |"

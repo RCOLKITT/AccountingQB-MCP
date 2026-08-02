@@ -14,6 +14,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.9.2",
+    date: "2026-08-02",
+    title: "Complete counts, every time",
+    tag: "Platform",
+    summary:
+      "Fixed silent truncation in the reconciliation and cleanup tools — they now read every matching transaction before reporting a count, so a busy account can't come back showing a fraction of its activity.",
+    highlights: [
+      "qb_account_transactions, qb_search_transactions, qb_uncategorized_transactions and qb_find_duplicates now page through the full result set and report the true total (with an honest 'showing the first N' when a display cap applies)",
+      "qb_list_accounts fetches the whole chart (no more silent cut-off on large charts) and gained real account_type and active_only filters",
+      "Transaction search now matches bank-feed descriptors on the line, not just the top-level memo — 'MOBILE PAYMENT' and the like are findable again",
+    ],
+  },
+  {
     version: "3.9.1",
     date: "2026-08-02",
     title: "Stripe reconciliation, now automatic",
