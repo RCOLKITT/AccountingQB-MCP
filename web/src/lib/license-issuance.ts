@@ -38,7 +38,10 @@ export async function ensureLicenseForSession(
   }
 
   const tier = session.metadata?.tier || "solopreneur";
-  const email = session.customer_email || session.customer_details?.email || "";
+  // Stripe always collects an email for subscription-mode Checkout, so this is
+  // effectively always present; trim + the empty-case log below make a missing
+  // one visible instead of a silent "customer paid but got no key" failure.
+  const email = (session.customer_email || session.customer_details?.email || "").trim();
 
   // Check if license already exists (idempotent — safe for replayed webhook
   // events and concurrent reconciliation)
@@ -122,6 +125,13 @@ export async function ensureLicenseForSession(
     } catch (emailErr) {
       console.error("Failed to send license email:", emailErr);
     }
+  } else {
+    // Should be unreachable for subscription checkout — surface it loudly so a
+    // paying customer without a key email is caught, not silently lost.
+    console.error(
+      `⚠️ License ${licenseKey} issued with NO email (session ${session.id}) — ` +
+        `key email not sent; customer must retrieve it from the success page or dashboard.`
+    );
   }
 
   console.log(`New license created: ${licenseKey} for ${email} (${tier})`);
