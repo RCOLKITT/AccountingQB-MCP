@@ -14,6 +14,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.14.1",
+    date: "2026-08-03",
+    title: "Security hardening — logging, secrets, and tenant-isolation tests",
+    tag: "Platform",
+    summary:
+      "A defensive security pass tightening what reaches logs, how token encryption fails, and how we prove tenant isolation. No customer action needed.",
+    highlights: [
+      "Logging hygiene: the connector no longer emits request URLs at info level, and web endpoints log identifiers instead of emails, license keys, or upstream response bodies",
+      "Token encryption fails closed in production — OAuth tokens are never written to the database unencrypted; they remain AES-256-GCM at rest",
+      "Added explicit multi-tenant isolation tests (a license can only ever reach its own connected companies) and a CI secret/realm-id scan to catch accidental leaks",
+      "130 tools total across US & Canada",
+    ],
+  },
+  {
     version: "3.14.0",
     date: "2026-08-03",
     title: "Canonical tax taxonomy — mappings anchored to IRS & CRA codes",
