@@ -285,7 +285,9 @@ async function refreshAccessToken(token: {
     });
 
     if (!res.ok) {
-      console.error("Token refresh failed:", await res.text());
+      // Status only — never log the Intuit response body (avoids writing any
+      // request/response detail to Vercel logs).
+      console.error("Token refresh failed:", res.status);
       return null;
     }
 
