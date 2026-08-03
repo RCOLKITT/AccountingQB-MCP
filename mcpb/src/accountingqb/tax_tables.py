@@ -12,9 +12,10 @@ from __future__ import annotations
 import hashlib
 import json
 import pathlib
+import re
 
-TAX_DATA_VERSION = "2026.4"       # bumped by every approved rates PR
-TAX_DATA_VERIFIED = "2026-08-01"  # date of the last full verification sweep
+TAX_DATA_VERSION = "2026.5"       # bumped by every approved rates PR
+TAX_DATA_VERIFIED = "2026-08-03"  # date of the last full verification sweep
 
 
 class TaxDataError(ValueError):
@@ -280,59 +281,227 @@ def _ca_agency_is_provincial(display_name: str) -> bool:
     name = f" {(display_name or '').lower()}"
     return any(hint in name for hint in _CA_PROVINCIAL_AGENCY_HINTS)
 
-# T2125 Part 4 line numbers — QB account-name keyword -> (line, description).
-# Insertion order matters: more specific keywords must precede generic ones
-# (e.g. "property tax" before "business tax", "stationery" before "office").
-_T2125_LINE_MAP = {
-    "advertis": ("8521", "Advertising"),
-    "marketing": ("8521", "Advertising"),
-    "meal": ("8523", "Meals & entertainment (50% deductible)"),
-    "entertain": ("8523", "Meals & entertainment (50% deductible)"),
-    "bad debt": ("8590", "Bad debts"),
-    "insurance": ("8690", "Insurance"),
-    "interest": ("8710", "Interest & bank charges"),
-    "bank": ("8710", "Interest & bank charges"),
-    "property tax": ("9180", "Property taxes"),
-    "business tax": ("8760", "Business taxes, licences & memberships"),
-    "licence": ("8760", "Business taxes, licences & memberships"),
-    "license": ("8760", "Business taxes, licences & memberships"),
-    "membership": ("8760", "Business taxes, licences & memberships"),
-    "due": ("8760", "Business taxes, licences & memberships"),
-    "stationery": ("8811", "Office stationery & supplies"),
-    "supplies": ("8811", "Office stationery & supplies"),
-    "office": ("8810", "Office expenses"),
-    "legal": ("8860", "Professional fees (incl. legal & accounting)"),
-    "accounting": ("8860", "Professional fees (incl. legal & accounting)"),
-    "bookkeep": ("8860", "Professional fees (incl. legal & accounting)"),
-    "professional": ("8860", "Professional fees (incl. legal & accounting)"),
-    "management fee": ("8871", "Management & administration fees"),
-    "admin": ("8871", "Management & administration fees"),
-    "rent": ("8910", "Rent"),
-    "repair": ("8960", "Repairs & maintenance"),
-    "maintenance": ("8960", "Repairs & maintenance"),
-    "salar": ("9060", "Salaries, wages & benefits"),
-    "wage": ("9060", "Salaries, wages & benefits"),
-    "payroll": ("9060", "Salaries, wages & benefits"),
-    "travel": ("9200", "Travel expenses"),
-    "utilit": ("9220", "Utilities"),
-    "phone": ("9220", "Utilities"),
-    "telephone": ("9220", "Utilities"),
-    "internet": ("9220", "Utilities"),
-    "fuel": ("9224", "Fuel costs (except motor vehicles)"),
-    "delivery": ("9275", "Delivery, freight & express"),
-    "freight": ("9275", "Delivery, freight & express"),
-    "shipping": ("9275", "Delivery, freight & express"),
-    "vehicle": ("9281", "Motor vehicle expenses"),
-    "automobile": ("9281", "Motor vehicle expenses"),
-    "auto": ("9281", "Motor vehicle expenses"),
-    "mileage": ("9281", "Motor vehicle expenses"),
-    "motor": ("9281", "Motor vehicle expenses"),
-    "software": ("9270", "Other expenses"),
-    "subscription": ("9270", "Other expenses"),
-    "hosting": ("9270", "Other expenses"),
-    "education": ("9270", "Other expenses"),
-    "training": ("9270", "Other expenses"),
+# (The former _T2125_LINE_MAP keyword table was folded into the canonical
+# taxonomy below: subtype mappings in _ACCOUNT_TAXONOMY, the CA name fallback in
+# _NAME_FALLBACK_CA, and the line catalog in _T2125_CATALOG.)
+
+# ===================================================================
+# CANONICAL ACCOUNT-CLASSIFICATION TAXONOMY (US Schedule C + CA T2125)
+# ===================================================================
+# Keyed on the QuickBooks AccountSubType enum — authoritative, stable, and
+# locale-independent — so classification does not depend on free-text account
+# names. Each entry names the destination line per jurisdiction; a line of
+# None means "no mapping for that jurisdiction" (falls through to the name
+# rules), and the special US line "NONDED" marks a book expense that is NOT
+# deductible on Schedule C (e.g. entertainment, IRC §274(a)). Names remain a
+# fallback for accounts with a blank/custom subtype (see _NAME_FALLBACK_*).
+
+_ACCOUNT_TAXONOMY = {
+    # --- Income (AccountType Income) --------------------------------
+    "SalesOfProductIncome":     {"us": "1", "ca": "8000"},
+    "ServiceFeeIncome":         {"us": "1", "ca": "8000"},
+    "OtherPrimaryIncome":       {"us": "1", "ca": "8000"},
+    "UnappliedCashPaymentIncome": {"us": "1", "ca": "8000"},
+    "DiscountsRefundsGiven":    {"us": "2", "ca": "8000a"},   # returns & allowances
+    # --- Other Income (AccountType Other Income) -> Line 6 / CA 8230 -
+    "InterestEarned":           {"us": "6", "ca": "8230"},
+    "DividendIncome":           {"us": "6", "ca": "8230"},
+    "TaxExemptInterest":        {"us": "6", "ca": "8230"},
+    "OtherMiscellaneousIncome": {"us": "6", "ca": "8230"},
+    # --- Expenses (AccountType Expense) -----------------------------
+    "AdvertisingPromotional":   {"us": "8",  "ca": "8521"},
+    "Auto":                     {"us": "9",  "ca": "9281"},
+    "CommissionsAndFees":       {"us": "10", "ca": "9270"},
+    "PayrollExpenses":          {"us": "26", "ca": "9060"},
+    "Insurance":                {"us": "15", "ca": "8690"},
+    "InterestPaid":             {"us": "16b", "ca": "8710"},
+    "FinanceCosts":             {"us": "16b", "ca": "8710"},
+    "BankCharges":              {"us": "27a", "ca": "8710"},
+    "BadDebts":                 {"us": "27a", "ca": "8590"},
+    "LegalProfessionalFees":    {"us": "17", "ca": "8860"},
+    "OfficeExpenses":           {"us": "18", "ca": "8810"},
+    "OfficeGeneralAdministrativeExpenses": {"us": "18", "ca": "8810"},
+    "DuesSubscriptions":        {"us": "27a", "ca": "8760"},
+    "SuppliesMaterials":        {"us": "22", "ca": "8811"},
+    "RentOrLeaseOfBuildings":   {"us": "20b", "ca": "8910"},
+    "EquipmentRental":          {"us": "20a", "ca": "8910"},
+    "RepairMaintenance":        {"us": "21", "ca": "8960"},
+    "Travel":                   {"us": "24a", "ca": "9200"},
+    "TravelMeals":              {"us": "24b", "ca": "8523"},
+    "PromotionalMeals":         {"us": "24b", "ca": "8523"},
+    "EntertainmentMeals":       {"us": "24b", "ca": "8523"},
+    "Entertainment":            {"us": "NONDED", "ca": "8523"},  # §274: not deductible (US)
+    "Utilities":                {"us": "25", "ca": "9220"},
+    "ShippingFreightDelivery":  {"us": "27a", "ca": "9275"},
+    "OtherMiscellaneousServiceCost": {"us": "27a", "ca": "9270"},
+    "OtherBusinessExpenses":    {"us": "27a", "ca": "9270"},
 }
+
+# Authoritative line catalog per jurisdiction: the canonical ID + citation.
+# The optional US "mef" slot is reserved for a later, verified population of
+# IRS MeF XML element names (left None until each is checked against the
+# schema). The taxonomy may only target lines that exist here (gate-enforced).
+_IRS_SCHED_C = "https://www.irs.gov/instructions/i1040sc"
+_CRA_T2125 = "https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t2125.html"
+
+_SCHEDULE_C_CATALOG = {
+    "1":   {"desc": "Gross receipts or sales", "mef": None},
+    "2":   {"desc": "Returns and allowances", "mef": None},
+    "6":   {"desc": "Other income", "mef": None},
+    "8":   {"desc": "Advertising", "mef": None},
+    "9":   {"desc": "Car and truck expenses", "mef": None},
+    "10":  {"desc": "Commissions and fees", "mef": None},
+    "11":  {"desc": "Contract labor", "mef": None},
+    "12":  {"desc": "Depletion", "mef": None},
+    "13":  {"desc": "Depreciation and section 179", "mef": None},
+    "14":  {"desc": "Employee benefit programs", "mef": None},
+    "15":  {"desc": "Insurance (other than health)", "mef": None},
+    "16a": {"desc": "Mortgage interest", "mef": None},
+    "16b": {"desc": "Other interest", "mef": None},
+    "17":  {"desc": "Legal and professional services", "mef": None},
+    "18":  {"desc": "Office expense", "mef": None},
+    "19":  {"desc": "Pension and profit-sharing plans", "mef": None},
+    "20a": {"desc": "Rent or lease (vehicles, machinery, equipment)", "mef": None},
+    "20b": {"desc": "Rent or lease (other business property)", "mef": None},
+    "21":  {"desc": "Repairs and maintenance", "mef": None},
+    "22":  {"desc": "Supplies", "mef": None},
+    "23":  {"desc": "Taxes and licenses", "mef": None},
+    "24a": {"desc": "Travel", "mef": None},
+    "24b": {"desc": "Deductible meals", "mef": None},
+    "25":  {"desc": "Utilities", "mef": None},
+    "26":  {"desc": "Wages", "mef": None},
+    "27a": {"desc": "Other expenses", "mef": None},
+    "NONDED": {"desc": "Non-deductible (not on Schedule C — e.g. entertainment, §274)", "mef": None},
+}
+# authority + cite are uniform for the form, attach them once
+for _k, _v in _SCHEDULE_C_CATALOG.items():
+    _v["authority"], _v["cite"] = "IRS-Sch-C", _IRS_SCHED_C
+
+_T2125_CATALOG = {
+    "8000":  "Gross sales, commissions or fees",
+    "8000a": "Returns, allowances & discounts",
+    "8230":  "Other income (interest, etc.)",
+    "8340":  "Subcontracts (Part 3)",
+    "8521":  "Advertising",
+    "8523":  "Meals & entertainment (50%)",
+    "8590":  "Bad debts",
+    "8690":  "Insurance",
+    "8710":  "Interest & bank charges",
+    "8760":  "Business taxes, licences, dues & memberships",
+    "8810":  "Office expenses",
+    "8811":  "Office stationery & supplies",
+    "8860":  "Professional fees (incl. legal & accounting)",
+    "8871":  "Management & administration fees",
+    "8910":  "Rent",
+    "8960":  "Repairs & maintenance",
+    "9060":  "Salaries, wages & benefits",
+    "9180":  "Property taxes",
+    "9200":  "Travel expenses",
+    "9220":  "Utilities",
+    "9224":  "Fuel costs (except motor vehicles)",
+    "9270":  "Other expenses",
+    "9275":  "Delivery, freight & express",
+    "9281":  "Motor vehicle expenses",
+}
+_T2125_CATALOG = {k: {"desc": v, "authority": "CRA-GIFI", "cite": _CRA_T2125}
+                  for k, v in _T2125_CATALOG.items()}
+
+# Name-based FALLBACK rules (used only when AccountSubType is blank/custom).
+# BOTH jurisdictions compile with a leading word boundary so "Credit Card"
+# never hits Line 9 and "overdue" never hits CA "due". First match wins;
+# order = specific before generic.
+_NAME_FALLBACK_US = [
+    (r"mortgage", "16a"),
+    (r"advertis|marketing", "8"),
+    (r"cars?\b|truck|vehicle|automobile|mileage", "9"),
+    (r"commission", "10"),
+    (r"contract labou?r|subcontractor|contractor|freelancer", "11"),
+    (r"pension|profit[- ]?sharing|401\(?k\)?|retirement plan|sep[- ]?ira|simple ira", "19"),
+    (r"employee benefit|health benefit|group insurance", "14"),
+    (r"depreciation|amortization", "13"),
+    (r"insurance", "15"),
+    (r"interest|finance charge", "16b"),
+    (r"legal|professional|accounting|bookkeep|consult", "17"),
+    (r"equipment (rent|lease)|vehicle (rent|lease)|machinery (rent|lease)|"
+     r"(rent|lease).{0,12}(equipment|vehicle|machinery)", "20a"),
+    (r"rent|lease", "20b"),
+    (r"repair|maintenance", "21"),
+    (r"office", "18"),
+    (r"supplies|stationery", "22"),
+    (r"tax(?:es)?\b|licen[cs]e|permit", "23"),
+    (r"travel|hotel|lodging|airfare|airline|flight|taxi|rideshare|ride ?share|"
+     r"uber|lyft", "24a"),
+    # meals BEFORE entertainment: a combined "Meals & Entertainment" account maps
+    # to deductible meals (50%); only a PURE entertainment account is §274 nondeductible
+    (r"meals?|restaurant|dining", "24b"),
+    (r"entertainment", "NONDED"),
+    (r"utilit(y|ies)|electric|water|internet|phone|telephone|cell|communication", "25"),
+    (r"wages?|salar|payroll", "26"),
+    (r"software|subscription|hosting|cloud|saas|education|training|"
+     r"bank (charge|fee)|processing|merchant|dues|shipping|postage|freight", "27a"),
+]
+_NAME_FALLBACK_CA = [
+    (r"advertis|marketing", "8521"),
+    (r"subcontract|contract labou?r", "8340"),
+    (r"meal|entertain", "8523"),
+    (r"bad debt", "8590"),
+    (r"insurance", "8690"),
+    (r"interest|bank", "8710"),
+    (r"property tax", "9180"),
+    (r"business tax|licen[cs]e|permit|membership|dues?", "8760"),
+    (r"stationery|supplies", "8811"),
+    (r"office", "8810"),
+    (r"legal|accounting|bookkeep|professional", "8860"),
+    (r"management fee|admin", "8871"),
+    (r"rent|lease", "8910"),
+    (r"repair|maintenance", "8960"),
+    (r"salar|wages?|payroll", "9060"),
+    (r"travel", "9200"),
+    (r"utilit|phone|telephone|internet", "9220"),
+    (r"fuel", "9224"),
+    (r"delivery|freight|shipping", "9275"),
+    (r"vehicle|automobile|auto\b|mileage|motor", "9281"),
+    (r"software|subscription|hosting|education|training|tax(?:es)?\b", "9270"),
+]
+_NAME_FALLBACK_COMPILED = {
+    "us": [(re.compile(r"\b(?:" + p + r")", re.I), line) for p, line in _NAME_FALLBACK_US],
+    "ca": [(re.compile(r"\b(?:" + p + r")", re.I), line) for p, line in _NAME_FALLBACK_CA],
+}
+_CATCH_ALL = {"us": "27a", "ca": "9270"}
+_CATALOG = {"us": _SCHEDULE_C_CATALOG, "ca": _T2125_CATALOG}
+_HOME_8829 = re.compile(
+    r"\b(home office|home-office|homeowner|home utilit|home insurance)\b", re.I)
+
+
+def classify_account(name: str, subtype: str, jurisdiction: str):
+    """Map one account to its tax line. jurisdiction: 'US' or 'CA'.
+    Returns (line, desc, flags). Prefers the authoritative AccountSubType;
+    falls back to word-boundary name rules; else the jurisdiction catch-all.
+    flags may include 'home_8829' (US, review on Form 8829) and 'nondeductible'
+    (US entertainment). `line` "NONDED" means a book expense that is NOT a
+    Schedule C deduction."""
+    juris = "us" if str(jurisdiction).upper() == "US" else "ca"
+    catalog = _CATALOG[juris]
+    name = name or ""
+    line = None
+    tax = _ACCOUNT_TAXONOMY.get(subtype or "")
+    if tax and tax.get(juris):
+        line = tax[juris]
+    else:
+        for pat, cand in _NAME_FALLBACK_COMPILED[juris]:
+            if pat.search(name):
+                line = cand
+                break
+    if not line:
+        line = _CATCH_ALL[juris]
+    desc = catalog.get(line, {}).get("desc", "Other expenses")
+    flags = []
+    if line == "NONDED":
+        flags.append("nondeductible")
+    if juris == "us" and _HOME_8829.search(name):
+        flags.append("home_8829")
+    return line, desc, flags
+
 
 # CCA declining-balance classes (Schedule II, Income Tax Regulations)
 _CCA_CLASSES = {
@@ -524,12 +693,24 @@ TABLES: dict = {
         source="Income Tax Act s.67.1",
         source_url="https://laws-lois.justice.gc.ca/eng/acts/i-3.3/section-67.1.html",
         verified="2026-07-12", review="legislative-watch", sanity={"min": 0.0, "max": 1.0}),
-    "T2125_LINE_MAP": dict(values=_T2125_LINE_MAP, year_keyed=False,
+    "ACCOUNT_TAXONOMY": dict(values=_ACCOUNT_TAXONOMY, year_keyed=False,
+        jurisdiction="US-federal", kind="stable_statute",
+        description="QuickBooks AccountSubType -> IRS Schedule C line + CRA T2125/GIFI line",
+        source="IRS Schedule C instructions (i1040sc) + CRA Form T2125",
+        source_url="https://www.irs.gov/instructions/i1040sc",
+        verified="2026-08-03", review="annual-january", sanity={}),
+    "SCHEDULE_C_CATALOG": dict(values=_SCHEDULE_C_CATALOG, year_keyed=False,
+        jurisdiction="US-federal", kind="stable_statute",
+        description="Authoritative Schedule C line catalog (line -> desc + IRS citation)",
+        source="IRS Schedule C instructions (i1040sc)",
+        source_url="https://www.irs.gov/instructions/i1040sc",
+        verified="2026-08-03", review="annual-january", sanity={}),
+    "T2125_CATALOG": dict(values=_T2125_CATALOG, year_keyed=False,
         jurisdiction="CA-federal", kind="stable_statute",
-        description="QB account keyword -> T2125 Part 4 line mapping",
+        description="Authoritative T2125/GIFI line catalog (line -> desc + CRA citation)",
         source="CRA Form T2125 (Statement of Business or Professional Activities)",
         source_url="https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t2125.html",
-        verified="2026-07-12", review="annual-january", sanity={}),
+        verified="2026-08-03", review="annual-january", sanity={}),
     "CCA_CLASSES": dict(values=_CCA_CLASSES, year_keyed=False, jurisdiction="CA-federal",
         kind="stable_statute", description="CCA declining-balance classes and rates",
         source="Income Tax Regulations Schedule II",

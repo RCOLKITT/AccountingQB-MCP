@@ -40,7 +40,7 @@ try:
         _MEALS_ITC_FACTOR, _GST_WORKPAPER_FOOTER,
         _CA_SALES_TAX_REGIME, _CA_PROVINCIAL_AGENCY_HINTS,
         _ca_regime, _ca_regime_describe, _ca_agency_is_provincial,
-        _T2125_LINE_MAP, _CCA_CLASSES, _CLASS_10_1_CEILING,
+        classify_account, _CCA_CLASSES, _CLASS_10_1_CEILING,
         _CLASS_54_ZEV_CEILING, _AII_START_YEAR, _AII_FIRST_YEAR_FACTOR,
         _T4A_ADMIN_THRESHOLD, _CPP_PARAMS, _CPP_BASIC_EXEMPTION,
         _CPP_RATE_SELF, _CPP2_RATE_SELF, _CA_FED_BRACKETS_APPROX,
@@ -63,7 +63,7 @@ except ImportError:  # pragma: no cover — direct script execution (no package)
         _MEALS_ITC_FACTOR, _GST_WORKPAPER_FOOTER,
         _CA_SALES_TAX_REGIME, _CA_PROVINCIAL_AGENCY_HINTS,
         _ca_regime, _ca_regime_describe, _ca_agency_is_provincial,
-        _T2125_LINE_MAP, _CCA_CLASSES, _CLASS_10_1_CEILING,
+        classify_account, _CCA_CLASSES, _CLASS_10_1_CEILING,
         _CLASS_54_ZEV_CEILING, _AII_START_YEAR, _AII_FIRST_YEAR_FACTOR,
         _T4A_ADMIN_THRESHOLD, _CPP_PARAMS, _CPP_BASIC_EXEMPTION,
         _CPP_RATE_SELF, _CPP2_RATE_SELF, _CA_FED_BRACKETS_APPROX,
@@ -634,19 +634,19 @@ DEMO_CUSTOMERS = [
 
 # Demo accounts (Chart of Accounts)
 DEMO_ACCOUNTS = [
-    {"Id": "1", "Name": "Checking", "AccountType": "Bank", "CurrentBalance": 47523.84, "Active": True, "FullyQualifiedName": "Checking"},
-    {"Id": "2", "Name": "Savings", "AccountType": "Bank", "CurrentBalance": 125000.00, "Active": True, "FullyQualifiedName": "Savings"},
-    {"Id": "3", "Name": "Accounts Receivable", "AccountType": "Accounts Receivable", "CurrentBalance": 49200.00, "Active": True, "FullyQualifiedName": "Accounts Receivable"},
-    {"Id": "4", "Name": "Accounts Payable", "AccountType": "Accounts Payable", "CurrentBalance": 5097.28, "Active": True, "FullyQualifiedName": "Accounts Payable"},
-    {"Id": "5", "Name": "Consulting Revenue", "AccountType": "Income", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Consulting Revenue"},
-    {"Id": "6", "Name": "Software Revenue", "AccountType": "Income", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Software Revenue"},
-    {"Id": "7", "Name": "Office Supplies", "AccountType": "Expense", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Office Supplies"},
-    {"Id": "8", "Name": "Software & Subscriptions", "AccountType": "Expense", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Software & Subscriptions"},
-    {"Id": "9", "Name": "Travel", "AccountType": "Expense", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Travel"},
-    {"Id": "10", "Name": "Rent", "AccountType": "Expense", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Rent"},
-    {"Id": "11", "Name": "Professional Services", "AccountType": "Expense", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Professional Services"},
-    {"Id": "12", "Name": "Advertising", "AccountType": "Expense", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Advertising"},
-    {"Id": "13", "Name": "Owner's Equity", "AccountType": "Equity", "CurrentBalance": 77876.56, "Active": True, "FullyQualifiedName": "Owner's Equity"},
+    {"Id": "1", "Name": "Checking", "AccountType": "Bank", "AccountSubType": "Checking", "CurrentBalance": 47523.84, "Active": True, "FullyQualifiedName": "Checking"},
+    {"Id": "2", "Name": "Savings", "AccountType": "Bank", "AccountSubType": "Savings", "CurrentBalance": 125000.00, "Active": True, "FullyQualifiedName": "Savings"},
+    {"Id": "3", "Name": "Accounts Receivable", "AccountType": "Accounts Receivable", "AccountSubType": "AccountsReceivable", "CurrentBalance": 49200.00, "Active": True, "FullyQualifiedName": "Accounts Receivable"},
+    {"Id": "4", "Name": "Accounts Payable", "AccountType": "Accounts Payable", "AccountSubType": "AccountsPayable", "CurrentBalance": 5097.28, "Active": True, "FullyQualifiedName": "Accounts Payable"},
+    {"Id": "5", "Name": "Consulting Revenue", "AccountType": "Income", "AccountSubType": "ServiceFeeIncome", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Consulting Revenue"},
+    {"Id": "6", "Name": "Software Revenue", "AccountType": "Income", "AccountSubType": "SalesOfProductIncome", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Software Revenue"},
+    {"Id": "7", "Name": "Office Supplies", "AccountType": "Expense", "AccountSubType": "SuppliesMaterials", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Office Supplies"},
+    {"Id": "8", "Name": "Software & Subscriptions", "AccountType": "Expense", "AccountSubType": "DuesSubscriptions", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Software & Subscriptions"},
+    {"Id": "9", "Name": "Travel", "AccountType": "Expense", "AccountSubType": "Travel", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Travel"},
+    {"Id": "10", "Name": "Rent", "AccountType": "Expense", "AccountSubType": "RentOrLeaseOfBuildings", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Rent"},
+    {"Id": "11", "Name": "Professional Services", "AccountType": "Expense", "AccountSubType": "LegalProfessionalFees", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Professional Services"},
+    {"Id": "12", "Name": "Advertising", "AccountType": "Expense", "AccountSubType": "AdvertisingPromotional", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Advertising"},
+    {"Id": "13", "Name": "Owner's Equity", "AccountType": "Equity", "AccountSubType": "OpeningBalanceEquity", "CurrentBalance": 77876.56, "Active": True, "FullyQualifiedName": "Owner's Equity"},
 ]
 
 # Demo transactions (recent expenses)
@@ -3569,58 +3569,10 @@ async def qb_ap_aging(as_of_date: str = "") -> str:
 # ---------------------------------------------------------------------------
 import re as _re  # re is otherwise imported lazily deeper in this module
 
-# (regex, IRS Schedule C line, description). ORDER MATTERS — first match wins,
-# so specific rules precede generic (mortgage before interest).
-_SCHEDULE_C_RULES = [
-    (r"mortgage", "16a", "Mortgage interest"),
-    (r"advertis|marketing", "8", "Advertising"),
-    (r"cars?\b|truck|vehicle|automobile|mileage", "9", "Car and truck expenses"),
-    (r"commission", "10", "Commissions and fees"),
-    (r"contract labou?r|subcontractor|contractor|freelancer", "11", "Contract labor"),
-    (r"depreciation|amortization", "13", "Depreciation and section 179"),
-    (r"insurance", "15", "Insurance (other than health)"),
-    (r"interest|finance charge", "16b", "Other interest"),
-    (r"legal|professional|accounting|bookkeep|consult", "17",
-     "Legal and professional services"),
-    (r"rent|lease", "20b", "Rent or lease (other business property)"),
-    (r"repair|maintenance", "21", "Repairs and maintenance"),
-    (r"office", "18", "Office expense"),
-    (r"supplies|stationery", "22", "Supplies"),
-    (r"tax(?:es)?\b|licen[cs]e|permit", "23", "Taxes and licenses"),
-    (r"travel|hotel|lodging|airfare|airline|flight|taxi|rideshare|ride ?share|"
-     r"uber|lyft", "24a", "Travel"),
-    (r"meals?|restaurant|dining|entertainment", "24b", "Deductible meals"),
-    (r"utilit(y|ies)|electric|water|internet|phone|telephone|cell|communication",
-     "25", "Utilities"),
-    (r"wages?|salar|payroll", "26", "Wages"),
-    (r"software|subscription|hosting|cloud|saas|education|training|"
-     r"bank (charge|fee)|processing|merchant|dues|shipping|postage|freight",
-     "27a", "Other expenses"),
-]
-# Leading word boundary only, so stems match inflections ("advertis" ->
-# "Advertising", "electric" -> "Electricity"). The two genuinely-ambiguous
-# short stems (car, tax) carry their own trailing \b inside the pattern so
-# "Card" and "Taxis" don't match.
-_SCHEDULE_C_COMPILED = [
-    (_re.compile(r"\b(?:" + pat + r")", _re.IGNORECASE), line, desc)
-    for pat, line, desc in _SCHEDULE_C_RULES
-]
-# Personal / home-office hints that belong on Form 8829, not a direct Schedule
-# C line — flagged for review (still counted so totals reconcile to the P&L).
-_HOME_8829_HINTS = _re.compile(
-    r"\b(home office|home-office|homeowner|home utilit|home insurance)\b",
-    _re.IGNORECASE)
-
-
-def _match_schedule_c_line(account_name: str):
-    """(line, desc) for an expense account, or None if it maps to 'Other'.
-    Word-boundary + specific-first: 'Credit Card' never hits Line 9,
-    'Taxis' never hits Line 23."""
-    name = account_name or ""
-    for pat, line, desc in _SCHEDULE_C_COMPILED:
-        if pat.search(name):
-            return line, desc
-    return None
+# Account -> tax-line classification now lives in the canonical taxonomy
+# (tax_tables.classify_account): keyed on the QuickBooks AccountSubType enum,
+# with a word-boundary name fallback, anchored to IRS Schedule C / CRA GIFI
+# codes and gated by the tax-data control plane. See _map_expenses_to_schedule_c.
 
 
 def _extract_pl_expense_accounts(pl_result: dict) -> dict:
@@ -3651,16 +3603,19 @@ def _extract_pl_expense_accounts(pl_result: dict) -> dict:
     return out
 
 
-def _pl_income_breakdown(pl_result: dict):
+def _pl_income_breakdown(pl_result: dict, name_to_subtype: dict = None):
     """Split a P&L into Schedule C income lines:
     ``(gross_receipts, returns_and_allowances, cogs, other_income)``.
 
-    Operating-Income accounts are split by sign — positive = receipts (Line 1),
-    negative = returns/refunds/discounts (Line 2, e.g. DiscountsRefundsGiven).
-    'Other Income' (interest, etc.) is Line 6, NOT gross receipts. COGS is
-    Line 4. (The old code read section summaries in a loop, so 'Total Other
-    Income' overwrote 'Total Income' and Sales/Refunds were dropped.)"""
+    Operating-Income accounts: a leaf is a return/allowance when its
+    AccountSubType is ``DiscountsRefundsGiven`` (authoritative) or, absent a
+    subtype, when the amount is negative (sign heuristic). Everything else is
+    gross receipts (Line 1). 'Other Income' (interest, etc.) is Line 6, NOT
+    gross receipts. COGS is Line 4. (The old code read section summaries in a
+    loop, so 'Total Other Income' overwrote 'Total Income' and Sales/Refunds
+    were dropped.)"""
     gross = returns = cogs = other = 0.0
+    subs = name_to_subtype or {}
 
     def leaf_values(rows):
         for section in rows or []:
@@ -3673,6 +3628,18 @@ def _pl_income_breakdown(pl_result: dict):
                     yield 0.0
             if nested:
                 yield from leaf_values(nested)
+
+    def leaf_items(rows):
+        for section in rows or []:
+            nested = section.get("Rows", {}).get("Row", [])
+            col = section.get("ColData", [])
+            if not nested and len(col) >= 2:
+                try:
+                    yield col[0].get("value", ""), float(col[-1].get("value", "0") or 0)
+                except (ValueError, TypeError):
+                    yield col[0].get("value", ""), 0.0
+            if nested:
+                yield from leaf_items(nested)
 
     for section in pl_result.get("Rows", {}).get("Row", []):
         header = (section.get("Header", {}).get("ColData", [{}]) or [{}])[0] \
@@ -3713,13 +3680,14 @@ def _pl_income_breakdown(pl_result: dict):
         elif is_cogs:
             cogs += _section_total()
         elif is_income:
-            leaves = list(leaf_values(nested))
-            if leaves:                       # detail present — split by sign
-                for v in leaves:
-                    if v >= 0:
-                        gross += v
+            items = list(leaf_items(nested))
+            if items:                        # detail present — subtype, then sign
+                for nm, v in items:
+                    st = subs.get(nm, "")
+                    if st == "DiscountsRefundsGiven" or (not st and v < 0):
+                        returns += abs(v)
                     else:
-                        returns += -v
+                        gross += v
             else:                            # summary only — treat as net receipts
                 gross += total
     return round(gross, 2), round(returns, 2), round(cogs, 2), round(other, 2)
@@ -3738,21 +3706,49 @@ def _pl_expense_total(pl_result: dict) -> float:
     return 0.0
 
 
-def _map_expenses_to_schedule_c(expense_accounts: dict):
-    """Map {name: amount} -> ordered dict {line_key: {'amount', 'accounts',
-    'home': bool}}, routing anything unmatched to Line 27a so NOTHING is
-    dropped (Line 28 total == sum of expense accounts == P&L expenses)."""
+def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = None):
+    """Map {name: amount} -> ordered dict
+    {line_key: {'amount','accounts','home','nondeductible'}} via the canonical
+    taxonomy (AccountSubType first, name fallback). Deductible lines route
+    unmatched to Line 27a so NOTHING deductible is dropped (Line 28 == deductible
+    expenses). Non-deductible book expenses (US entertainment, IRC §274) are
+    bucketed separately and excluded from Line 28."""
     from collections import defaultdict
-    sc = defaultdict(lambda: {"amount": 0.0, "accounts": [], "home": False})
+    subs = name_to_subtype or {}
+    sc = defaultdict(lambda: {"amount": 0.0, "accounts": [], "home": False,
+                              "nondeductible": False})
     for name, amount in expense_accounts.items():
-        m = _match_schedule_c_line(name)
-        line, desc = m if m else ("27a", "Other expenses")
-        key = f"Line {line} — {desc}"
+        line, desc, flags = classify_account(name, subs.get(name, ""), "US")
+        key = (f"Non-deductible — {desc}" if line == "NONDED"
+               else f"Line {line} — {desc}")
         sc[key]["amount"] += abs(amount)
         sc[key]["accounts"].append((name, abs(amount)))
-        if _HOME_8829_HINTS.search(name or ""):
+        if "home_8829" in flags:
             sc[key]["home"] = True
+        if "nondeductible" in flags:
+            sc[key]["nondeductible"] = True
     return sc
+
+
+async def _account_subtype_map() -> dict:
+    """{account name -> AccountSubType}. P&L rows carry only the display name,
+    so we join back to the chart of accounts for the authoritative subtype
+    (Name first, FullyQualifiedName as a fallback for sub-accounts). Returns {}
+    if the chart can't be fetched — callers then classify by name alone."""
+    try:
+        accts = (await qb_query_all("SELECT * FROM Account")).get(
+            "QueryResponse", {}).get("Account", [])
+    except Exception as e:
+        logger.debug(f"subtype map fetch failed: {e}")
+        return {}
+    m = {}
+    for a in accts:
+        st = a.get("AccountSubType", "") or ""
+        if a.get("Name"):
+            m.setdefault(a["Name"], st)
+        if a.get("FullyQualifiedName"):
+            m.setdefault(a["FullyQualifiedName"], st)
+    return m
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -3768,16 +3764,17 @@ async def qb_tax_summary(start_date: str = "", end_date: str = "") -> str:
 
     lines = [f"## Tax Summary (Schedule C): {start_date} to {end_date}\n"]
     schedule_c = {}
+    nondeductible = {}
 
-    # Expense accounts only (period activity), word-boundary mapped — the same
-    # shared logic qb_schedule_c uses, so 'Credit Card'/'Taxis'-style substring
-    # mis-maps can't happen here either.
+    # Expense accounts only (period activity), classified via the canonical
+    # taxonomy (name fallback here — no subtype fetch in this lightweight tool).
     for rname, amount in _extract_pl_expense_accounts(report).items():
-        m = _match_schedule_c_line(rname)
-        line, desc = m if m else ("27a", "Other expenses")
-        mapped = f"Line {line} - {desc}"
-        schedule_c.setdefault(mapped, [])
-        schedule_c[mapped].append((rname, abs(amount)))
+        line, desc, _flags = classify_account(rname, "", "US")
+        target = nondeductible if line == "NONDED" else schedule_c
+        mapped = (f"Non-deductible — {desc}" if line == "NONDED"
+                  else f"Line {line} - {desc}")
+        target.setdefault(mapped, [])
+        target[mapped].append((rname, abs(amount)))
 
     for sc_line in sorted(schedule_c.keys()):
         items = schedule_c[sc_line]
@@ -3789,6 +3786,12 @@ async def qb_tax_summary(start_date: str = "", end_date: str = "") -> str:
 
     grand = sum(sum(a for _, a in items) for items in schedule_c.values())
     lines.append(f"\n**Total Deductible Expenses: {fmt(grand)}**")
+    if nondeductible:
+        nd_total = sum(sum(a for _, a in items) for items in nondeductible.values())
+        lines.append(f"\n### Excluded — not deductible on Schedule C: ({fmt(nd_total)})")
+        for k in sorted(nondeductible):
+            for rname, a in nondeductible[k]:
+                lines.append(f"  - {rname}: {fmt(a)} — {k}")
     return "\n".join(lines)
 
 
@@ -5244,19 +5247,25 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
         "summarize_column_by": "Total"
     })
 
+    # Chart-of-accounts subtype map (P&L rows carry only names) — used for both
+    # income (returns detection) and expense classification.
+    name_sub = await _account_subtype_map()
+
     # Income lines, split correctly (the old code read section summaries in a
     # loop, so 'Total Other Income' overwrote 'Total Income' and every Sales /
     # Refund account was dropped). Sales → Line 1; refunds/discounts → Line 2;
     # interest & other income → Line 6 (NOT gross receipts).
-    gross_receipts, returns_allow, cogs, other_income = _pl_income_breakdown(result)
+    gross_receipts, returns_allow, cogs, other_income = _pl_income_breakdown(result, name_sub)
     net_receipts = round(gross_receipts - returns_allow, 2)     # Line 3
     gross_profit = round(net_receipts - cogs, 2)                # Line 5
     gross_income = round(gross_profit + other_income, 2)        # Line 7
 
-    # Expenses: P&L period activity, word-boundary mapped, nothing dropped
-    # (unmatched accounts flow to Line 27a so Line 28 reconciles to the P&L).
+    # Expenses: P&L period activity, classified via the canonical taxonomy
+    # (AccountSubType first, name fallback). Deductible unmatched -> Line 27a so
+    # Line 28 == deductible expenses; non-deductible book expenses (entertainment,
+    # §274) are shown separately and excluded from Line 28.
     expense_dict = _extract_pl_expense_accounts(result)
-    sc_lines = _map_expenses_to_schedule_c(expense_dict)
+    sc_lines = _map_expenses_to_schedule_c(expense_dict, name_sub)
     pl_total = _pl_expense_total(result)
 
     def _sc_line_sort(item):
@@ -5277,8 +5286,14 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
 
     lines.append("### Expenses:")
     total_mapped = 0.0
+    nondeduct_total = 0.0
     home_flagged = False
+    nondeduct = []
     for line_name, data in sorted(sc_lines.items(), key=_sc_line_sort):
+        if data.get("nondeductible"):
+            nondeduct.append((line_name, data))
+            nondeduct_total += data["amount"]
+            continue
         flag = " ⚠️ (review — may belong on Form 8829)" if data["home"] else ""
         lines.append(f"\n**{line_name}: {fmt(data['amount'])}**{flag}")
         for acct, amt in data["accounts"]:
@@ -5287,12 +5302,19 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
         home_flagged = home_flagged or data["home"]
 
     lines.append(f"\n**Line 28 — Total expenses: {fmt(total_mapped)}**")
-    if pl_total and abs(total_mapped - pl_total) > 0.01:
+    if pl_total and abs((total_mapped + nondeduct_total) - pl_total) > 0.01:
         lines.append(
             f"⚠️ Does not reconcile to P&L expenses ({fmt(pl_total)}) — "
-            f"difference {fmt(abs(total_mapped - pl_total))}. Review.")
+            f"difference {fmt(abs((total_mapped + nondeduct_total) - pl_total))}. Review.")
     net_profit = round(gross_income - total_mapped, 2)
     lines.append(f"**Line 31 — Net profit (loss): {fmt(net_profit)}**")
+    if nondeduct:
+        lines.append(f"\n### Not deductible on Schedule C — excluded from Line 28: ({fmt(nondeduct_total)})")
+        for line_name, data in nondeduct:
+            for acct, amt in data["accounts"]:
+                lines.append(f"  - {acct}: {fmt(amt)}")
+        lines.append("*Entertainment is generally not deductible (IRC §274(a)) — "
+                     "it reduces book profit but not Schedule C taxable income.*")
     if home_flagged:
         lines.append(
             "\n*Items flagged ⚠️ (home office, homeowner insurance, home "
@@ -7208,12 +7230,13 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
         "start_date": start, "end_date": end, "summarize_column_by": "Total"})
 
     expense_dict = _extract_pl_expense_accounts(result)
-    sc_lines = _map_expenses_to_schedule_c(expense_dict)
+    name_sub = await _account_subtype_map()
+    sc_lines = _map_expenses_to_schedule_c(expense_dict, name_sub)
     pl_total = _pl_expense_total(result)
 
     # Income split correctly (see qb_schedule_c) — Sales → Line 1, refunds →
     # Line 2, interest/other → Line 6; never let 'Other Income' overwrite Sales.
-    gross_receipts, returns_allow, cogs, other_income = _pl_income_breakdown(result)
+    gross_receipts, returns_allow, cogs, other_income = _pl_income_breakdown(result, name_sub)
     net_receipts = round(gross_receipts - returns_allow, 2)
     gross_profit = round(net_receipts - cogs, 2)
     gross_income = round(gross_profit + other_income, 2)
@@ -7247,8 +7270,14 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
     ]
 
     total_expenses = 0.0
+    nondeduct_total = 0.0
     home_flagged = False
+    nondeduct = []
     for line_name, data in sorted(sc_lines.items(), key=_sc_line_sort):
+        if data.get("nondeductible"):
+            nondeduct.append((line_name, data))
+            nondeduct_total += data["amount"]
+            continue
         flag = " ⚠️ (may belong on Form 8829)" if data["home"] else ""
         lines.append(f"\n**{line_name}: {fmt(data['amount'])}**{flag}")
         for acct, amt in data["accounts"]:
@@ -7256,9 +7285,15 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
         total_expenses += data["amount"]
         home_flagged = home_flagged or data["home"]
 
+    if nondeduct:
+        lines.append(f"\n**Not deductible on Schedule C — excluded from Line 28: ({fmt(nondeduct_total)})**")
+        for line_name, data in nondeduct:
+            for acct, amt in data["accounts"]:
+                lines.append(f"  - {acct}: {fmt(amt)} (§274 — entertainment)")
+
     net = round(gross_income - total_expenses, 2)
-    recon = ("" if not pl_total or abs(total_expenses - pl_total) <= 0.01 else
-             f"\n  ⚠️ Line 28 does not reconcile to P&L expenses ({fmt(pl_total)}) — review.")
+    recon = ("" if not pl_total or abs((total_expenses + nondeduct_total) - pl_total) <= 0.01 else
+             f"\n  ⚠️ Line 28 + non-deductible does not reconcile to P&L expenses ({fmt(pl_total)}) — review.")
     lines.extend([
         f"\n---",
         f"### **Summary**",
@@ -10844,14 +10879,17 @@ async def qb_t2125_summary(year: int = 0) -> str:
             if nested:
                 extract_expenses(nested, expense_dict)
 
-    # Income split correctly — Sales/fees → gross sales; refunds → reduce it;
-    # interest & other income → its own line (may be non-business, reportable
-    # elsewhere). The old loop let 'Total Other Income' overwrite 'Total Income'.
-    gross_receipts, returns_allow, _cogs, other_income = _pl_income_breakdown(result)
+    # Chart subtype map (P&L rows carry only names). Income split correctly —
+    # Sales/fees → gross sales; refunds → reduce it; interest & other income →
+    # its own line. The old loop let 'Total Other Income' overwrite 'Total Income'.
+    name_sub = await _account_subtype_map()
+    gross_receipts, returns_allow, _cogs, other_income = _pl_income_breakdown(result, name_sub)
     net_sales = round(gross_receipts - returns_allow, 2)
     gross_business_income = round(net_sales + other_income, 2)
 
-    # Map expense accounts to T2125 lines by keyword
+    # Map expense accounts to T2125 lines via the canonical taxonomy (subtype
+    # first, word-boundary name fallback). Meals & entertainment (8523) are 50%
+    # deductible (ITA s.67.1). Accounts landing on 9270 are flagged for review.
     from collections import defaultdict
     t_lines = defaultdict(lambda: {"amount": 0.0, "accounts": []})
     unmapped = []
@@ -10859,20 +10897,13 @@ async def qb_t2125_summary(year: int = 0) -> str:
         amount = abs(amount)
         if amount == 0:
             continue
-        mapped = False
-        for keyword, (line_no, desc) in _T2125_LINE_MAP.items():
-            if keyword in acct_name.lower():
-                key = f"Line {line_no} — {desc}"
-                deductible = amount * 0.5 if line_no == "8523" else amount
-                t_lines[key]["amount"] += deductible
-                note = f" (50% of {fmt(amount)})" if line_no == "8523" else ""
-                t_lines[key]["accounts"].append(f"{acct_name}: {fmt(deductible)}{note}")
-                mapped = True
-                break
-        if not mapped:
-            key = "Line 9270 — Other expenses (unmapped — review)"
-            t_lines[key]["amount"] += amount
-            t_lines[key]["accounts"].append(f"{acct_name}: {fmt(amount)}")
+        line_no, desc, _flags = classify_account(acct_name, name_sub.get(acct_name, ""), "CA")
+        key = f"Line {line_no} — {desc}"
+        deductible = amount * 0.5 if line_no == "8523" else amount
+        t_lines[key]["amount"] += deductible
+        note = f" (50% of {fmt(amount)})" if line_no == "8523" else ""
+        t_lines[key]["accounts"].append(f"{acct_name}: {fmt(deductible)}{note}")
+        if line_no == "9270":
             unmapped.append(acct_name)
 
     lines = [f"## CRA T2125 — Statement of Business Activities — {year}\n"]

@@ -64,14 +64,18 @@ def _dollar(text, label):
     return float(m.group(1).replace(",", "")) if m else None
 
 
-# --- matcher unit checks ------------------------------------------------------
+# --- matcher unit checks (via the canonical taxonomy, name fallback) ---------
+def _line(name):
+    return s.classify_account(name, None, "US")[0]
+
+
 def test_matcher_no_substring_bugs():
-    assert s._match_schedule_c_line("Delta Platinum Business Card") is None  # not car
-    assert s._match_schedule_c_line("Taxis or shared rides")[0] == "24a"     # not tax
-    assert s._match_schedule_c_line("Credit Card Interest")[0] == "16b"      # not mortgage
-    assert s._match_schedule_c_line("Mortgage Interest")[0] == "16a"
-    assert s._match_schedule_c_line("Advertising")[0] == "8"                 # stem match
-    assert s._match_schedule_c_line("Electricity")[0] == "25"
+    assert _line("Delta Platinum Business Card") == "27a"  # not car (catch-all)
+    assert _line("Taxis or shared rides") == "24a"         # not tax
+    assert _line("Credit Card Interest") == "16b"          # not mortgage
+    assert _line("Mortgage Interest") == "16a"
+    assert _line("Advertising") == "8"                     # stem match
+    assert _line("Electricity") == "25"
 
 
 def test_nothing_dropped_reconciles():
