@@ -14,6 +14,22 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.13.1",
+    date: "2026-08-03",
+    title: "Precision pass: Other Income, duplicate counts, and a server-version tool",
+    tag: "Tax",
+    summary:
+      "A second end-to-end review confirmed 16 of 17 fixes held and surfaced a few small precision issues. This patch closes them — most importantly a $0.76-scale Other Income double-count that reached the Schedule C bottom line.",
+    highlights: [
+      "Schedule C: fixed an Other Income double-count — a nested 'Net Other Income' roll-up was added twice, inflating Line 6/Line 7. Line 7 now provably equals Line 3 + Line 6",
+      "qb_find_duplicates and qb_books_health_audit now share one detector, so their duplicate counts always agree (the tools no longer contradict each other)",
+      "qb_missing_receipts now excludes card payments booked to a deleted/inactive credit-card account (previously those slipped through)",
+      "New qb_server_info tool: reports the running version, tool count, build timestamp, and QuickBooks connection — so you can confirm which build is actually serving you after an update",
+      "Profit & Loss by class/department now says the breakdown is unavailable when tracking is off, instead of returning an ungrouped P&L that looks like a single-segment result",
+      "130 tools total across US & Canada",
+    ],
+  },
+  {
     version: "3.13",
     date: "2026-08-02",
     title: "Correct tax returns, a real Trial Balance, and cleaner reconciliations",
@@ -25,7 +41,7 @@ export const RELEASES: Release[] = [
       "Trial Balance rewritten: real Debit/Credit columns, correct signs, an as-of date (not a range), no blank accounts, and a debits-equal-credits check",
       "Stripe reconcile: platform fees now include their sales tax (reconciled on net), the Activity and Tie-out figures can no longer disagree, historical periods tie to the period-start balance, accounts are validated in dry-run, and a manually-posted entry for the period blocks a double-book",
       "qb_missing_receipts no longer flags credit-card payments, transfers, or interest; qb_find_duplicates now matches same-vendor + same-amount + same-day by default and suppresses recurring charges, with a count that reconciles to the health audit",
-      "129 tools total across US & Canada",
+      "130 tools total across US & Canada",
     ],
   },
   {
@@ -39,7 +55,7 @@ export const RELEASES: Release[] = [
       "Fixed qb_profit_loss_by_class: it asked QuickBooks for the wrong (singular) grouping value, so it always came back empty — now returns real class breakdowns",
       "qb_profit_loss_by_department: the same P&L broken out by department/location",
       "qb_vendor_expenses: total spend by vendor; qb_list_purchase_orders: open/closed POs with vendor, amount, and status",
-      "129 tools total across US & Canada",
+      "130 tools total across US & Canada",
     ],
   },
   {
@@ -105,7 +121,7 @@ export const RELEASES: Release[] = [
       "qb_stripe_reconcile: posts a monthly journal entry through a Stripe Clearing account and ties the clearing balance to your Stripe balance",
       "Splits processing fees from platform fees (Sigma/Billing/Radar/Connect/Terminal) — in testing those platform fees were 3× the processing fees",
       "Dry-run by default (proposes the entry first), refuses to post if it doesn't tie or has unmapped transactions, and won't double-post a month",
-      "129 tools total across US & Canada",
+      "130 tools total across US & Canada",
     ],
   },
   {
@@ -132,7 +148,7 @@ export const RELEASES: Release[] = [
       "qb_sales_by_class and qb_sales_by_department: segment, program, and location performance",
       "qb_inventory_valuation: on-hand quantity, asset value, and average cost per item",
       "qb_list_classes and qb_list_departments: see the class/location dimensions your company tracks",
-      "129 tools total across US & Canada",
+      "130 tools total across US & Canada",
     ],
   },
   {
@@ -147,7 +163,7 @@ export const RELEASES: Release[] = [
       "qb_transaction_list: the flexible register — every transaction in a date range with full columns",
       "qb_profit_loss_detail: drill from any P&L number down to the transactions behind it",
       "qb_customer_balance_detail and qb_vendor_balance_detail: the line-item drill-down behind AR/AP aging",
-      "129 tools total across US & Canada",
+      "130 tools total across US & Canada",
     ],
   },
   {
@@ -201,7 +217,7 @@ export const RELEASES: Release[] = [
       "Reconciliation tie-outs, prior-year comparative statements (P&L + balance sheet), tax payments made, and owner's draws — the questions a CPA asks first, pre-answered",
       "A structured Tax Organizer replaces free-text notes: mileage, home office, health premiums, assets bought/sold, estimated payments",
       "Export the whole binder to Excel in one message",
-      "129 tools total across US & Canada",
+      "130 tools total across US & Canada",
     ],
   },
   {

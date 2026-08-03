@@ -52,7 +52,19 @@ def test_pl_by_department_uses_plural_enum(monkeypatch):
 def test_pl_by_class_empty_when_no_classes(monkeypatch):
     _capture_request(monkeypatch, _report(["", "Total"], []))  # <=2 columns
     out = asyncio.run(s.qb_profit_loss_by_class("2026-01-01", "2026-12-31"))
-    assert "No class data" in out
+    assert "No class breakdown available" in out
+
+
+def test_pl_by_department_not_specified_only(monkeypatch):
+    # Tracking OFF: QuickBooks returns an ungrouped P&L under a single
+    # "Not Specified" column — must be reported as unavailable, not a
+    # single-department result.
+    _capture_request(monkeypatch, _report(
+        ["", "Not Specified", "Total"],
+        [_row(["Sales", "195.00", "195.00"])]))
+    out = asyncio.run(s.qb_profit_loss_by_department("2026-01-01", "2026-12-31"))
+    assert "No department breakdown available" in out
+    assert "NOT a single-department" in out
 
 
 def test_vendor_expenses_endpoint(monkeypatch):
