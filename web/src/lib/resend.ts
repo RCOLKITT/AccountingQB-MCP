@@ -77,7 +77,7 @@ export async function sendLicenseEmail({
               <!-- Trial Info -->
               <div style="background: rgba(99, 102, 241, 0.1); border-radius: 8px; padding: 16px; margin-bottom: 32px;">
                 <p style="margin: 0; font-size: 14px; color: #a5b4fc;">
-                  <strong style="color: #ffffff;">${trialDays}-day free trial</strong> — full access to all 129 tools.<br>
+                  <strong style="color: #ffffff;">${trialDays}-day free trial</strong> — full access to all 130 tools.<br>
                   Trial ends: ${trialEndDate}
                 </p>
               </div>
@@ -137,7 +137,7 @@ export async function sendLicenseEmail({
               </div>
 
               <!-- No Developer Account Needed -->
-              <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 16px; margin-top: 24px; text-align: center;">
+              <div style="background: rgba(16, 185, 130, 0.1); border: 1px solid rgba(16, 185, 130, 0.2); border-radius: 8px; padding: 16px; margin-top: 24px; text-align: center;">
                 <p style="margin: 0; font-size: 14px; color: #34d399;">
                   <strong>No Intuit developer account needed!</strong><br>
                   <span style="color: #6ee7b7; font-size: 13px;">We handle the OAuth setup for you.</span>
