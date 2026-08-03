@@ -1647,7 +1647,7 @@ async def qb_server_info() -> str:
         hosted = bool(get_ctx().hosted_mode)
     except Exception:
         hosted = False
-    lines.append(f"- **Mode:** {'hosted connector (token-brokered)' if hosted else 'self-hosted / local'}")
+    lines.append(f"- **Deployment:** {'hosted connector (token-brokered)' if hosted else 'self-hosted / local'}")
 
     if _demo_active():
         lines.append("- **Mode:** demo license (sample data)")
