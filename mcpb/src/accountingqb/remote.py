@@ -410,7 +410,11 @@ def create_app():
     """
     # Importing accountingqb.server registers all tools on the shared
     # FastMCP instance.
-    from accountingqb.server import mcp  # noqa: PLC0415
+    from accountingqb import server as _srv  # noqa: PLC0415
+    mcp = _srv.mcp
+    # Mark this process as the hosted connector so qb_server_info reports the
+    # deployment mode unconditionally (not from the QuickBooks session state).
+    _srv._HOSTED_CONNECTOR = True
 
     # Stateless + JSON responses: every request is independent (horizontal
     # scaling, no session affinity) and responses are plain JSON instead of

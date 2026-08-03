@@ -14,6 +14,22 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.14.2",
+    date: "2026-08-03",
+    title: "Taxonomy precision — parent accounts, charitable, and a trustworthy reconciliation",
+    tag: "Tax",
+    summary:
+      "Testing against a real chart of accounts surfaced deductions that were being dropped when amounts are booked directly to a parent category. Fixed, plus a reconciliation check that no longer cries wolf.",
+    highlights: [
+      "Amounts posted directly to a PARENT account (you pick 'Travel', not 'Travel:Hotels') are now captured on Schedule C / T2125 — previously they silently vanished",
+      "The reconciliation warning now compares against ALL expenses (including depreciation, home office, and vehicle), so it stops false-alarming on the majority of sole proprietors and reports the true difference",
+      "Charitable contributions are treated as non-deductible on the business return (a sole proprietor claims them on Schedule A / a T1 credit, IRC §170); political contributions too (§162(e))",
+      "New books-hygiene check: flags accounts whose name and QuickBooks type disagree (e.g. a phone bill typed as Travel), which would otherwise flow to the wrong tax line",
+      "qb_server_info reports version, tools, build, and deployment even when the QuickBooks token is expired",
+      "130 tools total across US & Canada",
+    ],
+  },
+  {
     version: "3.14.1",
     date: "2026-08-03",
     title: "Security hardening — logging, secrets, and tenant-isolation tests",

@@ -89,6 +89,11 @@ logger = logging.getLogger("quickbooks-mcp")
 for _noisy in ("httpx", "httpcore"):
     logging.getLogger(_noisy).setLevel(logging.WARNING)
 
+# Set True by remote.py when this process is the hosted connector. It is a
+# STATIC property of the deployment — qb_server_info reports it unconditionally,
+# never inferring "local vs hosted" from the (mutable) QuickBooks session state.
+_HOSTED_CONNECTOR = False
+
 # ---------------------------------------------------------------------------
 # Encrypted Credential Storage
 # ---------------------------------------------------------------------------
@@ -1649,10 +1654,10 @@ async def qb_server_info() -> str:
         lines.append(f"- **Build timestamp (server module):** {built:%Y-%m-%d %H:%M} UTC")
     except Exception:
         pass
-    try:
-        hosted = bool(get_ctx().hosted_mode)
-    except Exception:
-        hosted = False
+    # Deployment mode is a STATIC process property — report it unconditionally,
+    # never from the (mutable) QuickBooks session, so it's correct even in the
+    # degraded/expired-token state where someone reaches for this tool.
+    hosted = _HOSTED_CONNECTOR or bool(getattr(_default_ctx, "hosted_mode", False))
     lines.append(f"- **Deployment:** {'hosted connector (token-brokered)' if hosted else 'self-hosted / local'}")
 
     if _demo_active():
@@ -3582,16 +3587,36 @@ import re as _re  # re is otherwise imported lazily deeper in this module
 
 
 def _extract_pl_expense_accounts(pl_result: dict) -> dict:
-    """{account_name: amount} for every LEAF row in the P&L Expenses section
-    (period activity, not balances). Shared so both Schedule C tools use the
-    same numbers and reconcile to the P&L."""
+    """{account_name: amount} for the P&L Expenses section, reconciled at EVERY
+    tree level (period activity, not balances). Leaf rows contribute their own
+    amount; a PARENT account with sub-accounts contributes anything posted
+    directly to it — i.e. ``parent_summary − Σ(children)``. Without this, amounts
+    booked straight to a parent (a user picks "Travel", not "Travel:Hotels") are
+    silently dropped from Schedule C. Shared so both Schedule C tools + tax
+    summary use the same numbers and reconcile to the P&L."""
     out: dict = {}
 
     def walk(rows):
+        """Record leaves + parent residuals; return the summed total of `rows`."""
+        total = 0.0
         for section in rows or []:
             nested = section.get("Rows", {}).get("Row", [])
             col = section.get("ColData", [])
-            if not nested and len(col) >= 2:
+            if nested:
+                children_sum = walk(nested)
+                hdr = section.get("Header", {}).get("ColData", [{}]) or [{}]
+                name = hdr[0].get("value", "")
+                summ = section.get("Summary", {}).get("ColData", [])
+                try:
+                    grp_total = (float(summ[-1].get("value", "0") or 0)
+                                 if len(summ) >= 2 else children_sum)
+                except (ValueError, TypeError):
+                    grp_total = children_sum
+                residual = round(grp_total - children_sum, 2)   # posted to the parent itself
+                if name and abs(residual) > 0.005:
+                    out[name] = out.get(name, 0.0) + residual
+                total += grp_total
+            elif len(col) >= 2:
                 name = col[0].get("value", "")
                 try:
                     val = float(col[-1].get("value", "0") or 0)
@@ -3599,8 +3624,8 @@ def _extract_pl_expense_accounts(pl_result: dict) -> dict:
                     val = 0.0
                 if name and val != 0:
                     out[name] = out.get(name, 0.0) + val
-            if nested:
-                walk(nested)
+                total += val
+        return round(total, 2)
 
     for section in pl_result.get("Rows", {}).get("Row", []):
         header = section.get("Header", {}).get("ColData", [{}])
@@ -3700,16 +3725,22 @@ def _pl_income_breakdown(pl_result: dict, name_to_subtype: dict = None):
 
 
 def _pl_expense_total(pl_result: dict) -> float:
-    """Total from the P&L Expenses section summary row — the reconciliation
-    target for Schedule C Line 28."""
+    """Reconciliation target for Schedule C Line 28: BOTH 'Total Expenses' AND
+    'Total Other Expenses'. Schedule C maps Other Expenses too (depreciation,
+    home office, vehicle), so comparing against operating expenses alone
+    false-alarms on every book with a depreciation/home-office/vehicle line."""
+    total = 0.0
     for section in pl_result.get("Rows", {}).get("Row", []):
         summary = section.get("Summary", {}).get("ColData", [])
-        if len(summary) >= 2 and "expense" in summary[0].get("value", "").lower():
+        if len(summary) < 2:
+            continue
+        label = summary[0].get("value", "").lower()
+        if "expense" in label and "net" not in label:      # skip 'Net ... Income'
             try:
-                return abs(float(summary[-1].get("value", "0") or 0))
+                total += abs(float(summary[-1].get("value", "0") or 0))
             except (ValueError, TypeError):
-                return 0.0
-    return 0.0
+                pass
+    return round(total, 2)
 
 
 def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = None):
@@ -3725,7 +3756,7 @@ def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = 
                               "nondeductible": False})
     for name, amount in expense_accounts.items():
         line, desc, flags = classify_account(name, subs.get(name, ""), "US")
-        key = (f"Non-deductible — {desc}" if line == "NONDED"
+        key = (f"Non-deductible — {desc}" if line.startswith("NONDED")
                else f"Line {line} — {desc}")
         sc[key]["amount"] += abs(amount)
         sc[key]["accounts"].append((name, abs(amount)))
@@ -3776,8 +3807,8 @@ async def qb_tax_summary(start_date: str = "", end_date: str = "") -> str:
     # taxonomy (name fallback here — no subtype fetch in this lightweight tool).
     for rname, amount in _extract_pl_expense_accounts(report).items():
         line, desc, _flags = classify_account(rname, "", "US")
-        target = nondeductible if line == "NONDED" else schedule_c
-        mapped = (f"Non-deductible — {desc}" if line == "NONDED"
+        target = nondeductible if line.startswith("NONDED") else schedule_c
+        mapped = (f"Non-deductible — {desc}" if line.startswith("NONDED")
                   else f"Line {line} - {desc}")
         target.setdefault(mapped, [])
         target[mapped].append((rname, abs(amount)))
@@ -9638,6 +9669,40 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
     else:
         passed.append("✅ No credit-card payments misfiled as expenses")
 
+    # 3b. Account name disagrees with its AccountSubType. The tax taxonomy keys
+    # on the subtype, so a mistyped account (classic: "Cell phone" typed Travel)
+    # silently lands on the wrong Schedule C line. Flag only HIGH-CONFIDENCE name
+    # signals (a name that unambiguously means one category) whose subtype maps
+    # elsewhere — avoids noise on soft cases like office-vs-supplies.
+    _STRONG_NAME_SIGNAL = [
+        (_re.compile(r"\b(phone|internet|cell|telephone|utilit|electric)\b", _re.I), "25"),
+        (_re.compile(r"\bmortgage\b", _re.I), "16a"),
+        (_re.compile(r"\b(payroll|wages?|salar)", _re.I), "26"),
+    ]
+    subtype_mismatch = []
+    for a in active:
+        if a.get("AccountType", "") not in ("Expense", "Other Expense"):
+            continue
+        st = a.get("AccountSubType", "") or ""
+        nm = a.get("Name", "") or ""
+        if not st:
+            continue
+        for pat, expected in _STRONG_NAME_SIGNAL:
+            if pat.search(nm):
+                by_sub = classify_account("", st, "US")[0]
+                if by_sub != expected and by_sub != "27a":
+                    subtype_mismatch.append((nm, st))
+                break
+    if subtype_mismatch:
+        score -= min(15, 5 * len(subtype_mismatch))
+        rows = "; ".join(f"{nm} (typed {st})" for nm, st in subtype_mismatch[:8])
+        extra = f" (+{len(subtype_mismatch) - 8} more)" if len(subtype_mismatch) > 8 else ""
+        issues.append(f"🟡 **{len(subtype_mismatch)} account(s) whose name and QuickBooks "
+                      f"type disagree** — the tax mapping trusts the type, so these flow to "
+                      f"the wrong line: {rows}{extra}. Re-type or rename the account.")
+    else:
+        passed.append("✅ Account names agree with their QuickBooks types")
+
     # 4. Dormant accounts carrying a large balance
     dormant = []
     for a in active:
@@ -10860,30 +10925,10 @@ async def qb_t2125_summary(year: int = 0) -> str:
         "summarize_column_by": "Total",
     })
 
-    # Parse P&L rows into account -> amount (same shape as qb_schedule_c)
-    def extract_expenses(rows, result_dict):
-        for section in rows:
-            col_data = section.get("ColData", [])
-            if len(col_data) >= 2:
-                name = col_data[0].get("value", "")
-                try:
-                    val = float(col_data[-1].get("value", "0"))
-                except (ValueError, TypeError):
-                    val = 0
-                if val != 0:
-                    result_dict[name] = val
-            nested = section.get("Rows", {}).get("Row", [])
-            if nested:
-                extract_expenses(nested, result_dict)
-
-    expense_dict = {}
-    report_rows = result.get("Rows", {}).get("Row", [])
-    for section in report_rows:
-        header = section.get("Header", {}).get("ColData", [{}])
-        if header and "expense" in header[0].get("value", "").lower():
-            nested = section.get("Rows", {}).get("Row", [])
-            if nested:
-                extract_expenses(nested, expense_dict)
+    # Shared extractor: reconciles at every tree level, so amounts posted
+    # directly to a PARENT account are captured (not just leaves) — same fix as
+    # Schedule C. Keeps the two jurisdictions on one code path.
+    expense_dict = _extract_pl_expense_accounts(result)
 
     # Chart subtype map (P&L rows carry only names). Income split correctly —
     # Sales/fees → gross sales; refunds → reduce it; interest & other income →
@@ -10898,12 +10943,17 @@ async def qb_t2125_summary(year: int = 0) -> str:
     # deductible (ITA s.67.1). Accounts landing on 9270 are flagged for review.
     from collections import defaultdict
     t_lines = defaultdict(lambda: {"amount": 0.0, "accounts": []})
+    nondeduct = defaultdict(lambda: {"amount": 0.0, "accounts": []})
     unmapped = []
     for acct_name, amount in expense_dict.items():
         amount = abs(amount)
         if amount == 0:
             continue
         line_no, desc, _flags = classify_account(acct_name, name_sub.get(acct_name, ""), "CA")
+        if line_no.startswith("NONDED"):
+            nondeduct[desc]["amount"] += amount
+            nondeduct[desc]["accounts"].append(f"{acct_name}: {fmt(amount)}")
+            continue
         key = f"Line {line_no} — {desc}"
         deductible = amount * 0.5 if line_no == "8523" else amount
         t_lines[key]["amount"] += deductible
@@ -10938,6 +10988,13 @@ async def qb_t2125_summary(year: int = 0) -> str:
         for acct in data["accounts"]:
             lines.append(f"  - {acct}")
         total_expenses += data["amount"]
+
+    if nondeduct:
+        nd_total = sum(d["amount"] for d in nondeduct.values())
+        lines.append(f"\n### Not deductible on T2125 — excluded ({fmt(nd_total)})")
+        for desc in sorted(nondeduct):
+            for acct in nondeduct[desc]["accounts"]:
+                lines.append(f"  - {acct} — {desc}")
 
     lines.append(
         "\n**Line 9936 — Capital cost allowance (CCA):** not computed here — "
