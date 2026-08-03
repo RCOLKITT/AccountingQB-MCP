@@ -14,6 +14,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.14.0",
+    date: "2026-08-03",
+    title: "Canonical tax taxonomy — mappings anchored to IRS & CRA codes",
+    tag: "Tax",
+    summary:
+      "Schedule C and T2125 now classify accounts by their QuickBooks account TYPE — not by matching words in the account name — anchored to official IRS and CRA line codes and governed by the same sourced, gated control plane as our tax rates.",
+    highlights: [
+      "Accounts are mapped by their QuickBooks AccountSubType (authoritative and stable), with account-name matching only as a fallback — far more robust than the old keyword matching",
+      "One classification engine for both the US and Canada, anchored to IRS Schedule C lines and CRA GIFI codes, with every mapping carrying a citation and gated by a new drift test",
+      "Entertainment is now correctly treated as non-deductible in the US (IRC §274) — shown separately and excluded from Line 28; equipment leases map to Line 20a; subcontractor costs map to Line 11 (US) / 8340 (CA)",
+      "Books without those specific account types see identical numbers; the change is precision, not disruption",
+      "130 tools total across US & Canada",
+    ],
+  },
+  {
     version: "3.13.1",
     date: "2026-08-03",
     title: "Precision pass: Other Income, duplicate counts, and a server-version tool",
