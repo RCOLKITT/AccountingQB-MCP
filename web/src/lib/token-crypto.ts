@@ -18,11 +18,29 @@ export function isEncrypted(value: string | null | undefined): boolean {
   return typeof value === "string" && value.startsWith(PREFIX);
 }
 
-/** Encrypt a token for storage. Falls back to plaintext only if no key is set
- *  (dev). In production TOKEN_ENCRYPTION_KEY is always present. */
+function isProduction(): boolean {
+  return (
+    process.env.VERCEL_ENV === "production" ||
+    process.env.NODE_ENV === "production"
+  );
+}
+
+/** Encrypt a token for storage. Fails CLOSED in production: if
+ *  TOKEN_ENCRYPTION_KEY is missing or malformed we throw rather than silently
+ *  writing a plaintext OAuth token to the database. Only dev/preview may fall
+ *  back to plaintext. */
 export function encryptToken(plain: string): string {
   const k = key();
-  if (!k || !plain || isEncrypted(plain)) return plain;
+  if (!k) {
+    if (isProduction()) {
+      throw new Error(
+        "TOKEN_ENCRYPTION_KEY is missing or not a 32-byte base64 key — " +
+          "refusing to store an OAuth token in plaintext in production."
+      );
+    }
+    return plain; // dev/preview only
+  }
+  if (!plain || isEncrypted(plain)) return plain;
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", k, iv);
   const ct = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);

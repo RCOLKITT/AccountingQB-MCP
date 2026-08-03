@@ -14,3 +14,11 @@ jobs:
           python-version: "3.12"
       - run: pip install pytest respx -r requirements.txt
       - run: python -m pytest tests/ -q
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # Fail if a secret or a live QuickBooks realm id landed in a tracked file
+      # (e.g. an internal doc committed to the public repo).
+      - run: bash scripts/scan-secrets.sh

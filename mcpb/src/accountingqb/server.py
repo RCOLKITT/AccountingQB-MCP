@@ -83,6 +83,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger("quickbooks-mcp")
 
+# Quiet the HTTP client loggers: at INFO, httpx logs every outbound request URL,
+# which for QuickBooks calls includes the realm id and the /query SQL string
+# (account names, filters). We never want customer data or realm ids in logs.
+for _noisy in ("httpx", "httpcore"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 # ---------------------------------------------------------------------------
 # Encrypted Credential Storage
 # ---------------------------------------------------------------------------

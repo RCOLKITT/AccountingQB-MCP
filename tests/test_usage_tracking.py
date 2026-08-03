@@ -35,7 +35,7 @@ def test_wrapper_posts_with_ctx_license_and_realm(qb_ctx, monkeypatch):
     """A per-request (remote) license + realm on the context are reported."""
     monkeypatch.setattr(qb_server, "LICENSE_KEY", "")  # no single-tenant key
     qb_ctx.license_key = "LK-REMOTE-TEST"
-    qb_ctx.realm_id = "9130354407769206"
+    qb_ctx.realm_id = "9130350000000000"
 
     async def _dummy():
         return "ok"
@@ -57,7 +57,7 @@ def test_wrapper_posts_with_ctx_license_and_realm(qb_ctx, monkeypatch):
     import json
     payload = json.loads(body)
     assert payload["licenseKey"] == "LK-REMOTE-TEST"
-    assert payload["realmId"] == "9130354407769206"
+    assert payload["realmId"] == "9130350000000000"
     assert payload["toolName"] == "_dummy"
 
 

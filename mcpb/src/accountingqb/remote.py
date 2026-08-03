@@ -463,6 +463,10 @@ def main() -> None:
 
     port = int(os.environ.get("PORT", "8000"))
     logging.basicConfig(level=logging.INFO)
+    # httpx logs every outbound request URL at INFO — for QuickBooks calls that
+    # is the realm id + /query SQL. Keep customer data and realm ids out of logs.
+    for _noisy in ("httpx", "httpcore"):
+        logging.getLogger(_noisy).setLevel(logging.WARNING)
     uvicorn.run(create_app(), host="0.0.0.0", port=port)
 
 

@@ -90,8 +90,8 @@ export async function GET(req: NextRequest) {
     });
 
     if (!tokenRes.ok) {
-      const errBody = await tokenRes.text();
-      console.error("Token exchange failed:", errBody);
+      // Status only — do not log the Intuit response body.
+      console.error("Token exchange failed:", tokenRes.status);
       return redirectWithError("Failed to exchange authorization code for tokens.");
     }
 
