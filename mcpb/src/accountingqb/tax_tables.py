@@ -477,7 +477,7 @@ _NAME_FALLBACK_COMPILED = {
 _CATCH_ALL = {"us": "27a", "ca": "9270"}
 _CATALOG = {"us": _SCHEDULE_C_CATALOG, "ca": _T2125_CATALOG}
 _HOME_8829 = re.compile(
-    r"\b(home office|home-office|homeowner|home utilit|home insurance)\b", re.I)
+    r"\b(home office|home-office|homeowner|home util\w*|home insurance)\b", re.I)
 
 
 def classify_account(name: str, subtype: str, jurisdiction: str):

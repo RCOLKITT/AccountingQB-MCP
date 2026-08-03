@@ -101,7 +101,7 @@ def test_three_bucket_reconciliation():
     # deductible + statutorily-disallowed + non-deductible == all P&L expenses.
     expenses = {"Advertising": 100.0, "Client Entertainment": 40.0,
                 "Business meals": 200.0, "Rent": 1200.0, "Mystery Account": 15.0}
-    sc = s._map_expenses_to_schedule_c(expenses, {})
+    sc = s._map_expenses_to_schedule_c(expenses, {})["lines"]
     deductible = sum(d["deductible"] for d in sc.values() if not d.get("nondeductible"))
     disallowed = sum(d["amount"] - d["deductible"] for d in sc.values() if not d.get("nondeductible"))
     nondeduct = sum(d["amount"] for d in sc.values() if d.get("nondeductible"))
@@ -138,7 +138,7 @@ def test_parent_posted_amounts_not_dropped():
     exp = s._extract_pl_expense_accounts(pl)
     assert round(sum(exp.values()), 2) == 2077.41            # nothing dropped
     assert abs(exp.get("Travel", 0) - 696.17) < 0.01          # parent residual
-    sc = s._map_expenses_to_schedule_c(exp, {})
+    sc = s._map_expenses_to_schedule_c(exp, {})["lines"]
     line24a = next(d["amount"] for k, d in sc.items() if "24a" in k)
     assert abs(line24a - 2077.41) < 0.01                      # full amount, not 1381.24
 

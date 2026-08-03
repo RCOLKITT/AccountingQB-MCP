@@ -60,7 +60,7 @@ def test_schedule_c_income_split():
 def test_schedule_c_detailed_agrees():
     out = _run_pl(s.qb_schedule_c_detailed, "2026")
     assert "$195.00" in out and "$156.76" in out
-    assert "Gross income (Line 7): $156.76" in out
+    assert "Line 7 — Gross income: $156.76" in out
 
 
 def test_t2125_income_split():
@@ -320,7 +320,7 @@ def test_schedule_c_meals_limit_and_allocation_warning():
         out = asyncio.run(fn("2025"))
     assert "× 50% (IRC §274(n)) = $551.05" in out or "× 50% (IRC §274(n))" in out
     assert "Line 24b — Deductible meals: $551.0" in out
-    assert "statutory limits removed" in out
+    assert "Removed from deductions" in out and "statutory" in out
     assert "Likely need a business-use %" in out and "Cell phone" in out
     # no false reconciliation warning (three buckets tie to the P&L)
     assert "Does not reconcile" not in out

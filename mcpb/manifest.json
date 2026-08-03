@@ -2,9 +2,9 @@
   "manifest_version": "0.3",
   "name": "accountingqb",
   "display_name": "AccountingQB \u2014 QuickBooks for Claude",
-  "version": "3.15.0",
+  "version": "3.16.0",
   "icon": "icon.png",
-  "description": "130 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
+  "description": "131 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
   "long_description": "Connect Claude to your QuickBooks Online with one click. Run P&L reports, reconcile transactions, prep for taxes, detect anomalies, and more. Full US and Canada support: Schedule C, quarterly estimates and 1099s for the US; GST/HST returns, T2125, CCA schedules, T4A reporting and CRA instalments for Canada. Your data stays on your machine \u2014 zero cloud routing.\n\n**Getting Started:**\n1. Enter your license key (get one at accountingqb.com)\n2. Click 'Connect QuickBooks' when prompted\n3. Start asking Claude about your books!\n\n**Requirements:** Python 3.10 or newer on your machine (all Python package dependencies are bundled with the extension).",
   "author": {
     "name": "Vaspera Capital",
@@ -1218,6 +1218,61 @@
         "readOnlyHint": true
       },
       "readOnlyHint": true,
+      "destructiveHint": false,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_allocation_profile",
+      "description": "Get or set this company's TAXPAYER allocation profile for a tax year \u2014 the",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tax_year": {
+            "type": "integer",
+            "description": "Tax Year",
+            "default": 0
+          },
+          "home_office_sqft": {
+            "type": "number",
+            "description": "Home Office Sqft",
+            "default": 0
+          },
+          "home_sqft": {
+            "type": "number",
+            "description": "Home Sqft",
+            "default": 0
+          },
+          "vehicle_method": {
+            "type": "string",
+            "description": "Vehicle Method",
+            "default": ""
+          },
+          "business_miles": {
+            "type": "number",
+            "description": "Business Miles",
+            "default": 0
+          },
+          "total_miles": {
+            "type": "number",
+            "description": "Total Miles",
+            "default": 0
+          },
+          "account_allocations_json": {
+            "type": "string",
+            "description": "Account Allocations Json",
+            "default": ""
+          },
+          "source": {
+            "type": "string",
+            "description": "Source",
+            "default": ""
+          }
+        }
+      },
+      "annotations": {
+        "destructiveHint": false
+      },
+      "readOnlyHint": false,
       "destructiveHint": false,
       "codeExecution": false
     },
@@ -2667,6 +2722,11 @@
             "type": "string",
             "description": "Tax Year",
             "default": "2025"
+          },
+          "save_to_profile": {
+            "type": "boolean",
+            "description": "Save To Profile",
+            "default": false
           }
         },
         "required": [
@@ -2676,9 +2736,9 @@
         ]
       },
       "annotations": {
-        "readOnlyHint": true
+        "destructiveHint": false
       },
-      "readOnlyHint": true,
+      "readOnlyHint": false,
       "destructiveHint": false,
       "codeExecution": false
     },
