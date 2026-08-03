@@ -1613,6 +1613,64 @@ async def qb_company_info() -> str:
     return "\n".join(lines)
 
 
+def _server_version() -> str:
+    """Running package version — derived, never hardcoded here (keeps this off
+    the list of files that must be bumped each release)."""
+    try:
+        from importlib.metadata import version as _v
+        return _v("accountingqb")
+    except Exception:
+        try:
+            from accountingqb import __version__ as _v
+            return _v
+        except Exception:
+            return "unknown"
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_server_info() -> str:
+    """Report the RUNNING AccountingQB MCP server: version, tool count, build
+    timestamp, region/tax edition, and QuickBooks connection state. The connector
+    is remote, so the version actually serving your requests can differ from what
+    you expect after an update — call this to confirm which build you're on before
+    reporting a bug (e.g. 'am I actually running 3.13.x?')."""
+    lines = ["## AccountingQB MCP — Server Info\n",
+             f"- **Version:** {_server_version()}",
+             f"- **Tools registered:** {len(mcp._tool_manager._tools)}"]
+    try:
+        import datetime as _dt
+        built = _dt.datetime.utcfromtimestamp(os.path.getmtime(__file__))
+        lines.append(f"- **Build timestamp (server module):** {built:%Y-%m-%d %H:%M} UTC")
+    except Exception:
+        pass
+    try:
+        hosted = bool(get_ctx().hosted_mode)
+    except Exception:
+        hosted = False
+    lines.append(f"- **Mode:** {'hosted connector (token-brokered)' if hosted else 'self-hosted / local'}")
+
+    if _demo_active():
+        lines.append("- **Mode:** demo license (sample data)")
+    # QuickBooks connection — best effort, never fail the whole call
+    try:
+        region = (await _get_region()).get("region", "unknown")
+        lines.append(f"- **Region / tax edition:** {region}")
+    except Exception:
+        lines.append("- **Region / tax edition:** unknown (not connected)")
+    try:
+        if _demo_active():
+            lines.append(f"- **QuickBooks:** demo — {DEMO_COMPANY.get('CompanyName', 'Demo Co')}")
+        else:
+            ci = await qb_query("SELECT * FROM CompanyInfo")
+            info = ci.get("QueryResponse", {}).get("CompanyInfo", [{}])[0]
+            realm = get_ctx().realm_id or QB_REALM_ID or "?"
+            lines.append(f"- **QuickBooks:** connected — {info.get('CompanyName', '?')} "
+                         f"(realm {realm})")
+    except Exception:
+        lines.append("- **QuickBooks:** not connected (run the setup/OAuth flow)")
+    return "\n".join(lines)
+
+
 # ===================================================================
 # TRANSACTION QUERIES — Purchases / Expenses
 # ===================================================================
@@ -3632,17 +3690,30 @@ def _pl_income_breakdown(pl_result: dict):
         # reports (Header "Income" + leaf rows) and summary-only reports.
         # Order matters: Other Income / COGS first (their labels also contain
         # "income"/"cost"), then operating Income by an exact match.
-        is_other = "other income" in header or "other income" in summ_label
-        is_cogs = ("cost of goods" in header or "cost of goods" in summ_label
-                   or header == "cogs")
-        is_income = header == "income" or summ_label == "total income"
+        # Skip "Net ..." roll-up rows: 'Net Other Income' CONTAINS 'other income'
+        # as a substring, so without this guard the Other-Income amount is counted
+        # a second time (once for the section, once for its Net roll-up).
+        is_net = header.startswith("net ") or summ_label.startswith("net ")
+        is_other = not is_net and ("other income" in header or "other income" in summ_label)
+        is_cogs = not is_net and ("cost of goods" in header or "cost of goods" in summ_label
+                                  or header == "cogs")
+        is_income = not is_net and (header == "income" or summ_label == "total income")
+
+        nested = section.get("Rows", {}).get("Row", [])
+
+        def _section_total():
+            # Sum leaf rows when detail is present (avoids double-counting a
+            # section's own summary against its parent's); fall back to the
+            # section summary for summary-only reports.
+            leaves = list(leaf_values(nested))
+            return round(sum(leaves), 2) if leaves else total
 
         if is_other:
-            other += total
+            other += _section_total()
         elif is_cogs:
-            cogs += total
+            cogs += _section_total()
         elif is_income:
-            leaves = list(leaf_values(section.get("Rows", {}).get("Row", [])))
+            leaves = list(leaf_values(nested))
             if leaves:                       # detail present — split by sign
                 for v in leaves:
                     if v >= 0:
@@ -4569,6 +4640,52 @@ async def qb_uncategorized_transactions(start_date: str = "", end_date: str = ""
     return "\n".join(lines)
 
 
+def _purchase_dup_clusters(purchases, tolerance_days: int = 0):
+    """Cluster likely-duplicate purchases: same vendor + same amount within
+    ``tolerance_days`` (0 = same day). A vendor+amount combination spread across
+    ≥4 distinct days is treated as recurring (subscription/daily spend) — only a
+    true same-day repeat within it counts. Returns
+    ``(clusters, recurring_suppressed)`` where each cluster is
+    ``(vendor, amount, [txns])``. Shared by qb_find_duplicates AND
+    qb_books_health_audit so their duplicate counts always agree."""
+    from collections import defaultdict
+    by_va = defaultdict(list)
+    for p in purchases:
+        if not p.get("TxnDate"):
+            continue
+        key = ((p.get("EntityRef", {}).get("name", "") or "").lower().strip(),
+               round(float(p.get("TotalAmt", 0)), 2))
+        by_va[key].append(p)
+
+    def _day_clusters(txns, tol):
+        clusters = []
+        for t in sorted(txns, key=lambda x: x["TxnDate"]):
+            d = datetime.strptime(t["TxnDate"], "%Y-%m-%d")
+            for c in clusters:
+                if abs((d - datetime.strptime(c[0]["TxnDate"], "%Y-%m-%d")).days) <= tol:
+                    c.append(t)
+                    break
+            else:
+                clusters.append([t])
+        return clusters
+
+    clusters, recurring_suppressed = [], 0
+    for (vendor, amt), txns in by_va.items():
+        if len(txns) < 2:
+            continue
+        distinct_days = {t["TxnDate"] for t in txns}
+        if len(distinct_days) >= 4:
+            hits = [c for c in _day_clusters(txns, 0) if len(c) >= 2]
+            if hits:
+                clusters.extend((vendor, amt, c) for c in hits)
+            else:
+                recurring_suppressed += 1
+            continue
+        clusters.extend((vendor, amt, c)
+                        for c in _day_clusters(txns, tolerance_days) if len(c) >= 2)
+    return clusters, recurring_suppressed
+
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_find_duplicates(start_date: str = "", end_date: str = "", tolerance_days: int = 0, max_results: int = 200) -> str:
     """Find likely duplicate purchases. By default a duplicate is same VENDOR +
@@ -4587,48 +4704,7 @@ async def qb_find_duplicates(start_date: str = "", end_date: str = "", tolerance
     if not purchases:
         return f"No transactions found between {start_date} and {end_date}."
 
-    from collections import defaultdict
-    by_va = defaultdict(list)
-    for p in purchases:
-        if not p.get("TxnDate"):
-            continue
-        key = (
-            (p.get("EntityRef", {}).get("name", "") or "").lower().strip(),
-            round(float(p.get("TotalAmt", 0)), 2),
-        )
-        by_va[key].append(p)
-
-    def _day_clusters(txns, tol):
-        """Group same-amount/vendor txns whose dates fall within `tol` days of
-        the cluster's first member (tol=0 → exact same day)."""
-        clusters = []
-        for t in sorted(txns, key=lambda x: x["TxnDate"]):
-            d = datetime.strptime(t["TxnDate"], "%Y-%m-%d")
-            for c in clusters:
-                if abs((d - datetime.strptime(c[0]["TxnDate"], "%Y-%m-%d")).days) <= tol:
-                    c.append(t)
-                    break
-            else:
-                clusters.append([t])
-        return clusters
-
-    clusters, recurring_suppressed = [], 0
-    for (vendor, amt), txns in by_va.items():
-        if len(txns) < 2:
-            continue
-        distinct_days = {t["TxnDate"] for t in txns}
-        # Recurring charge (same vendor+amount on many different days): only a
-        # true same-day repeat counts as a duplicate; otherwise suppress it.
-        if len(distinct_days) >= 4:
-            hits = [c for c in _day_clusters(txns, 0) if len(c) >= 2]
-            if hits:
-                clusters.extend((vendor, amt, c) for c in hits)
-            else:
-                recurring_suppressed += 1
-            continue
-        clusters.extend((vendor, amt, c)
-                        for c in _day_clusters(txns, tolerance_days) if len(c) >= 2)
-
+    clusters, recurring_suppressed = _purchase_dup_clusters(purchases, tolerance_days)
     extra = sum(len(c) - 1 for _, _, c in clusters)
     if not clusters:
         note = (f" ({recurring_suppressed} recurring vendor+amount pattern(s) "
@@ -5907,8 +5983,17 @@ async def _profit_loss_by_dimension(start_date, end_date, column, label, needs):
         "summarize_column_by": column,
     })
     col_names = [c.get("ColTitle", "") for c in result.get("Columns", {}).get("Column", [])]
-    if len(col_names) <= 2:
-        return f"No {label} data found. This report requires QuickBooks {needs}."
+    # The dimension columns are those between the Account column and the Total.
+    # When tracking is OFF, QuickBooks ignores the grouping and returns either a
+    # plain P&L (Account + Total) OR a single "Not Specified" column — both of
+    # which would otherwise render as a misleading single-<dimension> P&L.
+    dim_cols = [c.strip() for c in col_names[1:-1]] if len(col_names) >= 2 else []
+    meaningful = [c for c in dim_cols if c and c.lower() not in ("not specified", "total")]
+    if not meaningful:
+        return (f"No {label} breakdown available — this requires QuickBooks {needs} "
+                f"and transactions tagged to a {label}. "
+                f"(QuickBooks returned an ungrouped P&L, which is NOT a single-{label} "
+                f"result.) Use qb_profit_loss for the standard statement.")
     lines = [f"## Profit & Loss by {label.title()}: {start_date} to {end_date}\n"]
     _parse_report_rows(result.get("Rows", {}).get("Row", []), lines)
     return "\n".join(lines)
@@ -6179,9 +6264,14 @@ async def qb_missing_receipts(threshold: float = 75.0, start_date: str = "", end
 
     # Account-type map so we can tell a real expense from a credit-card PAYMENT
     # or bank transfer (categorized to a Bank/Equity/liability account) — those
-    # don't need a receipt. Same signal qb_books_hygiene uses.
-    accts = (await qb_query_all("SELECT * FROM Account")).get(
+    # don't need a receipt. Same signal qb_books_hygiene uses. INCLUDE inactive
+    # accounts: a payment categorized to a *deleted* credit-card account would
+    # otherwise resolve to an unknown type and get flagged as a missing receipt.
+    active = (await qb_query_all("SELECT * FROM Account")).get(
         "QueryResponse", {}).get("Account", [])
+    inactive = (await qb_query_all("SELECT * FROM Account WHERE Active = false")).get(
+        "QueryResponse", {}).get("Account", [])
+    accts = active + inactive
     atype = {a["Id"]: a.get("AccountType", "") for a in accts}
     aname = {a["Id"]: (a.get("Name", "") or "").lower() for a in accts}
     _NON_EXPENSE = {"Bank", "Equity", "Credit Card", "Accounts Payable",
@@ -9321,19 +9411,16 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
         passed.append("✅ No equity accounts with balances")
 
     # --- 7. Potential duplicates (quick check) ---
-    from collections import defaultdict
-    txn_fingerprints = defaultdict(list)
-    for p in purchases:
-        key = (p.get("TxnDate", ""), str(round(float(p.get("TotalAmt", 0)), 2)))
-        txn_fingerprints[key].append(p.get("Id"))
-
-    dupes = {k: v for k, v in txn_fingerprints.items() if len(v) > 1}
-    dupe_count = sum(len(v) - 1 for v in dupes.values())
+    # Uses the SAME detector as qb_find_duplicates (same vendor+amount+day,
+    # recurring suppression) so the two tools' counts always agree — otherwise
+    # this reported a looser date+amount count that contradicted the detail tool.
+    dup_clusters, _dup_recurring = _purchase_dup_clusters(purchases, 0)
+    dupe_count = sum(len(c) - 1 for _, _, c in dup_clusters)
     if dupe_count > 5:
         score -= min(10, dupe_count)
         warnings.append(
             f"🟡 **{dupe_count} potential duplicate transactions** "
-            f"({len(dupes)} date/amount combinations)\n"
+            f"({len(dup_clusters)} vendor+amount+day clusters)\n"
             f"   → Use `qb_find_duplicates` for detailed review."
         )
     else:

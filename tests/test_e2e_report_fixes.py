@@ -193,3 +193,84 @@ def test_books_hygiene_discloses_truncated_ids():
         out = asyncio.run(_unwrap(s.qb_books_hygiene)("2026-01-01", "2026-12-31"))
     assert "13 credit-card purchase(s)" in out
     assert "showing first 10 of 13" in out
+
+
+# ===== v3.13.1 — second-round review fixes =========================
+
+def test_other_income_not_double_counted():
+    """P&L with an Other Income section AND a 'Net Other Income' roll-up row —
+    'other income' is a substring of 'net other income', which used to add the
+    amount twice. Line 7 must equal Line 3 + Line 6."""
+    pl = {"Rows": {"Row": [
+        {"Header": {"ColData": [{"value": "Income"}]},
+         "Rows": {"Row": [{"ColData": [{"value": "Sales"}, {"value": "195.00"}]},
+                          {"ColData": [{"value": "Refunds"}, {"value": "-39.00"}]}]},
+         "Summary": {"ColData": [{"value": "Total Income"}, {"value": "156.00"}]}},
+        {"Header": {"ColData": [{"value": "Other Income"}]},
+         "Rows": {"Row": [{"ColData": [{"value": "Interest earned"}, {"value": "0.76"}]}]},
+         "Summary": {"ColData": [{"value": "Total Other Income"}, {"value": "0.76"}]}},
+        {"Summary": {"ColData": [{"value": "Net Other Income"}, {"value": "0.76"}]}},
+    ]}}
+    gross, ret, cogs, other = s._pl_income_breakdown(pl)
+    assert (gross, ret, cogs, other) == (195.0, 39.0, 0.0, 0.76)
+    line3 = round(gross - ret, 2)
+    line7 = round((line3 - cogs) + other, 2)
+    assert line7 == round(line3 + other, 2) == 156.76
+
+
+def test_duplicate_detectors_agree():
+    """qb_find_duplicates and qb_books_health_audit must report the same extra
+    count — they now share _purchase_dup_clusters."""
+    purchases = [
+        {"Id": "1", "TxnDate": "2026-03-01", "TotalAmt": 300.0, "EntityRef": {"name": "Acme"}},
+        {"Id": "2", "TxnDate": "2026-03-01", "TotalAmt": 300.0, "EntityRef": {"name": "Acme"}},
+        # recurring — suppressed by both
+        {"Id": "3", "TxnDate": "2026-01-15", "TotalAmt": 95.63, "EntityRef": {"name": "Anthropic"}},
+        {"Id": "4", "TxnDate": "2026-02-15", "TotalAmt": 95.63, "EntityRef": {"name": "Anthropic"}},
+        {"Id": "5", "TxnDate": "2026-03-15", "TotalAmt": 95.63, "EntityRef": {"name": "Anthropic"}},
+        {"Id": "6", "TxnDate": "2026-04-15", "TotalAmt": 95.63, "EntityRef": {"name": "Anthropic"}},
+    ]
+    clusters, _ = s._purchase_dup_clusters(purchases, 0)
+    extra = sum(len(c) - 1 for _, _, c in clusters)
+    assert extra == 1                      # only the Acme same-day pair
+
+
+def test_missing_receipts_excludes_deleted_card_account():
+    """A payment categorized to a DELETED credit-card account must be excluded —
+    the account type is only known if inactive accounts are fetched too."""
+    active = [{"Id": "20", "Name": "Office Supplies", "AccountType": "Expense"}]
+    inactive = [{"Id": "99", "Name": "Delta SkyMiles Reserve Card (1008)",
+                 "AccountType": "Credit Card"}]
+    purchases = [
+        {"Id": "1", "TxnDate": "2026-02-01", "TotalAmt": 500.0,
+         "EntityRef": {"name": "Staples"},
+         "Line": [{"AccountBasedExpenseLineDetail": {"AccountRef": {"value": "20"}}}]},
+        {"Id": "2037", "TxnDate": "2026-01-26", "TotalAmt": 1000.0,
+         "EntityRef": {"name": "Amex payment"},
+         "Line": [{"AccountBasedExpenseLineDetail": {"AccountRef": {"value": "99"}}}]},
+    ]
+
+    async def fake_query_all(q, **k):
+        if "Attachable" in q:
+            return {"QueryResponse": {}}
+        if "Active = false" in q:
+            return {"QueryResponse": {"Account": inactive}}
+        if "Account" in q:
+            return {"QueryResponse": {"Account": active}}
+        if "Purchase" in q:
+            return {"QueryResponse": {"Purchase": purchases}}
+        return {"QueryResponse": {}}
+
+    with patch.object(s, "qb_query_all", fake_query_all):
+        out = asyncio.run(_unwrap(s.qb_missing_receipts)(75.0, "2026-01-01", "2026-12-31"))
+    assert "Staples" in out
+    assert "#2037" not in out and "excluded 1" in out
+
+
+def test_server_info_reports_version_and_count():
+    async def fake_query(q):
+        raise RuntimeError("not connected")
+    with patch.object(s, "qb_query", fake_query):
+        out = asyncio.run(_unwrap(s.qb_server_info)())
+    assert "Version:" in out and "Tools registered:" in out
+    assert str(len(s.mcp._tool_manager._tools)) in out

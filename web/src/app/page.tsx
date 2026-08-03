@@ -55,7 +55,7 @@ const tiers = [
     description: "For freelancers & sole proprietors",
     savings: "Save ~5 hrs/mo on bookkeeping & tax prep",
     features: [
-      "All 129 QuickBooks tools",
+      "All 130 QuickBooks tools",
       "US & Canadian tax prep (Schedule C / T2125)",
       "Deduction finder",
       "Anomaly detection",
@@ -69,7 +69,7 @@ const tiers = [
   {
     name: "Business",
     price: "$99",
-    priceCad: "CA$129",
+    priceCad: "CA$130",
     period: "/mo",
     description: "For growing small businesses",
     savings: "Save ~12 hrs/mo across 3 companies",
@@ -121,7 +121,7 @@ const faqs = [
   },
   {
     q: "What happens after the 14-day trial?",
-    a: "You keep access to 25 essential read-only tools for free. To continue using all 129 tools including writes, tax prep, and advanced analytics, choose a paid plan.",
+    a: "You keep access to 25 essential read-only tools for free. To continue using all 130 tools including writes, tax prep, and advanced analytics, choose a paid plan.",
   },
   {
     q: "Can I use this with QuickBooks Desktop?",
@@ -215,7 +215,7 @@ export default async function Home() {
 
             {/* Subhead */}
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-400 sm:text-xl">
-              129 tools connecting Claude to your QuickBooks Online. Run reports,
+              130 tools connecting Claude to your QuickBooks Online. Run reports,
               reconcile books, prep for taxes, detect anomalies — all through
               natural conversation.{" "}
               <span className="text-gray-300">Run it locally or connect instantly — we never store your books.</span>
@@ -373,7 +373,7 @@ export default async function Home() {
               Features
             </div>
             <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
-              129 tools across every
+              130 tools across every
               <br />
               <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">accounting workflow</span>
             </h2>
@@ -448,7 +448,7 @@ export default async function Home() {
             <div className="gradient-border rounded-2xl p-8">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-600/20">
                 <svg className="h-6 w-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.130.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
                 </svg>
               </div>
               <h3 className="text-xl font-semibold text-white">Talk to Your Books</h3>
@@ -532,7 +532,7 @@ export default async function Home() {
               {
                 step: "03",
                 title: "Start Talking to Your Books",
-                desc: "Ask Claude anything. \"What's my burn rate?\" \"Find missing deductions.\" 129 tools ready.",
+                desc: "Ask Claude anything. \"What's my burn rate?\" \"Find missing deductions.\" 130 tools ready.",
                 gradient: "from-indigo-500 to-purple-500",
               },
             ].map((s) => (
@@ -652,7 +652,7 @@ export default async function Home() {
               <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">in the first week</span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-gray-400">
-              129 tools means 129 tasks that used to be manual. Tax prep, invoice reconciliation, vendor cleanup, anomaly checks, month-end close — all in a conversation.
+              130 tools means 130 tasks that used to be manual. Tax prep, invoice reconciliation, vendor cleanup, anomaly checks, month-end close — all in a conversation.
             </p>
           </div>
 
@@ -752,7 +752,7 @@ export default async function Home() {
                 <p className="mt-3 text-gray-400">
                   If you&apos;re managing 20+ clients, your team is spending hundreds of hours a month on tasks
                   AccountingQB handles in minutes. Invoice reconciliation, month-end close, vendor cleanup,
-                  anomaly checks, tax prep — 129 tools covering every workflow that eats your margin.
+                  anomaly checks, tax prep — 130 tools covering every workflow that eats your margin.
                 </p>
               </div>
               <div className="rounded-xl bg-white/[0.03] p-6">
