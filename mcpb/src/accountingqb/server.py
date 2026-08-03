@@ -3743,38 +3743,216 @@ def _pl_expense_total(pl_result: dict) -> float:
     return round(total, 2)
 
 
-def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = None):
-    """Map {name: amount} -> ordered dict per line, with the classification AND
-    the statutory limitation applied. Each bucket carries: ``amount`` (full P&L),
-    ``deductible`` (after the §274(n)-style factor), ``accounts``
-    [(name, full, deductible)], ``home``, ``nondeductible``, ``limit_factor``,
-    ``limit_cite``. Unmatched deductible accounts route to Line 27a so nothing is
-    dropped; non-deductible book expenses are bucketed separately and excluded
-    from Line 28."""
+def _account_alloc(name: str, line: str, flags: list, profile: dict):
+    """Taxpayer allocation treatment for one account, from the profile. Returns
+    ``(treatment, pct, basis)`` where treatment is:
+    - 'home_indirect' — a home-office account → routed to Form 8829 (Line 30);
+    - 'mileage_excluded' — a vehicle account when the standard-mileage method is
+      chosen (actual vehicle expenses are replaced by miles × rate);
+    - 'line' — normal, with ``pct`` the business-use fraction (1.0 = 100%)."""
+    p = profile or {}
+    if "home_8829" in flags:
+        return "home_indirect", 1.0, ""
+    if line == "9":
+        veh = p.get("vehicle") or {}
+        method = veh.get("method")
+        if method == "standard_mileage":
+            return "mileage_excluded", 0.0, "standard mileage used"
+        if method == "actual":
+            pct = float(veh.get("percentage", 1.0) or 1.0)
+            return "line", pct, f"vehicle {pct * 100:.0f}% business use"
+        return "line", 1.0, ""
+    acc = (p.get("account_allocations") or {}).get(name)
+    if acc:
+        try:
+            pct = float(acc.get("percentage", 1.0))
+        except (ValueError, TypeError):
+            pct = 1.0
+        return "line", pct, (acc.get("basis_note") or "per allocation profile")
+    return "line", 1.0, ""
+
+
+def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = None,
+                                profile: dict = None):
+    """Classify → ALLOCATE (taxpayer %) → LIMIT (statutory %). Returns a dict:
+    ``lines`` (per-line buckets; each account tuple is
+    (name, full, allocated, deductible, pct, basis, factor, cite)),
+    ``home_indirect`` [(name, amt)] for Form 8829, ``mileage_excluded``
+    [(name, amt)] for the standard-mileage method, and ``alloc_candidates``
+    (accounts at 100% that likely need an allocation). Nothing is dropped — every
+    routing is reported."""
     from collections import defaultdict
     subs = name_to_subtype or {}
     sc = defaultdict(lambda: {"amount": 0.0, "deductible": 0.0, "accounts": [],
-                              "home": False, "nondeductible": False,
-                              "limit_factor": 1.0, "limit_cite": "", "line": ""})
+                              "nondeductible": False, "limit_factor": 1.0,
+                              "limit_cite": "", "line": "", "allocated": False})
+    home_indirect, mileage_excluded, alloc_candidates = [], [], []
     for name, amount in expense_accounts.items():
         amt = abs(amount)
         line, desc, flags = classify_account(name, subs.get(name, ""), "US")
+        treatment, pct, basis = _account_alloc(name, line, flags, profile)
+        if treatment == "home_indirect":
+            home_indirect.append((name, amt))
+            continue
+        if treatment == "mileage_excluded":
+            mileage_excluded.append((name, amt))
+            continue
         factor, cite = line_limitation(line, "US")
-        ded = round(amt * factor, 2)
+        allocated = round(amt * pct, 2)
+        ded = round(allocated * factor, 2)
         key = (f"Non-deductible — {desc}" if line.startswith("NONDED")
                else f"Line {line} — {desc}")
         b = sc[key]
         b["line"] = line
         b["amount"] += amt
         b["deductible"] += ded
-        b["accounts"].append((name, amt, ded))
+        b["accounts"].append((name, amt, allocated, ded, pct, basis, factor, cite))
         b["limit_factor"] = factor
         b["limit_cite"] = cite
-        if "home_8829" in flags:
-            b["home"] = True
+        if pct < 0.999:
+            b["allocated"] = True
         if "nondeductible" in flags:
             b["nondeductible"] = True
-    return sc
+        if pct >= 0.999 and factor >= 0.999 and line in ("25", "9"):
+            alloc_candidates.append((name, key))
+    return {"lines": sc, "home_indirect": home_indirect,
+            "mileage_excluded": mileage_excluded, "alloc_candidates": alloc_candidates}
+
+
+def _form8829(indirect_total: float, biz_pct: float, tentative_profit: float):
+    """Form 8829 business-use-of-home deduction with the gross-income limitation.
+    Returns ``(allowed, carryforward, tentative)``. Line 30 ≤ tentative profit
+    (Line 29); the excess carries forward — it can't create or increase a loss."""
+    tentative = round(indirect_total * biz_pct, 2)
+    allowed = round(min(tentative, max(0.0, tentative_profit)), 2)
+    return allowed, round(tentative - allowed, 2), tentative
+
+
+def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income: float,
+                                pl_total: float, lines: list) -> float:
+    """Append the Schedule C expense section (allocated + limited lines, standard
+    mileage, Form 8829 Line 30 with the income limit + carryforward, Line 28/31,
+    non-deductibles, and the allocation warning) to ``lines``. Enforces the
+    conservation invariant (every P&L dollar in a reported bucket). Returns the
+    Line 31 net profit. Shared by qb_schedule_c and qb_schedule_c_detailed so the
+    two never disagree."""
+    profile = profile or {}
+    sc = res["lines"]
+
+    def _sort(item):
+        m = _re.search(r"Line (\d+)([a-z]?)", item[0])
+        return (int(m.group(1)) if m else 999, m.group(2) if m else "")
+
+    lines.append("### Expenses:")
+    pl_deductible = stat_disallowed = alloc_disallowed = nondeduct_total = 0.0
+    nondeduct = []
+    for key, d in sorted(sc.items(), key=_sort):
+        if d.get("nondeductible"):
+            nondeduct.append((key, d))
+            nondeduct_total += d["amount"]
+            continue
+        lines.append(f"\n**{key}: {fmt(round(d['deductible'], 2))}**")
+        for name, full, alloc, ded, pct, basis, factor, cite in d["accounts"]:
+            expr = fmt(full)
+            if pct < 0.999:
+                expr += f" × {pct * 100:.0f}% ({basis})"
+            if factor < 0.999:
+                expr += f" × {factor * 100:.0f}% ({cite})"
+            if pct < 0.999 or factor < 0.999:
+                expr += f" = {fmt(ded)}"
+            lines.append(f"  - {name}: {expr}")
+            pl_deductible += ded
+            alloc_disallowed += round(full - alloc, 2)
+            stat_disallowed += round(alloc - ded, 2)
+
+    # Vehicle standard mileage — a Line 9 deduction NOT sourced from the P&L.
+    mileage_ded = 0.0
+    mileage_excluded_total = round(sum(a for _, a in res["mileage_excluded"]), 2)
+    veh = profile.get("vehicle") or {}
+    if veh.get("method") == "standard_mileage":
+        rate, _note = tax_value_or_latest("STD_MILEAGE_CENTS", int(tax_year))
+        miles = float(veh.get("business_miles", 0) or 0)
+        mileage_ded = round(miles * rate / 100.0, 2)
+        lines.append(f"\n**Line 9 — Car and truck (standard mileage): {fmt(mileage_ded)}**")
+        lines.append(f"  - {miles:,.0f} business miles × ${rate / 100:.3f}/mi = {fmt(mileage_ded)}")
+        if mileage_excluded_total:
+            lines.append(f"  - *actual vehicle expenses of {fmt(mileage_excluded_total)} are "
+                         "excluded — you cannot deduct both*")
+
+    total_line28 = round(pl_deductible + mileage_ded, 2)
+    lines.append(f"\n**Line 28 — Total expenses: {fmt(total_line28)}**")
+
+    # Form 8829 (home office) → Line 30, limited to tentative profit (Line 29).
+    home_indirect_total = round(sum(a for _, a in res["home_indirect"]), 2)
+    line29 = round(gross_income - total_line28, 2)
+    ho = profile.get("home_office") or {}
+    ho_allowed = ho_carry = ho_personal = ho_pending = 0.0
+    if home_indirect_total > 0.005:
+        if ho.get("percentage") is not None:
+            pct = float(ho["percentage"])
+            allowed, carry, tentative = _form8829(home_indirect_total, pct, line29)
+            ho_allowed, ho_carry = allowed, carry
+            ho_personal = round(home_indirect_total - tentative, 2)
+            lines.append(f"\n**Line 30 — Home office (Form 8829): {fmt(ho_allowed)}**")
+            lines.append(f"  - home expenses {fmt(home_indirect_total)} × {pct * 100:.2f}% "
+                         f"business use = {fmt(tentative)} tentative")
+            if ho_carry > 0.005:
+                lines.append(f"  - capped at tentative profit {fmt(max(0.0, line29))} (Line 29) "
+                             f"— {fmt(ho_carry)} carries forward (can't create/increase a loss)")
+        else:
+            ho_pending = home_indirect_total
+            lines.append(f"\n**Line 30 — Home office: not computed** — {fmt(home_indirect_total)} "
+                         "of home-flagged expenses have no home-office %. Set one with "
+                         "qb_home_office_calculator (save_to_profile=true) or qb_allocation_profile.")
+
+    net_profit = round(line29 - ho_allowed, 2)
+    lines.append(f"**Line 31 — Net profit (loss): {fmt(net_profit)}**")
+
+    disallowed_note = []
+    if stat_disallowed > 0.005:
+        disallowed_note.append(f"{fmt(round(stat_disallowed, 2))} statutory (e.g. meals §274(n))")
+    if alloc_disallowed > 0.005:
+        disallowed_note.append(f"{fmt(round(alloc_disallowed, 2))} personal (allocation)")
+    if ho_personal > 0.005:
+        disallowed_note.append(f"{fmt(round(ho_personal, 2))} personal home share")
+    if disallowed_note:
+        lines.append("*Removed from deductions: " + "; ".join(disallowed_note) + ".*")
+
+    # Conservation: every P&L expense dollar lands in exactly one bucket.
+    pl_accounted = round(pl_deductible + stat_disallowed + alloc_disallowed
+                         + ho_allowed + ho_carry + ho_personal + ho_pending
+                         + mileage_excluded_total + nondeduct_total, 2)
+    if pl_total and abs(pl_accounted - pl_total) > 0.02:
+        lines.append(f"⚠️ Does not reconcile to P&L expenses ({fmt(pl_total)}) — "
+                     f"difference {fmt(round(abs(pl_accounted - pl_total), 2))}. Review.")
+
+    if nondeduct:
+        lines.append(f"\n### Not deductible on Schedule C — excluded from Line 28: "
+                     f"({fmt(round(nondeduct_total, 2))})")
+        for key, d in nondeduct:
+            for name, full, *_ in d["accounts"]:
+                lines.append(f"  - {name}: {fmt(full)}")
+        lines.append("*e.g. entertainment (§274(a)) and charitable contributions (§170, "
+                     "claimed on Schedule A) reduce book profit but not taxable income.*")
+
+    cands = res["alloc_candidates"]
+    if cands:
+        seen, uniq = set(), []
+        for name, key in cands:
+            if name not in seen:
+                seen.add(name)
+                uniq.append((name, key))
+        lines.append("\n### ⚠️ Likely need a business-use % (personal share NOT removed)")
+        lines.append("Deducted at **100%** with no allocation configured — set one with "
+                     "qb_allocation_profile so the personal share isn't over-claimed:")
+        for name, key in uniq[:12]:
+            lines.append(f"  - {name} → {key}")
+        if len(uniq) > 12:
+            lines.append(f"  - (+{len(uniq) - 12} more)")
+
+    if net_profit < 0:
+        lines.append(f"\n📋 **NOL:** This {fmt(abs(net_profit))} loss can be carried forward.")
+    return net_profit
 
 
 async def _account_subtype_map() -> dict:
@@ -3796,6 +3974,194 @@ async def _account_subtype_map() -> dict:
         if a.get("FullyQualifiedName"):
             m.setdefault(a["FullyQualifiedName"], st)
     return m
+
+
+def _alloc_local_path():
+    return _DATA_DIR / "allocation_profiles.json"
+
+
+async def _get_allocation_profile(tax_year) -> dict:
+    """The taxpayer allocation profile (home-office %, vehicle %, per-account %)
+    for the current realm + tax year. Hosted: fetch from the AccountingQB API
+    (keyed by license+realm+year, same broker pattern as tokens). Self-hosted:
+    local JSON. Returns {} when none is configured — callers then treat every
+    account as 100% (and warn). This is TAXPAYER data, never in the tax ledger."""
+    ctx = get_ctx()
+    year = int(tax_year)
+    realm = ctx.realm_id or QB_REALM_ID
+    if ctx.hosted_mode:
+        license_key = ctx.license_key or LICENSE_KEY
+        if not (license_key and realm):
+            return {}
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    f"{QB_API_URL}/api/allocations/profile",
+                    params={"licenseKey": license_key, "realmId": realm, "taxYear": year})
+            if resp.status_code == 200:
+                return resp.json().get("profile") or {}
+        except Exception as e:
+            logger.debug(f"allocation profile fetch failed: {e}")
+        return {}
+    try:
+        path = _alloc_local_path()
+        if path.exists():
+            return json.loads(path.read_text()).get(f"{realm}:{year}", {}) or {}
+    except Exception as e:
+        logger.debug(f"local allocation profile read failed: {e}")
+    return {}
+
+
+async def _save_allocation_profile(tax_year, profile: dict) -> bool:
+    """Persist the allocation profile for the current realm + tax year."""
+    ctx = get_ctx()
+    year = int(tax_year)
+    realm = ctx.realm_id or QB_REALM_ID
+    if ctx.hosted_mode:
+        license_key = ctx.license_key or LICENSE_KEY
+        if not (license_key and realm):
+            return False
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(
+                    f"{QB_API_URL}/api/allocations/profile",
+                    json={"licenseKey": license_key, "realmId": realm,
+                          "taxYear": year, "profile": profile})
+            return resp.status_code == 200
+        except Exception as e:
+            logger.warning(f"allocation profile save failed: {e}")
+            return False
+    try:
+        path = _alloc_local_path()
+        store = json.loads(path.read_text()) if path.exists() else {}
+        store[f"{realm}:{year}"] = profile
+        path.write_text(json.dumps(store, indent=2))
+        return True
+    except Exception as e:
+        logger.warning(f"local allocation profile save failed: {e}")
+        return False
+
+
+def _fmt_allocation_profile(year: int, p: dict) -> str:
+    """Human-readable render of a stored allocation profile."""
+    if not p:
+        return (f"## Allocation Profile — {year}\n\nNo profile set. Every account is "
+                "deducted at **100%**, so any personal share is over-claimed. Set "
+                "percentages with qb_allocation_profile (home-office sqft, vehicle miles, "
+                "and per-account business-use %).")
+    lines = [f"## Allocation Profile — {year}\n"]
+    ho = p.get("home_office") or {}
+    if ho.get("percentage") is not None:
+        basis = f" (office {ho.get('office_sqft')} / home {ho.get('home_sqft')} sqft)" \
+            if ho.get("office_sqft") else ""
+        lines.append(f"- **Home office:** {ho['percentage'] * 100:.2f}%{basis} "
+                     f"· method: {ho.get('method', 'actual')}")
+    v = p.get("vehicle") or {}
+    if v.get("method"):
+        if v["method"] == "standard_mileage":
+            lines.append(f"- **Vehicle:** standard mileage — {v.get('business_miles', 0):,.0f} "
+                         "business miles (replaces actual vehicle expenses)")
+        else:
+            pct = (v.get("percentage") or 0) * 100
+            lines.append(f"- **Vehicle:** {pct:.1f}% business use "
+                         f"({v.get('business_miles', 0):,.0f}/{v.get('total_miles', 0):,.0f} mi) "
+                         "· method: actual")
+    acc = p.get("account_allocations") or {}
+    if acc:
+        lines.append("- **Account allocations:**")
+        for name, cfg in acc.items():
+            note = f" — {cfg.get('basis_note')}" if cfg.get("basis_note") else ""
+            lines.append(f"  - {name}: {cfg.get('percentage', 0) * 100:.0f}%{note}")
+    prov = p.get("provenance") or {}
+    if prov:
+        lines.append(f"\n*Set by {prov.get('set_by', '?')} on {prov.get('set_at', '?')[:10]}"
+                     + (f" · source: {prov.get('source')}" if prov.get("source") else "") + "*")
+    lines.append("\n*A percentage without a documented basis is indefensible under "
+                 "examination — record what each was derived from.*")
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations={"destructiveHint": False})
+async def qb_allocation_profile(
+        tax_year: int = 0, home_office_sqft: float = 0, home_sqft: float = 0,
+        vehicle_method: str = "", business_miles: float = 0, total_miles: float = 0,
+        account_allocations_json: str = "", source: str = "") -> str:
+    """Get or set this company's TAXPAYER allocation profile for a tax year — the
+    business-use percentages that turn mixed personal/business costs into their
+    deductible share (home office, vehicle, per-account internet/phone). Call with
+    just tax_year to VIEW it. To SET: pass home_office_sqft + home_sqft (derives
+    the home-office %), and/or vehicle_method ('standard_mileage' or 'actual') with
+    business_miles + total_miles, and/or account_allocations_json (a JSON object
+    like {"Internet & TV": 0.6} or {"Internet & TV": {"percentage":0.6,
+    "basis_note":"..."}}). source documents the basis (e.g. 'CPA Form 8829 TY2025').
+    These are per-realm taxpayer inputs, stored outside the statutory tax ledger."""
+    from datetime import datetime, timezone
+    year = int(tax_year) or datetime.now(timezone.utc).year
+
+    is_set = bool(home_office_sqft or vehicle_method or account_allocations_json
+                  or business_miles or total_miles)
+    profile = await _get_allocation_profile(year)
+    if not is_set:
+        return _fmt_allocation_profile(year, profile)
+
+    profile = dict(profile or {})
+    warnings = []
+
+    if home_office_sqft or home_sqft:
+        if home_office_sqft <= 0 or home_sqft <= 0:
+            return "Home office needs both home_office_sqft and home_sqft (> 0)."
+        if home_office_sqft > home_sqft:
+            return "home_office_sqft cannot exceed home_sqft."
+        profile["home_office"] = {
+            "method": "actual", "office_sqft": home_office_sqft, "home_sqft": home_sqft,
+            "percentage": round(home_office_sqft / home_sqft, 4),
+            "basis_note": f"{home_office_sqft:g} / {home_sqft:g} sqft"}
+
+    if vehicle_method:
+        if vehicle_method not in ("standard_mileage", "actual"):
+            return "vehicle_method must be 'standard_mileage' or 'actual'."
+        if total_miles <= 0 or business_miles < 0 or business_miles > total_miles:
+            return "Vehicle needs business_miles and total_miles (0 <= business <= total, total > 0)."
+        profile["vehicle"] = {
+            "method": vehicle_method, "business_miles": business_miles,
+            "total_miles": total_miles,
+            "percentage": round(business_miles / total_miles, 4),
+            "basis_note": f"{business_miles:g} / {total_miles:g} miles"}
+
+    if account_allocations_json:
+        try:
+            raw = json.loads(account_allocations_json)
+            assert isinstance(raw, dict)
+        except Exception:
+            return 'account_allocations_json must be a JSON object like {"Internet & TV": 0.6}.'
+        chart = await _account_subtype_map()
+        acc = profile.get("account_allocations") or {}
+        for name, cfg in raw.items():
+            pct = cfg.get("percentage") if isinstance(cfg, dict) else cfg
+            note = cfg.get("basis_note", "") if isinstance(cfg, dict) else ""
+            try:
+                pct = float(pct)
+            except (ValueError, TypeError):
+                return f"Allocation for '{name}' must be a number 0..1."
+            if not 0.0 <= pct <= 1.0:
+                return f"Allocation for '{name}' must be between 0 and 1 (got {pct})."
+            if chart and name not in chart:
+                warnings.append(f"'{name}' is not an account in this chart — check the name.")
+            acc[name] = {"percentage": round(pct, 4), "basis_note": note}
+        profile["account_allocations"] = acc
+
+    ctx = get_ctx()
+    profile["provenance"] = {
+        "set_by": getattr(ctx, "user_id", "") or ctx.license_key or "self-hosted",
+        "set_at": datetime.now(timezone.utc).isoformat(),
+        "source": source or (profile.get("provenance") or {}).get("source", "")}
+
+    if not await _save_allocation_profile(year, profile):
+        return "⚠️ Could not save the allocation profile — try again."
+    out = "✅ Allocation profile saved.\n\n" + _fmt_allocation_profile(year, profile)
+    if warnings:
+        out += "\n\n⚠️ " + " ".join(warnings)
+    return out
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -5314,17 +5680,12 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
     gross_profit = round(net_receipts - cogs, 2)                # Line 5
     gross_income = round(gross_profit + other_income, 2)        # Line 7
 
-    # Expenses: P&L period activity, classified via the canonical taxonomy
-    # (AccountSubType first, name fallback). Deductible unmatched -> Line 27a so
-    # Line 28 == deductible expenses; non-deductible book expenses (entertainment,
-    # §274) are shown separately and excluded from Line 28.
+    # Expenses: classify → ALLOCATE (taxpayer %) → LIMIT (statutory %). Home
+    # accounts route to Form 8829; the profile supplies the business-use %.
+    profile = await _get_allocation_profile(int(tax_year))
     expense_dict = _extract_pl_expense_accounts(result)
-    sc_lines = _map_expenses_to_schedule_c(expense_dict, name_sub)
+    res = _map_expenses_to_schedule_c(expense_dict, name_sub, profile)
     pl_total = _pl_expense_total(result)
-
-    def _sc_line_sort(item):
-        m = _re.search(r"Line (\d+)([a-z]?)", item[0])
-        return (int(m.group(1)) if m else 999, m.group(2) if m else "")
 
     lines = [f"## IRS Schedule C — {tax_year}\n"]
     lines.append(f"**Line 1 — Gross receipts or sales:** {fmt(gross_receipts)}")
@@ -5338,80 +5699,7 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
         lines.append(f"**Line 6 — Other income (interest, etc.):** {fmt(other_income)}")
     lines.append(f"**Line 7 — Gross income:** {fmt(gross_income)}\n")
 
-    lines.append("### Expenses:")
-    total_mapped = 0.0
-    nondeduct_total = 0.0
-    disallowed_stat = 0.0
-    home_flagged = False
-    nondeduct = []
-    alloc_candidates = []
-    for line_name, data in sorted(sc_lines.items(), key=_sc_line_sort):
-        if data.get("nondeductible"):
-            nondeduct.append((line_name, data))
-            nondeduct_total += data["amount"]
-            continue
-        limited = data["limit_factor"] < 0.999
-        flag = " ⚠️ (review — may belong on Form 8829)" if data["home"] else ""
-        shown = data["deductible"] if limited else data["amount"]
-        lines.append(f"\n**{line_name}: {fmt(round(shown, 2))}**{flag}")
-        for acct, full, ded in data["accounts"]:
-            if limited:
-                pct = f"{data['limit_factor'] * 100:.0f}%"
-                lines.append(f"  - {acct}: {fmt(full)} × {pct} ({data['limit_cite']}) = {fmt(ded)}")
-            else:
-                lines.append(f"  - {acct}: {fmt(full)}")
-            if data["line"] in ("25", "9") or data["home"]:
-                alloc_candidates.append((acct, line_name))
-        total_mapped += data["deductible"]
-        disallowed_stat += round(data["amount"] - data["deductible"], 2)
-        home_flagged = home_flagged or data["home"]
-
-    total_mapped = round(total_mapped, 2)
-    disallowed_stat = round(disallowed_stat, 2)
-    lines.append(f"\n**Line 28 — Total expenses: {fmt(total_mapped)}**")
-    if disallowed_stat > 0.005:
-        lines.append(f"*(statutory limits removed {fmt(disallowed_stat)} of book expense — "
-                     "e.g. the non-deductible half of business meals, IRC §274(n))*")
-    # Three buckets must reconcile to the P&L — nothing is dropped: deductible +
-    # statutorily-disallowed + non-deductible == all P&L expenses.
-    recon = round(total_mapped + disallowed_stat + nondeduct_total, 2)
-    if pl_total and abs(recon - pl_total) > 0.01:
-        lines.append(
-            f"⚠️ Does not reconcile to P&L expenses ({fmt(pl_total)}) — "
-            f"difference {fmt(round(abs(recon - pl_total), 2))}. Review.")
-    net_profit = round(gross_income - total_mapped, 2)
-    lines.append(f"**Line 31 — Net profit (loss): {fmt(net_profit)}**")
-    if nondeduct:
-        lines.append(f"\n### Not deductible on Schedule C — excluded from Line 28: ({fmt(round(nondeduct_total, 2))})")
-        for line_name, data in nondeduct:
-            for acct, full, ded in data["accounts"]:
-                lines.append(f"  - {acct}: {fmt(full)}")
-        lines.append("*e.g. entertainment (IRC §274(a)) and charitable contributions "
-                     "(IRC §170, a sole proprietor claims these on Schedule A) reduce book "
-                     "profit but not Schedule C taxable income.*")
-    if alloc_candidates:
-        seen, uniq = set(), []
-        for acct, ln in alloc_candidates:
-            if acct not in seen:
-                seen.add(acct)
-                uniq.append((acct, ln))
-        lines.append("\n### ⚠️ Likely need a business-use % (personal share NOT removed)")
-        lines.append("Deducted at **100%** because no allocation is configured — any personal "
-                     "portion is currently **over-claimed**. Provide a business-use percentage "
-                     "for utilities/phone/internet, vehicle, and home-office accounts:")
-        for acct, ln in uniq[:12]:
-            lines.append(f"  - {acct} → {ln}")
-        if len(uniq) > 12:
-            lines.append(f"  - (+{len(uniq) - 12} more)")
-    if home_flagged:
-        lines.append(
-            "\n*Items flagged ⚠️ (home office, homeowner insurance, home "
-            "utilities) generally belong on Form 8829, not directly on "
-            "Schedule C — review before filing.*")
-
-    if net_profit < 0:
-        lines.append(f"\n📋 **NOL:** This {fmt(abs(net_profit))} loss can be carried forward to offset future income.")
-
+    _render_schedule_c_expenses(res, profile, tax_year, gross_income, pl_total, lines)
     return "\n".join(lines) + tax_data_footer(int(tax_year))
 
 
@@ -6802,7 +7090,7 @@ async def qb_batch_create_journal_entries(entries_json: str) -> str:
 # NEW TOOL 3: Home Office Calculator (Form 8829)
 # ===================================================================
 
-@mcp.tool(annotations={"readOnlyHint": True})
+@mcp.tool(annotations={"destructiveHint": False})
 @require_region("US", "CRA business-use-of-home rules differ; see qb_t2125_summary.")
 async def qb_home_office_calculator(
     home_sqft: float,
@@ -6815,13 +7103,16 @@ async def qb_home_office_calculator(
     annual_utilities: float = 0,
     annual_repairs: float = 0,
     depreciation_years: float = 39,
-    tax_year: str = "2025"
+    tax_year: str = "2025",
+    save_to_profile: bool = False
 ) -> str:
     """Calculate home office deduction using the regular method (Form 8829).
     Returns deduction breakdown by category with IRS line mappings.
     home_sqft: total home square footage. office_sqft: dedicated office square footage.
     home_value: fair market value or purchase price. land_value: land portion (not depreciable).
-    All annual amounts are the full household totals — business % is calculated automatically."""
+    All annual amounts are the full household totals — business % is calculated automatically.
+    save_to_profile=True writes the business-use % into this company's allocation
+    profile so qb_schedule_c applies it to Line 30 (Form 8829) automatically."""
     home_sqft = _validate_amount(home_sqft, "home_sqft")
     office_sqft = _validate_amount(office_sqft, "office_sqft")
     if office_sqft > home_sqft:
@@ -6864,6 +7155,25 @@ async def qb_home_office_calculator(
         f"  Line 30 (Business use of home): **{fmt(total)}** — attach Form 8829",
         f"\n*Note: Regular method used. Simplified method ($5/sqft, max 300 sqft = $1,500) available as alternative.*",
     ])
+
+    if save_to_profile:
+        from datetime import datetime, timezone
+        profile = await _get_allocation_profile(int(tax_year))
+        profile = dict(profile or {})
+        profile["home_office"] = {
+            "method": "actual", "office_sqft": office_sqft, "home_sqft": home_sqft,
+            "percentage": biz_pct,
+            "basis_note": f"Form 8829: {office_sqft:.0f}/{home_sqft:.0f} sqft"}
+        profile["provenance"] = {
+            "set_by": getattr(get_ctx(), "user_id", "") or get_ctx().license_key or "self-hosted",
+            "set_at": datetime.now(timezone.utc).isoformat(),
+            "source": (profile.get("provenance") or {}).get("source", "qb_home_office_calculator")}
+        ok = await _save_allocation_profile(int(tax_year), profile)
+        if ok:
+            lines.append(f"\n✅ Saved the {biz_pct_display} home-office % to your allocation "
+                         "profile — qb_schedule_c will apply it on Line 30 automatically.")
+        else:
+            lines.append("\n⚠️ Could not save to the allocation profile.")
 
     _audit_log("HOME_OFFICE_CALC", f"year={tax_year} biz_pct={biz_pct_display} total={fmt(total)}")
     return "\n".join(lines) + tax_data_footer()
@@ -7319,7 +7629,8 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
 
     expense_dict = _extract_pl_expense_accounts(result)
     name_sub = await _account_subtype_map()
-    sc_lines = _map_expenses_to_schedule_c(expense_dict, name_sub)
+    profile = await _get_allocation_profile(int(tax_year))
+    res = _map_expenses_to_schedule_c(expense_dict, name_sub, profile)
     pl_total = _pl_expense_total(result)
 
     # Income split correctly (see qb_schedule_c) — Sales → Line 1, refunds →
@@ -7338,10 +7649,6 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
     except Exception:
         pass
 
-    def _sc_line_sort(item):
-        m = _re.search(r"Line (\d+)([a-z]?)", item[0])
-        return (int(m.group(1)) if m else 999, m.group(2) if m else "")
-
     lines = [
         f"## Schedule C Detail — {tax_year}\n",
         *( [f"**{company_name}**"] if company_name else [] ),
@@ -7354,60 +7661,12 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
             f"**Line 5 — Gross profit: {fmt(gross_profit)}**"] if cogs else [] ),
         *( [f"**Line 6 — Other income (interest, etc.): {fmt(other_income)}**"] if other_income else [] ),
         f"**Line 7 — Gross income: {fmt(gross_income)}**\n",
-        "### Expenses (by Schedule C line, from P&L):",
     ]
-
-    total_expenses = 0.0
-    nondeduct_total = 0.0
-    disallowed_stat = 0.0
-    home_flagged = False
-    nondeduct = []
-    for line_name, data in sorted(sc_lines.items(), key=_sc_line_sort):
-        if data.get("nondeductible"):
-            nondeduct.append((line_name, data))
-            nondeduct_total += data["amount"]
-            continue
-        limited = data["limit_factor"] < 0.999
-        flag = " ⚠️ (may belong on Form 8829)" if data["home"] else ""
-        shown = data["deductible"] if limited else data["amount"]
-        lines.append(f"\n**{line_name}: {fmt(round(shown, 2))}**{flag}")
-        for acct, full, ded in data["accounts"]:
-            if limited:
-                pct = f"{data['limit_factor'] * 100:.0f}%"
-                lines.append(f"  - {acct}: {fmt(full)} × {pct} ({data['limit_cite']}) = {fmt(ded)}")
-            else:
-                lines.append(f"  - {acct}: {fmt(full)}")
-        total_expenses += data["deductible"]
-        disallowed_stat += round(data["amount"] - data["deductible"], 2)
-        home_flagged = home_flagged or data["home"]
-
-    total_expenses = round(total_expenses, 2)
-    disallowed_stat = round(disallowed_stat, 2)
-    if nondeduct:
-        lines.append(f"\n**Not deductible on Schedule C — excluded from Line 28: ({fmt(round(nondeduct_total, 2))})**")
-        for line_name, data in nondeduct:
-            for acct, full, ded in data["accounts"]:
-                lines.append(f"  - {acct}: {fmt(full)}")
-
-    net = round(gross_income - total_expenses, 2)
-    recon_sum = round(total_expenses + disallowed_stat + nondeduct_total, 2)
-    recon = ("" if not pl_total or abs(recon_sum - pl_total) <= 0.01 else
-             f"\n  ⚠️ deductible + statutory-disallowed + non-deductible does not reconcile "
-             f"to P&L expenses ({fmt(pl_total)}) — review.")
-    lines.extend([
-        f"\n---",
-        f"### **Summary**",
-        f"  Gross income (Line 7): {fmt(gross_income)}",
-        f"  Total Expenses (Line 28): {fmt(total_expenses)}",
-        f"  **Net Profit/Loss (Line 31): {fmt(net)}**{recon}",
-        ("\n*Items flagged ⚠️ (home office, homeowner insurance, home utilities) "
-         "generally belong on Form 8829, not directly on Schedule C.*"
-         if home_flagged else ""),
-        f"*Line 30 (business use of home) is computed separately via Form 8829. "
-        f"CPA should verify account-to-line mappings before filing.*",
-    ])
-
-    _audit_log("SCHEDULE_C_DETAIL", f"year={tax_year} income={fmt(gross_income)} expenses={fmt(total_expenses)}")
+    # Shared with qb_schedule_c so the two tools can never disagree.
+    net = _render_schedule_c_expenses(res, profile, tax_year, gross_income, pl_total, lines)
+    lines.append("\n*Line 30 (business use of home) uses your allocation profile + Form 8829 "
+                 "gross-income limit; verify account-to-line mappings before filing.*")
+    _audit_log("SCHEDULE_C_DETAIL", f"year={tax_year} income={fmt(gross_income)} net={fmt(net)}")
     return "\n".join(lines) + tax_data_footer(int(tax_year))
 
 
