@@ -25,7 +25,10 @@ def _canon(row: dict) -> str:
 
 def main(dry_run: bool = False) -> int:
     rows = tt.load_ledger()
-    existing = {(r["table"], r["key"]) for r in rows}
+    # latest (id, value) per (table, key) — later rows supersede earlier ones
+    latest: dict = {}
+    for r in rows:
+        latest[(r["table"], r["key"])] = (r["id"], r["value"])
 
     # running chain hash (matches verify_ledger_chain) + max global sequence
     prev = hashlib.sha256(tt._LEDGER_GENESIS_SEED.encode()).hexdigest()
@@ -39,14 +42,16 @@ def main(dry_run: bool = False) -> int:
     for name in tt.TABLES:
         entry = tt.TABLES[name]
         for key, value in tt.iter_table_rows(name, entry):
-            if (name, key) in existing:
-                continue
+            canon = tt.canonical_value(value)
+            prior = latest.get((name, key))
+            if prior is not None and prior[1] == canon:
+                continue  # already covered, value unchanged
             max_seq += 1
             row = {
                 "id": f"{name}:{key}#{max_seq}",
                 "table": name,
                 "key": key,
-                "value": tt.canonical_value(value),
+                "value": canon,
                 "verified_date": entry["verified"],
                 "verified_by": VERIFIED_BY,
                 "source": entry["source"],
@@ -54,12 +59,12 @@ def main(dry_run: bool = False) -> int:
                 "jurisdiction": entry["jurisdiction"],
                 "tax_data_version": tt.TAX_DATA_VERSION,
                 "prev_hash": f"sha256:{prev}",
-                "supersedes": None,
+                "supersedes": prior[0] if prior else None,
             }
             line = _canon(row)
             prev = hashlib.sha256(line.encode()).hexdigest()
             new_lines.append(line)
-            print(f"+ {row['id']}")
+            print(f"+ {row['id']}" + (f" (supersedes {prior[0]})" if prior else ""))
 
     if not new_lines:
         print("ledger already complete — nothing to append")

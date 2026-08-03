@@ -274,3 +274,15 @@ def test_server_info_reports_version_and_count():
         out = asyncio.run(_unwrap(s.qb_server_info)())
     assert "Version:" in out and "Tools registered:" in out
     assert str(len(s.mcp._tool_manager._tools)) in out
+
+
+def test_server_info_deployment_mode_is_static():
+    """Deployment mode must be reported from the process, not the QuickBooks
+    session — accurate even with an expired/absent token (the degraded state
+    where someone reaches for this tool)."""
+    async def boom(q):
+        raise RuntimeError("expired token")
+    with patch.object(s, "qb_query", boom), patch.object(s, "_HOSTED_CONNECTOR", True):
+        out = asyncio.run(_unwrap(s.qb_server_info)())
+    assert "Deployment:** hosted connector" in out    # stable even when QB not connected
+    assert "not connected" in out                       # only the QuickBooks line degrades

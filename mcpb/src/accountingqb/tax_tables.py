@@ -14,7 +14,7 @@ import json
 import pathlib
 import re
 
-TAX_DATA_VERSION = "2026.5"       # bumped by every approved rates PR
+TAX_DATA_VERSION = "2026.6"       # bumped by every approved rates PR
 TAX_DATA_VERIFIED = "2026-08-03"  # date of the last full verification sweep
 
 
@@ -330,7 +330,8 @@ _ACCOUNT_TAXONOMY = {
     "TravelMeals":              {"us": "24b", "ca": "8523"},
     "PromotionalMeals":         {"us": "24b", "ca": "8523"},
     "EntertainmentMeals":       {"us": "24b", "ca": "8523"},
-    "Entertainment":            {"us": "NONDED", "ca": "8523"},  # §274: not deductible (US)
+    "Entertainment":            {"us": "NONDED_274", "ca": "8523"},  # §274: not deductible (US)
+    "CharitableContributions":  {"us": "NONDED_170", "ca": "NONDED"},  # sole-prop: Sch A / T1, not the business
     "Utilities":                {"us": "25", "ca": "9220"},
     "ShippingFreightDelivery":  {"us": "27a", "ca": "9275"},
     "OtherMiscellaneousServiceCost": {"us": "27a", "ca": "9270"},
@@ -371,7 +372,9 @@ _SCHEDULE_C_CATALOG = {
     "25":  {"desc": "Utilities", "mef": None},
     "26":  {"desc": "Wages", "mef": None},
     "27a": {"desc": "Other expenses", "mef": None},
-    "NONDED": {"desc": "Non-deductible (not on Schedule C — e.g. entertainment, §274)", "mef": None},
+    "NONDED_274": {"desc": "Entertainment — not deductible on Schedule C (IRC §274(a))", "mef": None},
+    "NONDED_170": {"desc": "Charitable contributions — not a Schedule C deduction; a sole proprietor claims them on Schedule A (IRC §170)", "mef": None},
+    "NONDED_162E": {"desc": "Political contributions & lobbying — not deductible (IRC §162(e))", "mef": None},
 }
 # authority + cite are uniform for the form, attach them once
 for _k, _v in _SCHEDULE_C_CATALOG.items():
@@ -402,6 +405,7 @@ _T2125_CATALOG = {
     "9270":  "Other expenses",
     "9275":  "Delivery, freight & express",
     "9281":  "Motor vehicle expenses",
+    "NONDED": "Not deductible on T2125 — personal/non-business (e.g. charitable donations claim a T1 credit)",
 }
 _T2125_CATALOG = {k: {"desc": v, "authority": "CRA-GIFI", "cite": _CRA_T2125}
                   for k, v in _T2125_CATALOG.items()}
@@ -434,7 +438,9 @@ _NAME_FALLBACK_US = [
     # meals BEFORE entertainment: a combined "Meals & Entertainment" account maps
     # to deductible meals (50%); only a PURE entertainment account is §274 nondeductible
     (r"meals?|restaurant|dining", "24b"),
-    (r"entertainment", "NONDED"),
+    (r"entertainment", "NONDED_274"),
+    (r"charit|donation|contribution to", "NONDED_170"),
+    (r"political contribution|lobbying", "NONDED_162E"),
     (r"utilit(y|ies)|electric|water|internet|phone|telephone|cell|communication", "25"),
     (r"wages?|salar|payroll", "26"),
     (r"software|subscription|hosting|cloud|saas|education|training|"
@@ -443,6 +449,7 @@ _NAME_FALLBACK_US = [
 _NAME_FALLBACK_CA = [
     (r"advertis|marketing", "8521"),
     (r"subcontract|contract labou?r", "8340"),
+    (r"charit|donation", "NONDED"),
     (r"meal|entertain", "8523"),
     (r"bad debt", "8590"),
     (r"insurance", "8690"),
@@ -477,9 +484,9 @@ def classify_account(name: str, subtype: str, jurisdiction: str):
     """Map one account to its tax line. jurisdiction: 'US' or 'CA'.
     Returns (line, desc, flags). Prefers the authoritative AccountSubType;
     falls back to word-boundary name rules; else the jurisdiction catch-all.
-    flags may include 'home_8829' (US, review on Form 8829) and 'nondeductible'
-    (US entertainment). `line` "NONDED" means a book expense that is NOT a
-    Schedule C deduction."""
+    flags may include 'home_8829' (US, review on Form 8829) and 'nondeductible'.
+    A line starting with "NONDED" marks a book expense that is NOT a deduction on
+    the business return (entertainment §274, charitable §170, political §162(e))."""
     juris = "us" if str(jurisdiction).upper() == "US" else "ca"
     catalog = _CATALOG[juris]
     name = name or ""
@@ -496,7 +503,7 @@ def classify_account(name: str, subtype: str, jurisdiction: str):
         line = _CATCH_ALL[juris]
     desc = catalog.get(line, {}).get("desc", "Other expenses")
     flags = []
-    if line == "NONDED":
+    if line.startswith("NONDED"):
         flags.append("nondeductible")
     if juris == "us" and _HOME_8829.search(name):
         flags.append("home_8829")

@@ -59,9 +59,20 @@ def test_unknown_falls_to_catch_all():
 
 def test_entertainment_nondeductible_us_only():
     us_line, _d, us_flags = s.classify_account("Client Entertainment", "Entertainment", "US")
-    assert us_line == "NONDED" and "nondeductible" in us_flags
+    assert us_line == "NONDED_274" and "nondeductible" in us_flags
     ca_line, _d2, _f2 = s.classify_account("Client Entertainment", "Entertainment", "CA")
     assert ca_line == "8523"                       # CA: 50% deductible (ITA 67.1)
+
+
+def test_charitable_nondeductible():
+    # Sole-prop charitable contributions: not a Schedule C deduction (§170).
+    line, desc, flags = s.classify_account("Contributions to charities",
+                                           "CharitableContributions", "US")
+    assert line == "NONDED_170" and "nondeductible" in flags and "170" in desc
+    # name fallback catches it too
+    assert s.classify_account("Charitable donations", None, "US")[0] == "NONDED_170"
+    # CA: also excluded from T2125 (claims a T1 credit)
+    assert s.classify_account("Charitable donations", None, "CA")[0] == "NONDED"
 
 
 def test_equipment_lease_20a():
@@ -93,6 +104,28 @@ def test_expense_mapping_conserves_total():
     nondeduct = sum(d["amount"] for d in sc.values() if d.get("nondeductible"))
     assert round(deductible + nondeduct, 2) == round(sum(expenses.values()), 2)
     assert round(nondeduct, 2) == 40.0             # entertainment excluded from Line 28
+
+
+def test_parent_posted_amounts_not_dropped():
+    # A parent account carrying a DIRECT balance plus children — the amount
+    # posted straight to the parent (696.17) must not vanish from Line 24a.
+    pl = {"Rows": {"Row": [
+        {"Header": {"ColData": [{"value": "Expenses"}]},
+         "Rows": {"Row": [
+             {"Header": {"ColData": [{"value": "Travel"}]},
+              "Rows": {"Row": [
+                  {"ColData": [{"value": "Travel:Hotels"}, {"value": "690.30"}]},
+                  {"ColData": [{"value": "Travel:Taxis"}, {"value": "690.94"}]}]},
+              "Summary": {"ColData": [{"value": "Total Travel"}, {"value": "2077.41"}]}},
+         ]},
+         "Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "2077.41"}]}},
+    ]}}
+    exp = s._extract_pl_expense_accounts(pl)
+    assert round(sum(exp.values()), 2) == 2077.41            # nothing dropped
+    assert abs(exp.get("Travel", 0) - 696.17) < 0.01          # parent residual
+    sc = s._map_expenses_to_schedule_c(exp, {})
+    line24a = next(d["amount"] for k, d in sc.items() if "24a" in k)
+    assert abs(line24a - 2077.41) < 0.01                      # full amount, not 1381.24
 
 
 def test_subtype_beats_name():
