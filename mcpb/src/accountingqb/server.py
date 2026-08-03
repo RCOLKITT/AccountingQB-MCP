@@ -40,7 +40,7 @@ try:
         _MEALS_ITC_FACTOR, _GST_WORKPAPER_FOOTER,
         _CA_SALES_TAX_REGIME, _CA_PROVINCIAL_AGENCY_HINTS,
         _ca_regime, _ca_regime_describe, _ca_agency_is_provincial,
-        classify_account, _CCA_CLASSES, _CLASS_10_1_CEILING,
+        classify_account, line_limitation, _CCA_CLASSES, _CLASS_10_1_CEILING,
         _CLASS_54_ZEV_CEILING, _AII_START_YEAR, _AII_FIRST_YEAR_FACTOR,
         _T4A_ADMIN_THRESHOLD, _CPP_PARAMS, _CPP_BASIC_EXEMPTION,
         _CPP_RATE_SELF, _CPP2_RATE_SELF, _CA_FED_BRACKETS_APPROX,
@@ -63,7 +63,7 @@ except ImportError:  # pragma: no cover — direct script execution (no package)
         _MEALS_ITC_FACTOR, _GST_WORKPAPER_FOOTER,
         _CA_SALES_TAX_REGIME, _CA_PROVINCIAL_AGENCY_HINTS,
         _ca_regime, _ca_regime_describe, _ca_agency_is_provincial,
-        classify_account, _CCA_CLASSES, _CLASS_10_1_CEILING,
+        classify_account, line_limitation, _CCA_CLASSES, _CLASS_10_1_CEILING,
         _CLASS_54_ZEV_CEILING, _AII_START_YEAR, _AII_FIRST_YEAR_FACTOR,
         _T4A_ADMIN_THRESHOLD, _CPP_PARAMS, _CPP_BASIC_EXEMPTION,
         _CPP_RATE_SELF, _CPP2_RATE_SELF, _CA_FED_BRACKETS_APPROX,
@@ -3744,26 +3744,36 @@ def _pl_expense_total(pl_result: dict) -> float:
 
 
 def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = None):
-    """Map {name: amount} -> ordered dict
-    {line_key: {'amount','accounts','home','nondeductible'}} via the canonical
-    taxonomy (AccountSubType first, name fallback). Deductible lines route
-    unmatched to Line 27a so NOTHING deductible is dropped (Line 28 == deductible
-    expenses). Non-deductible book expenses (US entertainment, IRC §274) are
-    bucketed separately and excluded from Line 28."""
+    """Map {name: amount} -> ordered dict per line, with the classification AND
+    the statutory limitation applied. Each bucket carries: ``amount`` (full P&L),
+    ``deductible`` (after the §274(n)-style factor), ``accounts``
+    [(name, full, deductible)], ``home``, ``nondeductible``, ``limit_factor``,
+    ``limit_cite``. Unmatched deductible accounts route to Line 27a so nothing is
+    dropped; non-deductible book expenses are bucketed separately and excluded
+    from Line 28."""
     from collections import defaultdict
     subs = name_to_subtype or {}
-    sc = defaultdict(lambda: {"amount": 0.0, "accounts": [], "home": False,
-                              "nondeductible": False})
+    sc = defaultdict(lambda: {"amount": 0.0, "deductible": 0.0, "accounts": [],
+                              "home": False, "nondeductible": False,
+                              "limit_factor": 1.0, "limit_cite": "", "line": ""})
     for name, amount in expense_accounts.items():
+        amt = abs(amount)
         line, desc, flags = classify_account(name, subs.get(name, ""), "US")
+        factor, cite = line_limitation(line, "US")
+        ded = round(amt * factor, 2)
         key = (f"Non-deductible — {desc}" if line.startswith("NONDED")
                else f"Line {line} — {desc}")
-        sc[key]["amount"] += abs(amount)
-        sc[key]["accounts"].append((name, abs(amount)))
+        b = sc[key]
+        b["line"] = line
+        b["amount"] += amt
+        b["deductible"] += ded
+        b["accounts"].append((name, amt, ded))
+        b["limit_factor"] = factor
+        b["limit_cite"] = cite
         if "home_8829" in flags:
-            sc[key]["home"] = True
+            b["home"] = True
         if "nondeductible" in flags:
-            sc[key]["nondeductible"] = True
+            b["nondeductible"] = True
     return sc
 
 
@@ -3804,25 +3814,32 @@ async def qb_tax_summary(start_date: str = "", end_date: str = "") -> str:
     nondeductible = {}
 
     # Expense accounts only (period activity), classified via the canonical
-    # taxonomy (name fallback here — no subtype fetch in this lightweight tool).
+    # taxonomy (name fallback here — no subtype fetch in this lightweight tool),
+    # with the statutory limitation applied (meals 50%, §274(n)).
     for rname, amount in _extract_pl_expense_accounts(report).items():
+        amt = abs(amount)
         line, desc, _flags = classify_account(rname, "", "US")
-        target = nondeductible if line.startswith("NONDED") else schedule_c
-        mapped = (f"Non-deductible — {desc}" if line.startswith("NONDED")
-                  else f"Line {line} - {desc}")
-        target.setdefault(mapped, [])
-        target[mapped].append((rname, abs(amount)))
+        if line.startswith("NONDED"):
+            nondeductible.setdefault(desc, []).append((rname, amt))
+            continue
+        factor, cite = line_limitation(line, "US")
+        schedule_c.setdefault(f"Line {line} - {desc}", []).append(
+            (rname, amt, round(amt * factor, 2), factor, cite))
 
+    grand = 0.0
     for sc_line in sorted(schedule_c.keys()):
         items = schedule_c[sc_line]
-        total = sum(a for _, a in items)
+        total = round(sum(d for _, _, d, _, _ in items), 2)
+        grand += total
         lines.append(f"### {sc_line}: {fmt(total)}")
-        for rname, a in items:
-            lines.append(f"  - {rname}: {fmt(a)}")
+        for rname, full, ded, factor, cite in items:
+            if factor < 0.999:
+                lines.append(f"  - {rname}: {fmt(full)} × {factor * 100:.0f}% ({cite}) = {fmt(ded)}")
+            else:
+                lines.append(f"  - {rname}: {fmt(full)}")
         lines.append("")
 
-    grand = sum(sum(a for _, a in items) for items in schedule_c.values())
-    lines.append(f"\n**Total Deductible Expenses: {fmt(grand)}**")
+    lines.append(f"\n**Total Deductible Expenses: {fmt(round(grand, 2))}**")
     if nondeductible:
         nd_total = sum(sum(a for _, a in items) for items in nondeductible.values())
         lines.append(f"\n### Excluded — not deductible on Schedule C: ({fmt(nd_total)})")
@@ -5324,34 +5341,68 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
     lines.append("### Expenses:")
     total_mapped = 0.0
     nondeduct_total = 0.0
+    disallowed_stat = 0.0
     home_flagged = False
     nondeduct = []
+    alloc_candidates = []
     for line_name, data in sorted(sc_lines.items(), key=_sc_line_sort):
         if data.get("nondeductible"):
             nondeduct.append((line_name, data))
             nondeduct_total += data["amount"]
             continue
+        limited = data["limit_factor"] < 0.999
         flag = " ⚠️ (review — may belong on Form 8829)" if data["home"] else ""
-        lines.append(f"\n**{line_name}: {fmt(data['amount'])}**{flag}")
-        for acct, amt in data["accounts"]:
-            lines.append(f"  - {acct}: {fmt(amt)}")
-        total_mapped += data["amount"]
+        shown = data["deductible"] if limited else data["amount"]
+        lines.append(f"\n**{line_name}: {fmt(round(shown, 2))}**{flag}")
+        for acct, full, ded in data["accounts"]:
+            if limited:
+                pct = f"{data['limit_factor'] * 100:.0f}%"
+                lines.append(f"  - {acct}: {fmt(full)} × {pct} ({data['limit_cite']}) = {fmt(ded)}")
+            else:
+                lines.append(f"  - {acct}: {fmt(full)}")
+            if data["line"] in ("25", "9") or data["home"]:
+                alloc_candidates.append((acct, line_name))
+        total_mapped += data["deductible"]
+        disallowed_stat += round(data["amount"] - data["deductible"], 2)
         home_flagged = home_flagged or data["home"]
 
+    total_mapped = round(total_mapped, 2)
+    disallowed_stat = round(disallowed_stat, 2)
     lines.append(f"\n**Line 28 — Total expenses: {fmt(total_mapped)}**")
-    if pl_total and abs((total_mapped + nondeduct_total) - pl_total) > 0.01:
+    if disallowed_stat > 0.005:
+        lines.append(f"*(statutory limits removed {fmt(disallowed_stat)} of book expense — "
+                     "e.g. the non-deductible half of business meals, IRC §274(n))*")
+    # Three buckets must reconcile to the P&L — nothing is dropped: deductible +
+    # statutorily-disallowed + non-deductible == all P&L expenses.
+    recon = round(total_mapped + disallowed_stat + nondeduct_total, 2)
+    if pl_total and abs(recon - pl_total) > 0.01:
         lines.append(
             f"⚠️ Does not reconcile to P&L expenses ({fmt(pl_total)}) — "
-            f"difference {fmt(abs((total_mapped + nondeduct_total) - pl_total))}. Review.")
+            f"difference {fmt(round(abs(recon - pl_total), 2))}. Review.")
     net_profit = round(gross_income - total_mapped, 2)
     lines.append(f"**Line 31 — Net profit (loss): {fmt(net_profit)}**")
     if nondeduct:
-        lines.append(f"\n### Not deductible on Schedule C — excluded from Line 28: ({fmt(nondeduct_total)})")
+        lines.append(f"\n### Not deductible on Schedule C — excluded from Line 28: ({fmt(round(nondeduct_total, 2))})")
         for line_name, data in nondeduct:
-            for acct, amt in data["accounts"]:
-                lines.append(f"  - {acct}: {fmt(amt)}")
-        lines.append("*Entertainment is generally not deductible (IRC §274(a)) — "
-                     "it reduces book profit but not Schedule C taxable income.*")
+            for acct, full, ded in data["accounts"]:
+                lines.append(f"  - {acct}: {fmt(full)}")
+        lines.append("*e.g. entertainment (IRC §274(a)) and charitable contributions "
+                     "(IRC §170, a sole proprietor claims these on Schedule A) reduce book "
+                     "profit but not Schedule C taxable income.*")
+    if alloc_candidates:
+        seen, uniq = set(), []
+        for acct, ln in alloc_candidates:
+            if acct not in seen:
+                seen.add(acct)
+                uniq.append((acct, ln))
+        lines.append("\n### ⚠️ Likely need a business-use % (personal share NOT removed)")
+        lines.append("Deducted at **100%** because no allocation is configured — any personal "
+                     "portion is currently **over-claimed**. Provide a business-use percentage "
+                     "for utilities/phone/internet, vehicle, and home-office accounts:")
+        for acct, ln in uniq[:12]:
+            lines.append(f"  - {acct} → {ln}")
+        if len(uniq) > 12:
+            lines.append(f"  - (+{len(uniq) - 12} more)")
     if home_flagged:
         lines.append(
             "\n*Items flagged ⚠️ (home office, homeowner insurance, home "
@@ -7308,6 +7359,7 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
 
     total_expenses = 0.0
     nondeduct_total = 0.0
+    disallowed_stat = 0.0
     home_flagged = False
     nondeduct = []
     for line_name, data in sorted(sc_lines.items(), key=_sc_line_sort):
@@ -7315,22 +7367,33 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
             nondeduct.append((line_name, data))
             nondeduct_total += data["amount"]
             continue
+        limited = data["limit_factor"] < 0.999
         flag = " ⚠️ (may belong on Form 8829)" if data["home"] else ""
-        lines.append(f"\n**{line_name}: {fmt(data['amount'])}**{flag}")
-        for acct, amt in data["accounts"]:
-            lines.append(f"  - {acct}: {fmt(amt)}")
-        total_expenses += data["amount"]
+        shown = data["deductible"] if limited else data["amount"]
+        lines.append(f"\n**{line_name}: {fmt(round(shown, 2))}**{flag}")
+        for acct, full, ded in data["accounts"]:
+            if limited:
+                pct = f"{data['limit_factor'] * 100:.0f}%"
+                lines.append(f"  - {acct}: {fmt(full)} × {pct} ({data['limit_cite']}) = {fmt(ded)}")
+            else:
+                lines.append(f"  - {acct}: {fmt(full)}")
+        total_expenses += data["deductible"]
+        disallowed_stat += round(data["amount"] - data["deductible"], 2)
         home_flagged = home_flagged or data["home"]
 
+    total_expenses = round(total_expenses, 2)
+    disallowed_stat = round(disallowed_stat, 2)
     if nondeduct:
-        lines.append(f"\n**Not deductible on Schedule C — excluded from Line 28: ({fmt(nondeduct_total)})**")
+        lines.append(f"\n**Not deductible on Schedule C — excluded from Line 28: ({fmt(round(nondeduct_total, 2))})**")
         for line_name, data in nondeduct:
-            for acct, amt in data["accounts"]:
-                lines.append(f"  - {acct}: {fmt(amt)} (§274 — entertainment)")
+            for acct, full, ded in data["accounts"]:
+                lines.append(f"  - {acct}: {fmt(full)}")
 
     net = round(gross_income - total_expenses, 2)
-    recon = ("" if not pl_total or abs((total_expenses + nondeduct_total) - pl_total) <= 0.01 else
-             f"\n  ⚠️ Line 28 + non-deductible does not reconcile to P&L expenses ({fmt(pl_total)}) — review.")
+    recon_sum = round(total_expenses + disallowed_stat + nondeduct_total, 2)
+    recon = ("" if not pl_total or abs(recon_sum - pl_total) <= 0.01 else
+             f"\n  ⚠️ deductible + statutory-disallowed + non-deductible does not reconcile "
+             f"to P&L expenses ({fmt(pl_total)}) — review.")
     lines.extend([
         f"\n---",
         f"### **Summary**",
@@ -10955,9 +11018,10 @@ async def qb_t2125_summary(year: int = 0) -> str:
             nondeduct[desc]["accounts"].append(f"{acct_name}: {fmt(amount)}")
             continue
         key = f"Line {line_no} — {desc}"
-        deductible = amount * 0.5 if line_no == "8523" else amount
+        factor, cite = line_limitation(line_no, "CA")
+        deductible = round(amount * factor, 2)
         t_lines[key]["amount"] += deductible
-        note = f" (50% of {fmt(amount)})" if line_no == "8523" else ""
+        note = f" ({factor * 100:.0f}% of {fmt(amount)}, {cite})" if factor < 0.999 else ""
         t_lines[key]["accounts"].append(f"{acct_name}: {fmt(deductible)}{note}")
         if line_no == "9270":
             unmapped.append(acct_name)

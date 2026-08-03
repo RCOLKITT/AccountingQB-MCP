@@ -510,6 +510,35 @@ def classify_account(name: str, subtype: str, jurisdiction: str):
     return line, desc, flags
 
 
+# ===================================================================
+# STATUTORY DEDUCTION LIMITS — percentage caps SET BY LAW (same for every
+# taxpayer), so they belong in this ledgered control plane. This is distinct
+# from a taxpayer's own ALLOCATION percentage (home-office %, vehicle %,
+# internet %), which is per-realm taxpayer data and must NEVER live here.
+# ===================================================================
+_STATUTORY_LIMITS = {
+    "meals_us": {"factor": 0.50, "line": "24b", "jurisdiction": "US",
+                 "cite": "IRC §274(n)", "since": "2023-01-01",
+                 "desc": "Business meals — 50% deductible"},
+    "meals_ca": {"factor": 0.50, "line": "8523", "jurisdiction": "CA",
+                 "cite": "ITA s.67.1", "since": None,
+                 "desc": "Meals & entertainment — 50% deductible"},
+    # NONDED_* lines are the degenerate case (factor 0.0); they are handled
+    # separately (segregated + cited) rather than reduced in place.
+}
+_LINE_LIMIT_INDEX = {(v["jurisdiction"].lower(), v["line"]): v
+                     for v in _STATUTORY_LIMITS.values()}
+
+
+def line_limitation(line: str, jurisdiction: str):
+    """Statutory deduction factor for a tax line: ``(factor, citation)``.
+    Returns ``(1.0, "")`` when the line is fully deductible. LAW-set (same for
+    every taxpayer) — NOT a taxpayer allocation percentage."""
+    juris = "us" if str(jurisdiction).upper() == "US" else "ca"
+    lim = _LINE_LIMIT_INDEX.get((juris, line))
+    return (lim["factor"], lim["cite"]) if lim else (1.0, "")
+
+
 # CCA declining-balance classes (Schedule II, Income Tax Regulations)
 _CCA_CLASSES = {
     "8": (0.20, "Furniture, appliances, tools >= $500, misc. equipment"),
@@ -718,6 +747,13 @@ TABLES: dict = {
         source="CRA Form T2125 (Statement of Business or Professional Activities)",
         source_url="https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t2125.html",
         verified="2026-08-03", review="annual-january", sanity={}),
+    "STATUTORY_LIMITS": dict(values=_STATUTORY_LIMITS, year_keyed=False,
+        jurisdiction="US-federal", kind="stable_statute",
+        description="Statutory deduction caps by tax line (e.g. meals 50%) — law-set, not taxpayer allocation",
+        source="IRC §274(n) (US meals 50%); ITA s.67.1 (CA meals & entertainment 50%)",
+        source_url="https://www.irs.gov/publications/p463",
+        verified="2026-08-03", review="legislative-watch",
+        sanity={"min": 0.0, "max": 1.0}),
     "CCA_CLASSES": dict(values=_CCA_CLASSES, year_keyed=False, jurisdiction="CA-federal",
         kind="stable_statute", description="CCA declining-balance classes and rates",
         source="Income Tax Regulations Schedule II",

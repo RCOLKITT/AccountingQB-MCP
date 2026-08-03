@@ -96,14 +96,29 @@ def test_ca_word_boundary_no_substring_collision():
 
 # ---- Arithmetic invariant: nothing dropped; deductible + nondeductible = P&L -
 
-def test_expense_mapping_conserves_total():
+def test_three_bucket_reconciliation():
+    # With statutory limits there are THREE buckets, and nothing may be dropped:
+    # deductible + statutorily-disallowed + non-deductible == all P&L expenses.
     expenses = {"Advertising": 100.0, "Client Entertainment": 40.0,
-                "Rent": 1200.0, "Mystery Account": 15.0}
+                "Business meals": 200.0, "Rent": 1200.0, "Mystery Account": 15.0}
     sc = s._map_expenses_to_schedule_c(expenses, {})
-    deductible = sum(d["amount"] for d in sc.values() if not d.get("nondeductible"))
+    deductible = sum(d["deductible"] for d in sc.values() if not d.get("nondeductible"))
+    disallowed = sum(d["amount"] - d["deductible"] for d in sc.values() if not d.get("nondeductible"))
     nondeduct = sum(d["amount"] for d in sc.values() if d.get("nondeductible"))
-    assert round(deductible + nondeduct, 2) == round(sum(expenses.values()), 2)
+    assert round(deductible + disallowed + nondeduct, 2) == round(sum(expenses.values()), 2)
     assert round(nondeduct, 2) == 40.0             # entertainment excluded from Line 28
+    meals = next(d for k, d in sc.items() if "24b" in k)
+    assert round(meals["deductible"], 2) == 100.0  # 200 × 50% (§274(n))
+    assert round(meals["amount"], 2) == 200.0      # full amount retained (nothing dropped)
+
+
+def test_meals_statutory_limit():
+    import accountingqb.tax_tables as tt
+    assert tt.line_limitation("24b", "US") == (0.50, "IRC §274(n)")
+    assert tt.line_limitation("8523", "CA")[0] == 0.50   # ITA s.67.1
+    assert tt.line_limitation("8", "US") == (1.0, "")      # advertising: no limit
+    # STATUTORY_LIMITS is in the ledgered control plane
+    assert "STATUTORY_LIMITS" in tt.TABLES
 
 
 def test_parent_posted_amounts_not_dropped():

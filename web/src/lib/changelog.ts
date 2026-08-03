@@ -14,6 +14,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.15.0",
+    date: "2026-08-03",
+    title: "Statutory deduction limits — meals at 50%, with the math shown",
+    tag: "Tax",
+    summary:
+      "The taxonomy answered which line an expense belongs on; this adds how much of it is actually deductible. Business meals are now correctly limited to 50% (IRC §274(n)) with the arithmetic shown, and accounts that likely need a business-use percentage are flagged rather than silently over-claimed.",
+    highlights: [
+      "Business meals are limited to 50% on Schedule C (IRC §274(n)) and T2125 (ITA s.67.1) — Line 24b now shows '$X × 50% = $Y' with the citation, instead of deducting the full amount",
+      "Statutory limits (law-set, same for everyone) live in the sourced, ledger-gated control plane alongside the tax rates; taxpayer allocation percentages deliberately do not",
+      "Reconciliation now balances three buckets — deductible + statutorily-disallowed + non-deductible — so nothing is dropped and the personal/limited share is reported, not hidden",
+      "Safety net: accounts deducted at 100% that likely include a personal share (utilities, phone/internet, vehicle, home office) are flagged as needing a business-use percentage — silent over-claiming is never the default",
+      "130 tools total across US & Canada",
+    ],
+  },
+  {
     version: "3.14.2",
     date: "2026-08-03",
     title: "Taxonomy precision — parent accounts, charitable, and a trustworthy reconciliation",
