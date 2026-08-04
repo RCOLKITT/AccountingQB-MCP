@@ -63,6 +63,11 @@ GOLDEN_ACCOUNTS = [
     # (7) mixed personal/business — an allocation candidate (utilities)
     {"Id": "70", "Name": "Internet & TV", "AccountType": "Expense",
      "AccountSubType": "Utilities", "FullyQualifiedName": "Internet & TV", "Active": True},
+    # (8) a NON-DEDUCTIBLE item — must be excluded from Line 28 / the loss (this is
+    # what qb_deduction_finder was wrongly counting; keep it here so CI catches it)
+    {"Id": "71", "Name": "Charitable contributions", "AccountType": "Expense",
+     "AccountSubType": "OtherMiscellaneousExpense",
+     "FullyQualifiedName": "Charitable contributions", "Active": True},
     # (6) system + owner equity
     {"Id": "80", "Name": "Owner investments", "AccountType": "Equity",
      "AccountSubType": "OwnersEquity", "FullyQualifiedName": "Owner investments", "Active": True},
@@ -103,8 +108,9 @@ GOLDEN_PL = {"Rows": {"Row": [
           "Summary": {"ColData": [{"value": "Total Home office"}, {"value": "4000.00"}]}},
          _leaf("Business meals", 1000.00),
          _leaf("Cell phone", 1200.00),
-         _leaf("Internet & TV", 200.00)]},
-     "Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "10100.00"}]}},
+         _leaf("Internet & TV", 200.00),
+         _leaf("Charitable contributions", 300.00)]},   # non-deductible (§170)
+     "Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "10400.00"}]}},
 ]}}
 
 
