@@ -541,7 +541,15 @@ _default_ctx.refresh_token = QB_REFRESH_TOKEN
 _key_upper = LICENSE_KEY.upper()
 _IS_DEMO_KEY = _key_upper == "DEMO" or _key_upper.startswith("LK-DEMO-")
 
-if LICENSE_KEY and not QB_REFRESH_TOKEN and not _IS_DEMO_KEY:
+# STATIC deployment signal, captured ONCE at import. Hosted-broker mode is a
+# CONFIG property (a license key, no local refresh token), not a session state —
+# so qb_server_info reports it from THIS, never from the mutable
+# ctx.hosted_mode, which _load_hosted_tokens() flips to True when cached tokens
+# load. That mutation is what made the deployment mode "change after a refresh"
+# on the same build (the recurring P3).
+_HOSTED_BROKER_CONFIG = bool(LICENSE_KEY and not QB_REFRESH_TOKEN and not _IS_DEMO_KEY)
+
+if _HOSTED_BROKER_CONFIG:
     # Hosted mode: tokens are brokered by the AccountingQB API (lazily).
     _default_ctx.hosted_mode = True
 else:
@@ -1663,7 +1671,7 @@ async def qb_server_info() -> str:
     # signal: the hosted connector ALWAYS has it (it verifies JWTs), a local
     # .mcpb never does — session/token state can't change it.
     hosted = (_HOSTED_CONNECTOR or bool(os.environ.get("MCP_JWT_SECRET"))
-              or bool(getattr(_default_ctx, "hosted_mode", False)))
+              or _HOSTED_BROKER_CONFIG)   # all three are import-time static; never the mutable ctx
     lines.append(f"- **Deployment:** {'hosted connector (token-brokered)' if hosted else 'self-hosted / local'}")
 
     if _demo_active():
@@ -3880,7 +3888,11 @@ def _account_alloc(name: str, line: str, flags: list, profile: dict,
             pct = float(veh.get("percentage", 1.0) or 1.0)
             return "line", pct, f"vehicle {pct * 100:.0f}% business use"
         return "line", 1.0, ""
-    acc = (p.get("account_allocations") or {}).get(name)
+    # Profiles store LEAF names ('Cell phone'); the mapper key may now be the
+    # fully-qualified name ('Communications:Cell phone'). Match on either so a
+    # configured % is never silently ignored (that would over-claim).
+    allocs = p.get("account_allocations") or {}
+    acc = allocs.get(name) or allocs.get(name.rsplit(":", 1)[-1])
     if acc:
         try:
             pct = float(acc.get("percentage", 1.0))
@@ -3915,6 +3927,12 @@ def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = 
     # electricity account that's really a home cost) — routed to Form 8829 even
     # when neither the name nor the parent chain says "home".
     designated_home = set((profile or {}).get("home_office", {}).get("accounts") or [])
+    # Every profile key we EXPECT to match an account this run — so we can warn
+    # loudly when a configured allocation matches nothing (a leaf/FQN mismatch, a
+    # typo, or a deleted account). A silent non-match over-claims AND lies ("not
+    # configured"), which is worse than either alone.
+    configured_keys = set((profile or {}).get("account_allocations") or {}) | designated_home
+    seen_ids: set = set()
     sc = defaultdict(lambda: {"amount": 0.0, "deductible": 0.0, "accounts": [],
                               "nondeductible": False, "limit_factor": 1.0,
                               "limit_cite": "", "line": "", "allocated": False})
@@ -3923,6 +3941,9 @@ def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = 
         amt = abs(amount)
         subtype = subs.get(name, "")
         line, desc, flags = classify_account(name, subtype, juris)
+        leaf = name.rsplit(":", 1)[-1]
+        fqn = fqns.get(name, name)
+        seen_ids.update((name, leaf, fqn))
         # Home-office detection, in the v3.14 taxonomy's resolution order:
         #   1. AccountSubType in QB's home-office family (authoritative) — catches
         #      the case a bare leaf name can't ('Repairs & maintenance');
@@ -3930,11 +3951,12 @@ def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = 
         #      catches members whose subtype is generic (mortgage → InterestPaid);
         #   3. explicit taxpayer designation (home_office_accounts).
         # The extractor's keys are already parent-qualified, so two accounts that
-        # share a leaf name no longer collide into one treatment.
-        fqn = fqns.get(name, name)
+        # share a leaf name no longer collide into one treatment. Designation
+        # matches on full name, FQN, OR leaf (profiles store the leaf name).
         if (is_home_office_subtype(subtype) or is_home_office_account(fqn)
                 or is_home_office_account(name) or name in designated_home
-                or fqn in designated_home) and "home_8829" not in flags:
+                or fqn in designated_home or leaf in designated_home) \
+                and "home_8829" not in flags:
             flags = list(flags) + ["home_8829"]
         treatment, pct, basis = _account_alloc(name, line, flags, profile,
                                                vehicle_lines, allow_sm)
@@ -3962,8 +3984,12 @@ def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = 
             b["nondeductible"] = True
         if pct >= 0.999 and factor >= 0.999 and line in candidate_lines:
             alloc_candidates.append((name, key))
+    # Configured allocations that matched no account this run — surfaced loudly so
+    # a mismatch never silently over-claims under a false "not configured".
+    unmatched_config = sorted(k for k in configured_keys if k not in seen_ids)
     return {"lines": sc, "home_indirect": home_indirect,
-            "mileage_excluded": mileage_excluded, "alloc_candidates": alloc_candidates}
+            "mileage_excluded": mileage_excluded, "alloc_candidates": alloc_candidates,
+            "unmatched_config": unmatched_config}
 
 
 def _form8829(indirect_total: float, biz_pct: float, tentative_profit: float):
@@ -4127,6 +4153,16 @@ def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income
             lines.append(f"  - {name} → {key}")
         if len(uniq) > 12:
             lines.append(f"  - (+{len(uniq) - 12} more)")
+
+    unmatched = res.get("unmatched_config") or []
+    if unmatched:
+        lines.append("\n### 🔴 Configured allocations that match NO account")
+        lines.append("These are set in your allocation profile but no account this "
+                     "period matches the name — so the percentage was **not applied** "
+                     "(the account was deducted at 100%). Fix the name in "
+                     "qb_allocation_profile (use the exact account name):")
+        for k in unmatched:
+            lines.append(f"  - {k}")
 
     if net_profit < 0:
         lines.append(f"\n📋 **{L['loss']}:** "
@@ -8000,6 +8036,19 @@ async def qb_transaction_detail(entity_type: str, entity_id: str) -> str:
             else:
                 lines.append(f"**{label}:** {val}")
 
+    # The Credit flag is the ONLY field that distinguishes a card charge from a
+    # card payment/refund on a Purchase — both are positive and structurally
+    # identical, so surface it explicitly (it answers "is this a payment?").
+    if entity_data.get("Credit") is not None:
+        is_credit = bool(entity_data.get("Credit"))
+        lines.append(
+            f"**Credit flag:** {is_credit} — "
+            + ("money IN: a refund or card payment that REDUCES the account balance"
+               if is_credit else
+               "money OUT: a normal charge/expense that increases it"))
+    if entity_data.get("PaymentType"):
+        lines.append(f"**Payment type:** {entity_data['PaymentType']}")
+
     # Entity references
     for ref_field, label in [
         ("EntityRef", "Vendor/Customer"), ("AccountRef", "Account"),
@@ -10176,7 +10225,13 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
                 if aid in inactive_ids:
                     dangling.append((kind, t.get("Id"), by_id.get(aid, {}).get("Name", aid),
                                      float(t.get("TotalAmt", 0))))
-            if kind == "Purchase":
+            # A credit-card Purchase with Credit == true is a card CREDIT/PAYMENT
+            # (money-in — it REDUCES the card balance). That is exactly how a card
+            # payment is legitimately stored as a Purchase, so it is NOT a misfiled
+            # expense. Only a normal charge (Credit falsy) booked to a Bank/Equity
+            # account is suspect. Checking Credit — not the sign (all are positive)
+            # or the memo — is what distinguishes them.
+            if kind == "Purchase" and not t.get("Credit"):
                 pay = [aid for r, aid in refs if r == "pay"]
                 if pay and atype.get(pay[0]) == "Credit Card":
                     for c in [aid for r, aid in refs if r == "cat"]:
@@ -10223,12 +10278,14 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
         id_list = ", ".join(str(m[0]) for m in misfiled[:10])
         id_note = (f" (showing first 10 of {len(misfiled)})"
                    if len(misfiled) > 10 else "")
-        issues.append(f"🔴 **{len(misfiled)} credit-card purchase(s) categorized to a "
-                      f"bank/equity account** ({fmt(total)}) — almost always a card "
-                      "PAYMENT misfiled as an expense, which inflates the card liability. "
+        issues.append(f"🔴 **{len(misfiled)} credit-card charge(s) categorized to a "
+                      f"bank/equity account** ({fmt(total)}) — a charge (not a payment; "
+                      "card payments are excluded) booked to a Bank/Equity account "
+                      "instead of an expense; likely miscategorized. Review. "
                       f"IDs{id_note}: " + id_list + ".")
     else:
-        passed.append("✅ No credit-card payments misfiled as expenses")
+        passed.append("✅ No miscategorized credit-card charges "
+                      "(card payments correctly excluded)")
 
     # 3b. Account name disagrees with its AccountSubType. The tax taxonomy keys
     # on the subtype, so a mistyped account (classic: "Cell phone" typed Travel)

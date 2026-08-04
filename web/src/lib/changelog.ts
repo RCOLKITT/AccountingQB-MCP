@@ -14,6 +14,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.17.3",
+    date: "2026-08-04",
+    title: "Allocation-key regression fixed; deployment mode & card-payment detection corrected",
+    tag: "Tax",
+    summary:
+      "A follow-up audit caught a regression the previous fix introduced: because account keys became fully-qualified, allocation percentages stored under leaf names stopped matching and were silently dropped (over-claiming). That's fixed, and now a configured percentage that matches no account is surfaced loudly instead of hidden. Plus the real root cause of the deployment-mode flip, and a corrected credit-card-payment check.",
+    highlights: [
+      "Allocation percentages match on either the leaf name or the full 'Parent:Child' name, so a profile that stores 'Cell phone' still applies to 'Communications:Cell phone' — no more silent 100% over-claim",
+      "A configured allocation that matches no account is now reported loudly ('matches NO account'), instead of silently ignored under a false 'not configured' message",
+      "Deployment mode (qb_server_info) is read from the import-time config, never the mutable session flag that flipped it after a token refresh — the actual root cause of the recurring mislabel",
+      "Credit-card payment detection now keys on QuickBooks' Credit flag (money-in), not the category or memo — card payments are correctly excluded from the 'miscategorized charge' finding, and qb_transaction_detail now shows the Credit flag",
+    ],
+  },
+  {
     version: "3.17.2",
     date: "2026-08-04",
     title: "No more silent truncation; account lookups resolve consistently",

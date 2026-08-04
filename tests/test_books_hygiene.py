@@ -58,14 +58,23 @@ def test_negative_bank_balances_flagged(monkeypatch):
 
 
 def test_misfiled_card_payment(monkeypatch):
-    # A purchase PAID from the credit card but CATEGORIZED to equity = a card
-    # payment misfiled as an expense.
-    purchases = [{"Id": "2100", "TxnDate": "2026-06-01", "TotalAmt": 1200.0,
-                  "AccountRef": {"value": "10"},   # paid from Delta card
-                  "Line": [{"AccountBasedExpenseLineDetail": {"AccountRef": {"value": "40"}}}]}]  # -> equity
+    # The discriminator is the Purchase.Credit flag, NOT the category or the sign
+    # (both are positive and structurally identical):
+    #   Credit == true → a card PAYMENT (money-in, reduces the card) → NOT flagged
+    #   Credit falsy    → a real CHARGE booked to equity/bank → flagged (suspect)
+    purchases = [
+        {"Id": "2100", "TxnDate": "2026-06-01", "TotalAmt": 1200.0, "Credit": True,
+         "AccountRef": {"value": "10"},   # paid from Delta card — a payment
+         "Line": [{"AccountBasedExpenseLineDetail": {"AccountRef": {"value": "40"}}}]},  # -> equity
+        {"Id": "2200", "TxnDate": "2026-06-02", "TotalAmt": 500.0,   # a charge (no Credit)
+         "AccountRef": {"value": "10"},
+         "Line": [{"AccountBasedExpenseLineDetail": {"AccountRef": {"value": "40"}}}]},
+    ]
     _setup(monkeypatch, purchases=purchases)
     out = asyncio.run(s.qb_books_hygiene("2026-01-01", "2026-12-31"))
-    assert "misfiled as an expense" in out and "2100" in out
+    assert "2200" in out                      # the real charge is flagged
+    assert "2100" not in out                  # the card payment is NOT (excluded)
+    assert "1 credit-card charge(s)" in out   # exactly one, not two
 
 
 def test_dormant_large_balance(monkeypatch):
@@ -136,3 +145,39 @@ def test_name_subtype_mismatch_flagged(monkeypatch):
     assert "name and QuickBooks type disagree" in out
     assert "Cell phone service" in out
     assert "Advertising (typed" not in out          # correctly-typed: not flagged
+
+
+def test_card_payment_discriminator_and_balance_identity(monkeypatch):
+    """The report's exact scenario: 3 card PAYMENTS + 1 real CHARGE, all positive,
+    structurally identical, distinguished ONLY by Purchase.Credit. Hygiene must
+    flag only the charge, and the balance identity must hold:
+        opening + Σ(charges) − Σ(payments) == closing balance
+    That identity is the classification check that would have caught the bug."""
+    purchases = [
+        {"Id": "1305", "TxnDate": "2026-06-01", "TotalAmt": 1500.0, "Credit": True,
+         "AccountRef": {"value": "10"},
+         "Line": [{"AccountBasedExpenseLineDetail": {"AccountRef": {"value": "20"}}}]},  # -> bank
+        {"Id": "1877", "TxnDate": "2026-06-02", "TotalAmt": 350.0, "Credit": True,
+         "AccountRef": {"value": "10"},
+         "Line": [{"AccountBasedExpenseLineDetail": {"AccountRef": {"value": "40"}}}]},  # -> equity
+        {"Id": "2063", "TxnDate": "2026-06-03", "TotalAmt": 1000.0, "Credit": True,
+         "AccountRef": {"value": "10"},
+         "Line": [{"AccountBasedExpenseLineDetail": {"AccountRef": {"value": "40"}}}]},
+        {"Id": "1304", "TxnDate": "2026-06-04", "TotalAmt": 1912.49,   # a real charge
+         "AccountRef": {"value": "10"},
+         "Line": [{"AccountBasedExpenseLineDetail": {"AccountRef": {"value": "50"}}}]},  # -> expense
+    ]
+    _setup(monkeypatch, purchases=purchases)
+    out = asyncio.run(s.qb_books_hygiene("2026-01-01", "2026-12-31"))
+    # None of the three payments are flagged as misfiled expenses.
+    for pid in ("1305", "1877", "2063"):
+        assert pid not in out
+    # (The lone charge #1304 goes to an Expense account, so it isn't a "to
+    # bank/equity" finding either — the point is the payments are excluded.)
+    assert "credit-card charge(s) categorized" not in out
+
+    # Balance identity — the classification discriminator, proven arithmetically.
+    charges = sum(p["TotalAmt"] for p in purchases if not p.get("Credit"))
+    payments = sum(p["TotalAmt"] for p in purchases if p.get("Credit"))
+    opening = 8000.00
+    assert round(opening + charges - payments, 2) == round(8000 + 1912.49 - 2850, 2)
