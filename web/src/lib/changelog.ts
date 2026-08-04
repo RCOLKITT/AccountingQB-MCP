@@ -14,6 +14,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.16.2",
+    date: "2026-08-04",
+    title: "Owner draws & contributions — fixed to sum the right column",
+    tag: "Tax",
+    summary:
+      "qb_owner_draws was summing the GeneralLedger's running-balance column instead of the transaction amount, which overstated equity activity. It now reads the amount column from the report's own metadata and cross-checks every account's transactions against its balance change, so the net owner figure ties out.",
+    highlights: [
+      "Sums the transaction Amount column (identified from QuickBooks' column metadata), never the running Balance — a $56,018 net contribution no longer reads as ~$96k",
+      "Each equity account now shows its own net, and the total is cross-checked against the account's balance change — if they don't tie, it says so instead of showing a wrong number",
+      "Clear sign convention in the output: positive = contribution (money in), negative = draw (money out)",
+    ],
+  },
+  {
     version: "3.16.1",
     date: "2026-08-04",
     title: "Home-office routing hardened — no more silent over-claiming",

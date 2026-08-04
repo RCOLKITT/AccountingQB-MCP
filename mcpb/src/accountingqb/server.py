@@ -3460,6 +3460,33 @@ async def qb_tax_payments_made(tax_year: str = "") -> str:
     return "\n".join(lines)
 
 
+# GeneralLedger column identity — QuickBooks tags each column with a ColKey in
+# MetaData. The signed transaction amount vs the running balance must never be
+# confused (summing the running balance overcounts wildly).
+_GL_AMOUNT_KEYS = {"subt_nat_amount", "nat_amount", "amount", "subt_nat_home_amount"}
+_GL_BALANCE_KEYS = {"rbal_nat_amount", "rbal_amount", "nat_run_bal_amount", "balance"}
+
+
+def _gl_col_index(report: dict, want: set, avoid: set = frozenset()):
+    """Index of the first report column whose ColKey (or title) is in ``want``,
+    skipping any in ``avoid``. Falls back to the first Money column not in
+    ``avoid``. Returns None if nothing matches — callers must handle that rather
+    than guess a position."""
+    cols = (report or {}).get("Columns", {}).get("Column", [])
+    money_fallback = None
+    for i, c in enumerate(cols):
+        ck = next((m.get("Value", "") for m in c.get("MetaData", [])
+                   if m.get("Name") == "ColKey"), "")
+        title = (c.get("ColTitle") or "").strip().lower()
+        if ck in avoid or title in avoid:
+            continue
+        if ck in want or title in want:
+            return i
+        if c.get("ColType") == "Money" and money_fallback is None:
+            money_fallback = i
+    return money_fallback if want & _GL_AMOUNT_KEYS else None
+
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_owner_draws(year: int = 0) -> str:
     """Owner's draws and contributions for the year — equity movement a CPA
@@ -3479,15 +3506,40 @@ async def qb_owner_draws(year: int = 0) -> str:
     lines = [f"## Owner's Draws & Contributions — {year}\n"]
     net = 0.0
     any_rows = False
+    reconciled_all = True
+    did_crosscheck = False
     for acct in equity:
         report = await qb_request("GET", "reports/GeneralLedger", params={
             "start_date": start, "end_date": end, "account": acct.get("Id")})
 
+        # A real GeneralLedger row has an AMOUNT column (the signed transaction)
+        # and a running-BALANCE column. Sum the AMOUNT — summing the running
+        # balance (which grows with every row) massively overcounts. Resolve the
+        # columns from the report's own metadata; a simplified shape with no
+        # metadata (demo/tests: [Date, Description, Amount]) has the amount last.
+        if (report or {}).get("Columns", {}).get("Column"):
+            amount_idx = _gl_col_index(report, _GL_AMOUNT_KEYS, avoid=_GL_BALANCE_KEYS)
+            bal_idx = _gl_col_index(report, _GL_BALANCE_KEYS)
+            date_idx = _gl_col_index(report, {"tx_date", "date"}) or 0
+            memo_idx = _gl_col_index(report, {"memo", "name", "txn_type"})
+            if memo_idx is None:
+                memo_idx = 1
+            if amount_idx is None:
+                lines.append(f"### {acct.get('Name', '?')}\n  ⚠️ Could not identify the "
+                             "amount column in this GeneralLedger report — skipped rather "
+                             "than risk a wrong figure.")
+                reconciled_all = False
+                continue
+        else:
+            date_idx, memo_idx, amount_idx, bal_idx = 0, 1, -1, None
+
         # Collect leaf rows belonging to THIS account's section (the live API
         # filters by account; demo returns the full GL, so match the header).
         acct_rows = []
+        opening = ending = None
 
         def collect(sections):
+            nonlocal opening, ending
             for s in sections:
                 hdr = ((s.get("Header", {}).get("ColData") or [{}])[0]
                        .get("value", ""))
@@ -3495,13 +3547,29 @@ async def qb_owner_draws(year: int = 0) -> str:
                 if hdr == acct.get("Name") and nested:
                     for leaf in nested:
                         cd = leaf.get("ColData", [])
-                        if len(cd) >= 2:
+                        if len(cd) <= amount_idx:
+                            continue
+                        label0 = (cd[date_idx].get("value", "") if date_idx < len(cd)
+                                  else "")
+                        raw = cd[amount_idx].get("value", "")
+                        # Running balance, if present, for an independent cross-check.
+                        if bal_idx is not None and bal_idx < len(cd):
                             try:
-                                amt = float(cd[-1].get("value", "0") or 0)
-                            except (ValueError, TypeError):
-                                continue
-                            desc = cd[1].get("value", "") if len(cd) >= 3 else ""
-                            acct_rows.append((cd[0].get("value", ""), desc, amt))
+                                bv = float(cd[bal_idx].get("value", "") or "")
+                                if opening is None and not raw:
+                                    opening = bv          # "Beginning Balance" row
+                                ending = bv               # last seen wins
+                            except ValueError:
+                                pass
+                        # Skip non-transaction rows (Beginning Balance / totals have
+                        # no amount value).
+                        try:
+                            amt = float(raw or "")
+                        except ValueError:
+                            continue
+                        desc = (cd[memo_idx].get("value", "") if memo_idx is not None
+                                and memo_idx < len(cd) else "")
+                        acct_rows.append((label0, desc, amt))
                 elif nested:
                     collect(nested)
 
@@ -3509,23 +3577,41 @@ async def qb_owner_draws(year: int = 0) -> str:
         if not acct_rows:
             continue
         any_rows = True
+        acct_net = round(sum(v for _, _, v in acct_rows), 2)
+        net += acct_net
         lines.append(f"### {acct.get('Name', '?')}")
         for d, desc, v in acct_rows:
             direction = "contribution" if v > 0 else "draw"
-            label = f"{d} — {desc}" if desc else d
+            label = f"{d} — {desc}" if desc else (d or desc or "entry")
             lines.append(f"  {label}: {fmt_signed(v)} ({direction})")
-            net += v
+        lines.append(f"  **Account net: {fmt_signed(acct_net)}**")
+        # Audit cross-check: the summed transactions must equal the balance change
+        # (ending − opening running balance). If they disagree, say so — never
+        # present a figure that doesn't tie out.
+        if opening is not None and ending is not None:
+            did_crosscheck = True
+            bal_change = round(ending - opening, 2)
+            if abs(bal_change - acct_net) > 0.01:
+                reconciled_all = False
+                lines.append(f"  ⚠️ Does not tie to the balance change "
+                             f"({fmt_signed(bal_change)}) — review this account.")
     if not any_rows:
         lines.append("No equity activity recorded this year. Draws taken "
                      "outside QuickBooks should be reported to your CPA "
                      "directly.")
     else:
         label = "net contribution" if net >= 0 else "net draw"
-        lines.append(f"\n**Net owner activity: {fmt_signed(net)}** ({label})")
+        lines.append(f"\n**Net owner activity: {fmt_signed(round(net, 2))}** ({label})")
+        if did_crosscheck and reconciled_all:
+            lines.append("*Every account's transactions tie to its balance change "
+                         "(audit cross-check passed).*")
 
     lines.append("\n*Draws are not business expenses — they reduce owner's "
-                 "equity. Your CPA reconciles this against the balance sheet.*")
-    _audit_log("OWNER_DRAWS", f"year={year} net={fmt(net)}")
+                 "equity. Your CPA reconciles this against the balance sheet. "
+                 "Positive = owner put money in (contribution); negative = took "
+                 "money out (draw).*")
+    _audit_log("OWNER_DRAWS", f"year={year} net={fmt(round(net, 2))} "
+               f"reconciled={reconciled_all}")
     return "\n".join(lines)
 
 
