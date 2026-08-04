@@ -14,6 +14,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.17.0",
+    date: "2026-08-04",
+    title: "Canada T2125 gets the full allocation engine",
+    tag: "Canada",
+    summary:
+      "The allocation & limitation layer that Schedule C got now runs for the CRA T2125 too — on the same code path, so the two jurisdictions never disagree. Home costs route to line 9945 (business-use-of-home) with the loss limit and carryforward, the motor-vehicle line takes your business-use %, and meals stay at 50% (ITA s.67.1). Previously every T2125 expense flowed at 100%.",
+    highlights: [
+      "T2125 now applies your allocation profile: motor-vehicle business-use % (line 9281) and per-account percentages, in the correct order (classify → allocate → limit)",
+      "Home-office costs route to line 9945 (business-use-of-home) with the CRA loss limitation and carryforward — detected by account parent chain, same as Schedule C's Form 8829",
+      "Full conservation: every P&L dollar is reported as deductible, personal (allocation), statutorily-limited, business-use-of-home, or non-deductible — nothing silently over-claimed",
+      "Accounts that likely need a business-use % you haven't set are flagged, not deducted at 100% by default",
+      "One shared engine for US Schedule C and CA T2125 — only the line numbers differ",
+    ],
+  },
+  {
     version: "3.16.2",
     date: "2026-08-04",
     title: "Owner draws & contributions — fixed to sum the right column",

@@ -3833,7 +3833,8 @@ def _pl_expense_total(pl_result: dict) -> float:
     return round(total, 2)
 
 
-def _account_alloc(name: str, line: str, flags: list, profile: dict):
+def _account_alloc(name: str, line: str, flags: list, profile: dict,
+                   vehicle_lines: tuple = ("9",), allow_standard_mileage: bool = True):
     """Taxpayer allocation treatment for one account, from the profile. Returns
     ``(treatment, pct, basis)`` where treatment is:
     - 'home_indirect' — a home-office account → routed to Form 8829 (Line 30);
@@ -3843,12 +3844,14 @@ def _account_alloc(name: str, line: str, flags: list, profile: dict):
     p = profile or {}
     if "home_8829" in flags:
         return "home_indirect", 1.0, ""
-    if line == "9":
+    if line in vehicle_lines:
         veh = p.get("vehicle") or {}
         method = veh.get("method")
-        if method == "standard_mileage":
+        # Standard mileage is a US-only method; Canada uses business-use % of
+        # actual motor-vehicle expenses, so there SM collapses to the percentage.
+        if method == "standard_mileage" and allow_standard_mileage:
             return "mileage_excluded", 0.0, "standard mileage used"
-        if method == "actual":
+        if method in ("actual", "standard_mileage"):
             pct = float(veh.get("percentage", 1.0) or 1.0)
             return "line", pct, f"vehicle {pct * 100:.0f}% business use"
         return "line", 1.0, ""
@@ -3863,15 +3866,24 @@ def _account_alloc(name: str, line: str, flags: list, profile: dict):
 
 
 def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = None,
-                                profile: dict = None, name_to_fqn: dict = None):
+                                profile: dict = None, name_to_fqn: dict = None,
+                                jurisdiction: str = "US"):
     """Classify → ALLOCATE (taxpayer %) → LIMIT (statutory %). Returns a dict:
     ``lines`` (per-line buckets; each account tuple is
     (name, full, allocated, deductible, pct, basis, factor, cite)),
-    ``home_indirect`` [(name, amt)] for Form 8829, ``mileage_excluded``
-    [(name, amt)] for the standard-mileage method, and ``alloc_candidates``
-    (accounts at 100% that likely need an allocation). Nothing is dropped — every
-    routing is reported."""
+    ``home_indirect`` [(name, amt)] for the home-office form, ``mileage_excluded``
+    [(name, amt)] for the standard-mileage method (US only), and
+    ``alloc_candidates`` (accounts at 100% that likely need an allocation). One
+    code path for US Schedule C and CA T2125 — only the line numbers differ.
+    Nothing is dropped — every routing is reported."""
     from collections import defaultdict
+    juris = "US" if str(jurisdiction).upper() == "US" else "CA"
+    # Jurisdiction-specific line numbers: vehicle (US 9 / CA 9281) and the
+    # mixed-use accounts that most often need a business-use % (US utilities 25 /
+    # CA utilities 9220), for the "you haven't set an allocation" warning.
+    vehicle_lines = ("9",) if juris == "US" else ("9281",)
+    candidate_lines = ("25", "9") if juris == "US" else ("9220", "9281")
+    allow_sm = juris == "US"
     subs = name_to_subtype or {}
     fqns = name_to_fqn or {}
     # Accounts the taxpayer has explicitly designated as home-indirect (e.g. an
@@ -3884,23 +3896,24 @@ def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = 
     home_indirect, mileage_excluded, alloc_candidates = [], [], []
     for name, amount in expense_accounts.items():
         amt = abs(amount)
-        line, desc, flags = classify_account(name, subs.get(name, ""), "US")
+        line, desc, flags = classify_account(name, subs.get(name, ""), juris)
         # Home-office detection keys on the FullyQualifiedName (parent chain), not
         # the leaf name — 'Home office:Property taxes' is unambiguous even though
-        # its leaf 'Property taxes' classifies to Line 23. QuickBooks gives us the
-        # FQN; this is more robust than a leaf-name regex or an explicit list.
+        # its leaf 'Property taxes' classifies to a taxes line. QuickBooks gives us
+        # the FQN; this is more robust than a leaf-name regex or an explicit list.
         fqn = fqns.get(name, name)
         if (is_home_office_account(fqn) or name in designated_home
                 or fqn in designated_home) and "home_8829" not in flags:
             flags = list(flags) + ["home_8829"]
-        treatment, pct, basis = _account_alloc(name, line, flags, profile)
+        treatment, pct, basis = _account_alloc(name, line, flags, profile,
+                                               vehicle_lines, allow_sm)
         if treatment == "home_indirect":
             home_indirect.append((name, amt))
             continue
         if treatment == "mileage_excluded":
             mileage_excluded.append((name, amt))
             continue
-        factor, cite = line_limitation(line, "US")
+        factor, cite = line_limitation(line, juris)
         allocated = round(amt * pct, 2)
         ded = round(allocated * factor, 2)
         key = (f"Non-deductible — {desc}" if line.startswith("NONDED")
@@ -3916,7 +3929,7 @@ def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = 
             b["allocated"] = True
         if "nondeductible" in flags:
             b["nondeductible"] = True
-        if pct >= 0.999 and factor >= 0.999 and line in ("25", "9"):
+        if pct >= 0.999 and factor >= 0.999 and line in candidate_lines:
             alloc_candidates.append((name, key))
     return {"lines": sc, "home_indirect": home_indirect,
             "mileage_excluded": mileage_excluded, "alloc_candidates": alloc_candidates}
@@ -3931,22 +3944,44 @@ def _form8829(indirect_total: float, biz_pct: float, tentative_profit: float):
     return allowed, round(tentative - allowed, 2), tentative
 
 
+# Jurisdiction-specific labels so ONE renderer serves US Schedule C and CA T2125.
+# Only line numbers / form names differ; the allocate→limit→home→reconcile logic
+# is identical. Canada's business-use-of-home (line 9945) has the same loss
+# limitation + carryforward as Form 8829, so _form8829 is reused verbatim.
+_JURIS_RENDER = {
+    "US": {"sched": "Schedule C", "total_line": "Line 28 — Total expenses",
+           "home_line": "Line 30 — Home office (Form 8829)", "home_form": "Form 8829",
+           "income_ref": "Line 29", "net_line": "Line 31 — Net profit (loss)",
+           "meals_eg": "meals §274(n)", "supports_mileage": True, "loss": "NOL",
+           "loss_note": "This {amt} loss can be carried forward."},
+    "CA": {"sched": "T2125", "exp_header": "### Part 4 — Expenses",
+           "total_line": "Line 9368 — Total expenses",
+           "home_line": "Line 9945 — Business-use-of-home", "home_form": "business-use-of-home",
+           "income_ref": "Line 9369", "net_line": "Line 9369 — Net income (loss)",
+           "meals_eg": "meals ITA s.67.1", "supports_mileage": False, "loss": "loss",
+           "loss_note": "This {amt} non-capital loss may be applied to other income "
+                        "(carry back 3 years / forward 20)."},
+}
+
+
 def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income: float,
-                                pl_total: float, lines: list) -> float:
-    """Append the Schedule C expense section (allocated + limited lines, standard
-    mileage, Form 8829 Line 30 with the income limit + carryforward, Line 28/31,
+                                pl_total: float, lines: list, jurisdiction: str = "US") -> float:
+    """Append the expense section (allocated + limited lines, standard mileage,
+    the home-office form with the income limit + carryforward, totals,
     non-deductibles, and the allocation warning) to ``lines``. Enforces the
     conservation invariant (every P&L dollar in a reported bucket). Returns the
-    Line 31 net profit. Shared by qb_schedule_c and qb_schedule_c_detailed so the
-    two never disagree."""
+    net profit. Shared by qb_schedule_c, qb_schedule_c_detailed, and
+    qb_t2125_summary so the jurisdictions never disagree — only line labels
+    differ (see _JURIS_RENDER)."""
     profile = profile or {}
+    L = _JURIS_RENDER["US" if str(jurisdiction).upper() == "US" else "CA"]
     sc = res["lines"]
 
     def _sort(item):
         m = _re.search(r"Line (\d+)([a-z]?)", item[0])
         return (int(m.group(1)) if m else 999, m.group(2) if m else "")
 
-    lines.append("### Expenses:")
+    lines.append(L.get("exp_header", "### Expenses:"))
     pl_deductible = stat_disallowed = alloc_disallowed = nondeduct_total = 0.0
     nondeduct = []
     for key, d in sorted(sc.items(), key=_sort):
@@ -3968,11 +4003,12 @@ def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income
             alloc_disallowed += round(full - alloc, 2)
             stat_disallowed += round(alloc - ded, 2)
 
-    # Vehicle standard mileage — a Line 9 deduction NOT sourced from the P&L.
+    # Vehicle standard mileage — a US Line 9 deduction NOT sourced from the P&L
+    # (Canada has no standard-mileage method, so this block never fires there).
     mileage_ded = 0.0
     mileage_excluded_total = round(sum(a for _, a in res["mileage_excluded"]), 2)
     veh = profile.get("vehicle") or {}
-    if veh.get("method") == "standard_mileage":
+    if L["supports_mileage"] and veh.get("method") == "standard_mileage":
         rate, _note = tax_value_or_latest("STD_MILEAGE_CENTS", int(tax_year))
         miles = float(veh.get("business_miles", 0) or 0)
         mileage_ded = round(miles * rate / 100.0, 2)
@@ -3982,38 +4018,41 @@ def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income
             lines.append(f"  - *actual vehicle expenses of {fmt(mileage_excluded_total)} are "
                          "excluded — you cannot deduct both*")
 
-    total_line28 = round(pl_deductible + mileage_ded, 2)
-    lines.append(f"\n**Line 28 — Total expenses: {fmt(total_line28)}**")
+    total_expenses = round(pl_deductible + mileage_ded, 2)
+    lines.append(f"\n**{L['total_line']}: {fmt(total_expenses)}**")
 
-    # Form 8829 (home office) → Line 30, limited to tentative profit (Line 29).
+    # Home office → the home line, limited to net income before home (the excess
+    # carries forward; it can't create or increase a loss). Same math both sides.
     home_indirect_total = round(sum(a for _, a in res["home_indirect"]), 2)
-    line29 = round(gross_income - total_line28, 2)
+    income_before_home = round(gross_income - total_expenses, 2)
     ho = profile.get("home_office") or {}
     ho_allowed = ho_carry = ho_personal = ho_pending = 0.0
     if home_indirect_total > 0.005:
         if ho.get("percentage") is not None:
             pct = float(ho["percentage"])
-            allowed, carry, tentative = _form8829(home_indirect_total, pct, line29)
+            allowed, carry, tentative = _form8829(home_indirect_total, pct, income_before_home)
             ho_allowed, ho_carry = allowed, carry
             ho_personal = round(home_indirect_total - tentative, 2)
-            lines.append(f"\n**Line 30 — Home office (Form 8829): {fmt(ho_allowed)}**")
+            lines.append(f"\n**{L['home_line']}: {fmt(ho_allowed)}**")
             lines.append(f"  - home expenses {fmt(home_indirect_total)} × {pct * 100:.2f}% "
                          f"business use = {fmt(tentative)} tentative")
             if ho_carry > 0.005:
-                lines.append(f"  - capped at tentative profit {fmt(max(0.0, line29))} (Line 29) "
-                             f"— {fmt(ho_carry)} carries forward (can't create/increase a loss)")
+                lines.append(f"  - capped at income before home {fmt(max(0.0, income_before_home))} "
+                             f"({L['income_ref']}) — {fmt(ho_carry)} carries forward "
+                             "(can't create/increase a loss)")
         else:
             ho_pending = home_indirect_total
-            lines.append(f"\n**Line 30 — Home office: not computed** — {fmt(home_indirect_total)} "
-                         "of home-flagged expenses have no home-office %. Set one with "
-                         "qb_home_office_calculator (save_to_profile=true) or qb_allocation_profile.")
+            lines.append(f"\n**{L['home_line'].split('(')[0].strip()}: not computed** — "
+                         f"{fmt(home_indirect_total)} of home-flagged expenses have no "
+                         "home-office %. Set one with qb_home_office_calculator "
+                         "(save_to_profile=true) or qb_allocation_profile.")
 
-    net_profit = round(line29 - ho_allowed, 2)
-    lines.append(f"**Line 31 — Net profit (loss): {fmt(net_profit)}**")
+    net_profit = round(income_before_home - ho_allowed, 2)
+    lines.append(f"**{L['net_line']}: {fmt(net_profit)}**")
 
     disallowed_note = []
     if stat_disallowed > 0.005:
-        disallowed_note.append(f"{fmt(round(stat_disallowed, 2))} statutory (e.g. meals §274(n))")
+        disallowed_note.append(f"{fmt(round(stat_disallowed, 2))} statutory (e.g. {L['meals_eg']})")
     if alloc_disallowed > 0.005:
         disallowed_note.append(f"{fmt(round(alloc_disallowed, 2))} personal (allocation)")
     if ho_personal > 0.005:
@@ -4034,13 +4073,14 @@ def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income
                      f"difference {fmt(round(abs(pl_accounted - pl_total), 2))}. Review.")
 
     if nondeduct:
-        lines.append(f"\n### Not deductible on Schedule C — excluded from Line 28: "
-                     f"({fmt(round(nondeduct_total, 2))})")
+        lines.append(f"\n### Not deductible on {L['sched']} — excluded from "
+                     f"{L['total_line'].split('—')[0].strip()}: ({fmt(round(nondeduct_total, 2))})")
         for key, d in nondeduct:
             for name, full, *_ in d["accounts"]:
                 lines.append(f"  - {name}: {fmt(full)}")
-        lines.append("*e.g. entertainment (§274(a)) and charitable contributions (§170, "
-                     "claimed on Schedule A) reduce book profit but not taxable income.*")
+        lines.append("*Non-business or separately-claimed items (e.g. charitable "
+                     "contributions) reduce book profit but not this return's taxable "
+                     "income.*")
 
     cands = res["alloc_candidates"]
     if cands:
@@ -4058,7 +4098,8 @@ def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income
             lines.append(f"  - (+{len(uniq) - 12} more)")
 
     if net_profit < 0:
-        lines.append(f"\n📋 **NOL:** This {fmt(abs(net_profit))} loss can be carried forward.")
+        lines.append(f"\n📋 **{L['loss']}:** "
+                     + L["loss_note"].format(amt=fmt(abs(net_profit))))
     return net_profit
 
 
@@ -11396,38 +11437,25 @@ async def qb_t2125_summary(year: int = 0) -> str:
     # Schedule C. Keeps the two jurisdictions on one code path.
     expense_dict = _extract_pl_expense_accounts(result)
 
-    # Chart subtype map (P&L rows carry only names). Income split correctly —
+    # Chart maps (P&L rows carry only names): subtype for classification, FQN so
+    # home-office sub-accounts are caught by parent chain. Income split correctly —
     # Sales/fees → gross sales; refunds → reduce it; interest & other income →
     # its own line. The old loop let 'Total Other Income' overwrite 'Total Income'.
-    name_sub = await _account_subtype_map()
+    name_sub, name_fqn = await _chart_maps()
     gross_receipts, returns_allow, _cogs, other_income = _pl_income_breakdown(result, name_sub)
     net_sales = round(gross_receipts - returns_allow, 2)
     gross_business_income = round(net_sales + other_income, 2)
 
-    # Map expense accounts to T2125 lines via the canonical taxonomy (subtype
-    # first, word-boundary name fallback). Meals & entertainment (8523) are 50%
-    # deductible (ITA s.67.1). Accounts landing on 9270 are flagged for review.
-    from collections import defaultdict
-    t_lines = defaultdict(lambda: {"amount": 0.0, "accounts": []})
-    nondeduct = defaultdict(lambda: {"amount": 0.0, "accounts": []})
-    unmapped = []
-    for acct_name, amount in expense_dict.items():
-        amount = abs(amount)
-        if amount == 0:
-            continue
-        line_no, desc, _flags = classify_account(acct_name, name_sub.get(acct_name, ""), "CA")
-        if line_no.startswith("NONDED"):
-            nondeduct[desc]["amount"] += amount
-            nondeduct[desc]["accounts"].append(f"{acct_name}: {fmt(amount)}")
-            continue
-        key = f"Line {line_no} — {desc}"
-        factor, cite = line_limitation(line_no, "CA")
-        deductible = round(amount * factor, 2)
-        t_lines[key]["amount"] += deductible
-        note = f" ({factor * 100:.0f}% of {fmt(amount)}, {cite})" if factor < 0.999 else ""
-        t_lines[key]["accounts"].append(f"{acct_name}: {fmt(deductible)}{note}")
-        if line_no == "9270":
-            unmapped.append(acct_name)
+    # Expenses: classify → ALLOCATE (taxpayer %) → LIMIT (statutory %) — one code
+    # path with Schedule C. Home-office costs route to line 9945 (business-use-of-
+    # home) with the loss limitation + carryforward; the motor-vehicle line (9281)
+    # takes the business-use %; meals (8523) are 50% (ITA s.67.1).
+    profile = await _get_allocation_profile(int(year))
+    res = _map_expenses_to_schedule_c(expense_dict, name_sub, profile, name_fqn,
+                                      jurisdiction="CA")
+    pl_total = _pl_expense_total(result)
+    unmapped = [acct[0] for d in res["lines"].values() if d.get("line") == "9270"
+                for acct in d["accounts"]]
 
     lines = [f"## CRA T2125 — Statement of Business Activities — {year}\n"]
     lines.append("### Income")
@@ -11447,40 +11475,29 @@ async def qb_t2125_summary(year: int = 0) -> str:
         "(QuickBooks sales figures above exclude tax when tax codes are used).*\n"
     )
 
-    lines.append("### Part 4 — Expenses")
-    total_expenses = 0.0
-    for key in sorted(t_lines.keys()):
-        data = t_lines[key]
-        lines.append(f"\n**{key}: {fmt(data['amount'])}**")
-        for acct in data["accounts"]:
-            lines.append(f"  - {acct}")
-        total_expenses += data["amount"]
-
-    if nondeduct:
-        nd_total = sum(d["amount"] for d in nondeduct.values())
-        lines.append(f"\n### Not deductible on T2125 — excluded ({fmt(nd_total)})")
-        for desc in sorted(nondeduct):
-            for acct in nondeduct[desc]["accounts"]:
-                lines.append(f"  - {acct} — {desc}")
+    # Part 4 expenses via the shared renderer — allocation (business-use %),
+    # statutory 50% meals, business-use-of-home (line 9945) with the loss limit +
+    # carryforward, totals (9368 / 9369), non-deductibles, and the "needs a
+    # business-use %" warning. Same engine as Schedule C; conservation enforced.
+    net = _render_schedule_c_expenses(res, profile, int(year), gross_business_income,
+                                      pl_total, lines, jurisdiction="CA")
 
     lines.append(
         "\n**Line 9936 — Capital cost allowance (CCA):** not computed here — "
         "run qb_cca_schedule for the class-by-class UCC schedule."
     )
-    lines.append(
-        "**Line 9945 — Business-use-of-home:** compute separately — must be your "
-        "principal place of business OR used exclusively and regularly to meet "
-        "clients; prorate by area; cannot create or increase a loss (excess "
-        "carries forward)."
-    )
-
-    net = round(gross_business_income - total_expenses, 2)
-    lines.append(f"\n**Line 9368 — Total expenses: {fmt(total_expenses)}**")
-    lines.append(f"**Line 9369 — Net income (loss) before adjustments: {fmt(net)}**")
+    if not res["home_indirect"]:
+        lines.append(
+            "**Line 9945 — Business-use-of-home:** none detected in the books. If you "
+            "work from home, book the home costs (or designate them with "
+            "qb_allocation_profile) — must be your principal place of business OR used "
+            "regularly to meet clients; prorate by area; cannot create or increase a "
+            "loss (excess carries forward)."
+        )
 
     if unmapped:
         lines.append(f"\n*Unmapped accounts placed on line 9270 — review: "
-                     f"{', '.join(unmapped)}*")
+                     f"{', '.join(sorted(set(unmapped)))}*")
 
     lines.extend([
         "\n### Filing deadlines",
@@ -11490,7 +11507,8 @@ async def qb_t2125_summary(year: int = 0) -> str:
         "\n*Workpaper only — verify mappings with your accountant before filing.*",
     ])
 
-    _audit_log("T2125_SUMMARY", f"year={year} income={fmt(gross_business_income)} expenses={fmt(total_expenses)}")
+    _audit_log("T2125_SUMMARY", f"year={year} income={fmt(gross_business_income)} "
+               f"net={fmt(net)}")
     return "\n".join(lines) + tax_data_footer(year)
 
 
