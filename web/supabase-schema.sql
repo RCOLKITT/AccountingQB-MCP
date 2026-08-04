@@ -109,6 +109,32 @@ CREATE TRIGGER set_oauth_tokens_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================
+-- Allocation profiles: per-realm, per-tax-year taxpayer business-use %
+-- (home office, vehicle, per-account). TAXPAYER inputs — stored here, never in
+-- the tax_ledger. See migrations/2026-08-allocation-profiles.sql.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS allocation_profiles (
+  id           UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  license_key  TEXT NOT NULL REFERENCES licenses(key) ON DELETE CASCADE,
+  realm_id     TEXT NOT NULL,
+  tax_year     INT  NOT NULL,
+  profile      JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(license_key, realm_id, tax_year)
+);
+
+CREATE INDEX IF NOT EXISTS idx_allocation_profiles_license_key
+  ON allocation_profiles (license_key);
+
+ALTER TABLE allocation_profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE TRIGGER set_allocation_profiles_updated_at
+  BEFORE UPDATE ON allocation_profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================
 -- Event Logs: stores webhook and OAuth events for audit trail
 -- ============================================================
 

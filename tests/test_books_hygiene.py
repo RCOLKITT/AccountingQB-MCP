@@ -111,3 +111,28 @@ def test_clean_books_score_high(monkeypatch):
     monkeypatch.setattr(s, "qb_query_all", fake_query_all)
     out = asyncio.run(s.qb_books_hygiene("2026-01-01", "2026-12-31"))
     assert "score: 100/100" in out
+
+
+def test_name_subtype_mismatch_flagged(monkeypatch):
+    """A 'Cell phone' account typed Travel: the tax taxonomy trusts the subtype,
+    so this would land on the wrong Schedule C line. Hygiene must flag it."""
+    accounts = [
+        {"Id": "1", "Name": "Cell phone service", "AccountType": "Expense",
+         "Active": True, "AccountSubType": "Travel", "CurrentBalance": 0.0},
+        {"Id": "2", "Name": "Advertising", "AccountType": "Expense",
+         "Active": True, "AccountSubType": "AdvertisingPromotional", "CurrentBalance": 0.0},
+    ]
+
+    async def fake_query_all(q, **kw):
+        if "Active = false" in q:
+            return {"QueryResponse": {}}
+        if "FROM Account" in q:
+            return {"QueryResponse": {"Account": accounts}}
+        return {"QueryResponse": {}}
+    monkeypatch.setattr(s, "qb_query_all", fake_query_all)
+
+    fn = getattr(s.qb_books_hygiene, "__wrapped__", s.qb_books_hygiene)
+    out = asyncio.run(fn("2026-01-01", "2026-12-31"))
+    assert "name and QuickBooks type disagree" in out
+    assert "Cell phone service" in out
+    assert "Advertising (typed" not in out          # correctly-typed: not flagged

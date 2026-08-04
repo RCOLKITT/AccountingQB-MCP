@@ -79,8 +79,9 @@ def test_matcher_no_substring_bugs():
 
 
 def test_nothing_dropped_reconciles():
-    sc = s._map_expenses_to_schedule_c(_EXPENSES)
-    total = sum(d["amount"] for d in sc.values())
+    res = s._map_expenses_to_schedule_c(_EXPENSES)
+    total = sum(d["amount"] for d in res["lines"].values())
+    total += sum(a for _, a in res["home_indirect"]) + sum(a for _, a in res["mileage_excluded"])
     assert abs(total - _EXP_TOTAL) < 0.01  # every dollar lands somewhere
 
 
@@ -98,9 +99,9 @@ def test_schedule_c_reconciles_to_pl(monkeypatch):
 
 def test_two_schedule_c_tools_agree(monkeypatch):
     _patch(monkeypatch)
-    a = _dollar(asyncio.run(s.qb_schedule_c("2025")), "Line 28")
+    a = _dollar(asyncio.run(s.qb_schedule_c("2025")), "Line 28 — Total expenses")
     b = _dollar(asyncio.run(s.qb_schedule_c_detailed("2025")),
-                "Total Expenses (Line 28)")
+                "Line 28 — Total expenses")
     assert a is not None and b is not None
     assert abs(a - b) < 0.01, f"tools disagree: {a} vs {b}"
     assert abs(a - _EXP_TOTAL) < 0.01

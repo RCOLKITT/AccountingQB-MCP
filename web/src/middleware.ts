@@ -27,6 +27,9 @@ const isPublicRoute = createRouteMatcher([
   // authenticates by license key in the body, not a Clerk session — without
   // this, Clerk bounced these POSTs to sign-in and tool_usage stayed empty.
   "/api/usage(.*)",
+  // Allocation-profile broker: the MCP connector authenticates by license key in
+  // the body/query (validated server-side), not a Clerk session — same as /api/usage.
+  "/api/allocations(.*)",
   "/api/unsubscribe(.*)",
   "/api/oauth(.*)",
   // Remote MCP connector OAuth 2.1 AS: RFC 8414 metadata, DCR/token/client-info

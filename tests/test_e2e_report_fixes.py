@@ -60,7 +60,7 @@ def test_schedule_c_income_split():
 def test_schedule_c_detailed_agrees():
     out = _run_pl(s.qb_schedule_c_detailed, "2026")
     assert "$195.00" in out and "$156.76" in out
-    assert "Gross income (Line 7): $156.76" in out
+    assert "Line 7 — Gross income: $156.76" in out
 
 
 def test_t2125_income_split():
@@ -274,3 +274,53 @@ def test_server_info_reports_version_and_count():
         out = asyncio.run(_unwrap(s.qb_server_info)())
     assert "Version:" in out and "Tools registered:" in out
     assert str(len(s.mcp._tool_manager._tools)) in out
+
+
+def test_server_info_deployment_mode_is_static():
+    """Deployment mode must be reported from the process, not the QuickBooks
+    session — accurate even with an expired/absent token (the degraded state
+    where someone reaches for this tool)."""
+    async def boom(q):
+        raise RuntimeError("expired token")
+    with patch.object(s, "qb_query", boom), patch.object(s, "_HOSTED_CONNECTOR", True):
+        out = asyncio.run(_unwrap(s.qb_server_info)())
+    assert "Deployment:** hosted connector" in out    # stable even when QB not connected
+    assert "not connected" in out                       # only the QuickBooks line degrades
+
+
+def test_schedule_c_meals_limit_and_allocation_warning():
+    """Meals shown at 50% with the §274(n) arithmetic; a utility-typed account
+    is flagged as likely needing a business-use % (Part 6 safety net)."""
+    pl = {"Rows": {"Row": [
+        {"Header": {"ColData": [{"value": "Income"}]},
+         "Rows": {"Row": [{"ColData": [{"value": "Sales"}, {"value": "50000.00"}]}]},
+         "Summary": {"ColData": [{"value": "Total Income"}, {"value": "50000.00"}]}},
+        {"Header": {"ColData": [{"value": "Expenses"}]},
+         "Rows": {"Row": [
+             {"ColData": [{"value": "Business meals"}, {"value": "1102.10"}]},
+             {"ColData": [{"value": "Cell phone"}, {"value": "809.03"}]}]},
+         "Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "1911.13"}]}},
+    ]}}
+    accts = [{"Name": "Business meals", "AccountSubType": "TravelMeals", "FullyQualifiedName": "Business meals"},
+             {"Name": "Cell phone", "AccountSubType": "Utilities", "FullyQualifiedName": "Cell phone"}]
+
+    async def fake_req(m, p, params=None, **k):
+        return pl
+
+    async def fake_all(q, **k):
+        return {"QueryResponse": {"Account": accts}}
+
+    async def fake_query(q):
+        return {"QueryResponse": {"CompanyInfo": [{"CompanyName": "D"}]}}
+
+    fn = getattr(s.qb_schedule_c, "__wrapped__", s.qb_schedule_c)
+    with patch.object(s, "qb_request", fake_req), \
+            patch.object(s, "qb_query_all", fake_all), \
+            patch.object(s, "qb_query", fake_query):
+        out = asyncio.run(fn("2025"))
+    assert "× 50% (IRC §274(n)) = $551.05" in out or "× 50% (IRC §274(n))" in out
+    assert "Line 24b — Deductible meals: $551.0" in out
+    assert "Removed from deductions" in out and "statutory" in out
+    assert "Likely need a business-use %" in out and "Cell phone" in out
+    # no false reconciliation warning (three buckets tie to the P&L)
+    assert "Does not reconcile" not in out

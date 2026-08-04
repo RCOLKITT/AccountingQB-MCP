@@ -86,7 +86,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Database error" }, { status: 500 });
     }
 
-    console.log(`Created user profile for ${email} (clerk_id: ${clerkId})`);
+    // Log by opaque Clerk id only — never the email (PII) or license key (bearer).
+    console.log(`Created user profile (clerk_id: ${clerkId})`);
 
     // Check for existing licenses with this email and auto-link
     // (case-insensitive; there may be more than one license per email)
@@ -106,8 +107,9 @@ export async function POST(req: NextRequest) {
         { onConflict: "user_id,license_key" }
       );
 
+      // Count only — never log the email (PII) or the license keys (bearer creds).
       console.log(
-        `Auto-linked user ${email} to license(s) ${licenses.map((l) => l.key).join(", ")}`
+        `Auto-linked clerk_id ${clerkId} to ${licenses.length} license(s)`
       );
     }
   }

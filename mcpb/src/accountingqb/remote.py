@@ -410,7 +410,11 @@ def create_app():
     """
     # Importing accountingqb.server registers all tools on the shared
     # FastMCP instance.
-    from accountingqb.server import mcp  # noqa: PLC0415
+    from accountingqb import server as _srv  # noqa: PLC0415
+    mcp = _srv.mcp
+    # Mark this process as the hosted connector so qb_server_info reports the
+    # deployment mode unconditionally (not from the QuickBooks session state).
+    _srv._HOSTED_CONNECTOR = True
 
     # Stateless + JSON responses: every request is independent (horizontal
     # scaling, no session affinity) and responses are plain JSON instead of
@@ -463,6 +467,10 @@ def main() -> None:
 
     port = int(os.environ.get("PORT", "8000"))
     logging.basicConfig(level=logging.INFO)
+    # httpx logs every outbound request URL at INFO — for QuickBooks calls that
+    # is the realm id + /query SQL. Keep customer data and realm ids out of logs.
+    for _noisy in ("httpx", "httpcore"):
+        logging.getLogger(_noisy).setLevel(logging.WARNING)
     uvicorn.run(create_app(), host="0.0.0.0", port=port)
 
 

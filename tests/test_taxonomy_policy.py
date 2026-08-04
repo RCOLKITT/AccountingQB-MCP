@@ -59,9 +59,20 @@ def test_unknown_falls_to_catch_all():
 
 def test_entertainment_nondeductible_us_only():
     us_line, _d, us_flags = s.classify_account("Client Entertainment", "Entertainment", "US")
-    assert us_line == "NONDED" and "nondeductible" in us_flags
+    assert us_line == "NONDED_274" and "nondeductible" in us_flags
     ca_line, _d2, _f2 = s.classify_account("Client Entertainment", "Entertainment", "CA")
     assert ca_line == "8523"                       # CA: 50% deductible (ITA 67.1)
+
+
+def test_charitable_nondeductible():
+    # Sole-prop charitable contributions: not a Schedule C deduction (§170).
+    line, desc, flags = s.classify_account("Contributions to charities",
+                                           "CharitableContributions", "US")
+    assert line == "NONDED_170" and "nondeductible" in flags and "170" in desc
+    # name fallback catches it too
+    assert s.classify_account("Charitable donations", None, "US")[0] == "NONDED_170"
+    # CA: also excluded from T2125 (claims a T1 credit)
+    assert s.classify_account("Charitable donations", None, "CA")[0] == "NONDED"
 
 
 def test_equipment_lease_20a():
@@ -85,14 +96,51 @@ def test_ca_word_boundary_no_substring_collision():
 
 # ---- Arithmetic invariant: nothing dropped; deductible + nondeductible = P&L -
 
-def test_expense_mapping_conserves_total():
+def test_three_bucket_reconciliation():
+    # With statutory limits there are THREE buckets, and nothing may be dropped:
+    # deductible + statutorily-disallowed + non-deductible == all P&L expenses.
     expenses = {"Advertising": 100.0, "Client Entertainment": 40.0,
-                "Rent": 1200.0, "Mystery Account": 15.0}
-    sc = s._map_expenses_to_schedule_c(expenses, {})
-    deductible = sum(d["amount"] for d in sc.values() if not d.get("nondeductible"))
+                "Business meals": 200.0, "Rent": 1200.0, "Mystery Account": 15.0}
+    sc = s._map_expenses_to_schedule_c(expenses, {})["lines"]
+    deductible = sum(d["deductible"] for d in sc.values() if not d.get("nondeductible"))
+    disallowed = sum(d["amount"] - d["deductible"] for d in sc.values() if not d.get("nondeductible"))
     nondeduct = sum(d["amount"] for d in sc.values() if d.get("nondeductible"))
-    assert round(deductible + nondeduct, 2) == round(sum(expenses.values()), 2)
+    assert round(deductible + disallowed + nondeduct, 2) == round(sum(expenses.values()), 2)
     assert round(nondeduct, 2) == 40.0             # entertainment excluded from Line 28
+    meals = next(d for k, d in sc.items() if "24b" in k)
+    assert round(meals["deductible"], 2) == 100.0  # 200 × 50% (§274(n))
+    assert round(meals["amount"], 2) == 200.0      # full amount retained (nothing dropped)
+
+
+def test_meals_statutory_limit():
+    import accountingqb.tax_tables as tt
+    assert tt.line_limitation("24b", "US") == (0.50, "IRC §274(n)")
+    assert tt.line_limitation("8523", "CA")[0] == 0.50   # ITA s.67.1
+    assert tt.line_limitation("8", "US") == (1.0, "")      # advertising: no limit
+    # STATUTORY_LIMITS is in the ledgered control plane
+    assert "STATUTORY_LIMITS" in tt.TABLES
+
+
+def test_parent_posted_amounts_not_dropped():
+    # A parent account carrying a DIRECT balance plus children — the amount
+    # posted straight to the parent (696.17) must not vanish from Line 24a.
+    pl = {"Rows": {"Row": [
+        {"Header": {"ColData": [{"value": "Expenses"}]},
+         "Rows": {"Row": [
+             {"Header": {"ColData": [{"value": "Travel"}]},
+              "Rows": {"Row": [
+                  {"ColData": [{"value": "Travel:Hotels"}, {"value": "690.30"}]},
+                  {"ColData": [{"value": "Travel:Taxis"}, {"value": "690.94"}]}]},
+              "Summary": {"ColData": [{"value": "Total Travel"}, {"value": "2077.41"}]}},
+         ]},
+         "Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "2077.41"}]}},
+    ]}}
+    exp = s._extract_pl_expense_accounts(pl)
+    assert round(sum(exp.values()), 2) == 2077.41            # nothing dropped
+    assert abs(exp.get("Travel", 0) - 696.17) < 0.01          # parent residual
+    sc = s._map_expenses_to_schedule_c(exp, {})["lines"]
+    line24a = next(d["amount"] for k, d in sc.items() if "24a" in k)
+    assert abs(line24a - 2077.41) < 0.01                      # full amount, not 1381.24
 
 
 def test_subtype_beats_name():
