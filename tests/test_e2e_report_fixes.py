@@ -441,3 +441,60 @@ def test_owner_draws_sums_amount_not_running_balance():
     assert "$96,018.25" not in out           # NOT sum of running Balance (the bug)
     assert "net contribution" in out
     assert "audit cross-check passed" in out  # transactions tie to the balance change
+
+
+def test_t2125_applies_allocation_home_and_vehicle():
+    """T2125 (Canada) now runs the SAME allocation engine as Schedule C: meals
+    50% (ITA s.67.1), motor-vehicle business-use %, and home costs routed to line
+    9945 with the loss limit — instead of everything at 100%. One code path."""
+    pl = {"Rows": {"Row": [
+        {"Header": {"ColData": [{"value": "Income"}]},
+         "Rows": {"Row": [{"ColData": [{"value": "Sales"}, {"value": "20000.00"}]}]},
+         "Summary": {"ColData": [{"value": "Total Income"}, {"value": "20000.00"}]}},
+        {"Header": {"ColData": [{"value": "Expenses"}]},
+         "Rows": {"Row": [
+             {"ColData": [{"value": "Advertising"}, {"value": "100.00"}]},
+             {"ColData": [{"value": "Meals and Entertainment"}, {"value": "1000.00"}]},
+             {"ColData": [{"value": "Motor vehicle"}, {"value": "2000.00"}]},
+             {"Header": {"ColData": [{"value": "Home office"}]},
+              "Rows": {"Row": [
+                  {"ColData": [{"value": "Property taxes"}, {"value": "1000.00"}]},
+                  {"ColData": [{"value": "Utilities"}, {"value": "500.00"}]}]},
+              "Summary": {"ColData": [{"value": "Total Home office"}, {"value": "1500.00"}]}}]},
+         "Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "4600.00"}]}},
+    ]}}
+    accts = [
+        {"Name": "Advertising", "AccountSubType": "AdvertisingPromotional", "FullyQualifiedName": "Advertising"},
+        {"Name": "Meals and Entertainment", "AccountSubType": "EntertainmentMeals", "FullyQualifiedName": "Meals and Entertainment"},
+        {"Name": "Motor vehicle", "AccountSubType": "Auto", "FullyQualifiedName": "Motor vehicle"},
+        {"Name": "Property taxes", "AccountSubType": "OtherMiscellaneousExpense", "FullyQualifiedName": "Home office:Property taxes"},
+        {"Name": "Utilities", "AccountSubType": "Utilities", "FullyQualifiedName": "Home office:Utilities"},
+    ]
+
+    async def fake_req(m, p, params=None, **k):
+        return pl
+
+    async def fake_all(q, **k):
+        return {"QueryResponse": {"Account": accts}}
+
+    async def fake_query(q):
+        return {"QueryResponse": {"CompanyInfo": [{"CompanyName": "Maple Co", "Country": "CA"}]}}
+
+    async def fake_profile(y):
+        return {"home_office": {"percentage": 0.20, "basis_note": "300/1500 sqft"},
+                "vehicle": {"method": "actual", "percentage": 0.60,
+                            "basis_note": "6000/10000 km"}}
+
+    with patch.object(s, "qb_request", fake_req), \
+            patch.object(s, "qb_query_all", fake_all), \
+            patch.object(s, "qb_query", fake_query), \
+            patch.object(s, "_get_allocation_profile", fake_profile):
+        out = asyncio.run(_unwrap(s.qb_t2125_summary)(2025))
+
+    assert "Line 8523" in out and "× 50% (ITA s.67.1) = $500.00" in out    # meals 50%
+    assert "Line 9281" in out and "× 60%" in out                           # vehicle business-use
+    assert "Line 9945 — Business-use-of-home: $300.00" in out              # home → 9945
+    assert "$1,500.00 × 20.00% business use" in out
+    assert "Line 9281" in out                                              # motor vehicle, not US "Line 9"
+    assert "Line 30" not in out and "Form 8829" not in out                 # CA labels, not US
+    assert "Does not reconcile" not in out                                 # conservation holds
