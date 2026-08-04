@@ -616,3 +616,65 @@ def test_home_indirect_duplicate_leaf_and_inactive():
     # the inactive mortgage did NOT stay on the interest line at 100%
     assert "3,613.41" not in out.split("× 12.50%")[0]   # not deducted in full anywhere above home
     assert "Does not reconcile" not in out
+
+
+def test_list_vendors_discloses_truncation_and_pages_all():
+    """qb_list_vendors must page ALL vendors (not a bare MAXRESULTS 50 that stops
+    mid-alphabet) and disclose truncation instead of silently capping at 50."""
+    vendors = [{"Id": str(i), "DisplayName": f"Vendor {i:03d}", "Active": True}
+               for i in range(60)]
+    seen = {}
+
+    async def fake_query_all(q, **k):
+        seen["q"] = q
+        return {"QueryResponse": {"Vendor": vendors}}
+
+    # If the tool wrongly used qb_query (bounded), this would be called instead.
+    async def fake_query(q):
+        seen["bounded"] = q
+        return {"QueryResponse": {"Vendor": vendors[:50]}}
+
+    with patch.object(s, "qb_query_all", fake_query_all), \
+            patch.object(s, "qb_query", fake_query), \
+            patch.object(s, "_demo_active", lambda: False):
+        out = asyncio.run(_unwrap(s.qb_list_vendors)("", 50))
+
+    assert "bounded" not in seen                     # did NOT use a bounded query
+    assert "MAXRESULTS" not in seen["q"]             # full paginating fetch
+    assert "Vendors (60 found)" in out               # true total, not 50
+    assert "Showing the first 50 of 60" in out       # truncation disclosed
+    assert "Vendor 059" not in out                   # the 60th is not shown
+    # max_results=0 shows everything
+    with patch.object(s, "qb_query_all", fake_query_all), \
+            patch.object(s, "_demo_active", lambda: False):
+        allout = asyncio.run(_unwrap(s.qb_list_vendors)("", 0))
+    assert "Vendor 059" in allout and "Showing the first" not in allout
+
+
+def test_inactivate_and_account_txns_resolve_exact_over_partial():
+    """qb_inactivate_account / qb_account_transactions now use the shared resolver:
+    an exact 'Utilities' resolves cleanly instead of colliding with 'Home
+    utilities' under a bare LIKE."""
+    utilities = {"Id": "25", "Name": "Utilities", "AccountType": "Expense",
+                 "AccountSubType": "Utilities", "FullyQualifiedName": "Utilities",
+                 "SyncToken": "0", "Active": True, "CurrentBalance": 0.0}
+
+    async def fake_query(q):
+        # _resolve_account tries exact Name first; return the single exact match.
+        if "Name = 'Utilities'" in q:
+            return {"QueryResponse": {"Account": [utilities]}}
+        return {"QueryResponse": {"Account": []}}
+
+    posted = {}
+
+    async def fake_request(m, p, json_body=None, **k):
+        posted["body"] = json_body
+        return {"Account": {**utilities, "Active": False}}
+
+    with patch.object(s, "qb_query", fake_query), \
+            patch.object(s, "qb_request", fake_request), \
+            patch.object(s, "_demo_active", lambda: False):
+        out = asyncio.run(_unwrap(s.qb_inactivate_account)("Utilities"))
+
+    assert "has been inactivated" in out
+    assert posted["body"]["Id"] == "25" and posted["body"]["Active"] is False

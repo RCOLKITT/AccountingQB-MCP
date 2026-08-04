@@ -1,6 +1,6 @@
 [project]
 name = "accountingqb"
-version = "3.17.1"
+version = "3.17.2"
 description = "AccountingQB — 101 AI tools connecting Claude to QuickBooks Online (US + Canada tax support)"
 readme = "README.md"
 license = { file = "LICENSE" }
