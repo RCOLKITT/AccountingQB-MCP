@@ -4429,53 +4429,52 @@ async def qb_allocation_profile(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("US", "For Canadian books use qb_t2125_summary.")
-async def qb_tax_summary(start_date: str = "", end_date: str = "") -> str:
-    """Generate a tax-oriented summary mapping QuickBooks data to Schedule C lines. Dates in YYYY-MM-DD (default: current year-to-date)."""
-    start_date, end_date = _ytd_range(start_date, end_date)
-    report = await qb_request("GET", "reports/ProfitAndLoss", params={
-        "start_date": start_date,
-        "end_date": end_date,
+async def qb_tax_summary(tax_year: int = 0, start_date: str = "", end_date: str = "") -> str:
+    """Generate a tax-oriented Schedule C summary. Uses the SAME canonical taxonomy
+    + allocation/limitation engine as qb_schedule_c, so the two can never disagree
+    (previously this tool classified by name only, with no subtype, and routed
+    meals to Line 24a — skipping the §274(n) 50% limit). Pass tax_year (e.g. 2025)
+    for a full-year view, or start_date/end_date (YYYY-MM-DD) for a custom range
+    (default: current year-to-date)."""
+    if tax_year:
+        start_date, end_date = f"{int(tax_year)}-01-01", f"{int(tax_year)}-12-31"
+    else:
+        start_date, end_date = _ytd_range(start_date, end_date)
+    year = int(tax_year) or int(str(start_date)[:4])
+
+    result = await qb_request("GET", "reports/ProfitAndLoss", params={
+        "start_date": start_date, "end_date": end_date,
         "summarize_column_by": "Total",
     })
 
+    # Same pipeline as qb_schedule_c: chart maps (subtype + FQN) → income split →
+    # classify → allocate → limit → render (with Form 8829, net, non-deductibles,
+    # conservation). One taxonomy, one engine — no two-tools-disagree class.
+    name_sub, name_fqn = await _chart_maps()
+    gross_receipts, returns_allow, cogs, other_income = _pl_income_breakdown(result, name_sub)
+    net_receipts = round(gross_receipts - returns_allow, 2)
+    gross_profit = round(net_receipts - cogs, 2)
+    gross_income = round(gross_profit + other_income, 2)
+
+    profile = await _get_allocation_profile(year)
+    expense_dict = _extract_pl_expense_accounts(result)
+    res = _map_expenses_to_schedule_c(expense_dict, name_sub, profile, name_fqn)
+    pl_total = _pl_expense_total(result)
+
     lines = [f"## Tax Summary (Schedule C): {start_date} to {end_date}\n"]
-    schedule_c = {}
-    nondeductible = {}
+    lines.append(f"**Line 1 — Gross receipts or sales:** {fmt(gross_receipts)}")
+    if returns_allow:
+        lines.append(f"**Line 2 — Returns and allowances:** {fmt(returns_allow)}")
+        lines.append(f"**Line 3 — Net receipts:** {fmt(net_receipts)}")
+    if cogs:
+        lines.append(f"**Line 4 — Cost of goods sold:** {fmt(cogs)}")
+        lines.append(f"**Line 5 — Gross profit:** {fmt(gross_profit)}")
+    if other_income:
+        lines.append(f"**Line 6 — Other income (interest, etc.):** {fmt(other_income)}")
+    lines.append(f"**Line 7 — Gross income:** {fmt(gross_income)}\n")
 
-    # Expense accounts only (period activity), classified via the canonical
-    # taxonomy (name fallback here — no subtype fetch in this lightweight tool),
-    # with the statutory limitation applied (meals 50%, §274(n)).
-    for rname, amount in _extract_pl_expense_accounts(report).items():
-        amt = abs(amount)
-        line, desc, _flags = classify_account(rname, "", "US")
-        if line.startswith("NONDED"):
-            nondeductible.setdefault(desc, []).append((rname, amt))
-            continue
-        factor, cite = line_limitation(line, "US")
-        schedule_c.setdefault(f"Line {line} - {desc}", []).append(
-            (rname, amt, round(amt * factor, 2), factor, cite))
-
-    grand = 0.0
-    for sc_line in sorted(schedule_c.keys()):
-        items = schedule_c[sc_line]
-        total = round(sum(d for _, _, d, _, _ in items), 2)
-        grand += total
-        lines.append(f"### {sc_line}: {fmt(total)}")
-        for rname, full, ded, factor, cite in items:
-            if factor < 0.999:
-                lines.append(f"  - {rname}: {fmt(full)} × {factor * 100:.0f}% ({cite}) = {fmt(ded)}")
-            else:
-                lines.append(f"  - {rname}: {fmt(full)}")
-        lines.append("")
-
-    lines.append(f"\n**Total Deductible Expenses: {fmt(round(grand, 2))}**")
-    if nondeductible:
-        nd_total = sum(sum(a for _, a in items) for items in nondeductible.values())
-        lines.append(f"\n### Excluded — not deductible on Schedule C: ({fmt(nd_total)})")
-        for k in sorted(nondeductible):
-            for rname, a in nondeductible[k]:
-                lines.append(f"  - {rname}: {fmt(a)} — {k}")
-    return "\n".join(lines)
+    _render_schedule_c_expenses(res, profile, year, gross_income, pl_total, lines)
+    return "\n".join(lines) + tax_data_footer(year)
 
 
 # ===================================================================
@@ -6171,53 +6170,101 @@ async def qb_deduction_finder(tax_year: str = "") -> str:
     findings = []
     estimated_savings = 0
 
-    # Check for home office
-    has_home_office = any("home" in k.lower() and "office" in k.lower() for k in expense_dict)
-    has_rent = any("rent" in k.lower() for k in expense_dict)
-    if not has_home_office and not has_rent:
+    # Canonical net (SAME engine as qb_schedule_c) so the loss figure and the
+    # limitation gating reflect LIMITED deductions (meals at 50%), not the raw
+    # book total. Income-limited items are capped at net SE income; at a loss
+    # they resolve to $0 this year rather than a fabricated gross value.
+    name_sub, name_fqn = await _chart_maps()
+    profile = await _get_allocation_profile(int(tax_year))
+    gr, ra, cogs_c, oi = _pl_income_breakdown(result, name_sub)
+    gross_income = round(gr - ra - cogs_c + oi, 2)
+    res = _map_expenses_to_schedule_c(_extract_pl_expense_accounts(result),
+                                      name_sub, profile, name_fqn)
+    deductible = round(sum(b["deductible"] for b in res["lines"].values()), 2)
+    home_total = round(sum(a for _, a in res["home_indirect"]), 2)
+    ho = profile.get("home_office") or {}
+    ho_pct = float(ho.get("percentage") or 0)
+    income_before_home = round(gross_income - deductible, 2)
+    home_allowed = round(min(home_total * ho_pct, max(0.0, income_before_home)), 2)
+    se_net = round(income_before_home - home_allowed, 2)     # Schedule C net (Line 31)
+    income_cap = max(0.0, se_net)          # income-limited deductions can't exceed this
+    net_income = se_net                    # report the TAX net, not the raw book net
+    at_a_loss = se_net < 0
+
+    # Home office — read the PROFILE (and the books), not just account names. If a
+    # percentage or designated accounts are configured, it IS being claimed.
+    home_configured = (ho_pct > 0 or bool(ho.get("accounts")) or bool(res["home_indirect"])
+                       or any("home" in k.lower() and "office" in k.lower() for k in expense_dict)
+                       or any("rent" in k.lower() for k in expense_dict))
+    if home_configured:
+        claimed = fmt(home_allowed) if ho_pct > 0 else "see qb_schedule_c Line 30"
         findings.append({
             "deduction": "Home Office Deduction (IRS Form 8829)",
-            "status": "🔴 NOT CLAIMED",
-            "details": "Simplified: $5/sq ft up to 300 sq ft = $1,500. Regular method may be higher with mortgage interest, property taxes, utilities, insurance.",
-            "estimate": 1500,
+            "status": "✅ CONFIGURED",
+            "details": (f"An allocation profile and/or home accounts are present — Line 30 "
+                        f"= {claimed} this year"
+                        + (" (limited to income; the excess carries forward)" if home_total * ho_pct > home_allowed + 0.005 else "")
+                        + ". Not an unclaimed deduction."),
+            "estimate": 0,
         })
-        estimated_savings += 1500
+    else:
+        # Simplified method — but Form 8829 can't create/increase a loss.
+        simplified = round(min(1500.0, income_cap), 2)
+        findings.append({
+            "deduction": "Home Office Deduction (IRS Form 8829)",
+            "status": "🔴 NOT CLAIMED" if not at_a_loss else "🟡 NOT CLAIMED — $0 this year",
+            "details": ("Simplified: $5/sq ft up to 300 sq ft = $1,500 (regular method may be "
+                        "higher). " + ("Limited to net profit — you're at a loss this year, so it "
+                        "would be $0 and carry forward." if at_a_loss else
+                        f"Capped at this year's net profit → {fmt(simplified)}.")),
+            "estimate": simplified,
+        })
+        estimated_savings += simplified
 
-    # Check for vehicle expenses
+    # Check for vehicle expenses. A prompt to TRACK mileage, not a found deduction
+    # — we can't estimate a dollar value without the miles, so don't fabricate one.
     has_vehicle = any("auto" in k.lower() or "vehicle" in k.lower() or "car" in k.lower() or "mileage" in k.lower() for k in expense_dict)
     if not has_vehicle:
         findings.append({
             "deduction": "Vehicle Expenses (Standard Mileage or Actual)",
-            "status": "🔴 NOT CLAIMED",
-            "details": (f"Standard mileage: "
+            "status": "🟡 CONSIDER",
+            "details": (f"No vehicle account found. Standard mileage: "
                         + ", ".join(f"{c}¢/mile ({y})" for y, c in sorted(_STD_MILEAGE_CENTS.items()))
-                        + ". Track business miles for meetings, supply runs, etc."),
-            "estimate": 1000,
+                        + ". If you drive for business, track the miles — value depends on them."),
+            "estimate": 0,
         })
-        estimated_savings += 1000
 
-    # Check for health insurance
+    # Self-employed health insurance — above-the-line but LIMITED to net SE income.
+    # We don't know their premiums (don't invent a number); flag the limit honestly.
     has_health = any("health" in k.lower() or "medical" in k.lower() or "dental" in k.lower() for k in expense_dict)
     if not has_health:
         findings.append({
             "deduction": "Self-Employed Health Insurance (Schedule 1, Line 17)",
             "status": "🟡 CHECK IF APPLICABLE",
-            "details": "100% of health/dental/vision premiums deductible above-the-line. Must not have employer coverage.",
-            "estimate": 6000,
+            "details": ("100% of health/dental/vision premiums deductible above-the-line "
+                        "(must not have employer coverage) — but capped at net SE income. "
+                        + ("You're at a loss this year, so the deduction is $0 (it does not carry "
+                           "forward)." if at_a_loss else
+                           f"Up to {fmt(income_cap)} this year based on your net profit.")),
+            "estimate": 0,
         })
-        estimated_savings += 6000
 
     # Check for retirement contributions
     has_retirement = any("retire" in k.lower() or "401k" in k.lower() or "sep" in k.lower() or "ira" in k.lower() for k in expense_dict)
     if not has_retirement:
         ret_year = max(_RETIREMENT_LIMITS)
         ret = _RETIREMENT_LIMITS[ret_year]
+        sep_room = round(min(0.25 * income_cap, ret['sep_max']), 2)
         findings.append({
             "deduction": "Retirement Contributions (SEP-IRA / Solo 401k)",
-            "status": "🟡 OPPORTUNITY",
+            "status": "🟡 OPPORTUNITY" if not at_a_loss else "🟡 $0 this year",
             "details": (f"SEP-IRA: up to 25% of net SE income (max ${ret['sep_max']:,} "
                         f"for {ret_year}). Solo 401k: ${ret['solo_401k_deferral']:,} "
-                        f"employee + 25% employer."),
+                        f"employee + 25% employer. "
+                        + ("At a loss this year, so the SEP-IRA employer contribution room "
+                           "is $0 (a Solo 401k employee deferral may still be possible from "
+                           "other earned income — check with your CPA)." if at_a_loss else
+                           f"Your ~25%-of-net-profit room this year: {fmt(sep_room)}.")),
             "estimate": 0,
         })
 
@@ -6232,19 +6279,19 @@ async def qb_deduction_finder(tax_year: str = "") -> str:
             "estimate": 0,
         })
 
-    # Check for education/training
+    # Check for education/training — a qualitative prompt; no invented dollar value.
     has_education = any("education" in k.lower() or "training" in k.lower() or "course" in k.lower() for k in expense_dict)
     if not has_education:
         findings.append({
             "deduction": "Education & Training",
             "status": "🟡 CHECK",
-            "details": "Courses, certifications, books, conferences related to your business are deductible.",
-            "estimate": 500,
+            "details": "Courses, certifications, books, conferences related to your business are "
+                       "deductible if you incurred them — no such expense is on the books yet.",
+            "estimate": 0,
         })
-        estimated_savings += 500
 
-    # Check for startup costs
-    net_income = total_income - total_expenses
+    # Check for startup costs (pre-revenue only). net_income is the canonical
+    # Schedule C net computed above — not the raw book total.
     if net_income < 0 and total_income == 0:
         findings.append({
             "deduction": "Section 195 Startup Costs",
@@ -6260,11 +6307,14 @@ async def qb_deduction_finder(tax_year: str = "") -> str:
         sw_total = sum(abs(v) for k, v in expense_dict.items() if any(kw in k.lower() for kw in ["software", "cloud", "hosting", "api"]))
         findings.append({
             "deduction": "R&D Tax Credit (Form 6765)",
-            "status": "🟡 LIKELY ELIGIBLE",
-            "details": f"Software/cloud/API spend of {fmt(sw_total)} suggests R&D activity. Credit = ~10% of qualified research expenses. Startups can offset payroll taxes up to $500K/year.",
-            "estimate": sw_total * 0.10,
+            "status": "🟡 REVIEW ELIGIBILITY",
+            "details": (f"You have {fmt(sw_total)} of software/cloud spend. Note: §41 qualified "
+                        "research expenses are WAGES for research, supplies, and contract "
+                        "research — third-party SaaS subscriptions generally do NOT qualify. "
+                        "This is not an automatic credit; a study is needed to identify any "
+                        "qualifying wages/contract research before claiming a dollar figure."),
+            "estimate": 0,     # do NOT present a % of SaaS spend as a credit
         })
-        estimated_savings += sw_total * 0.10
         findings.append({
             "deduction": "§174A Domestic R&E Expensing",
             "status": "🟢 RESTORED",
@@ -6282,19 +6332,32 @@ async def qb_deduction_finder(tax_year: str = "") -> str:
         })
 
     lines = [f"## Deduction Finder — {tax_year}\n"]
-    lines.append(f"**Total Income:** {fmt(total_income)} | **Total Expenses:** {fmt(total_expenses)} | **Net:** {fmt(net_income)}\n")
+    lines.append(f"**Gross income:** {fmt(gross_income)} | **Deductible expenses:** "
+                 f"{fmt(deductible)}"
+                 + (f" + home office {fmt(home_allowed)}" if home_allowed > 0.005 else "")
+                 + f" | **Net (Schedule C Line 31):** {fmt(net_income)}"
+                 + ("  ⚠️ a loss" if at_a_loss else "") + "\n")
 
     for f in findings:
         lines.append(f"### {f['status']} {f['deduction']}")
         lines.append(f"{f['details']}")
         if f['estimate'] > 0:
-            lines.append(f"**Estimated value: {fmt(f['estimate'])}**")
+            lines.append(f"**Estimated value this year: {fmt(f['estimate'])}**")
         lines.append("")
 
     if estimated_savings > 0:
-        lines.append(f"\n### 💰 Total Estimated Unclaimed Deductions: {fmt(estimated_savings)}")
-        # Rough tax savings at 30% effective rate
-        lines.append(f"**Potential tax savings: ~{fmt(estimated_savings * 0.30)}** (at ~30% effective rate)")
+        lines.append(f"\n### 💰 Additional deductions identified (income-permitted): "
+                     f"{fmt(round(estimated_savings, 2))}")
+        if at_a_loss:
+            lines.append("*You're at a loss this year, so these reduce the loss / carry "
+                         "forward rather than produce current-year tax savings.*")
+        else:
+            lines.append(f"**Rough tax savings: ~{fmt(round(estimated_savings * 0.30, 2))}** "
+                         "(at ~30% effective rate).")
+    else:
+        lines.append("\n*No additional dollar-quantified deductions this year — the items "
+                     "above are qualitative prompts, or are limited to $0 by your net profit "
+                     "(they don't create savings at a loss). Review each with your CPA.*")
 
     return "\n".join(lines) + tax_data_footer()
 
@@ -7031,6 +7094,29 @@ def _cdc_iter(cdc_response: dict):
                             yield t
 
 
+def _cdc_txn_amount(t: dict):
+    """Best transaction amount for a CDC record. A JournalEntry carries TotalAmt
+    of 0 — its real amount is the sum of the DEBIT lines — so fall back to the
+    line total when TotalAmt is missing/zero (otherwise every JE showed $0.00)."""
+    amt = t.get("TotalAmt")
+    try:
+        if amt not in (None, "") and abs(float(amt)) > 0.005:
+            return amt
+    except (ValueError, TypeError):
+        pass
+    total = 0.0
+    for ln in t.get("Line", []) or []:
+        det = ln.get("JournalEntryLineDetail") or {}
+        if det.get("PostingType") == "Debit":
+            try:
+                total += float(ln.get("Amount", 0) or 0)
+            except (ValueError, TypeError):
+                pass
+    if total > 0.005:
+        return round(total, 2)
+    return amt if amt not in (None, "") else ""
+
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_change_audit_trail(since_date: str = "", entities: str = "") -> str:
     """What changed in the books since a date — created, updated, and **deleted**
@@ -7058,7 +7144,7 @@ async def qb_change_audit_trail(since_date: str = "", entities: str = "") -> str
             "entity": t.get("_entity", "?"), "id": t.get("Id", "?"),
             "name": (t.get("EntityRef") or t.get("VendorRef")
                      or t.get("CustomerRef") or {}).get("name", ""),
-            "amount": t.get("TotalAmt", ""),
+            "amount": _cdc_txn_amount(t),
             "created": (meta.get("CreateTime", "") or "")[:10],
             "updated": (meta.get("LastUpdatedTime", "") or "")[:10],
         }
@@ -8715,12 +8801,22 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
             })
 
     # 4. Weekend transactions — skip equity (CC bills) and recurring/subscription
-    # vendors (automated billing runs on weekends; flagging it is noise).
+    # vendors (automated billing runs on weekends; flagging it is noise). Also
+    # skip dates carrying MANY same-day entries: that's a bulk data-entry /
+    # reclassification batch (all stamped one date), not real weekend spending —
+    # flagging each is pure noise and drowns the real findings.
+    from collections import Counter as _Counter
+    _day_counts = _Counter(t["date"] for t in biz_txns)
+    _BULK_DAY = 4
+    _weekend_suppressed = 0
     for t in biz_txns:
         if t["vendor"] in recurring_vendors:
             continue
         try:
             d = datetime.strptime(t["date"], "%Y-%m-%d")
+            if d.weekday() >= 5 and _day_counts.get(t["date"], 0) >= _BULK_DAY:
+                _weekend_suppressed += 1
+                continue
             if d.weekday() >= 5:  # Saturday=5, Sunday=6
                 day_name = "Saturday" if d.weekday() == 5 else "Sunday"
                 anomalies.append({
@@ -8765,7 +8861,9 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
         f"## Transaction Anomaly Report",
         f"**Period:** {start_date} to {end_date}",
         f"**Total Transactions:** {len(all_txns)} ({equity_count} owner/equity transfers excluded from checks)",
-        f"**Business Transactions Analyzed:** {len(biz_txns)}",
+        f"**Business Transactions Analyzed:** {len(biz_txns)}"
+        + (f" · {_weekend_suppressed} weekend flags suppressed (bulk same-day "
+           "data-entry batches, not real weekend activity)" if _weekend_suppressed else ""),
         f"**Sensitivity:** {sensitivity} (z-score threshold: {z_limit})",
         f"**Anomalies Found:** {len(unique_anomalies)}\n",
         f"### Statistics (business transactions only)",
