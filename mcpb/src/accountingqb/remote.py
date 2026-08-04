@@ -202,12 +202,16 @@ class BearerAuthMiddleware:
         resource_url: str = RESOURCE_URL,
         auth_server_url: str = AS_URL,
         realm_resolver: Optional[Callable[[str], Awaitable[Optional[str]]]] = _resolve_default_realm,
+        version: str = "",
+        tool_count: int = 0,
     ):
         self.app = app
         self.jwt_secret = jwt_secret
         self.resource_url = resource_url.rstrip("/")
         self.auth_server_url = auth_server_url.rstrip("/")
         self.realm_resolver = realm_resolver
+        self.version = version
+        self.tool_count = tool_count
 
     # -- small ASGI response helpers (no Starlette Response objects needed,
     # but plain dict sends keep this middleware dependency-light) ----------
@@ -282,6 +286,19 @@ class BearerAuthMiddleware:
 
         if path == "/healthz":
             await self._send_response(send, 200, b"ok", "text/plain")
+            return
+
+        if path == "/version":
+            # Public deploy-verification endpoint: lets a smoke test confirm the
+            # LIVE build matches the released tag (and that it self-identifies as
+            # the hosted connector) without a JWT — catches stale/failed deploys
+            # and the deployment-mode class of bug in one unauthenticated call.
+            body = json.dumps({
+                "version": self.version,
+                "tools": self.tool_count,
+                "deployment": "hosted connector (token-brokered)",
+            }).encode()
+            await self._send_response(send, 200, body, "application/json")
             return
 
         if path == PROTECTED_RESOURCE_PATH:
@@ -449,11 +466,22 @@ def create_app():
 
     inner = mcp.streamable_http_app()
 
+    try:
+        from accountingqb import __version__ as _ver  # noqa: PLC0415
+    except Exception:
+        _ver = ""
+    try:
+        _tools = len(mcp._tool_manager._tools)
+    except Exception:
+        _tools = 0
+
     return BearerAuthMiddleware(
         inner,
         jwt_secret=MCP_JWT_SECRET,
         resource_url=RESOURCE_URL,
         auth_server_url=AS_URL,
+        version=_ver,
+        tool_count=_tools,
     )
 
 

@@ -14,6 +14,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.17.5",
+    date: "2026-08-04",
+    title: "Deploy smoke test — the live build is now verified after every release",
+    tag: "Platform",
+    summary:
+      "Infrastructure to close the gap that let the deployment-mode mislabel recur: a public /version endpoint and a smoke test that confirms the LIVE connector matches the released version and self-identifies as the hosted connector — including through the authenticated MCP path a client actually uses.",
+    highlights: [
+      "New public /version endpoint reports the running build's version, tool count, and deployment mode — a one-call check that the deploy actually landed",
+      "scripts/deploy-smoke.py verifies the live host after each deploy: version matches the tag, deployment is the hosted connector, and qb_server_info returns the same through the authenticated /mcp endpoint",
+      "Catches stale/failed deploys and version drift before a user does — the structural gap behind the recurring deployment-mode report",
+    ],
+  },
+  {
     version: "3.17.4",
     date: "2026-08-04",
     title: "Two tax tools brought onto the shared engine; deductions now respect the loss",

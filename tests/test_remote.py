@@ -54,6 +54,8 @@ def make_app(realm_resolver=stub_realm_resolver, secret=SECRET):
         resource_url=RESOURCE,
         auth_server_url=AS_URL,
         realm_resolver=realm_resolver,
+        version="9.9.9",
+        tool_count=131,
     )
 
 
@@ -86,6 +88,16 @@ def test_healthz(client):
     resp = client.get("/healthz")
     assert resp.status_code == 200
     assert resp.text == "ok"
+
+
+def test_version_endpoint_public(client):
+    # Unauthenticated deploy-verification endpoint used by scripts/deploy-smoke.py.
+    resp = client.get("/version")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["version"] == "9.9.9"
+    assert data["tools"] == 131
+    assert "hosted connector" in data["deployment"]
 
 
 def test_protected_resource_metadata(client):
