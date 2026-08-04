@@ -14,6 +14,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.17.2",
+    date: "2026-08-04",
+    title: "No more silent truncation; account lookups resolve consistently",
+    tag: "Platform",
+    summary:
+      "Two reliability fixes from the audit backlog. Vendor and customer lists now page through everything and tell you when there's more, instead of quietly stopping at 50. And two account-name lookups that used a bare pattern match now use the shared resolver, so an exact name like 'Utilities' resolves cleanly instead of colliding with 'Home utilities'.",
+    highlights: [
+      "qb_list_vendors / qb_list_customers report the true total and disclose truncation (pass max_results=0 for all) — no more stopping mid-alphabet with no notice",
+      "qb_inactivate_account and qb_account_transactions use the shared account resolver (exact name → full 'Parent:Child' name → unambiguous leaf), so they resolve where a bare pattern match returned raw ambiguity or 'not found'",
+      "The resolver still refuses to guess between genuinely ambiguous names rather than silently pick the wrong account",
+    ],
+  },
+  {
     version: "3.17.1",
     date: "2026-08-04",
     title: "Two correctness fixes from a real-book audit — owner equity & home routing",

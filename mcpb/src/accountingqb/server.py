@@ -4507,30 +4507,38 @@ async def qb_list_accounts(account_type: str = "", active_only: bool = False,
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_vendors(name: str = "", max_results: int = 50) -> str:
-    """List vendors/suppliers in QuickBooks. Optionally filter by name."""
-    # Demo mode: return mock vendors
+    """List vendors/suppliers in QuickBooks. Optionally filter by name.
+    max_results caps how many are shown (0 = all); the true total is always
+    reported, and truncation is disclosed rather than hidden."""
+    # Demo mode: return mock vendors (filter BEFORE limiting).
     if _demo_active():
-        vendors = DEMO_VENDORS[:max_results]
+        vendors = DEMO_VENDORS
         if name:
             vendors = [v for v in vendors if name.lower() in v.get("DisplayName", "").lower()]
     else:
+        # Page through EVERY vendor (a bare MAXRESULTS silently truncates and
+        # stops mid-alphabet with no disclosure); cap the DISPLAY, not the fetch.
         query = "SELECT * FROM Vendor"
         if name:
             query += f" WHERE DisplayName LIKE '%{name}%'"
-        query += f" MAXRESULTS {max_results}"
-        result = await qb_query(query)
+        result = await qb_query_all(query)
         vendors = result.get("QueryResponse", {}).get("Vendor", [])
 
     if not vendors:
         return "No vendors found."
 
-    lines = [f"## Vendors ({len(vendors)} found)\n"]
-    for v in vendors:
+    total = len(vendors)
+    shown = vendors[:max_results] if max_results and max_results > 0 else vendors
+    lines = [f"## Vendors ({total} found)\n"]
+    for v in shown:
         vname = v.get("DisplayName", "Unknown")
         balance = fmt(v.get("Balance", 0))
         active = "Active" if v.get("Active", True) else "Inactive"
         email = v.get("PrimaryEmailAddr", {}).get("Address", "")
         lines.append(f"- **{vname}** (ID: {v.get('Id')}) | Balance: {balance} | {active}" + (f" | {email}" if email else ""))
+    if len(shown) < total:
+        lines.append(f"\n*Showing the first {len(shown)} of {total}. Pass "
+                     "max_results (0 = all) or a name filter to see the rest.*")
     return "\n".join(lines)
 
 
@@ -4561,30 +4569,37 @@ async def qb_create_vendor(display_name: str, email: str = "", phone: str = "", 
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_customers(name: str = "", max_results: int = 50) -> str:
-    """List customers in QuickBooks. Optionally filter by name."""
-    # Demo mode: return mock customers
+    """List customers in QuickBooks. Optionally filter by name.
+    max_results caps how many are shown (0 = all); the true total is always
+    reported, and truncation is disclosed rather than hidden."""
+    # Demo mode: return mock customers (filter BEFORE limiting).
     if _demo_active():
-        customers = DEMO_CUSTOMERS[:max_results]
+        customers = DEMO_CUSTOMERS
         if name:
             customers = [c for c in customers if name.lower() in c.get("DisplayName", "").lower()]
     else:
+        # Page through EVERY customer; cap the DISPLAY, not the fetch.
         query = "SELECT * FROM Customer"
         if name:
             query += f" WHERE DisplayName LIKE '%{name}%'"
-        query += f" MAXRESULTS {max_results}"
-        result = await qb_query(query)
+        result = await qb_query_all(query)
         customers = result.get("QueryResponse", {}).get("Customer", [])
 
     if not customers:
         return "No customers found."
 
-    lines = [f"## Customers ({len(customers)} found)\n"]
-    for c in customers:
+    total = len(customers)
+    shown = customers[:max_results] if max_results and max_results > 0 else customers
+    lines = [f"## Customers ({total} found)\n"]
+    for c in shown:
         cname = c.get("DisplayName", "Unknown")
         balance = fmt(c.get("Balance", 0))
         active = "Active" if c.get("Active", True) else "Inactive"
         email = c.get("PrimaryEmailAddr", {}).get("Address", "")
         lines.append(f"- **{cname}** (ID: {c.get('Id')}) | Balance: {balance} | {active}" + (f" | {email}" if email else ""))
+    if len(shown) < total:
+        lines.append(f"\n*Showing the first {len(shown)} of {total}. Pass "
+                     "max_results (0 = all) or a name filter to see the rest.*")
     return "\n".join(lines)
 
 
@@ -6450,14 +6465,14 @@ async def qb_match_invoices_to_transactions(invoices_json: str, start_date: str,
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_inactivate_account(account_name: str) -> str:
     """Inactivate a QuickBooks account (hide it from active lists without deleting).
-    Useful for cleaning up unused or personal accounts. Requires exact account name."""
-    accounts = await qb_query(f"SELECT * FROM Account WHERE Name = '{account_name}' MAXRESULTS 1")
-    acct_list = accounts.get("QueryResponse", {}).get("Account", [])
+    Useful for cleaning up unused or personal accounts. Accepts an exact name, a
+    'Parent:Child' full name, or an unambiguous leaf name."""
+    # Shared resolver: exact Name → exact FullyQualifiedName → unambiguous leaf,
+    # refusing to guess between multiple matches (never silently wrong-account).
+    acct, err = await _resolve_account(account_name)
+    if err:
+        return err
 
-    if not acct_list:
-        return f"No account matching '{account_name}' found."
-
-    acct = acct_list[0]
     if not acct.get("Active", True):
         return f"Account '{account_name}' is already inactive."
 
@@ -7683,15 +7698,12 @@ async def qb_account_transactions(account_name: str, start_date: str = "", end_d
     start_date = _validate_date(start_date, "start_date")
     end_date = _validate_date(end_date, "end_date")
 
-    # Find the account
-    acct_result = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 5")
-    accounts = acct_result.get("QueryResponse", {}).get("Account", [])
-    if not accounts:
-        return f"Account '{account_name}' not found."
-    if len(accounts) > 1:
-        names = ", ".join(f"{a['Name']} (ID:{a['Id']})" for a in accounts)
-        return f"Multiple accounts match: {names}. Please be more specific."
-    acct = accounts[0]
+    # Shared resolver: exact Name → exact FullyQualifiedName → unambiguous leaf.
+    # Resolves 'Utilities' / 'Repairs & maintenance' cleanly where a bare LIKE
+    # returned raw ambiguity, and gives a consistent, helpful error otherwise.
+    acct, err = await _resolve_account(account_name)
+    if err:
+        return err
     acct_id = acct["Id"]
     acct_type = acct.get("AccountType", "")
     is_active = acct.get("Active", True)
