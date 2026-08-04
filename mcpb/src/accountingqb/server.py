@@ -40,7 +40,8 @@ try:
         _MEALS_ITC_FACTOR, _GST_WORKPAPER_FOOTER,
         _CA_SALES_TAX_REGIME, _CA_PROVINCIAL_AGENCY_HINTS,
         _ca_regime, _ca_regime_describe, _ca_agency_is_provincial,
-        classify_account, line_limitation, _CCA_CLASSES, _CLASS_10_1_CEILING,
+        classify_account, line_limitation, is_home_office_account,
+        _CCA_CLASSES, _CLASS_10_1_CEILING,
         _CLASS_54_ZEV_CEILING, _AII_START_YEAR, _AII_FIRST_YEAR_FACTOR,
         _T4A_ADMIN_THRESHOLD, _CPP_PARAMS, _CPP_BASIC_EXEMPTION,
         _CPP_RATE_SELF, _CPP2_RATE_SELF, _CA_FED_BRACKETS_APPROX,
@@ -63,7 +64,8 @@ except ImportError:  # pragma: no cover — direct script execution (no package)
         _MEALS_ITC_FACTOR, _GST_WORKPAPER_FOOTER,
         _CA_SALES_TAX_REGIME, _CA_PROVINCIAL_AGENCY_HINTS,
         _ca_regime, _ca_regime_describe, _ca_agency_is_provincial,
-        classify_account, line_limitation, _CCA_CLASSES, _CLASS_10_1_CEILING,
+        classify_account, line_limitation, is_home_office_account,
+        _CCA_CLASSES, _CLASS_10_1_CEILING,
         _CLASS_54_ZEV_CEILING, _AII_START_YEAR, _AII_FIRST_YEAR_FACTOR,
         _T4A_ADMIN_THRESHOLD, _CPP_PARAMS, _CPP_BASIC_EXEMPTION,
         _CPP_RATE_SELF, _CPP2_RATE_SELF, _CA_FED_BRACKETS_APPROX,
@@ -1655,9 +1657,11 @@ async def qb_server_info() -> str:
     except Exception:
         pass
     # Deployment mode is a STATIC process property — report it unconditionally,
-    # never from the (mutable) QuickBooks session, so it's correct even in the
-    # degraded/expired-token state where someone reaches for this tool.
-    hosted = _HOSTED_CONNECTOR or bool(getattr(_default_ctx, "hosted_mode", False))
+    # never from the (mutable) QuickBooks session. MCP_JWT_SECRET is the reliable
+    # signal: the hosted connector ALWAYS has it (it verifies JWTs), a local
+    # .mcpb never does — session/token state can't change it.
+    hosted = (_HOSTED_CONNECTOR or bool(os.environ.get("MCP_JWT_SECRET"))
+              or bool(getattr(_default_ctx, "hosted_mode", False)))
     lines.append(f"- **Deployment:** {'hosted connector (token-brokered)' if hosted else 'self-hosted / local'}")
 
     if _demo_active():
@@ -3773,7 +3777,7 @@ def _account_alloc(name: str, line: str, flags: list, profile: dict):
 
 
 def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = None,
-                                profile: dict = None):
+                                profile: dict = None, name_to_fqn: dict = None):
     """Classify → ALLOCATE (taxpayer %) → LIMIT (statutory %). Returns a dict:
     ``lines`` (per-line buckets; each account tuple is
     (name, full, allocated, deductible, pct, basis, factor, cite)),
@@ -3783,6 +3787,11 @@ def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = 
     routing is reported."""
     from collections import defaultdict
     subs = name_to_subtype or {}
+    fqns = name_to_fqn or {}
+    # Accounts the taxpayer has explicitly designated as home-indirect (e.g. an
+    # electricity account that's really a home cost) — routed to Form 8829 even
+    # when neither the name nor the parent chain says "home".
+    designated_home = set((profile or {}).get("home_office", {}).get("accounts") or [])
     sc = defaultdict(lambda: {"amount": 0.0, "deductible": 0.0, "accounts": [],
                               "nondeductible": False, "limit_factor": 1.0,
                               "limit_cite": "", "line": "", "allocated": False})
@@ -3790,6 +3799,14 @@ def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = 
     for name, amount in expense_accounts.items():
         amt = abs(amount)
         line, desc, flags = classify_account(name, subs.get(name, ""), "US")
+        # Home-office detection keys on the FullyQualifiedName (parent chain), not
+        # the leaf name — 'Home office:Property taxes' is unambiguous even though
+        # its leaf 'Property taxes' classifies to Line 23. QuickBooks gives us the
+        # FQN; this is more robust than a leaf-name regex or an explicit list.
+        fqn = fqns.get(name, name)
+        if (is_home_office_account(fqn) or name in designated_home
+                or fqn in designated_home) and "home_8829" not in flags:
+            flags = list(flags) + ["home_8829"]
         treatment, pct, basis = _account_alloc(name, line, flags, profile)
         if treatment == "home_indirect":
             home_indirect.append((name, amt))
@@ -3915,8 +3932,12 @@ def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income
         disallowed_note.append(f"{fmt(round(alloc_disallowed, 2))} personal (allocation)")
     if ho_personal > 0.005:
         disallowed_note.append(f"{fmt(round(ho_personal, 2))} personal home share")
+    if ho_carry > 0.005:
+        disallowed_note.append(f"{fmt(round(ho_carry, 2))} home-office carryforward "
+                               "(deferred, not lost)")
     if disallowed_note:
-        lines.append("*Removed from deductions: " + "; ".join(disallowed_note) + ".*")
+        lines.append("*Removed from this year's deductions: "
+                     + "; ".join(disallowed_note) + ".*")
 
     # Conservation: every P&L expense dollar lands in exactly one bucket.
     pl_accounted = round(pl_deductible + stat_disallowed + alloc_disallowed
@@ -3955,25 +3976,38 @@ def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income
     return net_profit
 
 
-async def _account_subtype_map() -> dict:
-    """{account name -> AccountSubType}. P&L rows carry only the display name,
-    so we join back to the chart of accounts for the authoritative subtype
-    (Name first, FullyQualifiedName as a fallback for sub-accounts). Returns {}
+async def _chart_maps():
+    """(name -> AccountSubType, name -> FullyQualifiedName) from one Account
+    fetch. The FQN map lets home-office detection key on the PARENT chain
+    ('Home office:Property taxes'), not just the leaf name — so a sub-account
+    whose own name lacks 'home' is still routed to Form 8829. Returns ({}, {})
     if the chart can't be fetched — callers then classify by name alone."""
     try:
         accts = (await qb_query_all("SELECT * FROM Account")).get(
             "QueryResponse", {}).get("Account", [])
     except Exception as e:
-        logger.debug(f"subtype map fetch failed: {e}")
-        return {}
-    m = {}
+        logger.debug(f"chart maps fetch failed: {e}")
+        return {}, {}
+    sub, fqn = {}, {}
     for a in accts:
         st = a.get("AccountSubType", "") or ""
-        if a.get("Name"):
-            m.setdefault(a["Name"], st)
-        if a.get("FullyQualifiedName"):
-            m.setdefault(a["FullyQualifiedName"], st)
-    return m
+        n, f = a.get("Name", ""), a.get("FullyQualifiedName", "")
+        if n:
+            sub.setdefault(n, st)
+            fqn.setdefault(n, f or n)
+        if f:
+            sub.setdefault(f, st)
+            fqn.setdefault(f, f)
+    return sub, fqn
+
+
+async def _account_subtype_map() -> dict:
+    """{account name -> AccountSubType}. P&L rows carry only the display name,
+    so we join back to the chart of accounts for the authoritative subtype
+    (Name first, FullyQualifiedName as a fallback for sub-accounts). Returns {}
+    if the chart can't be fetched — callers then classify by name alone."""
+    sub, _ = await _chart_maps()
+    return sub
 
 
 def _alloc_local_path():
@@ -4056,6 +4090,9 @@ def _fmt_allocation_profile(year: int, p: dict) -> str:
             if ho.get("office_sqft") else ""
         lines.append(f"- **Home office:** {ho['percentage'] * 100:.2f}%{basis} "
                      f"· method: {ho.get('method', 'actual')}")
+    if ho.get("accounts"):
+        lines.append("  - designated home-indirect accounts (→ Form 8829): "
+                     + ", ".join(ho["accounts"]))
     v = p.get("vehicle") or {}
     if v.get("method"):
         if v["method"] == "standard_mileage":
@@ -4085,7 +4122,8 @@ def _fmt_allocation_profile(year: int, p: dict) -> str:
 async def qb_allocation_profile(
         tax_year: int = 0, home_office_sqft: float = 0, home_sqft: float = 0,
         vehicle_method: str = "", business_miles: float = 0, total_miles: float = 0,
-        account_allocations_json: str = "", source: str = "") -> str:
+        account_allocations_json: str = "", home_office_accounts_json: str = "",
+        source: str = "") -> str:
     """Get or set this company's TAXPAYER allocation profile for a tax year — the
     business-use percentages that turn mixed personal/business costs into their
     deductible share (home office, vehicle, per-account internet/phone). Call with
@@ -4093,13 +4131,16 @@ async def qb_allocation_profile(
     the home-office %), and/or vehicle_method ('standard_mileage' or 'actual') with
     business_miles + total_miles, and/or account_allocations_json (a JSON object
     like {"Internet & TV": 0.6} or {"Internet & TV": {"percentage":0.6,
-    "basis_note":"..."}}). source documents the basis (e.g. 'CPA Form 8829 TY2025').
-    These are per-realm taxpayer inputs, stored outside the statutory tax ledger."""
+    "basis_note":"..."}}), and/or home_office_accounts_json (a JSON array of account
+    names to route to Form 8829 as home-indirect costs, e.g. ["Electricity"] — for
+    home utilities that aren't under a 'Home office' parent and don't say 'home').
+    source documents the basis (e.g. 'CPA Form 8829 TY2025'). These are per-realm
+    taxpayer inputs, stored outside the statutory tax ledger."""
     from datetime import datetime, timezone
     year = int(tax_year) or datetime.now(timezone.utc).year
 
     is_set = bool(home_office_sqft or vehicle_method or account_allocations_json
-                  or business_miles or total_miles)
+                  or home_office_accounts_json or business_miles or total_miles)
     profile = await _get_allocation_profile(year)
     if not is_set:
         return _fmt_allocation_profile(year, profile)
@@ -4112,10 +4153,12 @@ async def qb_allocation_profile(
             return "Home office needs both home_office_sqft and home_sqft (> 0)."
         if home_office_sqft > home_sqft:
             return "home_office_sqft cannot exceed home_sqft."
-        profile["home_office"] = {
+        ho = dict(profile.get("home_office") or {})
+        ho.update({
             "method": "actual", "office_sqft": home_office_sqft, "home_sqft": home_sqft,
             "percentage": round(home_office_sqft / home_sqft, 4),
-            "basis_note": f"{home_office_sqft:g} / {home_sqft:g} sqft"}
+            "basis_note": f"{home_office_sqft:g} / {home_sqft:g} sqft"})
+        profile["home_office"] = ho  # preserves any designated "accounts" list
 
     if vehicle_method:
         if vehicle_method not in ("standard_mileage", "actual"):
@@ -4149,6 +4192,21 @@ async def qb_allocation_profile(
                 warnings.append(f"'{name}' is not an account in this chart — check the name.")
             acc[name] = {"percentage": round(pct, 4), "basis_note": note}
         profile["account_allocations"] = acc
+
+    if home_office_accounts_json:
+        try:
+            names = json.loads(home_office_accounts_json)
+            assert isinstance(names, list) and all(isinstance(n, str) for n in names)
+        except Exception:
+            return ('home_office_accounts_json must be a JSON array of account '
+                    'names like ["Electricity", "National Grid"].')
+        chart = await _account_subtype_map()
+        for n in names:
+            if chart and n not in chart:
+                warnings.append(f"'{n}' is not an account in this chart — check the name.")
+        ho = dict(profile.get("home_office") or {})
+        ho["accounts"] = sorted(set(names))
+        profile["home_office"] = ho
 
     ctx = get_ctx()
     profile["provenance"] = {
@@ -5667,9 +5725,9 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
         "summarize_column_by": "Total"
     })
 
-    # Chart-of-accounts subtype map (P&L rows carry only names) — used for both
-    # income (returns detection) and expense classification.
-    name_sub = await _account_subtype_map()
+    # Chart-of-accounts maps (P&L rows carry only names) — subtype for
+    # classification, FQN so home-office sub-accounts are caught by parent chain.
+    name_sub, name_fqn = await _chart_maps()
 
     # Income lines, split correctly (the old code read section summaries in a
     # loop, so 'Total Other Income' overwrote 'Total Income' and every Sales /
@@ -5684,7 +5742,7 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
     # accounts route to Form 8829; the profile supplies the business-use %.
     profile = await _get_allocation_profile(int(tax_year))
     expense_dict = _extract_pl_expense_accounts(result)
-    res = _map_expenses_to_schedule_c(expense_dict, name_sub, profile)
+    res = _map_expenses_to_schedule_c(expense_dict, name_sub, profile, name_fqn)
     pl_total = _pl_expense_total(result)
 
     lines = [f"## IRS Schedule C — {tax_year}\n"]
@@ -7628,9 +7686,9 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
         "start_date": start, "end_date": end, "summarize_column_by": "Total"})
 
     expense_dict = _extract_pl_expense_accounts(result)
-    name_sub = await _account_subtype_map()
+    name_sub, name_fqn = await _chart_maps()
     profile = await _get_allocation_profile(int(tax_year))
-    res = _map_expenses_to_schedule_c(expense_dict, name_sub, profile)
+    res = _map_expenses_to_schedule_c(expense_dict, name_sub, profile, name_fqn)
     pl_total = _pl_expense_total(result)
 
     # Income split correctly (see qb_schedule_c) — Sales → Line 1, refunds →

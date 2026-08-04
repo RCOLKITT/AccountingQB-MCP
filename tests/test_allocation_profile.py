@@ -78,6 +78,26 @@ def test_account_alloc_treatments():
     assert s._account_alloc("Other", "25", [], prof)[:2] == ("line", 1.0)
 
 
+def test_home_indirect_detected_by_fqn_parent_chain():
+    """A leaf named 'Property taxes' (classifies to Line 23) whose FQN is under a
+    'Home office' parent must route to Form 8829, not Line 23 at 100%."""
+    expenses = {"Property taxes": 1115.84, "Advertising": 500.0}
+    fqn = {"Property taxes": "Home office:Property taxes", "Advertising": "Advertising"}
+    res = s._map_expenses_to_schedule_c(expenses, {}, {}, fqn)
+    home = {n for n, _ in res["home_indirect"]}
+    assert "Property taxes" in home          # routed to 8829 by parent chain
+    assert not any("23" in b["line"] for b in res["lines"].values())  # not on Line 23
+
+
+def test_home_indirect_designated_by_profile():
+    """An account the taxpayer explicitly designates (e.g. a standalone
+    'Electricity' that's really a home cost) routes to Form 8829, even with no
+    'home' in the name or parent chain."""
+    prof = {"home_office": {"percentage": 0.125, "accounts": ["Electricity"]}}
+    res = s._map_expenses_to_schedule_c({"Electricity": 317.0}, {}, prof, {})
+    assert ("Electricity", 317.0) in res["home_indirect"]
+
+
 def test_form8829_income_limit_and_carryforward():
     assert s._form8829(4000, 0.125, 16950) == (500.0, 0.0, 500.0)     # within profit
     allowed, carry, tentative = s._form8829(4000, 0.50, 1200)          # exceeds profit

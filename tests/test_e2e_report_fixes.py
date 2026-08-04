@@ -287,6 +287,16 @@ def test_server_info_deployment_mode_is_static():
     assert "Deployment:** hosted connector" in out    # stable even when QB not connected
     assert "not connected" in out                       # only the QuickBooks line degrades
 
+    # Belt-and-suspenders: even if _HOSTED_CONNECTOR is somehow False on the
+    # deployed process, MCP_JWT_SECRET (always set on the connector, never on a
+    # local .mcpb) pins it to hosted — a session-independent, static signal.
+    with patch.object(s, "qb_query", boom), \
+            patch.object(s, "_HOSTED_CONNECTOR", False), \
+            patch.dict(s.os.environ, {"MCP_JWT_SECRET": "x"}), \
+            patch.object(s._default_ctx, "hosted_mode", False):
+        out = asyncio.run(_unwrap(s.qb_server_info)())
+    assert "Deployment:** hosted connector" in out
+
 
 def test_schedule_c_meals_limit_and_allocation_warning():
     """Meals shown at 50% with the §274(n) arithmetic; a utility-typed account
@@ -320,7 +330,71 @@ def test_schedule_c_meals_limit_and_allocation_warning():
         out = asyncio.run(fn("2025"))
     assert "× 50% (IRC §274(n)) = $551.05" in out or "× 50% (IRC §274(n))" in out
     assert "Line 24b — Deductible meals: $551.0" in out
-    assert "Removed from deductions" in out and "statutory" in out
+    assert "Removed from this year's deductions" in out and "statutory" in out
     assert "Likely need a business-use %" in out and "Cell phone" in out
     # no false reconciliation warning (three buckets tie to the P&L)
+    assert "Does not reconcile" not in out
+
+
+def test_home_office_subaccounts_route_by_parent_chain():
+    """P0 audit guard: accounts under a 'Home office' PARENT whose own leaf name
+    lacks 'home' (Mortgage interest, Property taxes, Repairs) must route to Form
+    8829 at the home-office %, NOT be deducted 100% on their operating lines.
+    Detection keys on the FullyQualifiedName ('Home office:Property taxes'), not
+    the leaf. Over-claiming here is an examination risk — this must not regress."""
+    pl = {"Rows": {"Row": [
+        {"Header": {"ColData": [{"value": "Income"}]},
+         "Rows": {"Row": [{"ColData": [{"value": "Sales"}, {"value": "50000.00"}]}]},
+         "Summary": {"ColData": [{"value": "Total Income"}, {"value": "50000.00"}]}},
+        {"Header": {"ColData": [{"value": "Expenses"}]},
+         "Rows": {"Row": [
+             {"ColData": [{"value": "Advertising"}, {"value": "500.00"}]},
+             # 'Home office' PARENT group — children's leaf names lack 'home'
+             {"Header": {"ColData": [{"value": "Home office"}]},
+              "Rows": {"Row": [
+                  {"ColData": [{"value": "Mortgage interest"}, {"value": "3613.41"}]},
+                  {"ColData": [{"value": "Property taxes"}, {"value": "1115.84"}]},
+                  {"ColData": [{"value": "Repairs & maintenance"}, {"value": "2116.19"}]},
+                  {"ColData": [{"value": "Home utilities"}, {"value": "564.64"}]}]},
+              "Summary": {"ColData": [{"value": "Total Home office"}, {"value": "7410.08"}]}}]},
+         "Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "7910.08"}]}},
+    ]}}
+    # The chart gives the FullyQualifiedName — the parent chain QuickBooks already knows.
+    accts = [
+        {"Name": "Advertising", "AccountSubType": "AdvertisingPromotional", "FullyQualifiedName": "Advertising"},
+        {"Name": "Mortgage interest", "AccountSubType": "OtherMiscellaneousExpense", "FullyQualifiedName": "Home office:Mortgage interest"},
+        {"Name": "Property taxes", "AccountSubType": "OtherMiscellaneousExpense", "FullyQualifiedName": "Home office:Property taxes"},
+        {"Name": "Repairs & maintenance", "AccountSubType": "RepairMaintenance", "FullyQualifiedName": "Home office:Repairs & maintenance"},
+        {"Name": "Home utilities", "AccountSubType": "Utilities", "FullyQualifiedName": "Home office:Home utilities"},
+    ]
+
+    async def fake_req(m, p, params=None, **k):
+        return pl
+
+    async def fake_all(q, **k):
+        return {"QueryResponse": {"Account": accts}}
+
+    async def fake_query(q):
+        return {"QueryResponse": {"CompanyInfo": [{"CompanyName": "D"}]}}
+
+    async def fake_profile(year):
+        return {"home_office": {"method": "actual", "office_sqft": 300, "home_sqft": 2400,
+                                "percentage": 0.125, "basis_note": "300 / 2400 sqft"}}
+
+    fn = getattr(s.qb_schedule_c, "__wrapped__", s.qb_schedule_c)
+    with patch.object(s, "qb_request", fake_req), \
+            patch.object(s, "qb_query_all", fake_all), \
+            patch.object(s, "qb_query", fake_query), \
+            patch.object(s, "_get_allocation_profile", fake_profile):
+        out = asyncio.run(fn("2025"))
+
+    # All four home costs pooled to Form 8829 at 12.5% (7410.08 × .125 = 926.26)
+    assert "Line 30 — Home office (Form 8829): $926.26" in out
+    assert "$7,410.08 × 12.50%" in out
+    # NOT deducted at 100% on their operating lines — the whole point.
+    assert "Line 16" not in out          # mortgage interest did NOT land on interest
+    assert "Line 23" not in out          # property taxes did NOT land on taxes
+    assert "Line 21" not in out          # repairs did NOT land on repairs
+    # personal home share (7410.08 × 87.5% = 6483.82) is disclosed, and it reconciles
+    assert "6,483.82 personal home share" in out
     assert "Does not reconcile" not in out
