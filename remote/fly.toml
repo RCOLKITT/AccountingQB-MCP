@@ -1,5 +1,7 @@
 # Fly.io config for the remote MCP service (https://mcp.accountingqb.com/mcp)
-# Deploy from the repo root: fly deploy --config remote/fly.toml --dockerfile remote/Dockerfile
+# Deploy from the repo root with the SMOKE-GATED wrapper (verifies the live build
+# end-to-end before declaring success):  ./scripts/deploy.sh
+# Raw (no verification): fly deploy --config remote/fly.toml --dockerfile remote/Dockerfile
 
 app = "accountingqb-mcp"
 primary_region = "iad"

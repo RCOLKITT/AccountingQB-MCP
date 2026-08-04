@@ -36,9 +36,13 @@ fly launch --copy-config --no-deploy   # creates the app "accountingqb-mcp"
 fly secrets set MCP_JWT_SECRET="$(openssl rand -hex 32)"
 fly secrets set QB_API_URL="https://accountingqb.com"
 
-# 3. Deploy (from the repo root so the Docker build context includes mcpb/)
+# 3. Deploy (from the repo root so the Docker build context includes mcpb/).
+# Prefer the smoke-gated wrapper — it deploys, then verifies the LIVE host serves
+# the released version and identifies as the hosted connector (via /version AND an
+# authenticated qb_server_info call) before declaring success.
 cd ..
-fly deploy --config remote/fly.toml --dockerfile remote/Dockerfile
+./scripts/deploy.sh
+# Raw (no verification): fly deploy --config remote/fly.toml --dockerfile remote/Dockerfile
 
 # 4. DNS + TLS cert
 fly certs add mcp.accountingqb.com
