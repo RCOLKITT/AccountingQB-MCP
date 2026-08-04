@@ -101,22 +101,28 @@ def check_authenticated(host: str, expect: str, secret: str) -> bool:
     except Exception as e:
         print(f"  ⚠ could not mint JWT ({e}) — is PyJWT installed? Skipping.")
         return True
+    # Negotiate: initialize returns the protocol version the server actually
+    # supports (the advertised 2026-07-28 is ahead of the SDK, which rejects it on
+    # tools/call). Use the NEGOTIATED version for the follow-up request.
+    negotiate = "2025-11-25"
     hdrs = {"Authorization": f"Bearer {token}", "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
-            "MCP-Protocol-Version": "2026-07-28"}
+            "MCP-Protocol-Version": negotiate}
     init = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
-            "params": {"protocolVersion": "2026-07-28", "capabilities": {},
+            "params": {"protocolVersion": negotiate, "capabilities": {},
                        "clientInfo": {"name": "deploy-smoke", "version": "1.0"}}}
     try:
-        status, respheaders, _ = _get_json(f"{host}/mcp", hdrs, json.dumps(init).encode())
+        status, respheaders, initraw = _get_json(f"{host}/mcp", hdrs, json.dumps(init).encode())
         if status == 401:
             print("  ✗ 401 — JWT rejected (secret/audience mismatch)")
             return False
+        negotiated = (_parse_mcp_body(initraw).get("result", {})
+                      .get("protocolVersion") or negotiate)
         sid = respheaders.get("mcp-session-id") or respheaders.get("Mcp-Session-Id")
         call_hdrs = dict(hdrs)
+        call_hdrs["MCP-Protocol-Version"] = negotiated
         if sid:
             call_hdrs["Mcp-Session-Id"] = sid
-            # stateless servers still want the initialized notification
             note = {"jsonrpc": "2.0", "method": "notifications/initialized"}
             _get_json(f"{host}/mcp", call_hdrs, json.dumps(note).encode())
         call = {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
