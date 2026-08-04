@@ -190,3 +190,76 @@ def test_golden_book_has_a_nondeductible_item():
     nondeduct = [a for a in GOLDEN_ACCOUNTS
                  if classify_account(a["Name"], a["AccountSubType"], "US")[0].startswith("NONDED")]
     assert nondeduct, "golden book needs a charitable/entertainment/etc. account"
+
+
+SIMPLIFIED = {"home_office": {"method": "simplified", "office_sqft": 250,
+                              "home_sqft": 2500, "percentage": 0.10}}
+
+
+def test_home_office_simplified_method():
+    """Simplified method: Line 30 = $5 × office sqft (max 300), the recorded home
+    costs stay OFF Schedule C, and nothing carries forward. Conservation holds."""
+    with patch_book(profile=SIMPLIFIED):
+        out = asyncio.run(_unwrap(s.qb_schedule_c)("2025"))
+    assert "simplified: $1,250.00" in out                 # 250 × $5
+    assert "250 sq ft × $5/sq ft" in out
+    assert "$4,000.00 of recorded home costs are NOT on Schedule C" in out
+    assert "carries forward" not in out.split("method — simplified")[0][-400:]
+    assert "Does not reconcile" not in out
+    # net = (50000 − 5600 operating) − 1250 simplified = 43150
+    assert "Net profit (loss): $43,150.00" in out
+
+
+def test_home_office_method_comparison_shown():
+    """The simplified-vs-actual comparison is surfaced with the numbers and the
+    depreciation/§1250 caveat, so the method choice is informed."""
+    with patch_book(profile=SIMPLIFIED):
+        out = asyncio.run(_unwrap(s.qb_schedule_c)("2025"))
+    assert "simplified vs. actual" in out
+    assert "Simplified:" in out and "Actual:" in out
+    # simplified $1,250 vs actual 4,000 × 10% = $400 → simplified wins by $850
+    assert "simplified wins by $850.00" in out
+    assert "§1250 recapture" in out
+
+
+def test_home_office_actual_carryforward_beats_simplified_at_a_loss():
+    """The loss-year nuance: both cap to $0, but actual's tentative carries forward
+    while simplified's is lost — so the comparison recommends actual at a loss."""
+    # Force a loss: tiny income, so income-before-home is negative.
+    loss_pl = {"Rows": {"Row": [
+        {"Header": {"ColData": [{"value": "Income"}]},
+         "Rows": {"Row": [{"ColData": [{"value": "Sales"}, {"value": "1000.00"}]}]},
+         "Summary": {"ColData": [{"value": "Total Income"}, {"value": "1000.00"}]}},
+        {"Header": {"ColData": [{"value": "Expenses"}]},
+         "Rows": {"Row": [
+             {"ColData": [{"value": "Advertising"}, {"value": "9000.00"}]},
+             {"Header": {"ColData": [{"value": "Home office"}]},
+              "Rows": {"Row": [{"ColData": [{"value": "Property taxes"}, {"value": "8000.00"}]}]},
+              "Summary": {"ColData": [{"value": "Total Home office"}, {"value": "8000.00"}]}}]},
+         "Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "17000.00"}]}},
+    ]}}
+    accts = [
+        {"Name": "Advertising", "AccountSubType": "AdvertisingPromotional", "FullyQualifiedName": "Advertising"},
+        {"Name": "Property taxes", "AccountSubType": "PropertyTaxHomeOffice", "FullyQualifiedName": "Home office:Property taxes"},
+    ]
+
+    async def fake_req(m, p, params=None, **k):
+        return loss_pl
+
+    async def fake_all(q, **k):
+        return {"QueryResponse": {"Account": accts}}
+
+    async def fake_query(q):
+        return {"QueryResponse": {"CompanyInfo": [{"CompanyName": "D", "Country": "US"}]}}
+
+    async def fake_profile(y):
+        return {"home_office": {"method": "actual", "office_sqft": 250,
+                                "home_sqft": 2500, "percentage": 0.10}}
+
+    with patch.object(s, "qb_request", fake_req), \
+            patch.object(s, "qb_query_all", fake_all), \
+            patch.object(s, "qb_query", fake_query), \
+            patch.object(s, "_get_allocation_profile", fake_profile):
+        out = asyncio.run(_unwrap(s.qb_schedule_c)("2025"))
+    assert "At a loss, both cap to $0" in out
+    assert "carries forward" in out and "Prefer the actual method in a loss year" in out

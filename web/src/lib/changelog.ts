@@ -14,6 +14,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.18.0",
+    date: "2026-08-04",
+    title: "Home office: both methods, with the choice made explicit",
+    tag: "Tax",
+    summary:
+      "Schedule C now supports both home-office methods — actual (Form 8829, business % of real costs, carries forward) and simplified ($5/sq ft up to 300, no carryover) — and shows the two side by side so the choice is informed, including the nuance that flips it in a loss year and the depreciation/recapture trade-off.",
+    highlights: [
+      "Set the method with qb_allocation_profile (home_office_method: 'actual' or 'simplified'); Schedule C computes Line 30 accordingly, capped at net profit in both",
+      "Simplified is treated correctly: $5/sq ft (max 300), the recorded home costs stay off Schedule C (mortgage interest / property taxes → Schedule A), and any excess over net profit is lost (no carryover) — while the actual method's excess carries forward",
+      "Every Schedule C now shows a simplified-vs-actual comparison: which wins this year, why actual can be worth more in a loss year (its tentative carries forward), and the §1250 depreciation-recapture trade-off to weigh with your CPA",
+      "qb_home_office_calculator shows both methods and the recapture caveat alongside the regular-method breakdown",
+    ],
+  },
+  {
     version: "3.17.6",
     date: "2026-08-04",
     title: "Deduction finder no longer counts non-deductible items in the total",
