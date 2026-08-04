@@ -14,6 +14,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.17.1",
+    date: "2026-08-04",
+    title: "Two correctness fixes from a real-book audit — owner equity & home routing",
+    tag: "Tax",
+    summary:
+      "An end-to-end test against a real chart of accounts surfaced two directional errors that the conservation check couldn't catch (a misrouted dollar still balances). Owner's Draws no longer counts QuickBooks' system equity accounts as owner activity, and home-office routing now distinguishes accounts that merely share a name — and includes inactive (deleted) accounts.",
+    highlights: [
+      "qb_owner_draws excludes QuickBooks system equity (Opening Balance Equity, Retained Earnings) — these carry QB's own adjustment entries and were inverting the net on real books; contributions-only books now read as a positive net, as they should",
+      "Home-office routing keys on the account's home-office AccountSubType first, then its parent chain — so two accounts sharing a leaf name (e.g. a home 'Repairs & maintenance' and a business one) no longer merge into one treatment",
+      "The chart lookup now includes inactive/deleted accounts, so a deleted home cost still routes correctly instead of sitting at 100% on the wrong line",
+      "New classification invariants (beyond conservation): no account in two buckets; every home-subtype account routes to the home form; no home cost on an operating line — each locks a specific bug permanently",
+    ],
+  },
+  {
     version: "3.17.0",
     date: "2026-08-04",
     title: "Canada T2125 gets the full allocation engine",

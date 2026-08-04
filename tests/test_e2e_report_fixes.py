@@ -498,3 +498,121 @@ def test_t2125_applies_allocation_home_and_vehicle():
     assert "Line 9281" in out                                              # motor vehicle, not US "Line 9"
     assert "Line 30" not in out and "Form 8829" not in out                 # CA labels, not US
     assert "Does not reconcile" not in out                                 # conservation holds
+
+
+def test_owner_draws_excludes_opening_balance_equity():
+    """P0: Opening Balance Equity carries QuickBooks' own deletion-adjustment JEs,
+    not owner activity. On a contributions-only book it must NOT appear and must
+    not invert the net to a phantom 'draw'. Retained Earnings likewise excluded."""
+    accts = [
+        {"Id": "13", "Name": "Owner investments", "AccountType": "Equity",
+         "AccountSubType": "OwnersEquity"},
+        {"Id": "20", "Name": "Opening balance equity", "AccountType": "Equity",
+         "AccountSubType": "OpeningBalanceEquity"},
+        {"Id": "21", "Name": "Retained earnings", "AccountType": "Equity",
+         "AccountSubType": "RetainedEarnings"},
+    ]
+    cols = {"Columns": {"Column": [
+        {"ColTitle": "Date", "MetaData": [{"Name": "ColKey", "Value": "tx_date"}]},
+        {"ColTitle": "Amount", "ColType": "Money",
+         "MetaData": [{"Name": "ColKey", "Value": "subt_nat_amount"}]},
+        {"ColTitle": "Balance", "ColType": "Money",
+         "MetaData": [{"Name": "ColKey", "Value": "rbal_nat_amount"}]}]}}
+
+    def gl_for(acct_name, rows):
+        return {**cols, "Rows": {"Row": [
+            {"Header": {"ColData": [{"value": acct_name}]},
+             "Rows": {"Row": rows}}]}}
+
+    owner_gl = gl_for("Owner investments", [
+        {"ColData": [{"value": ""}, {"value": ""}, {"value": "0.00"}]},
+        {"ColData": [{"value": "2026-02-01"}, {"value": "40000.00"}, {"value": "40000.00"}]},
+        {"ColData": [{"value": "2026-05-01"}, {"value": "12005.25"}, {"value": "52005.25"}]}])
+    # OBE holds a huge QB deletion-adjustment JE — if counted it inverts the sign.
+    obe_gl = gl_for("Opening balance equity", [
+        {"ColData": [{"value": ""}, {"value": ""}, {"value": "0.00"}]},
+        {"ColData": [{"value": "2026-03-11"}, {"value": "-130741.79"}, {"value": "-130741.79"}]}])
+
+    async def fake_all(q, **k):
+        return {"QueryResponse": {"Account": accts}}
+
+    async def fake_req(m, p, params=None, **k):
+        acct_id = (params or {}).get("account")
+        return obe_gl if acct_id == "20" else owner_gl if acct_id == "13" else \
+            {"Rows": {"Row": []}}
+
+    with patch.object(s, "qb_query_all", fake_all), \
+            patch.object(s, "qb_request", fake_req):
+        out = asyncio.run(_unwrap(s.qb_owner_draws)(2026))
+
+    assert "Opening balance equity" not in out.split("Excluded QuickBooks")[0]
+    assert "Retained earnings" not in out.split("Excluded QuickBooks")[0]
+    assert "Net owner activity: $52,005.25" in out    # positive, not (−$78,736.54)
+    assert "net contribution" in out
+    assert "net draw" not in out                        # not sign-inverted
+    assert "($130,741.79)" not in out                   # the OBE artifact never appears
+    assert "Excluded QuickBooks system equity" in out   # disclosed
+
+
+def test_home_indirect_duplicate_leaf_and_inactive():
+    """P0: two accounts share the leaf 'Repairs & maintenance' — one under a
+    'Home office' parent, one standalone. The home one routes to Form 8829; the
+    standalone STAYS on its operating line (Line 21). And an INACTIVE home account
+    (a deleted mortgage) still routes — the chart lookup must include inactive."""
+    pl = {"Rows": {"Row": [
+        {"Header": {"ColData": [{"value": "Income"}]},
+         "Rows": {"Row": [{"ColData": [{"value": "Sales"}, {"value": "80000.00"}]}]},
+         "Summary": {"ColData": [{"value": "Total Income"}, {"value": "80000.00"}]}},
+        {"Header": {"ColData": [{"value": "Expenses"}]},
+         "Rows": {"Row": [
+             {"ColData": [{"value": "Repairs & maintenance"}, {"value": "2316.68"}]},
+             {"Header": {"ColData": [{"value": "Home office"}]},
+              "Rows": {"Row": [
+                  {"ColData": [{"value": "Repairs & maintenance"}, {"value": "2116.19"}]},
+                  {"ColData": [{"value": "Mortgage interest (deleted)"}, {"value": "3613.41"}]},
+                  {"ColData": [{"value": "Property taxes"}, {"value": "1115.84"}]}]},
+              "Summary": {"ColData": [{"value": "Total Home office"}, {"value": "6845.44"}]}}]},
+         "Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "9162.12"}]}},
+    ]}}
+    # The deleted mortgage account is INACTIVE — only returned with Active IN (true,false).
+    accts = [
+        {"Name": "Repairs & maintenance", "AccountSubType": "RepairMaintenance",
+         "FullyQualifiedName": "Repairs & maintenance", "Active": True},
+        {"Name": "Repairs & maintenance", "AccountSubType": "RepairsAndMaintainceHomeOffice",
+         "FullyQualifiedName": "Home office:Repairs & maintenance", "Active": True},
+        {"Name": "Mortgage interest (deleted)", "AccountSubType": "InterestPaid",
+         "FullyQualifiedName": "Home office:Mortgage interest (deleted)", "Active": False},
+        {"Name": "Property taxes", "AccountSubType": "PropertyTaxHomeOffice",
+         "FullyQualifiedName": "Home office:Property taxes", "Active": True},
+    ]
+
+    async def fake_req(m, p, params=None, **k):
+        return pl
+
+    captured = {}
+
+    async def fake_all(q, **k):
+        captured["q"] = q
+        return {"QueryResponse": {"Account": accts}}
+
+    async def fake_query(q):
+        return {"QueryResponse": {"CompanyInfo": [{"CompanyName": "D"}]}}
+
+    async def fake_profile(y):
+        return {"home_office": {"percentage": 0.125, "basis_note": "300/2400"}}
+
+    with patch.object(s, "qb_request", fake_req), \
+            patch.object(s, "qb_query_all", fake_all), \
+            patch.object(s, "qb_query", fake_query), \
+            patch.object(s, "_get_allocation_profile", fake_profile):
+        out = asyncio.run(_unwrap(s.qb_schedule_c)("2025"))
+
+    # chart lookup asked for inactive accounts
+    assert "Active IN (true, false)" in captured["q"]
+    # home base = 2116.19 + 3613.41 + 1115.84 = 6845.44 (NOT 4432.87 with both repairs)
+    assert "$6,845.44 × 12.50%" in out
+    # standalone repairs stayed on Line 21 at 100% — did NOT get swept into home
+    assert "Line 21" in out and "2,316.68" in out
+    # the inactive mortgage did NOT stay on the interest line at 100%
+    assert "3,613.41" not in out.split("× 12.50%")[0]   # not deducted in full anywhere above home
+    assert "Does not reconcile" not in out
