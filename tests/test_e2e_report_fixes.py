@@ -191,7 +191,7 @@ def test_books_hygiene_discloses_truncated_ids():
 
     with patch.object(s, "qb_query_all", fake_query_all):
         out = asyncio.run(_unwrap(s.qb_books_hygiene)("2026-01-01", "2026-12-31"))
-    assert "13 credit-card purchase(s)" in out
+    assert "13 credit-card charge(s)" in out
     assert "showing first 10 of 13" in out
 
 
@@ -296,6 +296,23 @@ def test_server_info_deployment_mode_is_static():
             patch.object(s._default_ctx, "hosted_mode", False):
         out = asyncio.run(_unwrap(s.qb_server_info)())
     assert "Deployment:** hosted connector" in out
+
+    # ROOT CAUSE of the recurring flip: local hosted-broker mode. The mode must
+    # come from the import-time config (_HOSTED_BROKER_CONFIG), NOT the mutable
+    # ctx.hosted_mode that _load_hosted_tokens() flips True after a refresh.
+    # Same build, hosted_mode toggling False→True must NOT change the answer.
+    async def noconn(q):
+        raise RuntimeError("no token yet")
+    for mutated in (False, True):     # expired, then after a hosted-token load
+        with patch.object(s, "qb_query", noconn), \
+                patch.object(s, "_HOSTED_CONNECTOR", False), \
+                patch.dict(s.os.environ, {}, clear=False), \
+                patch.object(s, "_HOSTED_BROKER_CONFIG", True), \
+                patch.object(s._default_ctx, "hosted_mode", mutated):
+            s.os.environ.pop("MCP_JWT_SECRET", None)
+            out = asyncio.run(_unwrap(s.qb_server_info)())
+        assert "Deployment:** hosted connector" in out, \
+            f"flipped when hosted_mode={mutated}"
 
 
 def test_schedule_c_meals_limit_and_allocation_warning():
@@ -678,3 +695,54 @@ def test_inactivate_and_account_txns_resolve_exact_over_partial():
 
     assert "has been inactivated" in out
     assert posted["body"]["Id"] == "25" and posted["body"]["Active"] is False
+
+
+def test_allocation_profile_leaf_keys_apply_to_fqn_accounts():
+    """REGRESSION: the FQN extractor change made Schedule C look up
+    'Communications:Cell phone' while the profile stores the leaf 'Cell phone'.
+    The % must still apply (match on leaf OR FQN), and a truly-unmatched
+    configured key must be surfaced — never silently ignored under 'not
+    configured'."""
+    pl = {"Rows": {"Row": [
+        {"Header": {"ColData": [{"value": "Income"}]},
+         "Rows": {"Row": [{"ColData": [{"value": "Sales"}, {"value": "50000.00"}]}]},
+         "Summary": {"ColData": [{"value": "Total Income"}, {"value": "50000.00"}]}},
+        {"Header": {"ColData": [{"value": "Expenses"}]},
+         "Rows": {"Row": [
+             {"Header": {"ColData": [{"value": "Communications"}]},
+              "Rows": {"Row": [{"ColData": [{"value": "Cell phone"}, {"value": "1000.00"}]}]},
+              "Summary": {"ColData": [{"value": "Total Communications"}, {"value": "1000.00"}]}}]},
+         "Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "1000.00"}]}},
+    ]}}
+    accts = [{"Name": "Cell phone", "AccountSubType": "Utilities",
+              "FullyQualifiedName": "Communications:Cell phone", "Active": True}]
+
+    async def fake_req(m, p, params=None, **k):
+        return pl
+
+    async def fake_all(q, **k):
+        return {"QueryResponse": {"Account": accts}}
+
+    async def fake_query(q):
+        return {"QueryResponse": {"CompanyInfo": [{"CompanyName": "D"}]}}
+
+    async def fake_profile(y):
+        # Leaf-named keys, as the profile actually stores them. One matches an
+        # account (Cell phone); one matches nothing (should be surfaced).
+        return {"account_allocations": {
+            "Cell phone": {"percentage": 0.75, "basis_note": "75% business"},
+            "Ghost account": {"percentage": 0.5}}}
+
+    with patch.object(s, "qb_request", fake_req), \
+            patch.object(s, "qb_query_all", fake_all), \
+            patch.object(s, "qb_query", fake_query), \
+            patch.object(s, "_get_allocation_profile", fake_profile):
+        out = asyncio.run(_unwrap(s.qb_schedule_c)("2025"))
+
+    # the 75% applied ($1,000 × 75% = $750), NOT deducted at 100%
+    assert "× 75%" in out and "$750.00" in out
+    # the unmatched configured key is surfaced loudly
+    assert "match NO account" in out and "Ghost account" in out
+    # and 'Cell phone' (which DID match) is not in the unmatched section
+    unmatched_section = out.split("match NO account")[1]
+    assert "Cell phone" not in unmatched_section
