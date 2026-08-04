@@ -5,7 +5,7 @@ write-safety, auditability) that govern all work in this repo. Never violate
 them; propose a Constitution amendment instead.
 
 ## Layout
-- `mcpb/src/accountingqb/server.py` — canonical MCP server (101 tools, US + CA).
+- `mcpb/src/accountingqb/server.py` — canonical MCP server (131 tools, US + CA).
   Root `server.py` is a shim. Never fork the server; there is one core.
 - `mcpb/src/accountingqb/remote.py` — remote connector (stateless HTTP + JWT).
 - `web/` — Next.js app: licensing, Stripe, OAuth broker + OAuth 2.1 AS, admin.

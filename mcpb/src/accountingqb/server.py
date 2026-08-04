@@ -41,6 +41,7 @@ try:
         _CA_SALES_TAX_REGIME, _CA_PROVINCIAL_AGENCY_HINTS,
         _ca_regime, _ca_regime_describe, _ca_agency_is_provincial,
         classify_account, line_limitation, is_home_office_account,
+        is_home_office_subtype, _SYSTEM_EQUITY_SUBTYPES,
         _CCA_CLASSES, _CLASS_10_1_CEILING,
         _CLASS_54_ZEV_CEILING, _AII_START_YEAR, _AII_FIRST_YEAR_FACTOR,
         _T4A_ADMIN_THRESHOLD, _CPP_PARAMS, _CPP_BASIC_EXEMPTION,
@@ -65,6 +66,7 @@ except ImportError:  # pragma: no cover — direct script execution (no package)
         _CA_SALES_TAX_REGIME, _CA_PROVINCIAL_AGENCY_HINTS,
         _ca_regime, _ca_regime_describe, _ca_agency_is_provincial,
         classify_account, line_limitation, is_home_office_account,
+        is_home_office_subtype, _SYSTEM_EQUITY_SUBTYPES,
         _CCA_CLASSES, _CLASS_10_1_CEILING,
         _CLASS_54_ZEV_CEILING, _AII_START_YEAR, _AII_FIRST_YEAR_FACTOR,
         _T4A_ADMIN_THRESHOLD, _CPP_PARAMS, _CPP_BASIC_EXEMPTION,
@@ -659,7 +661,7 @@ DEMO_ACCOUNTS = [
     {"Id": "10", "Name": "Rent", "AccountType": "Expense", "AccountSubType": "RentOrLeaseOfBuildings", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Rent"},
     {"Id": "11", "Name": "Professional Services", "AccountType": "Expense", "AccountSubType": "LegalProfessionalFees", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Professional Services"},
     {"Id": "12", "Name": "Advertising", "AccountType": "Expense", "AccountSubType": "AdvertisingPromotional", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Advertising"},
-    {"Id": "13", "Name": "Owner's Equity", "AccountType": "Equity", "AccountSubType": "OpeningBalanceEquity", "CurrentBalance": 77876.56, "Active": True, "FullyQualifiedName": "Owner's Equity"},
+    {"Id": "13", "Name": "Owner's Equity", "AccountType": "Equity", "AccountSubType": "OwnersEquity", "CurrentBalance": 77876.56, "Active": True, "FullyQualifiedName": "Owner's Equity"},
 ]
 
 # Demo transactions (recent expenses)
@@ -3498,10 +3500,18 @@ async def qb_owner_draws(year: int = 0) -> str:
 
     all_accounts = (await qb_query_all("SELECT * FROM Account MAXRESULTS 500")) \
         .get("QueryResponse", {}).get("Account", [])
-    equity = [a for a in all_accounts
-              if (a.get("AccountType") or "").lower() == "equity"]
+    all_equity = [a for a in all_accounts
+                  if (a.get("AccountType") or "").lower() == "equity"]
+    # Exclude QuickBooks' SYSTEM equity accounts — Opening Balance Equity carries
+    # QB's own deletion-adjustment journal entries (not owner activity), and
+    # Retained Earnings is a period rollup. Including them inverts the sign of the
+    # whole report on real books. Owner contributions/draws only.
+    equity = [a for a in all_equity
+              if (a.get("AccountSubType") or "") not in _SYSTEM_EQUITY_SUBTYPES]
+    excluded = [a for a in all_equity
+                if (a.get("AccountSubType") or "") in _SYSTEM_EQUITY_SUBTYPES]
     if not equity:
-        return "No equity accounts found in the chart of accounts."
+        return "No owner equity accounts found (excluding QuickBooks system equity)."
 
     lines = [f"## Owner's Draws & Contributions — {year}\n"]
     net = 0.0
@@ -3606,12 +3616,18 @@ async def qb_owner_draws(year: int = 0) -> str:
             lines.append("*Every account's transactions tie to its balance change "
                          "(audit cross-check passed).*")
 
+    if excluded:
+        names = ", ".join(f"{a.get('Name', '?')} ({a.get('AccountSubType', '')})"
+                          for a in excluded)
+        lines.append(f"\n*Excluded QuickBooks system equity (not owner activity): "
+                     f"{names}.*")
+
     lines.append("\n*Draws are not business expenses — they reduce owner's "
                  "equity. Your CPA reconciles this against the balance sheet. "
                  "Positive = owner put money in (contribution); negative = took "
                  "money out (draw).*")
     _audit_log("OWNER_DRAWS", f"year={year} net={fmt(round(net, 2))} "
-               f"reconciled={reconciled_all}")
+               f"reconciled={reconciled_all} excluded={len(excluded)}")
     return "\n".join(lines)
 
 
@@ -3682,20 +3698,28 @@ def _extract_pl_expense_accounts(pl_result: dict) -> dict:
     amount; a PARENT account with sub-accounts contributes anything posted
     directly to it — i.e. ``parent_summary − Σ(children)``. Without this, amounts
     booked straight to a parent (a user picks "Travel", not "Travel:Hotels") are
-    silently dropped from Schedule C. Shared so both Schedule C tools + tax
-    summary use the same numbers and reconcile to the P&L."""
+    silently dropped from Schedule C.
+
+    Keys of accounts nested under a sub-parent are PARENT-QUALIFIED (e.g.
+    'Home office:Repairs & maintenance'), matching QuickBooks' FullyQualifiedName.
+    This keeps two accounts that share a leaf name ('Repairs & maintenance' under
+    'Home office' vs. a standalone one) DISTINCT — otherwise they merge into one
+    entry and get one treatment, so home routing over- or under-claims. Shared so
+    both Schedule C tools + T2125 + tax summary reconcile to the P&L."""
     out: dict = {}
 
-    def walk(rows):
-        """Record leaves + parent residuals; return the summed total of `rows`."""
+    def walk(rows, parent_path=""):
+        """Record leaves + parent residuals; return the summed total of `rows`.
+        ``parent_path`` is the FQN of the enclosing sub-parent ('' at top level)."""
         total = 0.0
         for section in rows or []:
             nested = section.get("Rows", {}).get("Row", [])
             col = section.get("ColData", [])
             if nested:
-                children_sum = walk(nested)
                 hdr = section.get("Header", {}).get("ColData", [{}]) or [{}]
                 name = hdr[0].get("value", "")
+                this_path = f"{parent_path}:{name}" if parent_path and name else name
+                children_sum = walk(nested, this_path)
                 summ = section.get("Summary", {}).get("ColData", [])
                 try:
                     grp_total = (float(summ[-1].get("value", "0") or 0)
@@ -3704,16 +3728,17 @@ def _extract_pl_expense_accounts(pl_result: dict) -> dict:
                     grp_total = children_sum
                 residual = round(grp_total - children_sum, 2)   # posted to the parent itself
                 if name and abs(residual) > 0.005:
-                    out[name] = out.get(name, 0.0) + residual
+                    out[this_path] = out.get(this_path, 0.0) + residual
                 total += grp_total
             elif len(col) >= 2:
                 name = col[0].get("value", "")
+                key = f"{parent_path}:{name}" if parent_path and name else name
                 try:
                     val = float(col[-1].get("value", "0") or 0)
                 except (ValueError, TypeError):
                     val = 0.0
                 if name and val != 0:
-                    out[name] = out.get(name, 0.0) + val
+                    out[key] = out.get(key, 0.0) + val
                 total += val
         return round(total, 2)
 
@@ -3896,13 +3921,19 @@ def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = 
     home_indirect, mileage_excluded, alloc_candidates = [], [], []
     for name, amount in expense_accounts.items():
         amt = abs(amount)
-        line, desc, flags = classify_account(name, subs.get(name, ""), juris)
-        # Home-office detection keys on the FullyQualifiedName (parent chain), not
-        # the leaf name — 'Home office:Property taxes' is unambiguous even though
-        # its leaf 'Property taxes' classifies to a taxes line. QuickBooks gives us
-        # the FQN; this is more robust than a leaf-name regex or an explicit list.
+        subtype = subs.get(name, "")
+        line, desc, flags = classify_account(name, subtype, juris)
+        # Home-office detection, in the v3.14 taxonomy's resolution order:
+        #   1. AccountSubType in QB's home-office family (authoritative) — catches
+        #      the case a bare leaf name can't ('Repairs & maintenance');
+        #   2. FullyQualifiedName parent chain ('Home office:Property taxes') —
+        #      catches members whose subtype is generic (mortgage → InterestPaid);
+        #   3. explicit taxpayer designation (home_office_accounts).
+        # The extractor's keys are already parent-qualified, so two accounts that
+        # share a leaf name no longer collide into one treatment.
         fqn = fqns.get(name, name)
-        if (is_home_office_account(fqn) or name in designated_home
+        if (is_home_office_subtype(subtype) or is_home_office_account(fqn)
+                or is_home_office_account(name) or name in designated_home
                 or fqn in designated_home) and "home_8829" not in flags:
             flags = list(flags) + ["home_8829"]
         treatment, pct, basis = _account_alloc(name, line, flags, profile,
@@ -4110,21 +4141,32 @@ async def _chart_maps():
     whose own name lacks 'home' is still routed to Form 8829. Returns ({}, {})
     if the chart can't be fetched — callers then classify by name alone."""
     try:
-        accts = (await qb_query_all("SELECT * FROM Account")).get(
+        # INCLUDE inactive accounts — real books carry deleted accounts with
+        # balances (e.g. 'Mortgage interest (deleted)' still under Home office).
+        # QuickBooks returns active-only by default; the Active IN clause is the
+        # documented way to get both. Without it, home routing and subtype
+        # resolution silently miss every inactive account.
+        accts = (await qb_query_all(
+            "SELECT * FROM Account WHERE Active IN (true, false)")).get(
             "QueryResponse", {}).get("Account", [])
     except Exception as e:
         logger.debug(f"chart maps fetch failed: {e}")
         return {}, {}
+    # Two passes so the FullyQualifiedName (unique) is AUTHORITATIVE and a bare
+    # leaf Name (which two accounts can share — 'Repairs & maintenance' under
+    # 'Home office' vs. standalone) only fills gaps, never overriding the correct
+    # FQN entry. The extractor emits FQN-qualified keys, so these lookups are exact.
     sub, fqn = {}, {}
     for a in accts:
-        st = a.get("AccountSubType", "") or ""
+        f = a.get("FullyQualifiedName", "")
+        if f:
+            sub[f] = a.get("AccountSubType", "") or ""
+            fqn[f] = f
+    for a in accts:
         n, f = a.get("Name", ""), a.get("FullyQualifiedName", "")
         if n:
-            sub.setdefault(n, st)
+            sub.setdefault(n, a.get("AccountSubType", "") or "")
             fqn.setdefault(n, f or n)
-        if f:
-            sub.setdefault(f, st)
-            fqn.setdefault(f, f)
     return sub, fqn
 
 

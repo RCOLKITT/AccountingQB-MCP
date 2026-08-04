@@ -488,6 +488,33 @@ def is_home_office_account(name: str) -> bool:
     return bool(_HOME_8829.search(name or ""))
 
 
+# QuickBooks' own home-office AccountSubTypes (note QB's misspelling 'Maintaince').
+# The authoritative signal — a subtype in this family is unambiguously a
+# home-office indirect cost regardless of the leaf name (v3.14 taxonomy principle:
+# subtype first). 'HomeownerRentalInsurance' has no HomeOffice suffix but is one.
+_HOME_OFFICE_SUBTYPES = {
+    "UtilitiesHomeOffice", "PropertyTaxHomeOffice", "RentAndLeaseHomeOffice",
+    "RepairsAndMaintainceHomeOffice", "InsuranceHomeOffice",
+    "MortgageInterestHomeOffice", "HomeownerRentalInsurance",
+}
+
+
+def is_home_office_subtype(subtype: str) -> bool:
+    """True for QuickBooks' home-office AccountSubType family — the authoritative,
+    leaf-name-independent signal that an account is a home-office indirect cost."""
+    st = subtype or ""
+    return st in _HOME_OFFICE_SUBTYPES or st.endswith("HomeOffice")
+
+
+# Non-owner EQUITY subtypes that QuickBooks maintains automatically — they are
+# NOT owner draws or contributions and must be excluded from qb_owner_draws.
+# OpeningBalanceEquity in particular carries QB's deletion-adjustment journal
+# entries, which would otherwise read as enormous phantom draws.
+_SYSTEM_EQUITY_SUBTYPES = {
+    "OpeningBalanceEquity", "RetainedEarnings", "AccumulatedAdjustment",
+}
+
+
 def classify_account(name: str, subtype: str, jurisdiction: str):
     """Map one account to its tax line. jurisdiction: 'US' or 'CA'.
     Returns (line, desc, flags). Prefers the authoritative AccountSubType;
