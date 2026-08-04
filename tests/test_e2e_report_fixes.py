@@ -398,3 +398,46 @@ def test_home_office_subaccounts_route_by_parent_chain():
     # personal home share (7410.08 × 87.5% = 6483.82) is disclosed, and it reconciles
     assert "6,483.82 personal home share" in out
     assert "Does not reconcile" not in out
+
+
+def test_owner_draws_sums_amount_not_running_balance():
+    """A real QuickBooks GeneralLedger has an Amount column AND a running-Balance
+    column. The tool must sum Amount — summing the balance (which grows every row)
+    over-counts, which is how a $56,018 net investment showed as ~$96k. Guard it."""
+    accts = [{"Id": "80", "Name": "Owner Investment", "AccountType": "Equity"}]
+    # Column metadata as QuickBooks actually returns it (ColKey identifies each).
+    gl = {"Columns": {"Column": [
+            {"ColTitle": "Date", "ColType": "Date",
+             "MetaData": [{"Name": "ColKey", "Value": "tx_date"}]},
+            {"ColTitle": "Transaction Type", "ColType": "String",
+             "MetaData": [{"Name": "ColKey", "Value": "txn_type"}]},
+            {"ColTitle": "Amount", "ColType": "Money",
+             "MetaData": [{"Name": "ColKey", "Value": "subt_nat_amount"}]},
+            {"ColTitle": "Balance", "ColType": "Money",
+             "MetaData": [{"Name": "ColKey", "Value": "rbal_nat_amount"}]}]},
+          "Rows": {"Row": [
+            {"Header": {"ColData": [{"value": "Owner Investment"}]},
+             "Rows": {"Row": [
+                 {"ColData": [{"value": ""}, {"value": "Beginning Balance"},
+                              {"value": ""}, {"value": "0.00"}]},
+                 {"ColData": [{"value": "2025-02-01"}, {"value": "Deposit"},
+                              {"value": "40000.00"}, {"value": "40000.00"}]},
+                 {"ColData": [{"value": "2025-05-01"}, {"value": "Deposit"},
+                              {"value": "16018.25"}, {"value": "56018.25"}]}]},
+             "Summary": {"ColData": [{"value": "Total Owner Investment"},
+                                     {"value": ""}, {"value": "56018.25"}]}}]}}
+
+    async def fake_all(q, **k):
+        return {"QueryResponse": {"Account": accts}}
+
+    async def fake_req(m, p, params=None, **k):
+        return gl
+
+    with patch.object(s, "qb_query_all", fake_all), \
+            patch.object(s, "qb_request", fake_req):
+        out = asyncio.run(_unwrap(s.qb_owner_draws)(2025))
+
+    assert "$56,018.25" in out               # net = sum of Amount
+    assert "$96,018.25" not in out           # NOT sum of running Balance (the bug)
+    assert "net contribution" in out
+    assert "audit cross-check passed" in out  # transactions tie to the balance change
