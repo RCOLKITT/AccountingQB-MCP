@@ -14,6 +14,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.17.4",
+    date: "2026-08-04",
+    title: "Two tax tools brought onto the shared engine; deductions now respect the loss",
+    tag: "Tax",
+    summary:
+      "A full end-to-end sweep found two tools that bypassed the canonical taxonomy and produced tax numbers that disagreed with qb_schedule_c. Both are now on the shared engine, so they can't disagree. And the deduction finder no longer promises savings a loss disallows.",
+    highlights: [
+      "qb_tax_summary now uses the same taxonomy + allocation/limitation engine as qb_schedule_c — meals are correctly limited to 50% (they were landing on Line 24a at 100%), and it now shows income, home office, net, and non-deductibles too",
+      "qb_tax_summary accepts tax_year (previously it silently ignored it and returned year-to-date)",
+      "qb_deduction_finder gates every estimate on the income limit it cites — at a loss, self-employed health, SEP-IRA, and home office resolve to $0 this year (or carry forward) instead of fabricated gross values, and it reads your allocation profile before calling home office 'unclaimed'",
+      "The R&D-credit suggestion no longer prints a dollar figure off SaaS spend (those generally aren't qualified research expenses) — it prompts a proper eligibility review instead",
+      "Journal-entry amounts show correctly in the change audit trail (summed from the debit lines, not the always-zero TotalAmt); bulk same-day weekend data-entry batches no longer flood the anomaly report",
+    ],
+  },
+  {
     version: "3.17.3",
     date: "2026-08-04",
     title: "Allocation-key regression fixed; deployment mode & card-payment detection corrected",

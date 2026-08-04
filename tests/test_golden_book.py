@@ -5,7 +5,9 @@ book would have surfaced it before shipping."""
 
 import asyncio
 
-from golden_book import patch_book, GOLDEN_ACCOUNTS
+from unittest.mock import patch
+
+from golden_book import patch_book, GOLDEN_ACCOUNTS, GOLDEN_PL
 
 import accountingqb.server as s
 
@@ -105,3 +107,52 @@ def test_golden_book_has_the_seven_structural_properties():
     # name↔subtype disagreement: Cell phone typed Travel
     assert any(a["Name"] == "Cell phone" and a["AccountSubType"] == "Travel"
                for a in GOLDEN_ACCOUNTS)
+
+
+def test_tax_summary_agrees_with_schedule_c_on_meals():
+    """P0-1: qb_tax_summary used a name-only mapping and routed 'Travel meals' to
+    Line 24a (no limit) while qb_schedule_c used the subtype → 24b at 50%. Now both
+    run the same engine and must agree line-for-line, meals limited in both."""
+    with patch_book(profile=HOME_10):
+        sc = asyncio.run(_unwrap(s.qb_schedule_c)("2025"))
+    with patch_book(profile=HOME_10):
+        ts = asyncio.run(_unwrap(s.qb_tax_summary)(2025))
+    # meals 50% in BOTH (golden book: Business meals 1,000 → 24b × 50% = 500);
+    # previously tax_summary put them on 24a at 100% ($1,000), skipping §274(n).
+    assert "Line 24b — Deductible meals: $500.00" in sc
+    assert "Line 24b — Deductible meals: $500.00" in ts
+    # both compute the same home-office Line 30 and the same Line 28 total
+    assert "Line 30 — Home office (Form 8829): $400.00" in sc
+    assert "Line 30 — Home office (Form 8829): $400.00" in ts
+    sc28 = sc.split("Line 28 — Total expenses:")[1][:20]
+    ts28 = ts.split("Line 28 — Total expenses:")[1][:20]
+    assert sc28 == ts28
+    # and tax_summary now HAS income + net (previously missing)
+    assert "Line 7 — Gross income:" in ts and "Net profit" in ts
+
+
+def test_tax_summary_respects_tax_year_param():
+    """P1: passing tax_year must be honored, not silently discarded for YTD."""
+    captured = {}
+
+    async def fake_req(m, p, params=None, **k):
+        captured["params"] = params
+        return GOLDEN_PL
+
+    async def fake_all(q, **k):
+        return {"QueryResponse": {"Account": GOLDEN_ACCOUNTS}}
+
+    async def fake_query(q):
+        return {"QueryResponse": {"CompanyInfo": [{"CompanyName": "Golden Co", "Country": "US"}]}}
+
+    async def fake_profile(y):
+        return {}
+
+    with patch.object(s, "qb_request", fake_req), \
+            patch.object(s, "qb_query_all", fake_all), \
+            patch.object(s, "qb_query", fake_query), \
+            patch.object(s, "_get_allocation_profile", fake_profile):
+        out = asyncio.run(_unwrap(s.qb_tax_summary)(2023))
+    assert captured["params"]["start_date"] == "2023-01-01"
+    assert captured["params"]["end_date"] == "2023-12-31"
+    assert "2023-01-01 to 2023-12-31" in out

@@ -746,3 +746,52 @@ def test_allocation_profile_leaf_keys_apply_to_fqn_accounts():
     # and 'Cell phone' (which DID match) is not in the unmatched section
     unmatched_section = out.split("match NO account")[1]
     assert "Cell phone" not in unmatched_section
+
+
+def test_deduction_finder_respects_loss_and_profile():
+    """P0-2: at a loss, income-limited deductions resolve to $0 (not fabricated
+    gross values), and a configured home office is reported as CONFIGURED (read
+    from the profile) rather than '🔴 NOT CLAIMED — $1,500'."""
+    pl = {"Rows": {"Row": [
+        {"Header": {"ColData": [{"value": "Income"}]},
+         "Rows": {"Row": [{"ColData": [{"value": "Sales"}, {"value": "5000.00"}]}]},
+         "Summary": {"ColData": [{"value": "Total Income"}, {"value": "5000.00"}]}},
+        {"Header": {"ColData": [{"value": "Expenses"}]},
+         "Rows": {"Row": [
+             {"ColData": [{"value": "Advertising"}, {"value": "9500.00"}]},
+             {"ColData": [{"value": "Business meals"}, {"value": "2000.00"}]}]},
+         "Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "11500.00"}]}},
+    ]}}
+    accts = [
+        {"Name": "Advertising", "AccountSubType": "AdvertisingPromotional", "FullyQualifiedName": "Advertising"},
+        {"Name": "Business meals", "AccountSubType": "EntertainmentMeals", "FullyQualifiedName": "Business meals"},
+    ]
+
+    async def fake_req(m, p, params=None, **k):
+        return pl
+
+    async def fake_all(q, **k):
+        return {"QueryResponse": {"Account": accts}}
+
+    async def fake_query(q):
+        return {"QueryResponse": {"CompanyInfo": [{"CompanyName": "D", "Country": "US"}]}}
+
+    async def fake_profile(y):
+        return {"home_office": {"percentage": 0.125, "basis_note": "300/2400"}}
+
+    with patch.object(s, "qb_request", fake_req), \
+            patch.object(s, "qb_query_all", fake_all), \
+            patch.object(s, "qb_query", fake_query), \
+            patch.object(s, "_get_allocation_profile", fake_profile):
+        out = asyncio.run(_unwrap(s.qb_deduction_finder)("2025"))
+
+    # canonical net reflects LIMITED meals: 5000 − (10000 + 1000) = −6000 loss
+    assert "a loss" in out
+    # home office read from the profile → CONFIGURED, not a $1,500 "NOT CLAIMED"
+    assert "CONFIGURED" in out
+    assert "$1,500" not in out
+    # income-limited items resolve to $0 this year, not fabricated gross values
+    assert "$6,000" not in out and "$6000" not in out     # no invented SE-health value
+    assert "$0 this year" in out or "$0 (it does not carry" in out
+    # no fabricated education/vehicle dollar estimates summed into a savings promise
+    assert "Potential tax savings: ~$2,633.97" not in out

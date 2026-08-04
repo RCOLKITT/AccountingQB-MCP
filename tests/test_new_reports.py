@@ -70,3 +70,26 @@ def test_change_audit_trail_surfaces_deleted(monkeypatch):
 def test_new_tools_registered():
     for name in ("qb_missing_receipts", "qb_change_audit_trail"):
         assert name in s.mcp._tool_manager._tools
+
+
+def test_change_audit_trail_journal_entry_amount_from_lines(monkeypatch):
+    """A JournalEntry's TotalAmt is 0 — its amount is the sum of the DEBIT lines.
+    Without that fallback every JE rendered as $0.00 in the audit trail."""
+    cdc = {"CDCResponse": [{"QueryResponse": [
+        {"JournalEntry": [
+            {"Id": "2334", "TotalAmt": 0,
+             "MetaData": {"CreateTime": "2026-08-03T10:00:00",
+                          "LastUpdatedTime": "2026-08-03T10:00:00"},
+             "Line": [
+                 {"Amount": 36226.65, "JournalEntryLineDetail": {"PostingType": "Debit"}},
+                 {"Amount": 36226.65, "JournalEntryLineDetail": {"PostingType": "Credit"}},
+             ]},
+        ]},
+    ]}]}
+
+    async def fake_request(method, endpoint, **kw):
+        return cdc if endpoint == "cdc" else {}
+    monkeypatch.setattr(s, "qb_request", fake_request)
+    out = asyncio.run(s.qb_change_audit_trail("2026-08-01"))
+    assert "$36,226.65" in out       # debit-side total, not $0.00
+    assert "2334" in out

@@ -94,3 +94,19 @@ def test_duplicates_same_day_only(monkeypatch):
     dup = "\n".join(ln for ln in out.splitlines() if "Duplicate" in ln or "&" in ln)
     assert "Acme" in dup                     # same-day duplicate flagged
     assert "Beta" not in dup                 # adjacent-day not a duplicate
+
+
+def test_weekend_bulk_batch_suppressed(monkeypatch):
+    """5 distinct vendors all stamped one weekend date = a bulk data-entry /
+    reclassification batch, not weekend spending. Suppress the noise, disclose it,
+    but still flag a genuine single weekend transaction on a different date."""
+    batch = [_purchase(str(i), f"Vendor {i}", "2026-03-01", 100 + i)   # Sun, bulk of 5
+             for i in range(5)]
+    lone = [_purchase("99", "Real Weekend Corp", "2026-03-07", 800)]   # Sat, single
+    _patch_anomaly(monkeypatch, batch + lone)
+    out = asyncio.run(s.qb_anomaly_detection("2026-03-01", "2026-03-31", "low"))
+    weekend = "\n".join(ln for ln in out.splitlines()
+                        if "Weekend" in ln or "Saturday" in ln or "Sunday" in ln)
+    assert "Vendor 0" not in weekend and "Vendor 4" not in weekend   # batch suppressed
+    assert "Real Weekend Corp" in out                                # genuine one kept
+    assert "weekend flags suppressed" in out                         # disclosed
