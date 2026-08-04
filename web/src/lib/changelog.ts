@@ -14,6 +14,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.16.1",
+    date: "2026-08-04",
+    title: "Home-office routing hardened — no more silent over-claiming",
+    tag: "Tax",
+    summary:
+      "A precision fix to the allocation layer: home costs booked as sub-accounts under a 'Home office' parent (mortgage interest, property taxes, repairs) now correctly route to Form 8829 at your home-office %, instead of being deducted in full on their operating lines. Detection keys on the account's full parent path, which QuickBooks already provides — no setup required.",
+    highlights: [
+      "Home-office detection now reads the FullyQualifiedName (parent chain), not just the leaf name — 'Home office:Property taxes' is unambiguously a home cost even though 'Property taxes' alone classifies to Line 23",
+      "You can also designate any account as home-indirect in qb_allocation_profile (home_office_accounts) — for a home utility that isn't nested under a 'Home office' parent",
+      "The reconciliation footer now shows the Form 8829 carryforward as its own line, so every P&L dollar stays visibly accounted for",
+      "qb_server_info reports deployment mode from a static process signal, so it's correct even with an expired token",
+      "131 tools total across US & Canada",
+    ],
+  },
+  {
     version: "3.16.0",
     date: "2026-08-03",
     title: "Allocation profiles — the personal/business split, done right",

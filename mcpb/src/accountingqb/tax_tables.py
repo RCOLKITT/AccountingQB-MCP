@@ -480,6 +480,14 @@ _HOME_8829 = re.compile(
     r"\b(home office|home-office|homeowner|home util\w*|home insurance)\b", re.I)
 
 
+def is_home_office_account(name: str) -> bool:
+    """True if an account name (or FullyQualifiedName, e.g. 'Home office:Property
+    taxes') indicates a home-office indirect expense — checked against the FQN so
+    sub-accounts under a 'Home office' parent are caught even when their own leaf
+    name ('Property taxes') doesn't contain 'home'."""
+    return bool(_HOME_8829.search(name or ""))
+
+
 def classify_account(name: str, subtype: str, jurisdiction: str):
     """Map one account to its tax line. jurisdiction: 'US' or 'CA'.
     Returns (line, desc, flags). Prefers the authoritative AccountSubType;
