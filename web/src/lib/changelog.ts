@@ -14,6 +14,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.17.6",
+    date: "2026-08-04",
+    title: "Deduction finder no longer counts non-deductible items in the total",
+    tag: "Tax",
+    summary:
+      "The deduction finder was including non-deductible items (charitable contributions, entertainment) inside 'deductible expenses' and the net loss, so its numbers disagreed with Schedule C by exactly those amounts. It now shares the same totals helper as Schedule C, so the two can't diverge.",
+    highlights: [
+      "qb_deduction_finder's total expenses and net now exclude non-deductible items (§170 charitable, §274 entertainment) — they matched Schedule C on books that happened to have none, but overstated the loss on books that did",
+      "Line 28 / Line 31 are now computed by a single shared helper used by qb_schedule_c, qb_schedule_c_detailed, qb_tax_summary, qb_t2125_summary AND qb_deduction_finder — one source of truth",
+      "The golden-book test fixture now includes a non-deductible account, and a cross-tool test asserts the deduction finder's net equals Schedule C's — so this class of bug can't ship again",
+    ],
+  },
+  {
     version: "3.17.5",
     date: "2026-08-04",
     title: "Deploy smoke test — the live build is now verified after every release",

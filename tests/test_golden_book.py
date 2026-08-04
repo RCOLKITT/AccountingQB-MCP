@@ -156,3 +156,37 @@ def test_tax_summary_respects_tax_year_param():
     assert captured["params"]["start_date"] == "2023-01-01"
     assert captured["params"]["end_date"] == "2023-12-31"
     assert "2023-01-01 to 2023-12-31" in out
+
+
+def _net_from(text, label):
+    import re
+    m = re.search(re.escape(label) + r"[^$]*(\$[\-()0-9,.]+)", text)
+    return m.group(1) if m else None
+
+
+def test_deduction_finder_net_matches_schedule_c():
+    """The non-deductible items (charitable) must be EXCLUDED from Line 28 and the
+    loss. qb_deduction_finder now shares _schedule_c_totals, so its Line 31 net
+    must equal qb_schedule_c's — even on a book that HAS a non-deductible item
+    (which is exactly the case that shipped wrong)."""
+    with patch_book(profile=HOME_10):
+        sc = asyncio.run(_unwrap(s.qb_schedule_c)("2025"))
+    with patch_book(profile=HOME_10):
+        df = asyncio.run(_unwrap(s.qb_deduction_finder)("2025"))
+    sc_net = _net_from(sc, "Line 31 — Net profit (loss):")
+    df_net = _net_from(df, "Net (Schedule C Line 31):")
+    assert sc_net and df_net, (sc_net, df_net)
+    assert sc_net == df_net, f"deduction_finder {df_net} != schedule_c {sc_net}"
+    # charitable ($300) is NOT in the deductible-expenses figure
+    assert "Charitable" not in df.split("Net (Schedule C Line 31)")[0].split(
+        "Deductible expenses")[-1]
+
+
+def test_golden_book_has_a_nondeductible_item():
+    """Guardrail: the golden book MUST contain a non-deductible account, or the
+    'nondeductible leaks into totals' class of bug is invisible to CI (which is
+    why qb_deduction_finder's over-count shipped)."""
+    from accountingqb.tax_tables import classify_account
+    nondeduct = [a for a in GOLDEN_ACCOUNTS
+                 if classify_account(a["Name"], a["AccountSubType"], "US")[0].startswith("NONDED")]
+    assert nondeduct, "golden book needs a charitable/entertainment/etc. account"

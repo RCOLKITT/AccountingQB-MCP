@@ -4021,6 +4021,35 @@ _JURIS_RENDER = {
 }
 
 
+def _schedule_c_totals(res: dict, profile: dict, tax_year, gross_income: float,
+                       supports_mileage: bool = True) -> dict:
+    """Canonical Line 28 (total expenses), home-office allowed + carryforward, and
+    Line 31 (net) from a mapped result. THE single source of these totals — shared
+    by _render_schedule_c_expenses AND qb_deduction_finder so they can never
+    diverge. Non-deductible buckets are EXCLUDED from Line 28 (they are not
+    deductions — counting them overstates expenses and the loss)."""
+    profile = profile or {}
+    pl_deductible = round(sum(b["deductible"] for b in res["lines"].values()
+                             if not b.get("nondeductible")), 2)
+    mileage_ded = 0.0
+    veh = profile.get("vehicle") or {}
+    if supports_mileage and veh.get("method") == "standard_mileage":
+        rate, _n = tax_value_or_latest("STD_MILEAGE_CENTS", int(tax_year))
+        mileage_ded = round(float(veh.get("business_miles", 0) or 0) * rate / 100.0, 2)
+    line28 = round(pl_deductible + mileage_ded, 2)
+    home_indirect_total = round(sum(a for _, a in res["home_indirect"]), 2)
+    income_before_home = round(gross_income - line28, 2)
+    ho = profile.get("home_office") or {}
+    home_allowed = ho_carry = 0.0
+    if home_indirect_total > 0.005 and ho.get("percentage") is not None:
+        home_allowed, ho_carry, _t = _form8829(
+            home_indirect_total, float(ho["percentage"]), income_before_home)
+    net = round(income_before_home - home_allowed, 2)
+    return {"line28": line28, "deductible_operating": pl_deductible,
+            "mileage_ded": mileage_ded, "home_indirect_total": home_indirect_total,
+            "home_allowed": home_allowed, "ho_carry": ho_carry, "net": net}
+
+
 def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income: float,
                                 pl_total: float, lines: list, jurisdiction: str = "US") -> float:
     """Append the expense section (allocated + limited lines, standard mileage,
@@ -4060,35 +4089,36 @@ def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income
             alloc_disallowed += round(full - alloc, 2)
             stat_disallowed += round(alloc - ded, 2)
 
-    # Vehicle standard mileage — a US Line 9 deduction NOT sourced from the P&L
-    # (Canada has no standard-mileage method, so this block never fires there).
-    mileage_ded = 0.0
+    # Authoritative totals from the SHARED helper (the single source of Line 28 /
+    # home / Line 31 — qb_deduction_finder uses the same, so they can't diverge).
+    T = _schedule_c_totals(res, profile, tax_year, gross_income, L["supports_mileage"])
+    mileage_ded = T["mileage_ded"]
     mileage_excluded_total = round(sum(a for _, a in res["mileage_excluded"]), 2)
     veh = profile.get("vehicle") or {}
-    if L["supports_mileage"] and veh.get("method") == "standard_mileage":
+    if mileage_ded > 0.005:
         rate, _note = tax_value_or_latest("STD_MILEAGE_CENTS", int(tax_year))
         miles = float(veh.get("business_miles", 0) or 0)
-        mileage_ded = round(miles * rate / 100.0, 2)
         lines.append(f"\n**Line 9 — Car and truck (standard mileage): {fmt(mileage_ded)}**")
         lines.append(f"  - {miles:,.0f} business miles × ${rate / 100:.3f}/mi = {fmt(mileage_ded)}")
         if mileage_excluded_total:
             lines.append(f"  - *actual vehicle expenses of {fmt(mileage_excluded_total)} are "
                          "excluded — you cannot deduct both*")
 
-    total_expenses = round(pl_deductible + mileage_ded, 2)
+    total_expenses = T["line28"]
     lines.append(f"\n**{L['total_line']}: {fmt(total_expenses)}**")
 
     # Home office → the home line, limited to net income before home (the excess
     # carries forward; it can't create or increase a loss). Same math both sides.
-    home_indirect_total = round(sum(a for _, a in res["home_indirect"]), 2)
+    home_indirect_total = T["home_indirect_total"]
     income_before_home = round(gross_income - total_expenses, 2)
     ho = profile.get("home_office") or {}
-    ho_allowed = ho_carry = ho_personal = ho_pending = 0.0
+    ho_allowed = T["home_allowed"]
+    ho_carry = T["ho_carry"]
+    ho_personal = ho_pending = 0.0
     if home_indirect_total > 0.005:
         if ho.get("percentage") is not None:
             pct = float(ho["percentage"])
-            allowed, carry, tentative = _form8829(home_indirect_total, pct, income_before_home)
-            ho_allowed, ho_carry = allowed, carry
+            tentative = round(ho_allowed + ho_carry, 2)
             ho_personal = round(home_indirect_total - tentative, 2)
             lines.append(f"\n**{L['home_line']}: {fmt(ho_allowed)}**")
             lines.append(f"  - home expenses {fmt(home_indirect_total)} × {pct * 100:.2f}% "
@@ -4104,7 +4134,7 @@ def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income
                          "home-office %. Set one with qb_home_office_calculator "
                          "(save_to_profile=true) or qb_allocation_profile.")
 
-    net_profit = round(income_before_home - ho_allowed, 2)
+    net_profit = T["net"]
     lines.append(f"**{L['net_line']}: {fmt(net_profit)}**")
 
     disallowed_note = []
@@ -6180,13 +6210,16 @@ async def qb_deduction_finder(tax_year: str = "") -> str:
     gross_income = round(gr - ra - cogs_c + oi, 2)
     res = _map_expenses_to_schedule_c(_extract_pl_expense_accounts(result),
                                       name_sub, profile, name_fqn)
-    deductible = round(sum(b["deductible"] for b in res["lines"].values()), 2)
-    home_total = round(sum(a for _, a in res["home_indirect"]), 2)
+    # Totals from the SHARED helper — identical to qb_schedule_c's Line 28 / 31, so
+    # this tool can't diverge. Non-deductible items (charitable, entertainment) are
+    # excluded from Line 28 by the helper (they inflated it and the loss before).
+    T = _schedule_c_totals(res, profile, tax_year, gross_income)
+    deductible = T["line28"]
+    home_allowed = T["home_allowed"]
+    home_total = T["home_indirect_total"]
     ho = profile.get("home_office") or {}
     ho_pct = float(ho.get("percentage") or 0)
-    income_before_home = round(gross_income - deductible, 2)
-    home_allowed = round(min(home_total * ho_pct, max(0.0, income_before_home)), 2)
-    se_net = round(income_before_home - home_allowed, 2)     # Schedule C net (Line 31)
+    se_net = T["net"]                      # Schedule C Line 31 — matches qb_schedule_c
     income_cap = max(0.0, se_net)          # income-limited deductions can't exceed this
     net_income = se_net                    # report the TAX net, not the raw book net
     at_a_loss = se_net < 0
