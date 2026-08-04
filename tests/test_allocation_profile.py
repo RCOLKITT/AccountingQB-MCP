@@ -50,6 +50,22 @@ def test_profile_set_derives_and_get(monkeypatch):
     assert "Home office" in got and "12.50%" in got and "65.0%" in got
 
 
+def test_profile_home_office_method(monkeypatch):
+    store = {}
+    _store_patches(monkeypatch, store)
+    fn = _tool(s.qb_allocation_profile)
+    # default method is 'actual' when sqft is set
+    asyncio.run(fn(2025, home_office_sqft=250, home_sqft=2500))
+    assert store[2025]["home_office"]["method"] == "actual"
+    # switch to simplified without re-entering sqft (preserved)
+    asyncio.run(fn(2025, home_office_method="simplified"))
+    assert store[2025]["home_office"]["method"] == "simplified"
+    assert store[2025]["home_office"]["office_sqft"] == 250     # preserved
+    # invalid method rejected
+    bad = asyncio.run(fn(2025, home_office_method="regular"))
+    assert "must be 'actual' or 'simplified'" in bad
+
+
 def test_profile_validation(monkeypatch):
     _store_patches(monkeypatch, {})
     fn = _tool(s.qb_allocation_profile)

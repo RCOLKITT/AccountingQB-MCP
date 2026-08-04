@@ -4021,6 +4021,41 @@ _JURIS_RENDER = {
 }
 
 
+def _append_home_office_comparison(lines: list, comp: dict, chosen_method: str) -> None:
+    """Show the simplified-vs-actual home-office choice with the nuances that flip
+    it: the gross-income cap, the carryforward (actual carries, simplified is lost
+    per Pub 587 — so a smaller actual number can be worth more in a loss year), and
+    the depreciation / §1250 recapture trade-off. Only shown when the profile has
+    the inputs for at least one method."""
+    if not comp:
+        return
+    s, a = comp["simplified"], comp["actual"]
+    lines.append("\n### Home-office method — simplified vs. actual (Form 8829)")
+    lines.append(f"  - **Simplified:** {comp['office_sqft']:.0f} sq ft × $5 (max 300) = "
+                 f"{fmt(s['gross'])} → **{fmt(s['allowed'])}** this year"
+                 + (" (excess is permanently LOST — Pub 587, no carryover)"
+                    if s['gross'] - s['allowed'] > 0.005 else ""))
+    lines.append(f"  - **Actual:** {fmt(a['gross'])} tentative → **{fmt(a['allowed'])}** this year"
+                 + (f", {fmt(a['carry'])} carries forward to a future profit year"
+                    if a['carry'] > 0.005 else ""))
+    if comp["at_a_loss"]:
+        lines.append("  - **At a loss, both cap to $0 this year** — but *actual* is worth more: "
+                     f"its {fmt(a['gross'])} tentative carries forward, while simplified's "
+                     f"{fmt(s['gross'])} is lost. Prefer the actual method in a loss year.")
+    elif s['allowed'] > a['allowed'] + 0.005:
+        lines.append(f"  - This year, **simplified wins by {fmt(s['allowed'] - a['allowed'])}** on the "
+                     "recorded numbers. But the actual base is often incomplete (partial-year "
+                     "utilities/insurance/mortgage) — a full-year base can flip this.")
+    elif a['allowed'] > s['allowed'] + 0.005:
+        lines.append(f"  - This year, **actual wins by {fmt(a['allowed'] - s['allowed'])}**.")
+    lines.append("  - *Actual also permits depreciating the business share of the home (more "
+                 "deduction now), but that creates §1250 recapture (taxed up to 25% on "
+                 "depreciation taken — whether or not you claimed it) when you sell. Simplified "
+                 "avoids recapture. A judgment call for the taxpayer/CPA.*")
+    lines.append(f"  - *Currently configured: **{chosen_method}** method. Change with "
+                 "qb_allocation_profile (home_office_method) — set it to match the filed return.*")
+
+
 def _schedule_c_totals(res: dict, profile: dict, tax_year, gross_income: float,
                        supports_mileage: bool = True) -> dict:
     """Canonical Line 28 (total expenses), home-office allowed + carryforward, and
@@ -4040,14 +4075,47 @@ def _schedule_c_totals(res: dict, profile: dict, tax_year, gross_income: float,
     home_indirect_total = round(sum(a for _, a in res["home_indirect"]), 2)
     income_before_home = round(gross_income - line28, 2)
     ho = profile.get("home_office") or {}
-    home_allowed = ho_carry = 0.0
-    if home_indirect_total > 0.005 and ho.get("percentage") is not None:
-        home_allowed, ho_carry, _t = _form8829(
-            home_indirect_total, float(ho["percentage"]), income_before_home)
+    method = (ho.get("method") or "actual").lower()
+    pct = float(ho.get("percentage") or 0)
+    office_sqft = float(ho.get("office_sqft") or 0)
+    limit = max(0.0, income_before_home)      # Line 30 ≤ tentative profit (both methods)
+
+    # BOTH methods, income-limited — so the tools can show the real choice:
+    #  · Simplified: $5 × min(office sqft, 300); the gross-income excess is LOST
+    #    (Pub 587 — no carryover), and the actual home costs are NOT on Schedule C.
+    #  · Actual (Form 8829): business % × real home costs; the excess CARRIES
+    #    FORWARD to offset a future year — which is why, in a loss year, the
+    #    smaller actual number can be worth more than simplified's larger one.
+    simp_gross = round(_HOME_OFFICE_SIMPLIFIED["rate_per_sqft"]
+                       * min(office_sqft, _HOME_OFFICE_SIMPLIFIED["max_sqft"]), 2) if office_sqft else 0.0
+    simp_allowed = round(min(simp_gross, limit), 2)
+    act_allowed, act_carry, act_gross = (0.0, 0.0, 0.0)
+    if home_indirect_total > 0.005 and pct > 0:
+        act_allowed, act_carry, act_gross = _form8829(home_indirect_total, pct, income_before_home)
+
+    if method == "simplified":
+        # Simplified Line 30 is a FORMULA add (like standard mileage) — not sourced
+        # from the P&L home accounts, which stay personal/Schedule A. So it is NOT
+        # part of P&L conservation (home_from_pl=False).
+        home_allowed, ho_carry, home_from_pl = simp_allowed, 0.0, False
+    else:
+        home_allowed, ho_carry, home_from_pl = act_allowed, act_carry, True
+
     net = round(income_before_home - home_allowed, 2)
+    comparison = None
+    if simp_gross > 0.005 or act_gross > 0.005:
+        comparison = {
+            "office_sqft": office_sqft, "pct": pct,
+            "simplified": {"gross": simp_gross, "allowed": simp_allowed, "carry": 0.0},
+            "actual": {"gross": round(act_gross, 2), "allowed": round(act_allowed, 2),
+                       "carry": round(act_carry, 2)},
+            "at_a_loss": limit <= 0.005,
+        }
     return {"line28": line28, "deductible_operating": pl_deductible,
             "mileage_ded": mileage_ded, "home_indirect_total": home_indirect_total,
-            "home_allowed": home_allowed, "ho_carry": ho_carry, "net": net}
+            "home_allowed": round(home_allowed, 2), "ho_carry": round(ho_carry, 2),
+            "home_method": method, "home_from_pl": home_from_pl,
+            "home_comparison": comparison, "net": net}
 
 
 def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income: float,
@@ -4107,32 +4175,53 @@ def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income
     total_expenses = T["line28"]
     lines.append(f"\n**{L['total_line']}: {fmt(total_expenses)}**")
 
-    # Home office → the home line, limited to net income before home (the excess
-    # carries forward; it can't create or increase a loss). Same math both sides.
+    # Home office → the home line. Method-aware: 'actual' (Form 8829, business % of
+    # real home costs, excess carries forward) or 'simplified' ($5/sqft, excess
+    # LOST). Line 30 ≤ income before home in both.
     home_indirect_total = T["home_indirect_total"]
     income_before_home = round(gross_income - total_expenses, 2)
     ho = profile.get("home_office") or {}
+    method = T["home_method"]
     ho_allowed = T["home_allowed"]
     ho_carry = T["ho_carry"]
     ho_personal = ho_pending = 0.0
-    if home_indirect_total > 0.005:
-        if ho.get("percentage") is not None:
-            pct = float(ho["percentage"])
-            tentative = round(ho_allowed + ho_carry, 2)
-            ho_personal = round(home_indirect_total - tentative, 2)
-            lines.append(f"\n**{L['home_line']}: {fmt(ho_allowed)}**")
-            lines.append(f"  - home expenses {fmt(home_indirect_total)} × {pct * 100:.2f}% "
-                         f"business use = {fmt(tentative)} tentative")
-            if ho_carry > 0.005:
-                lines.append(f"  - capped at income before home {fmt(max(0.0, income_before_home))} "
-                             f"({L['income_ref']}) — {fmt(ho_carry)} carries forward "
-                             "(can't create/increase a loss)")
-        else:
-            ho_pending = home_indirect_total
-            lines.append(f"\n**{L['home_line'].split('(')[0].strip()}: not computed** — "
-                         f"{fmt(home_indirect_total)} of home-flagged expenses have no "
-                         "home-office %. Set one with qb_home_office_calculator "
-                         "(save_to_profile=true) or qb_allocation_profile.")
+    if method == "simplified" and ho.get("office_sqft"):
+        sqft = min(float(ho["office_sqft"]), _HOME_OFFICE_SIMPLIFIED["max_sqft"])
+        lines.append(f"\n**{L['home_line']} — simplified: {fmt(ho_allowed)}**")
+        lines.append(f"  - {sqft:.0f} sq ft × ${_HOME_OFFICE_SIMPLIFIED['rate_per_sqft']:.0f}/sq ft "
+                     f"(max {_HOME_OFFICE_SIMPLIFIED['max_sqft']}) = "
+                     f"{fmt(_HOME_OFFICE_SIMPLIFIED['rate_per_sqft'] * sqft)}"
+                     + (f", capped at income before home {fmt(max(0.0, income_before_home))}"
+                        if ho_allowed < _HOME_OFFICE_SIMPLIFIED['rate_per_sqft'] * sqft - 0.005 else ""))
+        # Simplified: the actual home costs stay off Schedule C (mortgage interest &
+        # property taxes go to Schedule A); nothing carries forward.
+        ho_personal = home_indirect_total   # all P&L home dollars are personal here
+        if home_indirect_total > 0.005:
+            lines.append(f"  - the {fmt(home_indirect_total)} of recorded home costs are NOT "
+                         "on Schedule C under this method (mortgage interest / property taxes "
+                         "→ Schedule A); no carryforward")
+    elif home_indirect_total > 0.005 and ho.get("percentage") is not None:
+        pct = float(ho["percentage"])
+        tentative = round(ho_allowed + ho_carry, 2)
+        ho_personal = round(home_indirect_total - tentative, 2)
+        lines.append(f"\n**{L['home_line']}: {fmt(ho_allowed)}**")
+        lines.append(f"  - home expenses {fmt(home_indirect_total)} × {pct * 100:.2f}% "
+                     f"business use = {fmt(tentative)} tentative")
+        if ho_carry > 0.005:
+            lines.append(f"  - capped at income before home {fmt(max(0.0, income_before_home))} "
+                         f"({L['income_ref']}) — {fmt(ho_carry)} carries forward "
+                         "(can't create/increase a loss)")
+    elif home_indirect_total > 0.005:
+        ho_pending = home_indirect_total
+        lines.append(f"\n**{L['home_line'].split('(')[0].strip()}: not computed** — "
+                     f"{fmt(home_indirect_total)} of home-flagged expenses have no "
+                     "home-office %. Set one with qb_home_office_calculator "
+                     "(save_to_profile=true) or qb_allocation_profile.")
+
+    # The simplified $5/sqft method is US-only (Rev. Proc. 2013-13); Canada has
+    # only the actual business-use-of-home method, so no method comparison there.
+    if L["supports_mileage"]:
+        _append_home_office_comparison(lines, T.get("home_comparison"), method)
 
     net_profit = T["net"]
     lines.append(f"**{L['net_line']}: {fmt(net_profit)}**")
@@ -4151,9 +4240,12 @@ def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income
         lines.append("*Removed from this year's deductions: "
                      + "; ".join(disallowed_note) + ".*")
 
-    # Conservation: every P&L expense dollar lands in exactly one bucket.
+    # Conservation: every P&L expense dollar lands in exactly one bucket. The home
+    # accounts (home_indirect_total) are ALWAYS fully accounted here — deducted +
+    # carried + personal under 'actual', all-personal under 'simplified'. The
+    # simplified Line 30 is a FORMULA add (not a P&L dollar), so it is not summed.
     pl_accounted = round(pl_deductible + stat_disallowed + alloc_disallowed
-                         + ho_allowed + ho_carry + ho_personal + ho_pending
+                         + home_indirect_total
                          + mileage_excluded_total + nondeduct_total, 2)
     if pl_total and abs(pl_accounted - pl_total) > 0.02:
         lines.append(f"⚠️ Does not reconcile to P&L expenses ({fmt(pl_total)}) — "
@@ -4320,11 +4412,19 @@ def _fmt_allocation_profile(year: int, p: dict) -> str:
                 "and per-account business-use %).")
     lines = [f"## Allocation Profile — {year}\n"]
     ho = p.get("home_office") or {}
-    if ho.get("percentage") is not None:
-        basis = f" (office {ho.get('office_sqft')} / home {ho.get('home_sqft')} sqft)" \
-            if ho.get("office_sqft") else ""
-        lines.append(f"- **Home office:** {ho['percentage'] * 100:.2f}%{basis} "
-                     f"· method: {ho.get('method', 'actual')}")
+    if ho.get("percentage") is not None or ho.get("office_sqft"):
+        _method = ho.get("method", "actual")
+        if _method == "simplified":
+            sqft = min(float(ho.get("office_sqft") or 0), _HOME_OFFICE_SIMPLIFIED["max_sqft"])
+            lines.append(f"- **Home office:** simplified — {ho.get('office_sqft', 0):g} sq ft "
+                         f"(capped at {_HOME_OFFICE_SIMPLIFIED['max_sqft']}) × $5 = "
+                         f"{fmt(_HOME_OFFICE_SIMPLIFIED['rate_per_sqft'] * sqft)} (before the "
+                         "net-profit limit; no carryforward)")
+        else:
+            basis = f" (office {ho.get('office_sqft')} / home {ho.get('home_sqft')} sqft)" \
+                if ho.get("office_sqft") else ""
+            lines.append(f"- **Home office:** {(ho.get('percentage') or 0) * 100:.2f}%{basis} "
+                         "· method: actual (Form 8829)")
     if ho.get("accounts"):
         lines.append("  - designated home-indirect accounts (→ Form 8829): "
                      + ", ".join(ho["accounts"]))
@@ -4356,26 +4456,29 @@ def _fmt_allocation_profile(year: int, p: dict) -> str:
 @mcp.tool(annotations={"destructiveHint": False})
 async def qb_allocation_profile(
         tax_year: int = 0, home_office_sqft: float = 0, home_sqft: float = 0,
-        vehicle_method: str = "", business_miles: float = 0, total_miles: float = 0,
+        home_office_method: str = "", vehicle_method: str = "",
+        business_miles: float = 0, total_miles: float = 0,
         account_allocations_json: str = "", home_office_accounts_json: str = "",
         source: str = "") -> str:
     """Get or set this company's TAXPAYER allocation profile for a tax year — the
     business-use percentages that turn mixed personal/business costs into their
     deductible share (home office, vehicle, per-account internet/phone). Call with
     just tax_year to VIEW it. To SET: pass home_office_sqft + home_sqft (derives
-    the home-office %), and/or vehicle_method ('standard_mileage' or 'actual') with
-    business_miles + total_miles, and/or account_allocations_json (a JSON object
-    like {"Internet & TV": 0.6} or {"Internet & TV": {"percentage":0.6,
-    "basis_note":"..."}}), and/or home_office_accounts_json (a JSON array of account
-    names to route to Form 8829 as home-indirect costs, e.g. ["Electricity"] — for
-    home utilities that aren't under a 'Home office' parent and don't say 'home').
-    source documents the basis (e.g. 'CPA Form 8829 TY2025'). These are per-realm
-    taxpayer inputs, stored outside the statutory tax ledger."""
+    the home-office %), and/or home_office_method ('actual' = Form 8829 business %
+    of real costs, carries forward; 'simplified' = $5/sqft max 300, no carryover),
+    and/or vehicle_method ('standard_mileage' or 'actual') with business_miles +
+    total_miles, and/or account_allocations_json (a JSON object like
+    {"Internet & TV": 0.6} or {"Internet & TV": {"percentage":0.6,"basis_note":".."}}),
+    and/or home_office_accounts_json (a JSON array of account names to route to the
+    home-office form, e.g. ["Electricity"] — for home utilities not under a 'Home
+    office' parent). source documents the basis (e.g. 'CPA Form 8829 TY2025'). These
+    are per-realm taxpayer inputs, stored outside the statutory tax ledger."""
     from datetime import datetime, timezone
     year = int(tax_year) or datetime.now(timezone.utc).year
 
-    is_set = bool(home_office_sqft or vehicle_method or account_allocations_json
-                  or home_office_accounts_json or business_miles or total_miles)
+    is_set = bool(home_office_sqft or home_office_method or vehicle_method
+                  or account_allocations_json or home_office_accounts_json
+                  or business_miles or total_miles)
     profile = await _get_allocation_profile(year)
     if not is_set:
         return _fmt_allocation_profile(year, profile)
@@ -4383,16 +4486,23 @@ async def qb_allocation_profile(
     profile = dict(profile or {})
     warnings = []
 
-    if home_office_sqft or home_sqft:
-        if home_office_sqft <= 0 or home_sqft <= 0:
-            return "Home office needs both home_office_sqft and home_sqft (> 0)."
-        if home_office_sqft > home_sqft:
-            return "home_office_sqft cannot exceed home_sqft."
+    if home_office_method and home_office_method not in ("actual", "simplified"):
+        return "home_office_method must be 'actual' or 'simplified'."
+
+    if home_office_sqft or home_sqft or home_office_method:
         ho = dict(profile.get("home_office") or {})
-        ho.update({
-            "method": "actual", "office_sqft": home_office_sqft, "home_sqft": home_sqft,
-            "percentage": round(home_office_sqft / home_sqft, 4),
-            "basis_note": f"{home_office_sqft:g} / {home_sqft:g} sqft"})
+        if home_office_sqft or home_sqft:
+            if home_office_sqft <= 0 or home_sqft <= 0:
+                return "Home office needs both home_office_sqft and home_sqft (> 0)."
+            if home_office_sqft > home_sqft:
+                return "home_office_sqft cannot exceed home_sqft."
+            ho.update({
+                "office_sqft": home_office_sqft, "home_sqft": home_sqft,
+                "percentage": round(home_office_sqft / home_sqft, 4),
+                "basis_note": f"{home_office_sqft:g} / {home_sqft:g} sqft"})
+        if home_office_method:
+            ho["method"] = home_office_method
+        ho.setdefault("method", "actual")
         profile["home_office"] = ho  # preserves any designated "accounts" list
 
     if vehicle_method:
@@ -7541,8 +7651,10 @@ async def qb_home_office_calculator(
         if amount > 0:
             lines.append(f"  {category}: **{fmt(amount)}**")
 
+    simplified = round(_HOME_OFFICE_SIMPLIFIED["rate_per_sqft"]
+                       * min(office_sqft, _HOME_OFFICE_SIMPLIFIED["max_sqft"]), 2)
     lines.extend([
-        f"\n### **TOTAL HOME OFFICE DEDUCTION: {fmt(total)}**",
+        f"\n### **TOTAL HOME OFFICE DEDUCTION (actual / Form 8829): {fmt(total)}**",
         f"\n### Calculation Details",
         f"  Building value: {fmt(building_value)} (home {fmt(home_value)} - land {fmt(land_value)})",
         f"  Annual depreciation: {fmt(annual_depreciation)} ({fmt(building_value)} / {depreciation_years:.0f} years)",
@@ -7550,7 +7662,18 @@ async def qb_home_office_calculator(
         f"\n### Schedule C Mapping",
         f"  Line 18 (Office expense): $0 — using Form 8829 instead",
         f"  Line 30 (Business use of home): **{fmt(total)}** — attach Form 8829",
-        f"\n*Note: Regular method used. Simplified method ($5/sqft, max 300 sqft = $1,500) available as alternative.*",
+        f"\n### Simplified vs. actual",
+        f"  - **Simplified:** {min(office_sqft, _HOME_OFFICE_SIMPLIFIED['max_sqft']):.0f} sq ft × $5 "
+        f"(max {_HOME_OFFICE_SIMPLIFIED['max_sqft']}) = **{fmt(simplified)}** — no depreciation, no "
+        "recapture, and any excess over your net profit is LOST (Pub 587, no carryover)",
+        f"  - **Actual (above):** **{fmt(total)}** — excess over net profit CARRIES FORWARD; in a "
+        "loss year that makes the actual method worth more even when it's the smaller number",
+        f"  - *{'Actual' if total > simplified else 'Simplified'} is larger on these full-year "
+        f"inputs ({fmt(max(total, simplified))} vs {fmt(min(total, simplified))}), before the "
+        "gross-income limit.*",
+        "  - *Actual permits depreciation (more deduction now) but creates §1250 recapture — taxed "
+        "up to 25% on depreciation taken whether or not claimed — when you sell. Simplified avoids "
+        "it. A judgment call for the taxpayer/CPA; confirm which method the filed return used.*",
     ])
 
     if save_to_profile:
