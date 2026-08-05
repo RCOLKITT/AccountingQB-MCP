@@ -100,23 +100,23 @@ export async function GET(req: NextRequest) {
       noteActivity(r.license_key, r.created_at);
   }
 
-  // Get milestone data for each user
-  const users = await Promise.all(
-    (licenses as LicenseRow[] || []).map(async (license) => {
-      const { data: milestone } = await supabase
-        .from("user_milestones")
-        .select("id")
-        .eq("license_key", license.key)
-        .eq("milestone", "qb_connected")
-        .maybeSingle();
-
-      return {
-        ...license,
-        qb_connected: !!milestone,
-        last_active: lastActive.get(license.key) || null,
-      };
-    })
-  );
+  // qb_connected for the whole page in ONE query (was N+1: a milestone query per
+  // license — up to 1000 parallel round-trips that flooded the connection pool).
+  const connected = new Set<string>();
+  if (keys.length > 0) {
+    const { data: milestoneRows } = await supabase
+      .from("user_milestones")
+      .select("license_key")
+      .eq("milestone", "qb_connected")
+      .in("license_key", keys);
+    for (const m of (milestoneRows as { license_key: string }[]) || [])
+      connected.add(m.license_key);
+  }
+  const users = (licenses as LicenseRow[] || []).map((license) => ({
+    ...license,
+    qb_connected: connected.has(license.key),
+    last_active: lastActive.get(license.key) || null,
+  }));
 
   // Filter stuck users (trialing > 3 days, no QB connected)
   if (filter === "stuck") {

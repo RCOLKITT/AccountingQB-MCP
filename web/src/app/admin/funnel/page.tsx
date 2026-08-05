@@ -51,17 +51,20 @@ async function getFunnel(range: Range, includeTest: boolean): Promise<FunnelData
     .limit(5000);
   if (!includeTest) lq = lq.eq("is_test", false);
   if (since) lq = lq.gte("created_at", since);
-  const { data: licenses } = await lq;
+
+  // The two reads are independent (milestones are filtered to these licenses in
+  // JS below) — run them in parallel instead of back-to-back. NOTE:
+  // user_milestones uses completed_at (not created_at) for the timestamp.
+  const [{ data: licenses }, { data: ms }] = await Promise.all([
+    lq,
+    supabase
+      .from("user_milestones")
+      .select("license_key, milestone, completed_at")
+      .in("milestone", ["signup", "qb_connected", "claude_configured", "trial_converted"])
+      .limit(20000),
+  ]);
   const rows = licenses || [];
   const keys = new Set(rows.map((r) => r.key));
-
-  // All relevant milestones for these licenses. NOTE: user_milestones uses
-  // completed_at (not created_at) for the timestamp.
-  const { data: ms } = await supabase
-    .from("user_milestones")
-    .select("license_key, milestone, completed_at")
-    .in("milestone", ["signup", "qb_connected", "claude_configured", "trial_converted"])
-    .limit(20000);
 
   const connected = new Map<string, string>(); // key -> qb_connected time
   const convertedM = new Set<string>();

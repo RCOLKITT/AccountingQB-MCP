@@ -55,27 +55,26 @@ export async function GET(req: NextRequest) {
       for (const l of lics || []) emailByKey[l.key] = l.email;
     }
 
-    // Get message counts + attach the resolved identity for each conversation
-    const escalations = await Promise.all(
-      (conversations || []).map(async (conv) => {
-        const { count } = await supabase
-          .from("support_messages")
-          .select("*", { count: "exact", head: true })
-          .eq("conversation_id", conv.id);
-
-        const meta = (conv.metadata || {}) as { email?: string };
-        const user_email =
-          (conv.license_key && emailByKey[conv.license_key]) ||
-          meta.email ||
-          (conv.anonymous_id ? `anon:${conv.anonymous_id.slice(0, 8)}` : "Anonymous");
-
-        return {
-          ...conv,
-          user_email,
-          message_count: count || 0,
-        };
-      })
-    );
+    // Message counts for ALL conversations in ONE query (was N+1: a count query
+    // per conversation), tallied in JS.
+    const convIds = (conversations || []).map((c) => c.id);
+    const countByConv: Record<string, number> = {};
+    if (convIds.length) {
+      const { data: msgRows } = await supabase
+        .from("support_messages")
+        .select("conversation_id")
+        .in("conversation_id", convIds);
+      for (const m of (msgRows as { conversation_id: string }[]) || [])
+        countByConv[m.conversation_id] = (countByConv[m.conversation_id] || 0) + 1;
+    }
+    const escalations = (conversations || []).map((conv) => {
+      const meta = (conv.metadata || {}) as { email?: string };
+      const user_email =
+        (conv.license_key && emailByKey[conv.license_key]) ||
+        meta.email ||
+        (conv.anonymous_id ? `anon:${conv.anonymous_id.slice(0, 8)}` : "Anonymous");
+      return { ...conv, user_email, message_count: countByConv[conv.id] || 0 };
+    });
 
     return NextResponse.json({ escalations });
   }
