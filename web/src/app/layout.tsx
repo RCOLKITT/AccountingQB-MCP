@@ -1,9 +1,26 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
+import { Hanken_Grotesk, Fraunces } from "next/font/google";
 import SupportWidget from "@/components/support/SupportWidget";
 import { PostHogProvider } from "@/components/PostHogProvider";
 import "./globals.css";
+
+// Self-hosted at build (next/font). Hanken Grotesk = clean, credible UI type;
+// Fraunces = a restrained serif for trust-forward headline accents.
+const hanken = Hanken_Grotesk({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-hanken",
+  display: "swap",
+});
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["italic", "normal"],
+  variable: "--font-fraunces",
+  display: "swap",
+});
 
 const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";
 
@@ -126,14 +143,14 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="en">
+    <html lang="en" className={`${hanken.variable} ${fraunces.variable}`}>
       <head>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="bg-[#0a0e1a] text-gray-100 antialiased">
+      <body className="bg-[#0a0e1a] font-sans text-gray-100 antialiased">
         <PostHogProvider>
           <ClerkProvider afterSignInUrl="/dashboard" afterSignUpUrl="/dashboard">
             {children}
