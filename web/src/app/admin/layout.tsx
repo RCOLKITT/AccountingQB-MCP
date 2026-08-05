@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { SignOutButton } from "@clerk/nextjs";
 import Link from "next/link";
+import { resolveAdmin, type AdminClaims } from "@/lib/admin-auth";
 
 // Private surface — keep it out of every index (belt-and-suspenders with robots).
 export const metadata: Metadata = {
@@ -14,14 +15,14 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await currentUser();
-
-  // Check if user is authenticated and has admin role
-  if (!user) {
+  // Role + email come from the SESSION TOKEN (no Clerk API call); resolveAdmin
+  // falls back to one fetch only until the token is configured with the claims.
+  // The middleware already gated this route — this is defense-in-depth + the email.
+  const { userId, sessionClaims } = await auth();
+  if (!userId) {
     redirect("/sign-in");
   }
-
-  const role = (user.publicMetadata as { role?: string })?.role;
+  const { role, email } = await resolveAdmin(userId, sessionClaims as AdminClaims, true);
   if (role !== "admin") {
     redirect("/dashboard");
   }
@@ -93,9 +94,7 @@ export default async function AdminLayout({
             </nav>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-400">
-              {user.emailAddresses[0]?.emailAddress}
-            </span>
+            <span className="text-sm text-gray-400">{email}</span>
             <Link
               href="/"
               className="text-sm text-gray-400 hover:text-white transition"
