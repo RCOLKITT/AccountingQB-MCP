@@ -23,83 +23,55 @@ async function getStats(): Promise<Stats> {
   const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
 
-  // Get license counts by status. Exclude test/demo accounts (is_test) so these
-  // headline numbers match the Revenue/Funnel pages, which already filter them.
-  const { count: totalUsers } = await supabase
-    .from("licenses")
-    .select("*", { count: "exact", head: true })
-    .eq("is_test", false);
-
-  const { count: activeTrials } = await supabase
-    .from("licenses")
-    .select("*", { count: "exact", head: true })
-    .eq("is_test", false)
-    .eq("status", "trialing");
-
-  // "Paid" means an actually-billing subscription — matches the Revenue page's
-  // definition (active AND a Stripe subscription), not merely status='active'.
-  const { count: activeSubscriptions } = await supabase
-    .from("licenses")
-    .select("*", { count: "exact", head: true })
-    .eq("is_test", false)
-    .eq("status", "active")
-    .not("stripe_subscription_id", "is", null);
-
-  const { count: canceledSubscriptions } = await supabase
-    .from("licenses")
-    .select("*", { count: "exact", head: true })
-    .eq("is_test", false)
-    .in("status", ["canceled", "expired"]);
-
-  // Trials ending this week
-  const { count: trialsEndingThisWeek } = await supabase
-    .from("licenses")
-    .select("*", { count: "exact", head: true })
-    .eq("is_test", false)
-    .eq("status", "trialing")
-    .lte("trial_ends_at", oneWeekFromNow.toISOString())
-    .gte("trial_ends_at", now.toISOString());
-
-  // Stuck users: signed up > 3 days ago, no QB connected
-  const { data: oldTrials } = await supabase
-    .from("licenses")
-    .select("key")
-    .eq("is_test", false)
-    .eq("status", "trialing")
-    .lt("created_at", threeDaysAgo.toISOString());
-
-  let stuckUsers = 0;
-  if (oldTrials) {
-    for (const license of oldTrials) {
-      const { data: milestone } = await supabase
-        .from("user_milestones")
-        .select("id")
-        .eq("license_key", license.key)
-        .eq("milestone", "qb_connected")
-        .maybeSingle();
-
-      if (!milestone) {
-        stuckUsers++;
-      }
-    }
-  }
-
-  // Recent escalations (last 7 days)
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const { count: recentEscalations } = await supabase
-    .from("support_conversations")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "escalated")
-    .gte("updated_at", sevenDaysAgo.toISOString());
-
-  // Support health (last 30 days) from support_analytics — self-resolution and
-  // escalation rates + the topics driving contacts.
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const { data: supportRows } = await supabase
-    .from("support_analytics")
-    .select("topic, resolved_self, escalated, created_at")
-    .gte("created_at", thirtyDaysAgo.toISOString())
-    .limit(50000);
+  const lic = () => supabase.from("licenses").select("*", { count: "exact", head: true }).eq("is_test", false);
+
+  // Every headline metric is an independent query — run them in ONE parallel
+  // batch instead of a dozen sequential round-trips. Exclude test/demo accounts
+  // (is_test) so these match the Revenue/Funnel pages.
+  const [
+    { count: totalUsers },
+    { count: activeTrials },
+    // "Paid" = an actually-billing subscription (active AND a Stripe sub) — matches Revenue.
+    { count: activeSubscriptions },
+    { count: canceledSubscriptions },
+    { count: trialsEndingThisWeek },
+    { data: oldTrials },
+    { count: recentEscalations },
+    { data: supportRows },
+  ] = await Promise.all([
+    lic(),
+    lic().eq("status", "trialing"),
+    lic().eq("status", "active").not("stripe_subscription_id", "is", null),
+    lic().in("status", ["canceled", "expired"]),
+    lic().eq("status", "trialing")
+      .lte("trial_ends_at", oneWeekFromNow.toISOString())
+      .gte("trial_ends_at", now.toISOString()),
+    // Stuck-user candidates: trialing, signed up > 3 days ago.
+    supabase.from("licenses").select("key").eq("is_test", false)
+      .eq("status", "trialing").lt("created_at", threeDaysAgo.toISOString()),
+    supabase.from("support_conversations").select("*", { count: "exact", head: true })
+      .eq("status", "escalated").gte("updated_at", sevenDaysAgo.toISOString()),
+    // Support health (last 30 days): self-resolution + escalation + top topics.
+    supabase.from("support_analytics")
+      .select("topic, resolved_self, escalated, created_at")
+      .gte("created_at", thirtyDaysAgo.toISOString()).limit(50000),
+  ]);
+
+  // Stuck users: of the old trials, how many have NOT hit qb_connected. ONE query
+  // over all candidate keys (was N+1: a query per trial), then a set difference.
+  let stuckUsers = 0;
+  const oldKeys = (oldTrials || []).map((l) => l.key as string);
+  if (oldKeys.length) {
+    const { data: connectedRows } = await supabase
+      .from("user_milestones")
+      .select("license_key")
+      .eq("milestone", "qb_connected")
+      .in("license_key", oldKeys);
+    const connected = new Set((connectedRows || []).map((m) => m.license_key));
+    stuckUsers = oldKeys.filter((k) => !connected.has(k)).length;
+  }
   const sup = (supportRows || []) as {
     topic: string;
     resolved_self: boolean;
@@ -155,8 +127,7 @@ async function getRecentUsers(): Promise<RecentUser[]> {
 }
 
 export default async function AdminDashboard() {
-  const stats = await getStats();
-  const recentUsers = await getRecentUsers();
+  const [stats, recentUsers] = await Promise.all([getStats(), getRecentUsers()]);
 
   return (
     <div className="space-y-8">

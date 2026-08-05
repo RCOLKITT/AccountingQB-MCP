@@ -67,18 +67,20 @@ export async function getStripeRevenue(): Promise<StripeRevenue | null> {
         .list({ status, limit: 100, expand: ["data.items.data.price"] })
         .autoPagingToArray({ limit: 10000 });
 
-    const [active, pastDue, unpaid] = await Promise.all([
+    // All five Stripe reads are independent — one parallel batch instead of three
+    // sequential round-trips (Stripe calls dominate this page's latency).
+    const since = Math.floor(Date.now() / 1000) - 30 * 86400;
+    const [active, pastDue, unpaid, refunds, balance] = await Promise.all([
       listSubs("active"),
       listSubs("past_due"),
       listSubs("unpaid"),
+      stripe.refunds
+        .list({ created: { gte: since }, limit: 100 })
+        .autoPagingToArray({ limit: 10000 }),
+      stripe.balance.retrieve(),
     ]);
 
     const dunning = [...pastDue, ...unpaid];
-    const since = Math.floor(Date.now() / 1000) - 30 * 86400;
-    const refunds = await stripe.refunds
-      .list({ created: { gte: since }, limit: 100 })
-      .autoPagingToArray({ limit: 10000 });
-    const balance = await stripe.balance.retrieve();
 
     const sumBalance = (arr: Stripe.Balance.Available[] | Stripe.Balance.Pending[]) =>
       arr.reduce((s, b) => s + b.amount, 0) / 100;
