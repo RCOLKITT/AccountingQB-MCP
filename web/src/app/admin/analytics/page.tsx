@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { getSupabase } from "@/lib/supabase";
 import {
   analyticsConfigured,
@@ -6,6 +7,13 @@ import {
   type SiteAnalytics,
   type Row2,
 } from "@/lib/posthog-analytics";
+
+// PostHog HogQL queries are the slow part here — cache per range for 5 minutes.
+const getAnalytics = unstable_cache(
+  (days: number) => Promise.all([getSiteAnalytics(days), getSignups(days)]),
+  ["admin-analytics"],
+  { revalidate: 300 }
+);
 
 async function getSignups(days: number): Promise<number> {
   const since = new Date(Date.now() - days * 86400000).toISOString();
@@ -43,7 +51,7 @@ export default async function AnalyticsPage({
   }
   const sp = await searchParams;
   const days = sp.days === "7" ? 7 : sp.days === "90" ? 90 : 30;
-  const [a, signups] = await Promise.all([getSiteAnalytics(days), getSignups(days)]);
+  const [a, signups] = await getAnalytics(days);
   return <Dashboard a={a} days={days} signups={signups} />;
 }
 
@@ -152,8 +160,11 @@ function Dashboard({ a, days, signups }: { a: SiteAnalytics; days: number; signu
         ) : (
           <div className="flex items-end gap-1.5 h-32">
             {a.trend.map((t) => (
-              <div key={t.day} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full flex items-end h-full">
+              <div key={t.day} className="flex-1 h-full flex flex-col items-center gap-1">
+                {/* flex-1 gives the bar a DEFINITE height to be a % of — the column
+                    is h-full (the outer h-32), and this fills it above the label.
+                    Without it the % resolved against a zero-height parent -> no bars. */}
+                <div className="w-full flex-1 flex items-end">
                   <div
                     className="w-full rounded-t bg-gradient-to-t from-cyan-500/30 to-cyan-400/70"
                     style={{ height: `${Math.max(2, (t.views / maxTrend) * 100)}%` }}

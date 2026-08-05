@@ -1,6 +1,7 @@
 import { getSupabase } from "@/lib/supabase";
 import { getStripeRevenue } from "@/lib/stripe-revenue";
 import { getNrr } from "@/lib/nrr";
+import { unstable_cache } from "next/cache";
 
 // Revenue cockpit — MRR/ARR, paying customers, trial→paid conversion, paid
 // churn, and a 6-month trend. Real subscriptions only (has a Stripe sub, not
@@ -113,8 +114,17 @@ async function getData() {
 const usd = (n: number) =>
   "$" + Math.round(n).toLocaleString("en-US");
 
+// Cache the three heavy reads (Supabase aggregate + Stripe API + NRR) for 60s —
+// the Revenue page is the slowest (live Stripe calls) and doesn't need
+// second-level freshness.
+const getRevenue = unstable_cache(
+  async () => Promise.all([getData(), getStripeRevenue(), getNrr()]),
+  ["admin-revenue"],
+  { revalidate: 60 }
+);
+
 export default async function RevenuePage() {
-  const [d, stripe, nrr] = await Promise.all([getData(), getStripeRevenue(), getNrr()]);
+  const [d, stripe, nrr] = await getRevenue();
   const maxTrend = Math.max(1, ...d.trend.map((t) => Math.max(t.signups, t.churned)));
   const maxSnap = Math.max(1, ...nrr.trend.map((t) => t.mrr));
 
@@ -189,12 +199,16 @@ export default async function RevenuePage() {
                 <p className="mb-2 text-xs text-gray-400">MRR trend</p>
                 <div className="flex h-24 items-end gap-2">
                   {nrr.trend.map((t) => (
-                    <div key={t.month} className="flex flex-1 flex-col items-center gap-1">
-                      <div
-                        className="w-full rounded-t bg-cyan-500/40"
-                        style={{ height: `${(t.mrr / maxSnap) * 100}%` }}
-                        title={usd(t.mrr)}
-                      />
+                    <div key={t.month} className="flex flex-1 h-full flex-col items-center gap-1">
+                      {/* flex-1 wrapper gives the % bar a definite height (was
+                          collapsing to zero against the content-sized column). */}
+                      <div className="w-full flex-1 flex items-end">
+                        <div
+                          className="w-full rounded-t bg-cyan-500/40"
+                          style={{ height: `${(t.mrr / maxSnap) * 100}%` }}
+                          title={usd(t.mrr)}
+                        />
+                      </div>
                       <span className="text-[10px] text-gray-500">{t.month.slice(5)}</span>
                     </div>
                   ))}
