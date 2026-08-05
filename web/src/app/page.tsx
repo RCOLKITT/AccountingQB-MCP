@@ -515,6 +515,79 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* ========== TAX PROVENANCE — the differentiator, promoted from the FAQ ==========
+          The example rows below are REAL and must stay in sync with the connector's
+          tax_tables.py (TAX_DATA_VERSION / _STATUTORY_LIMITS / _STD_MILEAGE_CENTS).
+          The live, always-current table is qb_tax_data_info in-product. */}
+      <section id="tax-accuracy" className="relative py-28">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="grid items-center gap-14 lg:grid-cols-2">
+            <div>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-500/25 bg-cyan-500/[0.06] px-3 py-1 text-xs text-cyan-300">
+                Why accountants trust the numbers
+              </div>
+              <h2 className="max-w-md text-3xl font-bold tracking-tight text-white sm:text-4xl sm:leading-[1.1]">
+                Every tax figure is{" "}
+                <span className="font-serif font-medium italic text-cyan-300">sourced, dated, and audit-logged.</span>
+              </h2>
+              <p className="mt-5 max-w-lg text-[15.5px] leading-relaxed text-gray-400">
+                Bracket, mileage rate, §179 cap, GST/HST, CPP ceiling — every value lives in a
+                versioned registry carrying its <span className="text-gray-200">official source</span>{" "}
+                and a <span className="text-gray-200">verification date</span>. Changes ship through a
+                tamper-evident, hash-chained ledger reviewed by a human, and a research agent re-checks
+                every source for new legislation — including the 2025 OBBBA changes.
+              </p>
+              <ul className="mt-6 space-y-3 text-sm text-gray-300">
+                {[
+                  "Every answer shows its rate vintage and citation in the footer.",
+                  "Region-gated: jurisdiction-specific tools require the matching region.",
+                  "Statutory limits and taxpayer allocations kept separate and cited.",
+                ].map((li) => (
+                  <li key={li} className="flex gap-3">
+                    <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-cyan-400" />
+                    {li}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-5 text-[13px] text-gray-500">
+                Verify it yourself: ask Claude to run{" "}
+                <span className="font-mono text-gray-400">qb_tax_data_info</span> for the full,
+                live provenance table.
+              </p>
+            </div>
+
+            {/* Provenance card — real values from tax_tables (v2026.6) */}
+            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6">
+              <div className="flex items-center justify-between border-b border-white/[0.07] pb-3">
+                <div className="text-[13px] font-semibold text-white">Tax data provenance</div>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1 text-[11px] font-medium text-emerald-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  ledger verified
+                </div>
+              </div>
+              <div className="divide-y divide-white/[0.07]">
+                {[
+                  ["Business meals — 50% deductible", "IRC §274(n)"],
+                  ["Standard mileage — 70¢/mi (2025)", "IRS Notice 2025-05"],
+                  ["GST/HST (Ontario) — 13%", "CRA"],
+                ].map(([label, cite]) => (
+                  <div key={label} className="flex items-center justify-between py-3.5">
+                    <div>
+                      <div className="text-sm font-medium text-white">{label}</div>
+                      <div className="mt-0.5 font-mono text-[12px] text-gray-500">{cite}</div>
+                    </div>
+                    <div className="font-mono text-[12px] text-gray-500">sourced · dated</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 rounded-lg bg-black/30 px-3 py-2 font-mono text-[11px] text-gray-500">
+                append-only, hash-chained ledger · TAX_DATA v2026.6 · verified 2026-08-03
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ========== HOW IT WORKS ========== */}
       <section id="demo" className="relative border-y border-white/[0.06] bg-[#0c1120] py-28">
         <div className="mx-auto max-w-6xl px-6">
