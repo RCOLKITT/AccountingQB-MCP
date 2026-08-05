@@ -160,8 +160,11 @@ function Dashboard({ a, days, signups }: { a: SiteAnalytics; days: number; signu
         ) : (
           <div className="flex items-end gap-1.5 h-32">
             {a.trend.map((t) => (
-              <div key={t.day} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full flex items-end h-full">
+              <div key={t.day} className="flex-1 h-full flex flex-col items-center gap-1">
+                {/* flex-1 gives the bar a DEFINITE height to be a % of — the column
+                    is h-full (the outer h-32), and this fills it above the label.
+                    Without it the % resolved against a zero-height parent -> no bars. */}
+                <div className="w-full flex-1 flex items-end">
                   <div
                     className="w-full rounded-t bg-gradient-to-t from-cyan-500/30 to-cyan-400/70"
                     style={{ height: `${Math.max(2, (t.views / maxTrend) * 100)}%` }}

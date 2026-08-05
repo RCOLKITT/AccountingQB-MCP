@@ -199,12 +199,16 @@ export default async function RevenuePage() {
                 <p className="mb-2 text-xs text-gray-400">MRR trend</p>
                 <div className="flex h-24 items-end gap-2">
                   {nrr.trend.map((t) => (
-                    <div key={t.month} className="flex flex-1 flex-col items-center gap-1">
-                      <div
-                        className="w-full rounded-t bg-cyan-500/40"
-                        style={{ height: `${(t.mrr / maxSnap) * 100}%` }}
-                        title={usd(t.mrr)}
-                      />
+                    <div key={t.month} className="flex flex-1 h-full flex-col items-center gap-1">
+                      {/* flex-1 wrapper gives the % bar a definite height (was
+                          collapsing to zero against the content-sized column). */}
+                      <div className="w-full flex-1 flex items-end">
+                        <div
+                          className="w-full rounded-t bg-cyan-500/40"
+                          style={{ height: `${(t.mrr / maxSnap) * 100}%` }}
+                          title={usd(t.mrr)}
+                        />
+                      </div>
                       <span className="text-[10px] text-gray-500">{t.month.slice(5)}</span>
                     </div>
                   ))}
