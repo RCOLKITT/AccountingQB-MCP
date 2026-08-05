@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* ===== Design tokens (Tailwind v4) ===== */
+@theme {
+  --font-sans: var(--font-hanken), system-ui, -apple-system, sans-serif;
+  --font-serif: var(--font-fraunces), Georgia, "Times New Roman", serif;
+}
+
 /* ===== Custom Properties ===== */
 :root {
   --bg-primary: #0a0e1a;
