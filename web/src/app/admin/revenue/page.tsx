@@ -1,6 +1,7 @@
 import { getSupabase } from "@/lib/supabase";
 import { getStripeRevenue } from "@/lib/stripe-revenue";
 import { getNrr } from "@/lib/nrr";
+import { unstable_cache } from "next/cache";
 
 // Revenue cockpit — MRR/ARR, paying customers, trial→paid conversion, paid
 // churn, and a 6-month trend. Real subscriptions only (has a Stripe sub, not
@@ -113,8 +114,17 @@ async function getData() {
 const usd = (n: number) =>
   "$" + Math.round(n).toLocaleString("en-US");
 
+// Cache the three heavy reads (Supabase aggregate + Stripe API + NRR) for 60s —
+// the Revenue page is the slowest (live Stripe calls) and doesn't need
+// second-level freshness.
+const getRevenue = unstable_cache(
+  async () => Promise.all([getData(), getStripeRevenue(), getNrr()]),
+  ["admin-revenue"],
+  { revalidate: 60 }
+);
+
 export default async function RevenuePage() {
-  const [d, stripe, nrr] = await Promise.all([getData(), getStripeRevenue(), getNrr()]);
+  const [d, stripe, nrr] = await getRevenue();
   const maxTrend = Math.max(1, ...d.trend.map((t) => Math.max(t.signups, t.churned)));
   const maxSnap = Math.max(1, ...nrr.trend.map((t) => t.mrr));
 

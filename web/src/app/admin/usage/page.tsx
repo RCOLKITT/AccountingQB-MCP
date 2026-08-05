@@ -6,8 +6,16 @@ import {
   type ToolStat,
 } from "@/lib/usage-analytics";
 import { getEngagement, type Engagement } from "@/lib/engagement";
+import { unstable_cache } from "next/cache";
 
 export const dynamic = "force-dynamic";
+
+// Cache the usage + engagement aggregates per range for 60s.
+const getUsage = unstable_cache(
+  (days: number) => Promise.all([getUsageAnalytics(days), getEngagement()]),
+  ["admin-usage"],
+  { revalidate: 60 }
+);
 
 const RANGES = [
   { days: 7, label: "7 days" },
@@ -22,7 +30,7 @@ export default async function UsagePage({
 }) {
   const sp = await searchParams;
   const days = normalizeDays(sp.days);
-  const [u, eng] = await Promise.all([getUsageAnalytics(days), getEngagement()]);
+  const [u, eng] = await getUsage(days);
   return <Dashboard u={u} eng={eng} days={days} />;
 }
 

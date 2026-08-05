@@ -1,5 +1,6 @@
 import { getSupabase } from "@/lib/supabase";
 import { getRetention } from "@/lib/retention";
+import { unstable_cache } from "next/cache";
 import Link from "next/link";
 
 // Activation funnel: Signed up -> Connected QuickBooks -> Configured Claude ->
@@ -137,10 +138,14 @@ export default async function FunnelPage({
   const range: Range =
     sp.range === "90" ? "90" : sp.range === "all" ? "all" : "30";
   const includeTest = sp.test === "1";
-  const [f, cohorts] = await Promise.all([
-    getFunnel(range, includeTest),
-    getRetention(),
-  ]);
+  // Cache per (range, includeTest) for 60s — the funnel scans licenses +
+  // milestones, which doesn't change second-to-second.
+  const load = unstable_cache(
+    (r: Range, t: boolean) => Promise.all([getFunnel(r, t), getRetention()]),
+    ["admin-funnel"],
+    { revalidate: 60 }
+  );
+  const [f, cohorts] = await load(range, includeTest);
   const top = f.signedUp || 1;
 
   const ranges: { key: Range; label: string }[] = [

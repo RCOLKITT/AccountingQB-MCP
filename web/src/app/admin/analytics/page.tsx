@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { getSupabase } from "@/lib/supabase";
 import {
   analyticsConfigured,
@@ -6,6 +7,13 @@ import {
   type SiteAnalytics,
   type Row2,
 } from "@/lib/posthog-analytics";
+
+// PostHog HogQL queries are the slow part here — cache per range for 5 minutes.
+const getAnalytics = unstable_cache(
+  (days: number) => Promise.all([getSiteAnalytics(days), getSignups(days)]),
+  ["admin-analytics"],
+  { revalidate: 300 }
+);
 
 async function getSignups(days: number): Promise<number> {
   const since = new Date(Date.now() - days * 86400000).toISOString();
@@ -43,7 +51,7 @@ export default async function AnalyticsPage({
   }
   const sp = await searchParams;
   const days = sp.days === "7" ? 7 : sp.days === "90" ? 90 : 30;
-  const [a, signups] = await Promise.all([getSiteAnalytics(days), getSignups(days)]);
+  const [a, signups] = await getAnalytics(days);
   return <Dashboard a={a} days={days} signups={signups} />;
 }
 

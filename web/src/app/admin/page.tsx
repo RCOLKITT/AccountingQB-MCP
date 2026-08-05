@@ -1,5 +1,11 @@
 import { getSupabase } from "@/lib/supabase";
+import { unstable_cache } from "next/cache";
 import Link from "next/link";
+
+// Admin dashboards don't need to be real-time to the second — cache the heavy
+// aggregate reads for 60s so clicking around the admin is instant instead of
+// re-running every query on every navigation.
+const ADMIN_CACHE_SECONDS = 60;
 
 interface Stats {
   totalUsers: number;
@@ -126,8 +132,14 @@ async function getRecentUsers(): Promise<RecentUser[]> {
   return (data || []) as RecentUser[];
 }
 
+const getDashboardData = unstable_cache(
+  async () => Promise.all([getStats(), getRecentUsers()]),
+  ["admin-dashboard"],
+  { revalidate: ADMIN_CACHE_SECONDS }
+);
+
 export default async function AdminDashboard() {
-  const [stats, recentUsers] = await Promise.all([getStats(), getRecentUsers()]);
+  const [stats, recentUsers] = await getDashboardData();
 
   return (
     <div className="space-y-8">
