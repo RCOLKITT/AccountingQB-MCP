@@ -1,5 +1,6 @@
-import { clerkMiddleware, createRouteMatcher, clerkClient } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { resolveAdmin, type AdminClaims } from "@/lib/admin-auth";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -53,16 +54,17 @@ const isAdminRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, req) => {
   // Admin routes require admin role
   if (isAdminRoute(req)) {
-    const { userId } = await auth();
+    const { userId, sessionClaims } = await auth();
 
     if (!userId) {
       return NextResponse.redirect(new URL("/sign-in", req.url));
     }
 
-    // Fetch user to get publicMetadata (not included in session JWT by default)
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    const role = (user.publicMetadata as { role?: string })?.role;
+    // Read the role from the SESSION TOKEN (no Clerk API call) — see
+    // resolveAdmin(); falls back to one getUser() only if the token isn't
+    // configured with the metadata claim yet. needEmail=false: the gate never
+    // fetches on /api/admin routes once the token is configured.
+    const { role } = await resolveAdmin(userId, sessionClaims as AdminClaims, false);
 
     if (role !== "admin") {
       return NextResponse.redirect(new URL("/dashboard", req.url));
