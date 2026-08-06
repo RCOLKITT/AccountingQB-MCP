@@ -181,3 +181,33 @@ def test_schedule_c_demo_uses_subtypes():
     assert "Line 8 — Advertising: $300.00" in out
     assert "Line 20b — Rent" in out and "$500.00" in out
     assert "Line 28 — Total expenses: $800.00" in out
+
+
+def test_public_tax_data_is_accurate_and_derived():
+    """The public /tax-data payload must be built FROM the live registry (never
+    hand-typed) so it can't drift, and every highlight must carry a citation."""
+    import accountingqb.tax_tables as tt
+    d = tt.public_tax_data()
+    # meta mirrors the registry exactly
+    assert d["version"] == tt.TAX_DATA_VERSION
+    assert d["verified"] == tt.TAX_DATA_VERIFIED
+    assert d["table_count"] == len(tt.TABLES)
+    # ledger chain must verify (a broken chain is a red flag we'd never publish)
+    assert d["ledger"]["chain_ok"] is True
+    assert d["ledger"]["rows"] == len(tt.load_ledger())
+    # highlights: each has a real source; values match the tables (not invented)
+    assert d["highlights"], "expected concrete highlight rows"
+    for h in d["highlights"]:
+        assert h["source"] and h["label"] and h["jurisdiction"] in ("US", "CA")
+    meals = next(h for h in d["highlights"] if "meals" in h["label"].lower())
+    assert f"{int(round(tt._STATUTORY_LIMITS['meals_us']['factor'] * 100))}%" in meals["label"]
+    assert meals["source"] == tt._STATUTORY_LIMITS["meals_us"]["cite"]
+    # mileage highlight must cite the year it actually shows (no year/source mismatch)
+    mil = next((h for h in d["highlights"] if "mileage" in h["label"].lower()), None)
+    if mil:
+        import re
+        yr = re.search(r"\((\d{4})\)", mil["label"]).group(1)
+        assert yr in mil["source"], f"mileage cites {mil['source']} but shows {yr}"
+    # whole thing must be JSON-serializable
+    import json
+    json.dumps(d)

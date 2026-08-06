@@ -204,6 +204,7 @@ class BearerAuthMiddleware:
         realm_resolver: Optional[Callable[[str], Awaitable[Optional[str]]]] = _resolve_default_realm,
         version: str = "",
         tool_count: int = 0,
+        tax_data: Optional[dict] = None,
     ):
         self.app = app
         self.jwt_secret = jwt_secret
@@ -212,6 +213,7 @@ class BearerAuthMiddleware:
         self.realm_resolver = realm_resolver
         self.version = version
         self.tool_count = tool_count
+        self.tax_data = tax_data or {}
 
     # -- small ASGI response helpers (no Starlette Response objects needed,
     # but plain dict sends keep this middleware dependency-light) ----------
@@ -299,6 +301,16 @@ class BearerAuthMiddleware:
                 "deployment": "hosted connector (token-brokered)",
             }).encode()
             await self._send_response(send, 200, body, "application/json")
+            return
+
+        if path == "/tax-data":
+            # Public tax-data provenance (version, ledger status, per-table sources,
+            # concrete highlights) — statutory facts only, no taxpayer data. Built
+            # from the live registry so it can't drift; powers the marketing site's
+            # provenance card. Cacheable.
+            headers = [(b"cache-control", b"public, max-age=600")]
+            body = json.dumps(self.tax_data).encode()
+            await self._send_response(send, 200, body, "application/json", extra_headers=headers)
             return
 
         if path == PROTECTED_RESOURCE_PATH:
@@ -474,6 +486,11 @@ def create_app():
         _tools = len(mcp._tool_manager._tools)
     except Exception:
         _tools = 0
+    try:
+        from accountingqb.tax_tables import public_tax_data  # noqa: PLC0415
+        _tax_data = public_tax_data()   # computed once at startup (static per deploy)
+    except Exception:
+        _tax_data = {}
 
     return BearerAuthMiddleware(
         inner,
@@ -482,6 +499,7 @@ def create_app():
         auth_server_url=AS_URL,
         version=_ver,
         tool_count=_tools,
+        tax_data=_tax_data,
     )
 
 

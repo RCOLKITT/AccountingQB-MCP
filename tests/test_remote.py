@@ -100,6 +100,25 @@ def test_version_endpoint_public(client):
     assert "hosted connector" in data["deployment"]
 
 
+def test_tax_data_endpoint_public():
+    # Public tax-data provenance — no auth, cacheable, statutory facts only.
+    app = BearerAuthMiddleware(
+        echo_ctx_app, jwt_secret=SECRET, resource_url=RESOURCE, auth_server_url=AS_URL,
+        realm_resolver=stub_realm_resolver,
+        tax_data={"version": "2026.6", "verified": "2026-08-03",
+                  "highlights": [{"label": "Business meals — 50% deductible",
+                                  "source": "IRC §274(n)", "jurisdiction": "US"}],
+                  "ledger": {"chain_ok": True}},
+    )
+    resp = TestClient(app).get("/tax-data")
+    assert resp.status_code == 200
+    assert "public" in (resp.headers.get("cache-control") or "")
+    data = resp.json()
+    assert data["version"] == "2026.6"
+    assert data["ledger"]["chain_ok"] is True
+    assert data["highlights"][0]["source"] == "IRC §274(n)"
+
+
 def test_protected_resource_metadata(client):
     resp = client.get(PROTECTED_RESOURCE_PATH)
     assert resp.status_code == 200

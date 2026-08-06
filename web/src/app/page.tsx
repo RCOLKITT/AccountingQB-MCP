@@ -175,6 +175,42 @@ function CheckIcon() {
    PAGE
    ============================================================================ */
 
+interface TaxHighlight { label: string; source: string; jurisdiction: string }
+interface TaxData {
+  version: string;
+  verified: string;
+  highlights: TaxHighlight[];
+  ledger?: { rows: number; chain_ok: boolean; latest: string | null };
+}
+
+// Live tax-data provenance from the connector (public, cacheable). Built from the
+// connector's own registry, so the card is always accurate. Falls back to null →
+// the card renders a static-but-correct default, so a fetch hiccup never breaks it.
+async function getTaxData(): Promise<TaxData | null> {
+  try {
+    const res = await fetch("https://mcp.accountingqb.com/tax-data", {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as TaxData;
+  } catch {
+    return null;
+  }
+}
+
+// Fallback matches the current registry (v2026.6) so the card is correct even
+// offline; the live fetch keeps it current without a code change.
+const TAX_DATA_FALLBACK: TaxData = {
+  version: "2026.6",
+  verified: "2026-08-03",
+  ledger: { rows: 80, chain_ok: true, latest: "2026-08-03" },
+  highlights: [
+    { label: "Business meals — 50% deductible", source: "IRC §274(n)", jurisdiction: "US" },
+    { label: "Standard mileage — 70¢/mi (2025)", source: "IRS Notice 2025-5", jurisdiction: "US" },
+    { label: "GST/HST (Ontario) — 13%", source: "CRA", jurisdiction: "CA" },
+  ],
+};
+
 // Usage counters (hours saved / activity / active users) stay HIDDEN until they're
 // impressive — a small live count undercuts the "established" impression, and big
 // trusted companies don't run user counters anyway. The tiles auto-appear once the
@@ -182,7 +218,8 @@ function CheckIcon() {
 const USAGE_TILES_MIN_LICENSES = 100;
 
 export default async function Home() {
-  const publicStats = await getPublicStats();
+  const [publicStats, taxDataRaw] = await Promise.all([getPublicStats(), getTaxData()]);
+  const taxData = taxDataRaw ?? TAX_DATA_FALLBACK;
   const isCA = (await headers()).get("x-vercel-ip-country") === "CA";
 
   return (
@@ -564,32 +601,31 @@ export default async function Home() {
               </p>
             </div>
 
-            {/* Provenance card — real values from tax_tables (v2026.6) */}
+            {/* Provenance card — rendered LIVE from the connector's /tax-data
+                (falls back to the current registry so it can't break). */}
             <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6">
               <div className="flex items-center justify-between border-b border-white/[0.07] pb-3">
                 <div className="text-[13px] font-semibold text-white">Tax data provenance</div>
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1 text-[11px] font-medium text-emerald-300">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  ledger verified
-                </div>
+                {taxData.ledger?.chain_ok !== false && (
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1 text-[11px] font-medium text-emerald-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    ledger verified
+                  </div>
+                )}
               </div>
               <div className="divide-y divide-white/[0.07]">
-                {[
-                  ["Business meals — 50% deductible", "IRC §274(n)"],
-                  ["Standard mileage — 70¢/mi (2025)", "IRS Notice 2025-05"],
-                  ["GST/HST (Ontario) — 13%", "CRA"],
-                ].map(([label, cite]) => (
-                  <div key={label} className="flex items-center justify-between py-3.5">
+                {taxData.highlights.slice(0, 3).map((h) => (
+                  <div key={h.label} className="flex items-center justify-between py-3.5">
                     <div>
-                      <div className="text-sm font-medium text-white">{label}</div>
-                      <div className="mt-0.5 font-mono text-[12px] text-gray-500">{cite}</div>
+                      <div className="text-sm font-medium text-white">{h.label}</div>
+                      <div className="mt-0.5 font-mono text-[12px] text-gray-500">{h.source}</div>
                     </div>
-                    <div className="font-mono text-[12px] text-gray-500">sourced · dated</div>
+                    <div className="font-mono text-[12px] text-gray-500">{h.jurisdiction} · sourced</div>
                   </div>
                 ))}
               </div>
               <div className="mt-3 rounded-lg bg-black/30 px-3 py-2 font-mono text-[11px] text-gray-500">
-                append-only, hash-chained ledger · TAX_DATA v2026.6 · verified 2026-08-03
+                append-only, hash-chained ledger · TAX_DATA v{taxData.version} · verified {taxData.verified}
               </div>
             </div>
           </div>
