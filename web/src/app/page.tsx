@@ -23,6 +23,7 @@ interface PublicStats {
   totalHoursSaved: number;
   callsThisWeek: number;
   activeLicenses: number;
+  totalToolCalls: number;
 }
 
 async function getPublicStats(): Promise<PublicStats | null> {
@@ -40,6 +41,7 @@ async function getPublicStats(): Promise<PublicStats | null> {
       totalHoursSaved: stats.total_hours_saved || 0,
       callsThisWeek: stats.calls_this_week || 0,
       activeLicenses: stats.active_licenses || 0,
+      totalToolCalls: stats.total_tool_calls || 0,
     };
   } catch {
     return null;
@@ -172,6 +174,12 @@ function CheckIcon() {
 /* ============================================================================
    PAGE
    ============================================================================ */
+
+// Usage counters (hours saved / activity / active users) stay HIDDEN until they're
+// impressive — a small live count undercuts the "established" impression, and big
+// trusted companies don't run user counters anyway. The tiles auto-appear once the
+// platform crosses this many active licenses, then keep updating from live data.
+const USAGE_TILES_MIN_LICENSES = 100;
 
 export default async function Home() {
   const publicStats = await getPublicStats();
@@ -337,37 +345,14 @@ export default async function Home() {
       {/* ========== TRUST BAR ========== */}
       <section className="relative border-y border-white/[0.06] bg-[#0c1120]">
         <div className="mx-auto max-w-6xl px-6 py-8">
-          {/* Live Stats (shown only if we have data) */}
-          {publicStats && (publicStats.totalHoursSaved > 0 || publicStats.callsThisWeek > 0) && (
-            <div className="mb-6 flex flex-col items-center justify-center gap-6 sm:flex-row sm:gap-12">
-              {publicStats.totalHoursSaved > 0 && (
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-cyan-400">{publicStats.totalHoursSaved.toLocaleString()}</div>
-                  <div className="text-sm text-gray-500">hours saved</div>
-                </div>
-              )}
-              {publicStats.callsThisWeek > 0 && (
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-blue-400">{publicStats.callsThisWeek.toLocaleString()}</div>
-                  <div className="text-sm text-gray-500">queries this week</div>
-                </div>
-              )}
-              {publicStats.activeLicenses > 0 && (
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-blue-400">{publicStats.activeLicenses.toLocaleString()}</div>
-                  <div className="text-sm text-gray-500">active users</div>
-                </div>
-              )}
-            </div>
-          )}
-          {/* Always-true facts (the security posture is already shown in the hero
-              strip; these state coverage + the data-minimization promise). */}
+          {/* Capability + trust facts — large and true at any scale; these LEAD. */}
           <p className="mb-6 text-center text-[12px] uppercase tracking-[0.15em] text-gray-500">
             Built for bookkeepers &amp; firms in the US &amp; Canada
           </p>
-          <div className="flex flex-col items-center justify-center gap-8 sm:flex-row sm:gap-16">
+          <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6 sm:gap-x-16">
             {[
               ["131", "tools"],
+              ["16", "tax-prep tools"],
               ["US · CA", "tax coverage"],
               ["0", "books stored, ever"],
             ].map(([n, l]) => (
@@ -377,6 +362,29 @@ export default async function Home() {
               </div>
             ))}
           </div>
+
+          {/* Usage counters — hidden until the platform crosses the threshold, then
+              they render from live data. No small numbers on the page before then. */}
+          {publicStats && publicStats.activeLicenses >= USAGE_TILES_MIN_LICENSES && (
+            <div className="mt-8 flex flex-col items-center justify-center gap-6 border-t border-white/[0.06] pt-8 sm:flex-row sm:gap-12">
+              {publicStats.totalHoursSaved > 0 && (
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-cyan-400">{publicStats.totalHoursSaved.toLocaleString()}</div>
+                  <div className="text-sm text-gray-500">hours saved (est.)</div>
+                </div>
+              )}
+              {publicStats.totalToolCalls > 0 && (
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-400">{publicStats.totalToolCalls.toLocaleString()}</div>
+                  <div className="text-sm text-gray-500">tasks automated</div>
+                </div>
+              )}
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-400">{publicStats.activeLicenses.toLocaleString()}</div>
+                <div className="text-sm text-gray-500">active accounts</div>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
