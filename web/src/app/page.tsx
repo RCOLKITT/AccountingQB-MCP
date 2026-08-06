@@ -973,6 +973,51 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* ========== SECURITY — data-minimization close (claims match /security) ========== */}
+      <section id="security" className="relative py-28">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="max-w-2xl">
+            <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              Built for people who guard other people&rsquo;s money.
+            </h2>
+            <p className="mt-4 text-[15.5px] leading-relaxed text-gray-400">
+              Two ways to run it — both designed so your books never become our asset.
+              The less we hold, the less there is to breach: that&rsquo;s the architecture,
+              not a compliance checkbox.
+            </p>
+          </div>
+          <div className="mt-12 grid gap-5 md:grid-cols-3">
+            {[
+              {
+                title: "Local — zero-knowledge",
+                body: "The server runs on your machine and talks directly to QuickBooks with your own OAuth token. Your books never touch our infrastructure.",
+              },
+              {
+                title: "Hosted — zero-retention",
+                body: "The cloud connector passes data through and stores no book data — never stored, logged, or used for analytics. See the overview for exactly what operational metadata we keep.",
+              },
+              {
+                title: "Tokens, encrypted",
+                body: "QuickBooks tokens are encrypted at rest with AES-256-GCM — a unique IV per value and an auth tag verified on every decrypt; the key is a managed secret held outside the database.",
+              },
+            ].map((c) => (
+              <div key={c.title} className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/12 text-cyan-300 ring-1 ring-cyan-500/20">
+                  <div className="h-2.5 w-2.5 rounded-full bg-cyan-400" />
+                </div>
+                <h3 className="text-base font-semibold text-white">{c.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-gray-400">{c.body}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8">
+            <a href="/security" className="text-sm font-semibold text-cyan-300 transition hover:text-cyan-200">
+              Read the full security overview &rarr;
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* ========== FINAL CTA ========== */}
       <section className="relative border-t border-white/[0.06] bg-[#0c1120] py-28">
         {/* Gradient orbs */}
@@ -1005,17 +1050,21 @@ export default async function Home() {
       {/* ========== FOOTER ========== */}
       <footer className="border-t border-white/[0.06] bg-[#0a0e1a]">
         <div className="mx-auto max-w-6xl px-6 py-14">
-          <div className="grid gap-10 sm:grid-cols-3">
-            <div>
+          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="lg:col-span-2">
               <a href="/" className="flex items-center gap-2">
                 <LogoMark className="h-7 w-7" />
                 <span className="text-lg font-bold text-white">
                   Accounting<span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">QB</span>
                 </span>
               </a>
-              <p className="mt-4 text-sm text-gray-500">
-                AI-powered QuickBooks tools for Claude Desktop and Cowork.
-                A <a href="https://vasperacapital.com" className="text-gray-400 transition hover:text-white">Vaspera Capital</a> product.
+              <p className="mt-4 max-w-xs text-sm leading-relaxed text-gray-500">
+                AI-powered QuickBooks — bookkeeping, reporting, and US &amp; Canadian
+                tax prep for Claude. Your books stay local or transit with zero
+                retention.
+              </p>
+              <p className="mt-4 text-[13px] text-gray-600">
+                A <a href="https://vasperacapital.com" className="text-gray-400 transition hover:text-white">Vaspera Capital</a> product &middot; Boston, USA
               </p>
             </div>
             <div>
@@ -1027,25 +1076,29 @@ export default async function Home() {
                 <li><a href="/changelog" className="transition hover:text-white">What&rsquo;s new</a></li>
                 <li><a href="/canada" className="transition hover:text-white">For Canadian businesses</a></li>
                 <li><a href="/downloads/accountingqb.plugin" download className="transition hover:text-white">Download for Cowork</a></li>
-                <li><a href="/dashboard" className="transition hover:text-white">Dashboard</a></li>
-                <li><a href="/sign-in" className="transition hover:text-white">Sign In</a></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-gray-300">Legal</h4>
+              <h4 className="text-sm font-semibold text-gray-300">Security &amp; Trust</h4>
               <ul className="mt-4 space-y-2.5 text-sm text-gray-500">
-                <li><a href="/security" className="transition hover:text-white">Security</a></li>
+                <li><a href="/security" className="transition hover:text-white">Security overview</a></li>
+                <li><a href="#tax-accuracy" className="transition hover:text-white">Tax data &amp; sources</a></li>
                 <li><a href="/privacy" className="transition hover:text-white">Privacy Policy</a></li>
                 <li><a href="/terms" className="transition hover:text-white">Terms of Service</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-gray-300">Company</h4>
+              <ul className="mt-4 space-y-2.5 text-sm text-gray-500">
+                <li><a href="/dashboard" className="transition hover:text-white">Dashboard</a></li>
+                <li><a href="/sign-in" className="transition hover:text-white">Sign In</a></li>
                 <li><a href="mailto:support@vasperacapital.com" className="transition hover:text-white">Contact</a></li>
               </ul>
             </div>
           </div>
-          <div className="mt-14 border-t border-white/[0.06] pt-8">
-            <p className="text-center text-sm text-gray-600">
-              &copy; {new Date().getFullYear()} Vaspera Capital. All rights reserved.
-              AccountingQB is not affiliated with Intuit or QuickBooks.
-            </p>
+          <div className="mt-14 flex flex-col items-center justify-between gap-3 border-t border-white/[0.06] pt-8 text-sm text-gray-600 sm:flex-row">
+            <span>&copy; {new Date().getFullYear()} Vaspera Capital. All rights reserved.</span>
+            <span>Not affiliated with Intuit Inc. QuickBooks is a trademark of Intuit Inc.</span>
           </div>
         </div>
       </footer>
