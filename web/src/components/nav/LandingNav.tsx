@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth, UserButton } from "@clerk/nextjs";
+import { usePathname } from "next/navigation";
 
 /* Inline Logo SVG Component */
 function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
@@ -27,6 +28,9 @@ function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
 
 export default function LandingNav() {
   const { isSignedIn, isLoaded } = useAuth();
+  // Section links scroll in-page on the homepage, but must route back to "/" from
+  // other marketing pages (e.g. /about, /canada) where the anchors don't exist.
+  const home = usePathname() === "/" ? "" : "/";
 
   return (
     <nav className="fixed top-0 z-50 w-full border-b border-white/[0.06] bg-[#0a0e1a]/80 backdrop-blur-xl">
@@ -38,10 +42,11 @@ export default function LandingNav() {
           </span>
         </a>
         <div className="hidden items-center gap-8 md:flex">
-          <a href="#features" className="text-sm text-gray-400 transition hover:text-white">Features</a>
-          <a href="#demo" className="text-sm text-gray-400 transition hover:text-white">Demo</a>
-          <a href="#pricing" className="text-sm text-gray-400 transition hover:text-white">Pricing</a>
-          <a href="#faq" className="text-sm text-gray-400 transition hover:text-white">FAQ</a>
+          <a href={`${home}#features`} className="text-sm text-gray-400 transition hover:text-white">Features</a>
+          <a href={`${home}#demo`} className="text-sm text-gray-400 transition hover:text-white">Demo</a>
+          <a href={`${home}#pricing`} className="text-sm text-gray-400 transition hover:text-white">Pricing</a>
+          <a href={`${home}#faq`} className="text-sm text-gray-400 transition hover:text-white">FAQ</a>
+          <a href="/about" className="text-sm text-gray-400 transition hover:text-white">About</a>
         </div>
         <div className="flex items-center gap-4">
           {!isLoaded ? (
@@ -71,7 +76,7 @@ export default function LandingNav() {
                 Sign in
               </a>
               <a
-                href="#pricing"
+                href={`${home}#pricing`}
                 className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:shadow-blue-500/30 hover:brightness-110"
               >
                 Get Started

@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { getSupabase } from "@/lib/supabase";
 import LandingNav from "@/components/nav/LandingNav";
+import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
   alternates: {
@@ -1084,60 +1085,7 @@ export default async function Home() {
       </section>
 
       {/* ========== FOOTER ========== */}
-      <footer className="border-t border-white/[0.06] bg-[#0a0e1a]">
-        <div className="mx-auto max-w-6xl px-6 py-14">
-          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
-            <div className="lg:col-span-2">
-              <a href="/" className="flex items-center gap-2">
-                <LogoMark className="h-7 w-7" />
-                <span className="text-lg font-bold text-white">
-                  Accounting<span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">QB</span>
-                </span>
-              </a>
-              <p className="mt-4 max-w-xs text-sm leading-relaxed text-gray-500">
-                AI-powered QuickBooks — bookkeeping, reporting, and US &amp; Canadian
-                tax prep for Claude. Your books stay local or transit with zero
-                retention.
-              </p>
-              <p className="mt-4 text-[13px] text-gray-600">
-                A <a href="https://vasperacapital.com" className="text-gray-400 transition hover:text-white">Vaspera Capital</a> product &middot; Boston, USA
-              </p>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-gray-300">Product</h4>
-              <ul className="mt-4 space-y-2.5 text-sm text-gray-500">
-                <li><a href="#features" className="transition hover:text-white">Features</a></li>
-                <li><a href="#pricing" className="transition hover:text-white">Pricing</a></li>
-                <li><a href="#faq" className="transition hover:text-white">FAQ</a></li>
-                <li><a href="/changelog" className="transition hover:text-white">What&rsquo;s new</a></li>
-                <li><a href="/canada" className="transition hover:text-white">For Canadian businesses</a></li>
-                <li><a href="/downloads/accountingqb.plugin" download className="transition hover:text-white">Download for Cowork</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-gray-300">Security &amp; Trust</h4>
-              <ul className="mt-4 space-y-2.5 text-sm text-gray-500">
-                <li><a href="/security" className="transition hover:text-white">Security overview</a></li>
-                <li><a href="#tax-accuracy" className="transition hover:text-white">Tax data &amp; sources</a></li>
-                <li><a href="/privacy" className="transition hover:text-white">Privacy Policy</a></li>
-                <li><a href="/terms" className="transition hover:text-white">Terms of Service</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-gray-300">Company</h4>
-              <ul className="mt-4 space-y-2.5 text-sm text-gray-500">
-                <li><a href="/dashboard" className="transition hover:text-white">Dashboard</a></li>
-                <li><a href="/sign-in" className="transition hover:text-white">Sign In</a></li>
-                <li><a href="mailto:support@vasperacapital.com" className="transition hover:text-white">Contact</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="mt-14 flex flex-col items-center justify-between gap-3 border-t border-white/[0.06] pt-8 text-sm text-gray-600 sm:flex-row">
-            <span>&copy; {new Date().getFullYear()} Vaspera Capital. All rights reserved.</span>
-            <span>Not affiliated with Intuit Inc. QuickBooks is a trademark of Intuit Inc.</span>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </main>
   );
 }
