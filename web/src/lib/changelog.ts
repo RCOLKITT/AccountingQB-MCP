@@ -14,6 +14,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.18.1",
+    date: "2026-08-06",
+    title: "Public tax-data provenance endpoint",
+    tag: "Platform",
+    summary:
+      "The connector now serves a public /tax-data endpoint — version, hash-chained ledger status, per-table sources, and concrete cited highlights — built entirely from the live tax registry so it can never drift from what the tools actually use. It powers the marketing site's provenance card so that card is always accurate.",
+    highlights: [
+      "GET /tax-data (unauthenticated, cacheable): TAX_DATA version + verified date, ledger row count + chain-verification status, every table's source, and cited highlight values",
+      "Derived from the registry (tax_tables) at startup — if a rate changes, the endpoint changes with it; no hand-typed copy to fall out of date",
+      "Statutory facts only, no taxpayer data; safe to serve publicly",
+    ],
+  },
+  {
     version: "3.18.0",
     date: "2026-08-04",
     title: "Home office: both methods, with the choice made explicit",

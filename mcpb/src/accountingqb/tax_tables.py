@@ -984,3 +984,69 @@ def verify_ledger_chain(rows=None) -> bool:
         canonical = json.dumps(row, sort_keys=True, separators=(",", ":"))
         prev = hashlib.sha256(canonical.encode()).hexdigest()
     return True
+
+
+def public_tax_data() -> dict:
+    """A PUBLIC, JSON-serializable summary of the tax-data registry — version,
+    ledger status, per-table sources, and a few concrete highlight values.
+
+    Built ENTIRELY from the live registry (TABLES / _STATUTORY_LIMITS /
+    _STD_MILEAGE_CENTS / the ledger), so it can never drift from what the tools
+    actually use — if a rate changes in the tables, this changes with it. Public
+    statutory facts only; no taxpayer data. Powers the marketing site's
+    provenance card so it's always accurate, and is safe to serve unauthenticated."""
+    rows = load_ledger()
+    superseded = {r["supersedes"] for r in rows if r.get("supersedes")}
+
+    # Concrete highlight rows, computed from the real tables (never hand-typed).
+    highlights = []
+    m = _STATUTORY_LIMITS.get("meals_us")
+    if m:
+        highlights.append({
+            "label": f"Business meals — {int(round(m['factor'] * 100))}% deductible",
+            "source": m["cite"], "jurisdiction": "US"})
+    if _STD_MILEAGE_CENTS:
+        # Prefer the latest CLEAN full-year rate. Some years (e.g. 2026) are a
+        # mid-year split with no single rate/citation — showing one number for
+        # those would be inaccurate, so fall back to the most recent whole-year
+        # value and cite the source segment that actually mentions that year.
+        segs = [s.strip() for s in TABLES["STD_MILEAGE_CENTS"]["source"].split(";")]
+        clean_years = [y for y in sorted(_STD_MILEAGE_CENTS, reverse=True)
+                       if sum(str(y) in s for s in segs) == 1]
+        yr = clean_years[0] if clean_years else max(_STD_MILEAGE_CENTS)
+        cents = _STD_MILEAGE_CENTS[yr]
+        seg = next((s for s in segs if str(yr) in s), segs[0])
+        notice = seg.split("(")[0].strip()
+        highlights.append({
+            "label": f"Standard mileage — {cents:g}¢/mi ({yr})",
+            "source": f"IRS {notice}", "jurisdiction": "US"})
+    try:
+        on = dict(TABLES["CA_SALES_TAX_REGIME"]["values"]).get("ON") or {}
+        if on.get("hst"):
+            highlights.append({
+                "label": f"GST/HST (Ontario) — {int(round(on['hst'] * 100))}%",
+                "source": "CRA", "jurisdiction": "CA"})
+    except Exception:
+        pass
+
+    tables = sorted(
+        ({"key": k, "description": e["description"], "jurisdiction": e["jurisdiction"],
+          "source": e["source"], "verified": e["verified"], "kind": e["kind"]}
+         for k, e in TABLES.items()),
+        key=lambda x: (x["jurisdiction"], x["key"]))
+
+    return {
+        "version": TAX_DATA_VERSION,
+        "verified": TAX_DATA_VERIFIED,
+        "table_count": len(TABLES),
+        "jurisdictions": sorted({e["jurisdiction"] for e in TABLES.values()}),
+        "ledger": {
+            "rows": len(rows),
+            "live": len(rows) - len(superseded),
+            "superseded": len(superseded),
+            "chain_ok": bool(verify_ledger_chain(rows)),
+            "latest": max((r.get("verified_date") for r in rows), default=None),
+        },
+        "highlights": highlights,
+        "tables": tables,
+    }
