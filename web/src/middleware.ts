@@ -4,6 +4,7 @@ import { resolveAdmin, type AdminClaims } from "@/lib/admin-auth";
 
 const isPublicRoute = createRouteMatcher([
   "/",
+  "/about",
   "/pricing",
   "/canada",
   "/changelog",
