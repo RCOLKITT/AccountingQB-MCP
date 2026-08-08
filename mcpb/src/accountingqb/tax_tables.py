@@ -129,7 +129,8 @@ _US_STATE_TAX = {
     "NC": (0.0399, "flat"),  # 3.99% flat effective Jan 1, 2026 (was 4.25%)
     "OH": (0.0275, "flat"),  # 2.75% flat effective Jan 1, 2026 (was progressive ~3.5%)
     "PA": (0.0307, "flat"), "UT": (0.045, "flat"),
-    "AL": (0.05, "progressive_approx"), "AR": (0.039, "progressive_approx"),
+    "AL": (0.05, "progressive_approx"),
+    "AR": (0.037, "progressive_approx"),  # top rate 3.7% retroactive Jan 1, 2026 (was 3.9%; SB 1 signed 2026-05-06)
     "CA": (0.093, "progressive_approx"), "CT": (0.055, "progressive_approx"),
     "DE": (0.055, "progressive_approx"), "DC": (0.065, "progressive_approx"),
     "HI": (0.079, "progressive_approx"), "KS": (0.0558, "progressive_approx"),
@@ -143,7 +144,8 @@ _US_STATE_TAX = {
     "NY": (0.065, "progressive_approx"),
     "OK": (0.045, "progressive_approx"),   # top rate 4.5% effective Jan 1, 2026 (was 4.75%)
     "OR": (0.0875, "progressive_approx"),
-    "RI": (0.0475, "progressive_approx"), "SC": (0.062, "progressive_approx"),
+    "RI": (0.0475, "progressive_approx"),
+    "SC": (0.0521, "progressive_approx"),  # H.4216 signed 2026-04-16: 1.99% ≤$30K / 5.21% >$30K, effective 2026-01-01 (was 6.2%)
     "VA": (0.0575, "progressive_approx"), "VT": (0.066, "progressive_approx"),
     "WI": (0.053, "progressive_approx"),
     "WV": (0.0458, "progressive_approx"),  # all rates reduced; top 4.58% effective Jan 1, 2026 (was 4.82%)
@@ -674,9 +676,9 @@ TABLES: dict = {
         sanity={"min": 0.0, "max": 1.0}),
     "US_STATE_TAX": dict(values=_US_STATE_TAX, year_keyed=False, jurisdiction="US-state",
         kind="approximation", description="State income tax on SE income (flat statutory or effective approx)",
-        source="Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01)",
+        source="Tax Foundation 2026 state rates; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01); AR SB 1 (signed 2026-05-06, top rate 3.7% retroactive 2026-01-01); SC H.4216 (signed 2026-04-16, 1.99%/$30K / 5.21% above, effective 2026-01-01)",
         source_url="https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
-        verified="2026-07-13", review="annual-january", sanity={"min": 0.0, "max": 1.0}),
+        verified="2026-08-01", review="annual-january", sanity={"min": 0.0, "max": 1.0}),
     "US_SALES_TAX_NEXUS": dict(values=_US_SALES_TAX_NEXUS, year_keyed=False,
         jurisdiction="US-state", kind="exact",
         description="State sales-tax economic-nexus thresholds (post-Wayfair)",
