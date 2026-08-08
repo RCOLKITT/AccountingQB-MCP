@@ -44,7 +44,16 @@ export default function AboutPage() {
           <div className="text-center sm:text-left">
             <div className="text-lg font-semibold text-white">Ryan Colkitt</div>
             <div className="text-[14px] text-gray-400">Founder, AccountingQB &middot; Boston, USA</div>
-            <div className="mt-2 text-[13px]">
+            <div className="mt-2 flex justify-center gap-3 text-[13px] sm:justify-start">
+              <a
+                href="https://www.linkedin.com/in/ryancolkitt/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-cyan-300 transition hover:text-cyan-200"
+              >
+                LinkedIn
+              </a>
+              <span className="text-gray-600">&middot;</span>
               <a href="https://vasperacapital.com" className="text-cyan-300 transition hover:text-cyan-200">
                 A Vaspera Capital company
               </a>
