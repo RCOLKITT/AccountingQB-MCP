@@ -8,6 +8,8 @@ import { headers } from "next/headers";
 import { getSupabase } from "@/lib/supabase";
 import LandingNav from "@/components/nav/LandingNav";
 import Footer from "@/components/Footer";
+import { tiers } from "@/lib/pricing";
+import Testimonials from "@/components/Testimonials";
 
 export const metadata: Metadata = {
   alternates: {
@@ -48,66 +50,6 @@ async function getPublicStats(): Promise<PublicStats | null> {
     return null;
   }
 }
-
-const tiers = [
-  {
-    name: "Solopreneur",
-    price: "$39",
-    priceCad: "CA$49",
-    period: "/mo",
-    description: "For freelancers & sole proprietors",
-    savings: "Save ~5 hrs/mo on bookkeeping & tax prep",
-    features: [
-      "All 131 QuickBooks tools",
-      "US & Canadian tax prep (Schedule C / T2125)",
-      "Deduction finder",
-      "Anomaly detection",
-      "1 QuickBooks company",
-      "Email support",
-    ],
-    cta: "Start Free Trial",
-    href: "/api/stripe/checkout?tier=solopreneur",
-    highlight: false,
-  },
-  {
-    name: "Business",
-    price: "$99",
-    priceCad: "CA$130",
-    period: "/mo",
-    description: "For growing small businesses",
-    savings: "Save ~12 hrs/mo across 3 companies",
-    features: [
-      "Everything in Solopreneur",
-      "Up to 3 companies",
-      "1099 & T4A contractor reporting",
-      "Budget vs actual analysis",
-      "Cash flow forecasting",
-      "Priority support",
-    ],
-    cta: "Start Free Trial",
-    href: "/api/stripe/checkout?tier=business",
-    highlight: true,
-  },
-  {
-    name: "Firm",
-    price: "$299",
-    priceCad: "CA$399",
-    period: "/mo",
-    description: "For accounting firms & bookkeepers",
-    savings: "Save ~3 hrs/client/mo — pays for itself at 3 clients",
-    features: [
-      "Everything in Business",
-      "Unlimited companies",
-      "Month-end close workflows",
-      "Year-end close checklist",
-      "Bulk operations",
-      "Dedicated support",
-    ],
-    cta: "Start Free Trial",
-    href: "/api/stripe/checkout?tier=firm",
-    highlight: false,
-  },
-];
 
 const faqs = [
   {
@@ -218,9 +160,31 @@ const TAX_DATA_FALLBACK: TaxData = {
 // platform crosses this many active licenses, then keep updating from live data.
 const USAGE_TILES_MIN_LICENSES = 100;
 
+// Live GitHub star count for the "built in the open" strip (D3.5). Public, cached
+// hourly; null on any hiccup so the strip still renders the repo link. The NUMBER is
+// gated behind GITHUB_STARS_MIN — a tiny star count reads worse than none, so we show
+// the transparency link now and let the count surface itself once it's credible.
+const GITHUB_REPO = "RCOLKITT/AccountingQB-MCP";
+const GITHUB_STARS_MIN = 25;
+
+async function getGitHubStars(): Promise<number | null> {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}`, {
+      headers: { Accept: "application/vnd.github+json" },
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { stargazers_count?: number };
+    return typeof data.stargazers_count === "number" ? data.stargazers_count : null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function Home() {
-  const [publicStats, taxDataRaw] = await Promise.all([getPublicStats(), getTaxData()]);
+  const [publicStats, taxDataRaw, gitHubStars] = await Promise.all([getPublicStats(), getTaxData(), getGitHubStars()]);
   const taxData = taxDataRaw ?? TAX_DATA_FALLBACK;
+  const showStarCount = gitHubStars !== null && gitHubStars >= GITHUB_STARS_MIN;
   const isCA = (await headers()).get("x-vercel-ip-country") === "CA";
 
   return (
@@ -250,9 +214,8 @@ export default async function Home() {
             {/* Headline — keeps the brand hook, adds the trust angle + a restrained
                 serif accent; no shimmer (calmer, more authoritative). */}
             <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-[1.08] tracking-tight text-white sm:text-6xl">
-              Your QuickBooks,{" "}
-              <span className="font-serif font-medium italic text-cyan-300">powered by AI</span>{" "}
-              you can trust.
+              Ask your QuickBooks anything — and get{" "}
+              <span className="font-serif font-medium italic text-cyan-300">tax workpapers you can defend.</span>
             </h1>
 
             {/* Subhead */}
@@ -263,32 +226,23 @@ export default async function Home() {
               <span className="text-gray-300">Run it locally or connect instantly — we never store your books.</span>
             </p>
 
-            {/* CTAs — white primary reads more established than a glowing gradient */}
-            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            {/* One primary CTA; the demo is a quiet secondary link so a single
+                action owns the click (D2.2). Cowork download lives in How-It-Works. */}
+            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
               <a
-                href="#pricing"
+                href="/pricing"
                 className="rounded-xl bg-white px-7 py-3.5 text-sm font-semibold text-[#0a0e1a] shadow-lg shadow-black/20 transition hover:bg-slate-200"
               >
                 Start Free Trial
               </a>
               <a
                 href="#demo"
-                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-7 py-3.5 text-sm font-semibold text-gray-300 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+                className="group flex items-center gap-1.5 text-sm font-medium text-gray-400 transition hover:text-white"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+                See it in action
+                <svg className="h-4 w-4 transition group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
-                See It in Action
-              </a>
-              <a
-                href="/downloads/accountingqb.plugin"
-                download
-                className="flex items-center gap-2 rounded-xl border border-cyan-500/25 bg-cyan-500/[0.06] px-7 py-3.5 text-sm font-semibold text-cyan-300 transition hover:border-cyan-400/40 hover:bg-cyan-500/[0.12] hover:text-cyan-200"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                </svg>
-                Get it for Cowork
               </a>
             </div>
 
@@ -385,7 +339,7 @@ export default async function Home() {
         <div className="mx-auto max-w-6xl px-6 py-8">
           {/* Capability + trust facts — large and true at any scale; these LEAD. */}
           <p className="mb-6 text-center text-[12px] uppercase tracking-[0.15em] text-gray-500">
-            Built for bookkeepers &amp; firms in the US &amp; Canada
+            Built for solo owners, growing businesses, and bookkeeping firms — in the US &amp; Canada
           </p>
           <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6 sm:gap-x-16">
             {[
@@ -558,6 +512,12 @@ export default async function Home() {
               </p>
             </div>
           </div>
+
+          {/* Honest scope — states who this is NOT for, so visitors self-qualify (D2.B). */}
+          <p className="mx-auto mt-14 max-w-2xl text-center text-[15px] leading-relaxed text-gray-500">
+            Not a tax-filing service and not for QuickBooks Desktop yet — these are
+            workpapers you or your CPA file from.
+          </p>
         </div>
       </section>
 
@@ -682,6 +642,21 @@ export default async function Home() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Cowork download lives here now (moved out of the hero CTA row so a
+              single primary owns the hero click — D2.2). */}
+          <div className="mt-14 flex justify-center">
+            <a
+              href="/downloads/accountingqb.plugin"
+              download
+              className="flex items-center gap-2 rounded-xl border border-cyan-500/25 bg-cyan-500/[0.06] px-6 py-3 text-sm font-semibold text-cyan-300 transition hover:border-cyan-400/40 hover:bg-cyan-500/[0.12] hover:text-cyan-200"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Get it for Cowork
+            </a>
           </div>
         </div>
       </section>
@@ -913,6 +888,42 @@ export default async function Home() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Customer testimonial wall — sits between the ROI block and pricing (D3.2/D3.1).
+          Renders only when real, permissioned quotes are added to lib/testimonials.ts. */}
+      <Testimonials />
+
+      {/* ========== BUILT IN THE OPEN — third-party trust strip (D3.5) ==========
+          The open-source repo is a real external artifact; we surface it near the
+          conversion point. The live star COUNT only renders once it's credible
+          (>= GITHUB_STARS_MIN) so a low number never undercuts trust. A Product Hunt
+          badge belongs here too — intentionally omitted until we actually launch on PH
+          (no fabricated badge). */}
+      <section className="relative border-t border-white/[0.06] bg-[#0a0e1a] py-10">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-4 px-6 sm:flex-row sm:gap-8">
+          <span className="text-[12px] uppercase tracking-[0.15em] text-gray-500">Built in the open</span>
+          <a
+            href={`https://github.com/${GITHUB_REPO}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-2 text-sm font-medium text-gray-300 transition hover:border-white/20 hover:text-white"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 .5A11.5 11.5 0 00.5 12a11.5 11.5 0 007.86 10.92c.575.106.785-.25.785-.556 0-.274-.01-1.001-.015-1.965-3.196.695-3.87-1.54-3.87-1.54-.523-1.33-1.277-1.684-1.277-1.684-1.044-.714.08-.7.08-.7 1.154.082 1.762 1.185 1.762 1.185 1.026 1.758 2.693 1.25 3.35.955.104-.744.401-1.25.73-1.538-2.552-.29-5.236-1.276-5.236-5.68 0-1.255.448-2.28 1.183-3.084-.119-.29-.513-1.458.112-3.04 0 0 .965-.309 3.163 1.178a10.98 10.98 0 015.76 0c2.196-1.487 3.16-1.178 3.16-1.178.626 1.582.232 2.75.114 3.04.737.804 1.182 1.829 1.182 3.084 0 4.415-2.688 5.386-5.248 5.67.413.355.78 1.056.78 2.13 0 1.538-.014 2.778-.014 3.156 0 .309.207.667.79.554A11.5 11.5 0 0023.5 12 11.5 11.5 0 0012 .5z" />
+            </svg>
+            <span>View source on GitHub</span>
+            {showStarCount && (
+              <span className="flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-0.5 text-[13px] font-semibold text-white">
+                <svg className="h-3.5 w-3.5 text-yellow-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 7.1-1.01L12 2z" />
+                </svg>
+                {gitHubStars?.toLocaleString()}
+              </span>
+            )}
+          </a>
+          <span className="text-[13px] text-gray-500">Public source &middot; audit the code yourself</span>
         </div>
       </section>
 

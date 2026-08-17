@@ -44,7 +44,7 @@ export default function LandingNav() {
         <div className="hidden items-center gap-8 md:flex">
           <a href={`${home}#features`} className="text-sm text-gray-400 transition hover:text-white">Features</a>
           <a href={`${home}#demo`} className="text-sm text-gray-400 transition hover:text-white">Demo</a>
-          <a href={`${home}#pricing`} className="text-sm text-gray-400 transition hover:text-white">Pricing</a>
+          <a href="/pricing" className="text-sm text-gray-400 transition hover:text-white">Pricing</a>
           <a href={`${home}#faq`} className="text-sm text-gray-400 transition hover:text-white">FAQ</a>
           <a href="/about" className="text-sm text-gray-400 transition hover:text-white">About</a>
         </div>
