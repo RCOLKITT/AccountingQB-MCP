@@ -25,6 +25,18 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // HeyCatch short links: single-character paths (/a–/z, /0–/9) are reserved for
+  // campaign attribution and 302 to the homepage with UTM params. No real route
+  // uses a single-character path, so this only affects attribution links.
+  async redirects() {
+    return [
+      {
+        source: "/:l([a-z0-9])",
+        destination: "/?utm_source=heycatch&utm_campaign=:l",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
