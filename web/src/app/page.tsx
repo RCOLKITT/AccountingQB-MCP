@@ -236,7 +236,7 @@ export default async function Home() {
                 Start Free Trial
               </a>
               <a
-                href="#demo"
+                href="/demo"
                 className="group flex items-center gap-1.5 text-sm font-medium text-gray-400 transition hover:text-white"
               >
                 See it in action
