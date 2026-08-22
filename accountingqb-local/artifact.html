@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AccountingQB</title>
+<style>
+  :root { --bg:#0a0e1a; --card:#131a2e; --panel:#0d1220; --line:rgba(255,255,255,.08); --muted:#94a3b8; --dim:#64748b; --cyan:#22d3ee; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Hanken Grotesk",sans-serif; background:var(--bg); color:#e5e7eb; height:100vh; display:flex; flex-direction:column; }
+  header { display:flex; align-items:center; gap:12px; padding:12px 20px; border-bottom:1px solid var(--line); }
+  .logo { font-weight:800; font-size:17px; }
+  .logo .a{color:var(--cyan)} .logo .b{color:#60a5fa}
+  .status { margin-left:auto; font-size:12px; color:var(--dim); text-align:right; }
+  nav { display:flex; gap:4px; padding:10px 20px 0; border-bottom:1px solid var(--line); }
+  nav button { background:none; border:0; color:var(--muted); padding:8px 14px; font-size:14px; font-weight:600; cursor:pointer; border-bottom:2px solid transparent; }
+  nav button.active { color:#fff; border-bottom-color:var(--cyan); }
+  main { flex:1; overflow:hidden; }
+  .tab { display:none; height:100%; } .tab.active { display:flex; flex-direction:column; }
+  /* chat */
+  #chatlog { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:16px; }
+  .msg { max-width:760px; }
+  .u { align-self:flex-end; background:rgba(37,99,235,.9); color:#fff; padding:10px 14px; border-radius:16px 16px 4px 16px; font-size:14px; }
+  .a { align-self:flex-start; display:flex; gap:10px; }
+  .a .body { background:#161d33; border-radius:16px 16px 16px 4px; padding:12px 14px; font-size:14px; color:#d1d5db; white-space:pre-wrap; line-height:1.5; }
+  .avatar { width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(59,130,246,.2));flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--cyan);font-weight:800;font-size:13px; }
+  .trace { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .trace span { font-size:10px; color:var(--dim); background:rgba(255,255,255,.04); border-radius:4px; padding:2px 6px; }
+  .composer { border-top:1px solid var(--line); padding:12px 20px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  .chip { font-size:12px; color:var(--muted); background:rgba(255,255,255,.03); border:1px solid var(--line); border-radius:999px; padding:5px 12px; cursor:pointer; }
+  .chip:hover { color:#fff; border-color:rgba(34,211,238,.3); }
+  .row { display:flex; gap:8px; }
+  input,select,textarea { background:var(--panel); border:1px solid rgba(255,255,255,.15); color:#fff; border-radius:10px; padding:10px 12px; font-size:14px; font-family:inherit; }
+  #q { flex:1; }
+  button.send,a.btn,button.btn { background:#fff; color:var(--bg); border:0; border-radius:10px; padding:10px 16px; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block; }
+  button:disabled { opacity:.4; cursor:default; }
+  /* dashboard + settings */
+  .pad { padding:20px; overflow-y:auto; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; }
+  .card h3 { margin:0 0 8px; font-size:15px; }
+  .card pre { white-space:pre-wrap; font-size:12px; color:#cbd5e1; background:var(--panel); border-radius:8px; padding:10px; max-height:280px; overflow:auto; margin:8px 0 0; }
+  .banner { background:rgba(34,211,238,.08); border:1px solid rgba(34,211,238,.2); color:#a5f3fc; border-radius:12px; padding:12px 16px; margin-bottom:16px; font-size:14px; }
+  .muted { color:var(--muted); } .dim{color:var(--dim)} label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+  .field { width:100%; }
+</style>
+</head>
+<body>
+<header>
+  <span class="logo"><span class="a">Accounting</span><span class="b">QB</span></span>
+  <span class="dim" style="font-size:12px">local</span>
+  <span class="status" id="status">…</span>
+</header>
+<nav>
+  <button data-tab="chat" class="active">Chat</button>
+  <button data-tab="dashboard">Dashboard</button>
+  <button data-tab="settings">Settings</button>
+</nav>
+<main>
+  <!-- CHAT -->
+  <section class="tab active" id="tab-chat">
+    <div id="chatlog"></div>
+    <div class="composer">
+      <div class="chips" id="chips"></div>
+      <form class="row" id="chatform">
+        <input id="q" placeholder="Ask your books anything…" autocomplete="off" />
+        <button class="send" id="sendbtn" type="submit">Send</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="tab pad" id="tab-dashboard">
+    <div id="dashbanner"></div>
+    <div class="grid" id="dashgrid"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="tab pad" id="tab-settings">
+    <div class="card" style="max-width:640px">
+      <h3>QuickBooks</h3>
+      <p class="muted" style="font-size:13px">Connect your books. Data flows QuickBooks → your machine; nothing is stored on our servers.</p>
+      <a class="btn" href="/oauth/start">Connect QuickBooks</a>
+    </div>
+    <div class="card" style="max-width:640px;margin-top:16px">
+      <h3>Anthropic API key <span class="dim" style="font-weight:400;font-size:12px">(for Chat)</span></h3>
+      <p class="muted" style="font-size:13px">Stored only in <code>~/.accountingqb</code>. Chat calls go from your machine straight to Anthropic — never through us.</p>
+      <input class="field" id="key" type="password" placeholder="sk-ant-…" />
+      <label>Model</label>
+      <select class="field" id="model">
+        <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (default)</option>
+        <option value="claude-opus-4-8">Claude Opus 4.8</option>
+        <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
+      </select>
+      <div style="margin-top:12px"><button class="btn" id="savekey">Save</button> <span id="savemsg" class="muted" style="font-size:13px"></span></div>
+    </div>
+    <details class="card" style="max-width:640px;margin-top:16px">
+      <summary style="cursor:pointer">Advanced — use your own Intuit app (fully local, no broker)</summary>
+      <p class="muted" style="font-size:13px;margin-top:10px">Register <code id="rduri">http://localhost/callback</code> as a redirect URI in your Intuit app.</p>
+      <input class="field" id="cid" placeholder="QB_CLIENT_ID" style="margin-bottom:8px" />
+      <input class="field" id="csec" type="password" placeholder="QB_CLIENT_SECRET" />
+      <div style="margin-top:10px"><button class="btn" id="saveqb">Save Intuit creds</button></div>
+    </details>
+  </section>
+</main>
+
+<script>
+let MODEL = "claude-sonnet-4-6";
+const history = [];
+const $ = (id) => document.getElementById(id);
+
+const SUGGESTIONS = [
+  "What's my burn rate and runway?",
+  "Find deductions I might be missing",
+  "How healthy are my books?",
+  "Summarize my P&L",
+];
+
+async function status() {
+  try {
+    const s = await (await fetch("/api/status")).json();
+    $("status").textContent = `v${s.version} · ${s.toolCount} tools · QuickBooks ${s.connected ? "connected" : "not connected"} · key ${s.hasAnthropicKey ? "set" : "missing"}`;
+    $("dashbanner").innerHTML = s.connected ? "" : '<div class="banner">No QuickBooks company connected yet. <a href="/oauth/start" style="color:#67e8f9">Connect QuickBooks</a> to see live data — or explore the tools below.</div>';
+    return s;
+  } catch { return {}; }
+}
+
+/* ---- tabs ---- */
+document.querySelectorAll("nav button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    $("tab-" + b.dataset.tab).classList.add("active");
+    if (b.dataset.tab === "dashboard") loadDashboard();
+  };
+});
+
+/* ---- chat ---- */
+function esc(s){const d=document.createElement("div");d.textContent=s;return d.innerHTML;}
+function addUser(text){const el=document.createElement("div");el.className="msg u";el.textContent=text;$("chatlog").appendChild(el);scroll();}
+function addAssistant(reply, trace){
+  const wrap=document.createElement("div");wrap.className="msg a";
+  const traceHtml=(trace&&trace.length)?`<div class="trace">${trace.map(t=>`<span>${esc(t.tool)}</span>`).join("")}</div>`:"";
+  wrap.innerHTML=`<div class="avatar">Q</div><div><div class="body">${esc(reply)}</div>${traceHtml}</div>`;
+  $("chatlog").appendChild(wrap);scroll();
+}
+function addTyping(){const w=document.createElement("div");w.className="msg a";w.id="typing";w.innerHTML=`<div class="avatar">Q</div><div class="body">…</div>`;$("chatlog").appendChild(w);scroll();}
+function rmTyping(){const t=$("typing");if(t)t.remove();}
+function scroll(){$("chatlog").scrollTop=$("chatlog").scrollHeight;}
+
+async function ask(text){
+  const q=(text||"").trim(); if(!q) return;
+  $("q").value=""; addUser(q); history.push({role:"user",content:q});
+  $("sendbtn").disabled=true; addTyping();
+  try{
+    const r=await fetch("/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({messages:history,model:MODEL})});
+    const j=await r.json(); rmTyping();
+    if(j.needsKey){addAssistant("Add your Anthropic API key in Settings to enable chat.",[]);}
+    else if(j.error){addAssistant("Error: "+j.error,[]);}
+    else{addAssistant(j.reply||"(no reply)",j.trace); history.push({role:"assistant",content:j.reply||""});}
+  }catch(e){rmTyping();addAssistant("Network error: "+e,[]);}
+  $("sendbtn").disabled=false; $("q").focus();
+}
+$("chatform").onsubmit=(e)=>{e.preventDefault();ask($("q").value);};
+$("chips").innerHTML=SUGGESTIONS.map(s=>`<span class="chip">${esc(s)}</span>`).join("");
+$("chips").querySelectorAll(".chip").forEach((c)=>c.onclick=()=>ask(c.textContent));
+addAssistant("Hi — I'm connected to your QuickBooks through local tools. Ask me anything about your books, or tap a suggestion below. (Add your Anthropic key in Settings first.)",[]);
+
+/* ---- dashboard ---- */
+const PANELS=[
+  {title:"Company",tool:"qb_company_info"},
+  {title:"Profit & Loss",tool:"qb_profit_loss"},
+  {title:"Books Health",tool:"qb_books_health_audit"},
+  {title:"Burn & Runway",tool:"qb_monthly_burn_rate"},
+];
+let dashLoaded=false;
+async function runPanel(p,pre){
+  pre.textContent="Running "+p.tool+"…";
+  try{const r=await fetch("/mcp",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({tool:p.tool,args:{}})});
+    const j=await r.json(); pre.textContent=j.ok?(typeof j.result==="string"?j.result:JSON.stringify(j.result,null,2)):("Error: "+(j.error||"failed"));
+  }catch(e){pre.textContent="Error: "+e;}
+}
+function loadDashboard(){
+  if(dashLoaded) return; dashLoaded=true;
+  const g=$("dashgrid"); g.innerHTML="";
+  PANELS.forEach((p)=>{
+    const card=document.createElement("div");card.className="card";
+    card.innerHTML=`<h3>${p.title} <button class="chip" style="float:right">Run</button></h3><pre>—</pre>`;
+    const pre=card.querySelector("pre"); card.querySelector("button").onclick=()=>runPanel(p,pre);
+    g.appendChild(card);
+  });
+}
+
+/* ---- settings ---- */
+$("savekey").onclick=async()=>{
+  MODEL=$("model").value;
+  const k=$("key").value.trim();
+  await fetch("/api/config",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(k?{anthropicApiKey:k}:{})});
+  $("key").value=""; $("savemsg").textContent="Saved."; status();
+};
+$("saveqb").onclick=async()=>{
+  const cid=$("cid").value.trim(), csec=$("csec").value.trim();
+  await fetch("/api/config",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({qbClientId:cid,qbClientSecret:csec})});
+  $("cid").value="";$("csec").value="";alert("Saved. Now click Connect QuickBooks.");
+};
+try{$("rduri").textContent="http://localhost:"+location.port+"/callback";}catch{}
+
+status();
+</script>
+</body>
+</html>

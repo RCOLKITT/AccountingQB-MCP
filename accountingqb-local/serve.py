@@ -91,11 +91,56 @@ def _anthropic_key() -> str:
     return os.environ.get("ANTHROPIC_API_KEY") or load_config().get("anthropic_api_key", "")
 
 
-def _server_version() -> str:
+def _manifest() -> dict:
     try:
-        return json.loads((_REPO_ROOT / "mcpb" / "manifest.json").read_text()).get("version", "dev")
+        return json.loads((_REPO_ROOT / "mcpb" / "manifest.json").read_text())
     except Exception:
-        return "dev"
+        return {}
+
+
+def _server_version() -> str:
+    return _manifest().get("version", "dev")
+
+
+# Curated, READ-ONLY tool set exposed to the autonomous Chat loop. Writes are
+# intentionally excluded — an autonomous agent must never mutate the books without a
+# human in the loop (that stays in Door 1 / a future confirm-gated flow). Names are
+# intersected with what actually exists + the manifest's readOnlyHint at runtime.
+_CHAT_ALLOW = {
+    "qb_company_info", "qb_list_companies", "qb_profit_loss", "qb_balance_sheet",
+    "qb_cash_flow", "qb_monthly_burn_rate", "qb_runway_calculator", "qb_deduction_finder",
+    "qb_anomaly_detection", "qb_find_duplicates", "qb_books_health_audit", "qb_tax_summary",
+    "qb_schedule_c", "qb_t2125_summary", "qb_estimate_quarterly_tax", "qb_stripe_reconcile",
+    "qb_list_transactions", "qb_search_transactions", "qb_trial_balance",
+    "qb_uncategorized_transactions", "qb_1099_contractor_report", "qb_account_balance",
+    "qb_tax_data_info",
+}
+
+
+def _anthropic_tools() -> list:
+    """Anthropic tool defs (name/description/input_schema) for the read-only chat set."""
+    registry = _tool_registry()
+    out = []
+    for t in _manifest().get("tools", []):
+        name = t.get("name")
+        if name in _CHAT_ALLOW and name in registry and t.get("readOnlyHint", False):
+            out.append(
+                {
+                    "name": name,
+                    "description": (t.get("description") or "")[:1024],
+                    "input_schema": t.get("inputSchema") or {"type": "object", "properties": {}},
+                }
+            )
+    return out
+
+
+_CHAT_SYSTEM = (
+    "You are AccountingQB, a bookkeeping and tax-prep assistant connected to the user's real "
+    "QuickBooks Online via local tools. Answer from the tools — never invent figures. Cite the "
+    "numbers you used and keep answers concise. If no company is connected, say so and suggest "
+    "connecting QuickBooks. You have READ-ONLY tools here; to change the books, the user should "
+    "use AccountingQB in Claude. This is not tax or accounting advice."
+)
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +246,56 @@ async def sample(req: Request) -> JSONResponse:
         return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=502)
 
 
+async def chat(req: Request) -> JSONResponse:
+    """Agentic chat loop: Claude (BYO key) picks read-only tools, we run them via the
+    in-process registry and feed results back, until it answers. Returns the final text
+    plus a trace of the tools it called. Bounded to keep cost sane on the user's key."""
+    key = _anthropic_key()
+    if not key:
+        return JSONResponse({"needsKey": True, "error": "Add your Anthropic API key to use chat."})
+    try:
+        body = await req.json()
+    except Exception:
+        body = {}
+    messages = body.get("messages") or []
+    if not messages:
+        return JSONResponse({"error": "no messages"}, status_code=400)
+    model = body.get("model") or DEFAULT_MODEL
+    tools = _anthropic_tools()
+    trace: list = []
+    headers = {"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01"}
+    try:
+        async with httpx.AsyncClient(timeout=180) as client:
+            for _round in range(6):  # bound tool-use rounds
+                r = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers=headers,
+                    json={"model": model, "max_tokens": 2048, "system": _CHAT_SYSTEM, "tools": tools, "messages": messages},
+                )
+                if r.status_code != 200:
+                    return JSONResponse({"error": f"Anthropic {r.status_code}: {r.text[:400]}"}, status_code=502)
+                data = r.json()
+                content = data.get("content", [])
+                messages.append({"role": "assistant", "content": content})
+                tool_uses = [b for b in content if b.get("type") == "tool_use"]
+                if data.get("stop_reason") == "tool_use" and tool_uses:
+                    results = []
+                    for tu in tool_uses:
+                        trace.append({"tool": tu.get("name"), "args": tu.get("input")})
+                        try:
+                            out = await call_tool(tu["name"], tu.get("input") or {})
+                            results.append({"type": "tool_result", "tool_use_id": tu["id"], "content": str(out)[:20000]})
+                        except Exception as e:
+                            results.append({"type": "tool_result", "tool_use_id": tu["id"], "content": f"error: {e}", "is_error": True})
+                    messages.append({"role": "user", "content": results})
+                    continue
+                text = "".join(b.get("text", "") for b in content if b.get("type") == "text")
+                return JSONResponse({"reply": text, "trace": trace})
+        return JSONResponse({"reply": "I ran several tools but couldn't finish — try narrowing the question.", "trace": trace})
+    except Exception as e:
+        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=502)
+
+
 async def api_config(req: Request) -> JSONResponse:
     """Persist local settings from the UI (Anthropic key, optional Intuit app creds)."""
     try:
@@ -293,11 +388,16 @@ async def oauth_callback(req: Request) -> HTMLResponse:
     )
 
 
+_ARTIFACT_PATH = Path(__file__).resolve().parent / "artifact.html"
+
+
 async def index(_req: Request) -> HTMLResponse:
-    # Placeholder shell for Phase 2a. Phase 2b replaces this with the tabbed
-    # Chat + Dashboard artifact. Kept minimal but functional: shows status and the
-    # two setup actions (connect QuickBooks, add Anthropic key) and a tool probe.
-    return HTMLResponse(_INDEX_HTML)
+    # Phase 2b: the tabbed Chat + Dashboard artifact. Loaded from disk in dev; the
+    # Tauri build (2c) will embed it. Falls back to the Phase-2a status shell.
+    try:
+        return HTMLResponse(_ARTIFACT_PATH.read_text())
+    except Exception:
+        return HTMLResponse(_INDEX_HTML)
 
 
 # ---------------------------------------------------------------------------
@@ -324,6 +424,7 @@ routes = [
     Route("/api/config", api_config, methods=["POST"]),
     Route("/mcp", mcp_call, methods=["POST"]),
     Route("/sample", sample, methods=["POST"]),
+    Route("/chat", chat, methods=["POST"]),
     Route("/oauth/start", oauth_start),
     Route("/callback", oauth_callback),
 ]
