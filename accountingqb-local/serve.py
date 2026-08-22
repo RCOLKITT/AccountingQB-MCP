@@ -33,9 +33,19 @@ import sys
 import urllib.parse
 from pathlib import Path
 
-# --- make the canonical connector importable (repo layout: mcpb/src/accountingqb) ---
-_REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(_REPO_ROOT / "mcpb" / "src"))
+# --- resolve resources both in-repo and inside a PyInstaller bundle (Phase 2c) ---
+# In a bundle, sys._MEIPASS is the extraction dir where the spec places manifest.json +
+# artifact.html at the root and the accountingqb package (importable directly). In the
+# repo, add mcpb/src to sys.path and read manifest.json from mcpb/.
+_BUNDLE_DIR = getattr(sys, "_MEIPASS", None)
+if _BUNDLE_DIR:
+    _RES = Path(_BUNDLE_DIR)
+    _MANIFEST_PATH = _RES / "manifest.json"
+else:
+    _REPO_ROOT = Path(__file__).resolve().parent.parent
+    _RES = Path(__file__).resolve().parent
+    _MANIFEST_PATH = _REPO_ROOT / "mcpb" / "manifest.json"
+    sys.path.insert(0, str(_REPO_ROOT / "mcpb" / "src"))
 
 import httpx  # noqa: E402
 import uvicorn  # noqa: E402
@@ -93,7 +103,7 @@ def _anthropic_key() -> str:
 
 def _manifest() -> dict:
     try:
-        return json.loads((_REPO_ROOT / "mcpb" / "manifest.json").read_text())
+        return json.loads(_MANIFEST_PATH.read_text())
     except Exception:
         return {}
 
@@ -388,7 +398,7 @@ async def oauth_callback(req: Request) -> HTMLResponse:
     )
 
 
-_ARTIFACT_PATH = Path(__file__).resolve().parent / "artifact.html"
+_ARTIFACT_PATH = _RES / "artifact.html"
 
 
 async def index(_req: Request) -> HTMLResponse:
