@@ -80,6 +80,12 @@ export default async function AdminLayout({
                 Usage
               </Link>
               <Link
+                href="/admin/downloads"
+                className="text-sm text-gray-400 hover:text-white transition"
+              >
+                Downloads
+              </Link>
+              <Link
                 href="/admin/emails"
                 className="text-sm text-gray-400 hover:text-white transition"
               >

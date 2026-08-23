@@ -54,7 +54,7 @@ async function getPublicStats(): Promise<PublicStats | null> {
 const faqs = [
   {
     q: "Is my financial data safe?",
-    a: "Absolutely. Run AccountingQB locally — the desktop extension runs entirely on your machine and your financial data flows directly between your computer and QuickBooks, never touching our servers. Or connect through our hosted connector, where data passes through with zero retention — it is never stored, logged, or used for analytics. Either way, we never store your books.",
+    a: "Absolutely. Run AccountingQB locally — the downloadable desktop app or the Claude Desktop extension runs entirely on your machine, and your financial data flows directly between your computer and QuickBooks, never touching our servers. Or connect through our hosted connector, where data passes through with zero retention — it is never stored, logged, or used for analytics. Either way, we never store your books.",
   },
   {
     q: "How do I know the tax numbers are current?",
@@ -62,7 +62,7 @@ const faqs = [
   },
   {
     q: "Do I need to know how to code?",
-    a: "Not at all. Install the extension in Claude Desktop with one click, connect your QuickBooks account, and start asking questions in plain English.",
+    a: "Not at all. Download the desktop app, install the Claude Desktop extension with one click, or add AccountingQB as a remote connector in Claude — then connect your QuickBooks account and start asking questions in plain English.",
   },
   {
     q: "What happens after the 14-day trial?",
@@ -74,7 +74,7 @@ const faqs = [
   },
   {
     q: "What Claude apps does this work with?",
-    a: "AccountingQB works with Claude on the web, desktop, and mobile via our remote connector (add it as a custom connector — no install needed), with Claude Desktop via the MCP extension, and with Cowork via our plugin. Any app that supports MCP servers can use it.",
+    a: "AccountingQB works with Claude on the web, desktop, and mobile via our remote connector (add it as a custom connector — no install needed), with Claude Desktop via the MCP extension, and with Cowork via our plugin. Prefer a standalone app? Download the desktop app for macOS or Windows — it runs locally in your browser and works without Claude Desktop or Cowork (add your own Anthropic API key to chat with your books). Any app that supports MCP servers can use it.",
   },
   {
     q: "Can I cancel anytime?",
@@ -208,7 +208,7 @@ export default async function Home() {
             {/* Status badge — calm, factual */}
             <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-[13px] text-gray-300">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
-              Connects to QuickBooks Online &middot; Claude Desktop, web &amp; Cowork
+              Connects to QuickBooks Online &middot; Claude, Cowork, or the desktop app
             </div>
 
             {/* Headline — keeps the brand hook, adds the trust angle + a restrained
@@ -613,8 +613,8 @@ export default async function Home() {
             {[
               {
                 step: "01",
-                title: "Connect or Install",
-                desc: "Add AccountingQB as a connector in Claude instantly, or one-click install the Claude Desktop extension / Cowork plugin. No terminal commands needed.",
+                title: "Connect, install, or download",
+                desc: "Add AccountingQB as a connector in Claude instantly, one-click install the Claude Desktop extension / Cowork plugin, or download the standalone desktop app for macOS or Windows. No terminal commands needed.",
                 gradient: "from-cyan-500 to-blue-500",
               },
               {
@@ -644,19 +644,43 @@ export default async function Home() {
             ))}
           </div>
 
-          {/* Cowork download lives here now (moved out of the hero CTA row so a
-              single primary owns the hero click — D2.2). */}
-          <div className="mt-14 flex justify-center">
-            <a
-              href="/downloads/accountingqb.plugin"
-              download
-              className="flex items-center gap-2 rounded-xl border border-cyan-500/25 bg-cyan-500/[0.06] px-6 py-3 text-sm font-semibold text-cyan-300 transition hover:border-cyan-400/40 hover:bg-cyan-500/[0.12] hover:text-cyan-200"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-              </svg>
-              Get it for Cowork
-            </a>
+          {/* Download the desktop app (Door 2) — runs locally in your browser, no Claude
+              Desktop/Cowork needed. Links go through /api/download so we track macOS vs
+              Windows demand (and 302 to the signed GitHub release). */}
+          <div className="mt-14 flex flex-col items-center gap-4">
+            <p className="text-sm text-gray-400">
+              Prefer an app? Download it and run locally — your books never leave your machine.
+            </p>
+            <div className="flex flex-col items-center gap-3 sm:flex-row">
+              <a
+                href="/api/download/macos"
+                className="flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[#0a0e1a] shadow-lg shadow-black/20 transition hover:bg-slate-200"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M16.365 1.43c0 1.14-.416 2.2-1.11 2.99-.84.95-2.2 1.68-3.32 1.6-.14-1.12.42-2.3 1.08-3.03.75-.83 2.05-1.46 3.35-1.56zM20.9 17.02c-.55 1.27-.81 1.83-1.52 2.95-.99 1.56-2.39 3.5-4.12 3.51-1.54.02-1.94-1-4.03-.99-2.09.01-2.53 1.01-4.07.99-1.73-.02-3.06-1.77-4.05-3.33-2.77-4.37-3.06-9.5-1.35-12.22 1.21-1.93 3.13-3.06 4.93-3.06 1.83 0 2.98 1.01 4.5 1.01 1.47 0 2.36-1.01 4.48-1.01 1.6 0 3.3.87 4.51 2.38-3.96 2.17-3.32 7.83.29 9.79z" />
+                </svg>
+                Download for macOS
+              </a>
+              <a
+                href="/api/download/windows"
+                className="flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[#0a0e1a] shadow-lg shadow-black/20 transition hover:bg-slate-200"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M3 5.1l7.5-1.02v7.23H3V5.1zm0 13.8l7.5 1.02v-7.14H3v6.12zM11.4 3.95L21 2.62v8.69h-9.6V3.95zm0 16.1L21 21.38v-8.61h-9.6v7.28z" />
+                </svg>
+                Download for Windows
+              </a>
+              <a
+                href="/downloads/accountingqb.plugin"
+                download
+                className="flex items-center gap-2 rounded-xl border border-cyan-500/25 bg-cyan-500/[0.06] px-6 py-3 text-sm font-semibold text-cyan-300 transition hover:border-cyan-400/40 hover:bg-cyan-500/[0.12] hover:text-cyan-200"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Get it for Cowork
+              </a>
+            </div>
           </div>
         </div>
       </section>

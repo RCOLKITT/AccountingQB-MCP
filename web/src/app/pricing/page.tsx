@@ -48,7 +48,8 @@ export default async function PricingPage() {
           <span className="font-serif font-medium italic text-cyan-300">one hour of bookkeeping.</span>
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-[16px] leading-relaxed text-gray-400">
-          Every plan includes all 131 tools and US &amp; Canadian tax prep. Start with a
+          Every plan includes all 131 tools and US &amp; Canadian tax prep, and works with
+          Claude, the downloadable desktop app, or our hosted connector. Start with a
           14-day free trial — no credit card required, cancel anytime.
         </p>
       </section>
