@@ -25,6 +25,7 @@ Env:  ACCOUNTINGQB_PORT, ACCOUNTINGQB_DATA_DIR, ACCOUNTINGQB_NO_OPEN,
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -74,6 +75,32 @@ CONFIG_FILE = DATA_DIR / "config.json"
 # Idempotency ledger for Coffer/Hearth-pushed expenses (key -> booking ref). A key
 # already here is never re-booked (the Coffer contract requires idempotent success).
 BOOKED_FILE = DATA_DIR / "coffer_booked.json"
+
+# Cross-app pairing (identity-verified). The integration bridge is INERT until a
+# pairing exists here — populated by the account-anchored link flow (same verified
+# Google/email owns both apps) and required on every integration /mcp call. This is
+# what prevents cross-user contamination: no pairing → no cross-app data, ever.
+PAIRING_FILE = DATA_DIR / "pairing.json"
+_IDENTITY_NS = "aqb-coffer-link:v1:"  # both products hash the account email with this prefix
+
+
+def identity_hash(email: str) -> str:
+    """Deterministic, cross-product identity from a verified account email."""
+    return hashlib.sha256((_IDENTITY_NS + (email or "").strip().lower()).encode()).hexdigest()
+
+
+def _load_pairing() -> dict:
+    try:
+        return json.loads(PAIRING_FILE.read_text())
+    except Exception:
+        return {}
+
+
+def _save_pairing(d: dict) -> dict:
+    tmp = PAIRING_FILE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(d, indent=2))
+    tmp.replace(PAIRING_FILE)
+    return d
 
 ALLOWED_HOSTS = {"127.0.0.1", "localhost"}
 ALLOWED_ORIGIN_HOSTS = {"127.0.0.1", "localhost", "tauri.localhost"}
@@ -278,6 +305,14 @@ async def _int_owner_paid_expense(args: dict) -> dict:
         return {"ok": False, "error": "missing key"}
     if not args.get("confirmed"):
         return {"ok": False, "error": "confirmation required (confirmed:true)"}
+    # Bind the write to the confirmed company: if Coffer names an expected realm and the
+    # active QB company doesn't match, refuse — a company switch can't misroute a booking.
+    expected_realm = str(args.get("expected_realm_id") or "").strip()
+    if expected_realm:
+        active_realm = str(getattr(get_ctx(), "realm_id", "") or "")
+        if active_realm and active_realm != expected_realm:
+            return {"ok": False, "error": "active QuickBooks company does not match expected_realm_id",
+                    "activeRealm": active_realm, "expectedRealm": expected_realm}
     booked = _load_booked()
     if key in booked:  # idempotent: already booked → succeed again, never duplicate
         return {"ok": True, "key": key, "alreadyBooked": True, "qb": booked[key]}
@@ -360,9 +395,21 @@ async def mcp_call(req: Request) -> JSONResponse:
     args = (body or {}).get("args") or {}
     if not name:
         return JSONResponse({"isError": True, "error": "missing 'tool'"}, status_code=400)
-    # Integration dialect: the three contract tools return structured JSON for Coffer.
+    # Integration dialect: the three contract tools return structured JSON for Coffer,
+    # but ONLY when an identity-verified pairing exists AND the caller presents its secret.
+    # No pairing / wrong secret → inert (this is the cross-user contamination guard).
     handler = INTEGRATION_HANDLERS.get(name)
     if handler is not None:
+        pairing = _load_pairing()
+        if not pairing.get("pairing_secret"):
+            return JSONResponse(
+                {"error": "AccountingQB isn't linked to a Coffer account yet — pair the two apps first.",
+                 "needs": "pairing"}, status_code=403)
+        presented = req.headers.get("x-aqb-pairing") or (args.get("pairing_secret") if isinstance(args, dict) else None)
+        if not presented or not secrets.compare_digest(str(presented), str(pairing["pairing_secret"])):
+            return JSONResponse({"error": "invalid or missing pairing secret"}, status_code=403)
+        if isinstance(args, dict):
+            args.pop("pairing_secret", None)  # don't pass the secret through to tools
         try:
             return JSONResponse(await handler(args))
         except Exception as e:
@@ -481,6 +528,48 @@ async def api_config(req: Request) -> JSONResponse:
     return JSONResponse({"ok": True, "hasAnthropicKey": bool(_anthropic_key())})
 
 
+async def whoami(_req: Request) -> JSONResponse:
+    """Peer-identity probe. Coffer calls this to confirm it's really talking to AccountingQB
+    and to read the active QB realm (to pass back as expected_realm_id). No secret exposed."""
+    p = _load_pairing()
+    ctx = get_ctx()
+    return JSONResponse({
+        "app": "accountingqb",
+        "version": _server_version(),
+        "paired": bool(p.get("pairing_secret")),
+        "peerProduct": p.get("peer_product"),
+        "realm": str(getattr(ctx, "realm_id", "") or ""),
+    })
+
+
+async def pair(req: Request) -> JSONResponse:
+    """Establish the cross-app pairing on this shim. The pairingSecret comes from the
+    identity-verified account link flow (same verified email owns both apps); the AccountingQB
+    desktop app fetches it for its account and posts it here. Localhost-only (same trust model
+    as the rest of the shim)."""
+    try:
+        body = await req.json()
+    except Exception:
+        body = {}
+    secret = body.get("pairingSecret") or body.get("pairing_secret")
+    if not secret:
+        return JSONResponse({"ok": False, "error": "pairingSecret required"}, status_code=400)
+    rec = {
+        "pairing_secret": str(secret),
+        "peer_product": body.get("peerProduct") or "coffer",
+        "peer_identity": body.get("peerIdentity") or "",
+        "aqb_identity": body.get("aqbIdentity") or "",
+        "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+    _save_pairing(rec)
+    return JSONResponse({"ok": True, "paired": True, "peerProduct": rec["peer_product"]})
+
+
+async def unpair(_req: Request) -> JSONResponse:
+    _save_pairing({})
+    return JSONResponse({"ok": True, "paired": False})
+
+
 def _redirect_uri(req: Request) -> str:
     # Loopback redirect back to THIS shim. Local (BYO Intuit app) users must register
     # this exact URI in their Intuit app; the hosted broker path avoids this entirely.
@@ -587,6 +676,9 @@ routes = [
     Route("/api/status", api_status),
     Route("/api/tools", api_tools),
     Route("/api/config", api_config, methods=["POST"]),
+    Route("/whoami", whoami),
+    Route("/pair", pair, methods=["POST"]),
+    Route("/unpair", unpair, methods=["POST"]),
     Route("/mcp", mcp_call, methods=["POST"]),
     Route("/sample", sample, methods=["POST"]),
     Route("/chat", chat, methods=["POST"]),
