@@ -163,6 +163,9 @@ _ESTIMATE_MD = (
 )
 
 
+_PAIR_HDR = {"X-AQB-Pairing": "testsecret"}
+
+
 def _fake_call_tool(canned):
     async def _call(name, args):
         val = canned.get(name)
@@ -170,27 +173,62 @@ def _fake_call_tool(canned):
     return _call
 
 
-def test_owner_draws_structured(client, monkeypatch):
+@pytest.fixture
+def paired(monkeypatch):
+    """Simulate an established, identity-verified pairing on the shim."""
+    monkeypatch.setattr(serve, "_load_pairing", lambda: {"pairing_secret": "testsecret", "peer_product": "coffer"})
+
+
+# --- pairing gate (cross-user contamination guard) ---
+
+def test_integration_inert_until_paired(client, monkeypatch):
+    monkeypatch.setattr(serve, "_load_pairing", lambda: {})
+    r = client.post("/mcp", json={"tool": "qb_owner_draws", "args": {"year": 2026}})
+    assert r.status_code == 403 and r.json().get("needs") == "pairing"
+
+
+def test_integration_rejects_wrong_secret(client, paired):
+    r = client.post("/mcp", json={"tool": "qb_owner_draws", "args": {"year": 2026}},
+                    headers={"X-AQB-Pairing": "wrong"})
+    assert r.status_code == 403
+
+
+def test_whoami(client):
+    d = client.get("/whoami").json()
+    assert d["app"] == "accountingqb" and "paired" in d
+
+
+def test_pair_and_unpair(client):
+    assert client.post("/pair", json={"pairingSecret": "s1", "peerProduct": "coffer"}).json()["paired"] is True
+    assert client.get("/whoami").json()["paired"] is True
+    assert client.post("/unpair", json={}).json()["paired"] is False
+
+
+# --- integration dialect (pairing-gated) ---
+
+def test_owner_draws_structured(client, paired, monkeypatch):
     monkeypatch.setattr(serve, "call_tool", _fake_call_tool({"qb_owner_draws": _OWNER_DRAWS_MD}))
-    d = client.post("/mcp", json={"tool": "qb_owner_draws", "args": {"year": 2026}}).json()
+    d = client.post("/mcp", json={"tool": "qb_owner_draws", "args": {"year": 2026}}, headers=_PAIR_HDR).json()
     assert d["net"] == -12345.0
     assert d["ytd"] == 12345.0  # money drawn out = household income
 
 
-def test_estimate_requires_filing_status(client):
-    d = client.post("/mcp", json={"tool": "qb_estimate_quarterly_tax", "args": {"tax_year": 2026}}).json()
+def test_estimate_requires_filing_status(client, paired):
+    d = client.post("/mcp", json={"tool": "qb_estimate_quarterly_tax", "args": {"tax_year": 2026}},
+                    headers=_PAIR_HDR).json()
     assert d.get("needs") == ["filing_status"]  # never guesses a status
 
 
-def test_estimate_structured(client, monkeypatch):
+def test_estimate_structured(client, paired, monkeypatch):
     monkeypatch.setattr(serve, "call_tool", _fake_call_tool({"qb_estimate_quarterly_tax": _ESTIMATE_MD}))
     d = client.post("/mcp", json={"tool": "qb_estimate_quarterly_tax",
-                                  "args": {"tax_year": 2026, "filing_status": "single"}}).json()
+                                  "args": {"tax_year": 2026, "filing_status": "single"}},
+                    headers=_PAIR_HDR).json()
     assert d["amount"] == 2500.0 and d["annual"] == 10000.0
     assert d["period"] == "Q3 2026" and d["due"] == "Sep 15"
 
 
-def test_owner_paid_expense_confirm_gate_and_idempotency(client, monkeypatch, tmp_path):
+def test_owner_paid_expense_confirm_gate_and_idempotency(client, paired, monkeypatch, tmp_path):
     monkeypatch.setattr(serve, "BOOKED_FILE", tmp_path / "booked.json")
     monkeypatch.setattr(serve, "call_tool", _fake_call_tool(
         {"qb_create_journal_entry": "Journal entry created!\nId: 42\n"}))
@@ -198,14 +236,27 @@ def test_owner_paid_expense_confirm_gate_and_idempotency(client, monkeypatch, tm
            "note": "printer", "receipt": {"orderId": "9483-2211"}}
 
     # No confirmation → refused, nothing booked.
-    r0 = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense", "args": txn}).json()
+    r0 = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense", "args": txn}, headers=_PAIR_HDR).json()
     assert r0["ok"] is False and "confirmation" in r0["error"]
 
     # Confirmed → booked as a journal entry to the review account.
-    r1 = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense", "args": {**txn, "confirmed": True}}).json()
+    r1 = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense", "args": {**txn, "confirmed": True}},
+                     headers=_PAIR_HDR).json()
     assert r1["ok"] is True and r1["booked"] is True and r1["amount"] == 184.32
     assert "review" in r1["treatment"].lower()
 
     # Same key again → idempotent success, NOT a duplicate booking.
-    r2 = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense", "args": {**txn, "confirmed": True}}).json()
+    r2 = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense", "args": {**txn, "confirmed": True}},
+                     headers=_PAIR_HDR).json()
     assert r2["ok"] is True and r2.get("alreadyBooked") is True
+
+
+def test_owner_paid_expense_expected_realm_guard(client, paired, monkeypatch, tmp_path):
+    import types
+    monkeypatch.setattr(serve, "BOOKED_FILE", tmp_path / "booked.json")
+    monkeypatch.setattr(serve, "get_ctx", lambda: types.SimpleNamespace(realm_id="R1"))
+    r = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense",
+                                  "args": {"key": "k1", "amount": -10, "date": "2026-01-01",
+                                           "confirmed": True, "expected_realm_id": "R2"}},
+                    headers=_PAIR_HDR).json()
+    assert r["ok"] is False and "expected_realm_id" in r["error"]
