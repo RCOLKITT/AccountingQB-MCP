@@ -43,7 +43,7 @@ jobs:
       - name: Build sidecar (PyInstaller)
         run: python3 scripts/build_sidecar.py
       - name: Generate app icons from the brand logo
-        run: npm ci && npm exec -- tauri icon ../web/public/logo-512.png
+        run: npm install && npm exec -- tauri icon app-icon.png
       - name: Build, sign & notarize (.dmg)
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -103,8 +103,8 @@ jobs:
           AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
           AZURE_CERT_PROFILE: ${{ secrets.AZURE_CERT_PROFILE }}
         run: |
-          npm ci
-          npm exec -- tauri icon ../web/public/logo-512.png
+          npm install
+          npm exec -- tauri icon app-icon.png
           npm exec -- tauri build --bundles nsis
       - name: Verify + publish
         env:

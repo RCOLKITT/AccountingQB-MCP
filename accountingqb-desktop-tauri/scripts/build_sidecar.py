@@ -37,7 +37,7 @@ def main() -> None:
     shutil.copy(TAURI / ".dist" / f"accountingqb-server{exe}", dst)
     if not exe:
         os.chmod(dst, 0o755)
-    print(f"sidecar → {dst}")
+    print(f"sidecar -> {dst}")  # ASCII arrow: Windows console is cp1252
 
 
 def _target_triple() -> str:
