@@ -385,6 +385,8 @@ CREATE TABLE IF NOT EXISTS email_unsubscribes (
   source          TEXT,                                -- 'link' | 'admin' | 'bounce'
   unsubscribed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Deny-by-default (service-role only), like every other table.
+ALTER TABLE email_unsubscribes ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
 -- Email Schedules: queue for scheduled/automated emails
