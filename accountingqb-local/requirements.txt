@@ -1,6 +1,6 @@
-# The shim reuses the connector's dependencies (see mcpb/requirements.txt) plus a
-# tiny web layer. Install the connector deps first, then:
-#   pip install -r mcpb/requirements.txt -r accountingqb-local/requirements.txt
+# The shim reuses the connector's dependencies (root requirements.txt) plus a tiny
+# web layer. Install both:
+#   pip install -r requirements.txt -r accountingqb-local/requirements.txt
 starlette>=0.37
 uvicorn>=0.30
 httpx>=0.27

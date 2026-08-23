@@ -19,8 +19,8 @@ def main() -> None:
     # Install the connector deps + web layer + PyInstaller into the current interpreter.
     subprocess.check_call(
         [sys.executable, "-m", "pip", "install", "-q",
-         "-r", str(REPO / "mcpb" / "requirements.txt"),
-         "-r", str(REPO / "accountingqb-local" / "requirements.txt"),
+         "-r", str(REPO / "requirements.txt"),                       # connector runtime deps
+         "-r", str(REPO / "accountingqb-local" / "requirements.txt"),  # shim web layer
          "pyinstaller"]
     )
     subprocess.check_call(

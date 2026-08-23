@@ -27,7 +27,7 @@ hiddenimports = (
     collect_submodules("accountingqb")
     + collect_submodules("uvicorn")
     + collect_submodules("mcp")
-    + ["httpx", "starlette", "cryptography", "jwt"]
+    + ["httpx", "starlette", "cryptography"]
 )
 
 a = Analysis(
