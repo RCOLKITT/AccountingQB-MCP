@@ -103,6 +103,10 @@ jobs:
           AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
           AZURE_CERT_PROFILE: ${{ secrets.AZURE_CERT_PROFILE }}
         run: |
+          # Tauri's signCommand doesn't expand %VAR%; substitute the real Azure values
+          # into the config at build time (kept out of the repo — injected from secrets).
+          $conf = "src-tauri/tauri.conf.json"
+          (Get-Content $conf -Raw).Replace('%AZURE_SIGNING_ENDPOINT%',$env:AZURE_SIGNING_ENDPOINT).Replace('%AZURE_SIGNING_ACCOUNT%',$env:AZURE_SIGNING_ACCOUNT).Replace('%AZURE_CERT_PROFILE%',$env:AZURE_CERT_PROFILE) | Set-Content $conf
           npm install
           npm exec -- tauri icon app-icon.png
           npm exec -- tauri build --bundles nsis
