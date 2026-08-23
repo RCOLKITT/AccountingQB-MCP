@@ -6,14 +6,17 @@ name: Release desktop app (signed)
 #   macOS:   APPLE_CERTIFICATE_B64, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
 #            APPLE_ID, APPLE_APP_PASSWORD, APPLE_TEAM_ID
 #   Windows: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET  (Trusted Signing)
-#   Publish: RELEASES_TOKEN  (PAT scoped to the releases repo)
+#   Publish: uses the built-in GITHUB_TOKEN (permissions: contents: write) — no PAT
 on:
   push:
     tags: ['desktop-v*']
   workflow_dispatch: {}
 
+permissions:
+  contents: write   # lets the built-in GITHUB_TOKEN publish releases on this repo
+
 env:
-  RELEASES_REPO: RCOLKITT/accountingqb-releases   # create this repo (or change it)
+  RELEASES_REPO: RCOLKITT/AccountingQB-MCP   # publish to this repo's Releases (public)
 
 jobs:
   macos-arm64:
@@ -62,7 +65,7 @@ jobs:
           echo "DMG=$DMG" >> "$GITHUB_ENV"
       - name: Publish
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${GITHUB_REF_NAME:-manual-$(date +%Y%m%d%H%M)}"
           gh release create "$TAG" "$DMG" AccountingQB-macOS-AppleSilicon.dmg --repo "$RELEASES_REPO" \
@@ -115,7 +118,7 @@ jobs:
           npm exec -- tauri build --bundles nsis
       - name: Verify + publish
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $exe = Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
           $sig = Get-AuthenticodeSignature $exe.FullName
