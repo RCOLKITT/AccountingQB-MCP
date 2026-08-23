@@ -145,3 +145,67 @@ def test_chat_agentic_loop_runs_a_real_tool(client, monkeypatch):
     body = r.json()
     assert body["reply"] == "Here's what I found."
     assert any(t["tool"] == "qb_tax_data_info" for t in body["trace"])  # tool really ran
+
+
+# --- Coffer/Hearth integration dialect (/mcp structured JSON) --------------------
+
+_OWNER_DRAWS_MD = (
+    "## Owner's Draws & Contributions\n"
+    "Owner Draw: ($12,345.00)\n"
+    "**Net owner activity: ($12,345.00)** (net draw)\n"
+)
+_ESTIMATE_MD = (
+    "## Estimated Quarterly Tax — 2026\n"
+    "**Total estimated annual tax: $10,000.00**\n"
+    "**Each quarterly payment: $2,500.00**\n"
+    "### Quarterly Due Dates:\n"
+    "  Q3: Sep 15 — $2,500.00 (⏳ Current)\n"
+)
+
+
+def _fake_call_tool(canned):
+    async def _call(name, args):
+        val = canned.get(name)
+        return val(args) if callable(val) else val
+    return _call
+
+
+def test_owner_draws_structured(client, monkeypatch):
+    monkeypatch.setattr(serve, "call_tool", _fake_call_tool({"qb_owner_draws": _OWNER_DRAWS_MD}))
+    d = client.post("/mcp", json={"tool": "qb_owner_draws", "args": {"year": 2026}}).json()
+    assert d["net"] == -12345.0
+    assert d["ytd"] == 12345.0  # money drawn out = household income
+
+
+def test_estimate_requires_filing_status(client):
+    d = client.post("/mcp", json={"tool": "qb_estimate_quarterly_tax", "args": {"tax_year": 2026}}).json()
+    assert d.get("needs") == ["filing_status"]  # never guesses a status
+
+
+def test_estimate_structured(client, monkeypatch):
+    monkeypatch.setattr(serve, "call_tool", _fake_call_tool({"qb_estimate_quarterly_tax": _ESTIMATE_MD}))
+    d = client.post("/mcp", json={"tool": "qb_estimate_quarterly_tax",
+                                  "args": {"tax_year": 2026, "filing_status": "single"}}).json()
+    assert d["amount"] == 2500.0 and d["annual"] == 10000.0
+    assert d["period"] == "Q3 2026" and d["due"] == "Sep 15"
+
+
+def test_owner_paid_expense_confirm_gate_and_idempotency(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(serve, "BOOKED_FILE", tmp_path / "booked.json")
+    monkeypatch.setattr(serve, "call_tool", _fake_call_tool(
+        {"qb_create_journal_entry": "Journal entry created!\nId: 42\n"}))
+    txn = {"key": "id:999", "date": "2026-08-14", "amount": -184.32, "merchant": "Staples",
+           "note": "printer", "receipt": {"orderId": "9483-2211"}}
+
+    # No confirmation → refused, nothing booked.
+    r0 = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense", "args": txn}).json()
+    assert r0["ok"] is False and "confirmation" in r0["error"]
+
+    # Confirmed → booked as a journal entry to the review account.
+    r1 = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense", "args": {**txn, "confirmed": True}}).json()
+    assert r1["ok"] is True and r1["booked"] is True and r1["amount"] == 184.32
+    assert "review" in r1["treatment"].lower()
+
+    # Same key again → idempotent success, NOT a duplicate booking.
+    r2 = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense", "args": {**txn, "confirmed": True}}).json()
+    assert r2["ok"] is True and r2.get("alreadyBooked") is True

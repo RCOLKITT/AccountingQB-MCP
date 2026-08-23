@@ -16,14 +16,14 @@ use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 struct Sidecar(Mutex<Option<Child>>);
 
 fn free_port() -> u16 {
-    for p in [8788u16, 8789, 8790] {
+    for p in [4318u16, 4319, 4320] {  // 4318 = the port the Coffer/Hearth contract expects
         if TcpListener::bind(("127.0.0.1", p)).is_ok() {
             return p;
         }
     }
     TcpListener::bind(("127.0.0.1", 0))
         .map(|l| l.local_addr().unwrap().port())
-        .unwrap_or(8788)
+        .unwrap_or(4318)
 }
 
 fn sidecar_path() -> std::path::PathBuf {

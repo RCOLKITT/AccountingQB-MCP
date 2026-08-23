@@ -17,15 +17,17 @@ Ported from the sibling repo Hearth's `hearth-local/serve.js`; Python here becau
 connector is Python/FastMCP. This is Phase 2a — the shim + wiring. The tabbed
 Chat+Dashboard UI (2b) and the signed Tauri build (2c) build on top of it.
 
-Run:  python accountingqb-local/serve.py         (opens http://127.0.0.1:8788)
+Run:  python accountingqb-local/serve.py         (opens http://127.0.0.1:4318)
 Env:  ACCOUNTINGQB_PORT, ACCOUNTINGQB_DATA_DIR, ACCOUNTINGQB_NO_OPEN,
       ANTHROPIC_API_KEY, ANTHROPIC_MODEL, plus the connector's QB_* vars.
 """
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
+import re
 import secrets
 import socket
 import subprocess
@@ -69,6 +71,9 @@ from accountingqb.context import get_ctx  # noqa: E402
 DATA_DIR = Path(os.environ.get("ACCOUNTINGQB_DATA_DIR", Path.home() / ".accountingqb"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_FILE = DATA_DIR / "config.json"
+# Idempotency ledger for Coffer/Hearth-pushed expenses (key -> booking ref). A key
+# already here is never re-booked (the Coffer contract requires idempotent success).
+BOOKED_FILE = DATA_DIR / "coffer_booked.json"
 
 ALLOWED_HOSTS = {"127.0.0.1", "localhost"}
 ALLOWED_ORIGIN_HOSTS = {"127.0.0.1", "localhost", "tauri.localhost"}
@@ -175,6 +180,149 @@ async def call_tool(name: str, args: dict) -> object:
 
 
 # ---------------------------------------------------------------------------
+# Coffer/Hearth integration layer (the /mcp "integration dialect")
+# ---------------------------------------------------------------------------
+# For the contract's three tool names, /mcp returns STRUCTURED JSON (not the raw
+# markdown the connector tools return), by reusing the connector's own vetted logic:
+#   - qb_owner_draws            → {ytd, net, ...}  (reuse the audited markdown, parse the net)
+#   - qb_estimate_quarterly_tax → {amount, due, period}  (reuse the vetted tax math; require
+#                                  filing_status — NEVER guess a status → a wrong number)
+#   - qb_record_owner_paid_expense → idempotent journal entry: DR review account / CR owner
+#                                  equity (owner paid personally); confirm-gated.
+# Reads are fail-closed: if the number can't be read unambiguously we return {error} and Coffer
+# shows nothing — never a wrong figure (Constitution: always accurate).
+
+def _load_booked() -> dict:
+    try:
+        return json.loads(BOOKED_FILE.read_text())
+    except Exception:
+        return {}
+
+
+def _record_booked(key: str, ref: dict) -> None:
+    b = _load_booked()
+    b[key] = ref
+    tmp = BOOKED_FILE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(b, indent=2))
+    tmp.replace(BOOKED_FILE)
+
+
+def _parse_money(s: str):
+    """Parse a fmt()/fmt_signed() amount from a line. Parens → negative. None if absent."""
+    m = re.search(r"(\()?\$([\d,]+\.\d{2})(\))?", s)
+    if not m:
+        return None
+    val = float(m.group(2).replace(",", ""))
+    return -val if m.group(1) else val
+
+
+async def _int_owner_draws(args: dict) -> dict:
+    year = int(args.get("year") or datetime.date.today().year)
+    md = str(await call_tool("qb_owner_draws", {"year": year}))
+    net = None
+    for line in md.splitlines():
+        if "Net owner activity:" in line:
+            net = _parse_money(line)
+            break
+    if net is None:
+        if "No equity activity" in md:
+            net = 0.0
+        else:
+            return {"error": "could not read owner draws", "summary": md}
+    ytd = round(-net, 2) if net < 0 else 0.0  # money drawn OUT of the business = household income
+    return {
+        "year": year,
+        "net": net,
+        "ytd": ytd,
+        "label": "net owner draws YTD (money taken out of the business)",
+        "currency": "USD",
+        "provenance": "qb_owner_draws",
+        "summary": md,
+    }
+
+
+async def _int_estimate(args: dict) -> dict:
+    fs = (args.get("filing_status") or "").strip()
+    if not fs:
+        # Never guess filing status — it materially changes the number.
+        return {"error": "filing_status required", "needs": ["filing_status"]}
+    ty = str(args.get("tax_year") or datetime.date.today().year)
+    state = args.get("state") or ""
+    md = str(await call_tool("qb_estimate_quarterly_tax", {"tax_year": ty, "filing_status": fs, "state": state}))
+    if "no estimated payments are due" in md:  # net loss
+        return {"amount": 0.0, "period": None, "due": None, "annual": 0.0,
+                "note": "net loss — no estimated payments due", "provenance": "qb_estimate_quarterly_tax"}
+    amount = annual = None
+    for line in md.splitlines():
+        if "Each quarterly payment:" in line and amount is None:
+            amount = _parse_money(line)
+        if "Total estimated annual tax:" in line and annual is None:
+            annual = _parse_money(line)
+    period = due = None
+    for line in md.splitlines():
+        st = line.strip()
+        if st.startswith("Q") and "—" in st and ("Current" in st or "Upcoming" in st):
+            m = re.match(r"Q(\d):\s*(.+?)\s*—", st)
+            if m:
+                period, due = f"Q{m.group(1)} {ty}", m.group(2).strip()
+                break
+    if amount is None or period is None:
+        return {"error": "could not read estimate", "summary": md}
+    return {"amount": amount, "due": due, "period": period, "annual": annual,
+            "filing_status": fs, "state": state or "(auto)", "provenance": "qb_estimate_quarterly_tax"}
+
+
+async def _int_owner_paid_expense(args: dict) -> dict:
+    key = str(args.get("key") or "").strip()
+    if not key:
+        return {"ok": False, "error": "missing key"}
+    if not args.get("confirmed"):
+        return {"ok": False, "error": "confirmation required (confirmed:true)"}
+    booked = _load_booked()
+    if key in booked:  # idempotent: already booked → succeed again, never duplicate
+        return {"ok": True, "key": key, "alreadyBooked": True, "qb": booked[key]}
+    try:
+        amt = round(abs(float(args.get("amount", 0))), 2)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "invalid amount"}
+    if amt <= 0:
+        return {"ok": False, "error": "amount must be non-zero"}
+    date = str(args.get("date") or "")
+    cfg = load_config()
+    expense_acct = args.get("expense_account") or cfg.get("owner_paid_expense_account") or "Owner-Paid Expenses (review)"
+    equity_acct = args.get("equity_account") or cfg.get("owner_equity_account") or "Owner's Equity"
+    merchant = args.get("realMerchant") or args.get("merchant") or "Owner-paid"
+    receipt = args.get("receipt") or {}
+    memo = f"coffer:{key} | {merchant}"
+    if args.get("note"):
+        memo += f" | {args['note']}"
+    if isinstance(receipt, dict) and receipt.get("orderId"):
+        memo += f" | receipt {receipt['orderId']}"
+    if args.get("category"):
+        memo += f" | coffer-cat: {args['category']}"
+    lines = [
+        {"account_name": expense_acct, "amount": amt, "type": "Debit", "description": memo},
+        {"account_name": equity_acct, "amount": amt, "type": "Credit", "description": memo},
+    ]
+    result = str(await call_tool("qb_create_journal_entry", {"date": date, "lines_json": json.dumps(lines), "memo": memo}))
+    if "Journal entry created" in result:
+        ref = {"account": expense_acct, "equity": equity_acct, "amount": amt, "date": date}
+        _record_booked(key, ref)
+        return {"ok": True, "key": key, "booked": True, "amount": amt,
+                "treatment": f"DR {expense_acct} / CR {equity_acct}",
+                "message": "Booked as an owner-paid business expense (review account); credited owner's equity."}
+    return {"ok": False, "key": key, "error": result,
+            "needs": f"QuickBooks accounts '{expense_acct}' (Expense) and '{equity_acct}' (Equity) must exist."}
+
+
+INTEGRATION_HANDLERS = {
+    "qb_owner_draws": _int_owner_draws,
+    "qb_estimate_quarterly_tax": _int_estimate,
+    "qb_record_owner_paid_expense": _int_owner_paid_expense,
+}
+
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 async def healthz(_req: Request) -> PlainTextResponse:
@@ -212,6 +360,13 @@ async def mcp_call(req: Request) -> JSONResponse:
     args = (body or {}).get("args") or {}
     if not name:
         return JSONResponse({"isError": True, "error": "missing 'tool'"}, status_code=400)
+    # Integration dialect: the three contract tools return structured JSON for Coffer.
+    handler = INTEGRATION_HANDLERS.get(name)
+    if handler is not None:
+        try:
+            return JSONResponse(await handler(args))
+        except Exception as e:
+            return JSONResponse({"error": f"{type(e).__name__}: {e}"})
     try:
         result = await call_tool(name, args)
         return JSONResponse({"ok": True, "result": result})
@@ -450,7 +605,7 @@ def pick_port() -> int:
     env = os.environ.get("ACCOUNTINGQB_PORT") or os.environ.get("PORT")
     if env:
         return int(env)
-    for p in (8788, 8789, 8790):
+    for p in (4318, 4319, 4320):  # 4318 = the port Coffer/Hearth's contract expects (Hearth is 4317)
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             if s.connect_ex(("127.0.0.1", p)) != 0:
                 return p
