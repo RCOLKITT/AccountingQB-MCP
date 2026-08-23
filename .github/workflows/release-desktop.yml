@@ -53,7 +53,10 @@ jobs:
         run: |
           npm exec -- tauri build --bundles dmg
           DMG=$(ls src-tauri/target/release/bundle/dmg/*.dmg | head -1)
-          xcrun stapler staple "$DMG" || true
+          # Tauri notarizes the .app but not the DMG, so the DMG has no ticket to staple.
+          # Notarize the DMG itself, then staple + validate (offline first-launch works).
+          xcrun notarytool submit "$DMG" --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple "$DMG"
           xcrun stapler validate "$DMG"
           cp "$DMG" AccountingQB-macOS-AppleSilicon.dmg
           echo "DMG=$DMG" >> "$GITHUB_ENV"
