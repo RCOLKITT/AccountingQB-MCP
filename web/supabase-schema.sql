@@ -581,3 +581,22 @@ CREATE TABLE IF NOT EXISTS mrr_snapshots (
 );
 CREATE INDEX IF NOT EXISTS idx_mrr_snapshots_month ON mrr_snapshots(month);
 ALTER TABLE mrr_snapshots ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================================
+-- Desktop app downloads — macOS vs Windows download tracking
+-- (see migrations/2026-08-app-downloads.sql)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS app_downloads (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  platform        TEXT NOT NULL CHECK (platform IN ('macos', 'windows')),
+  version         TEXT,
+  license_key     TEXT REFERENCES licenses(key) ON DELETE SET NULL,
+  ip_hash         TEXT,
+  user_agent_hash TEXT,
+  referrer        TEXT,
+  downloaded_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_app_downloads_platform      ON app_downloads (platform);
+CREATE INDEX IF NOT EXISTS idx_app_downloads_downloaded_at ON app_downloads (downloaded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_app_downloads_platform_time ON app_downloads (platform, downloaded_at DESC);
+ALTER TABLE app_downloads ENABLE ROW LEVEL SECURITY;

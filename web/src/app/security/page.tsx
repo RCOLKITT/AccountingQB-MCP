@@ -68,9 +68,10 @@ export default function SecurityPage() {
         </h2>
         <div className="mt-6 grid gap-5 sm:grid-cols-2">
           <Card title="Local — zero-knowledge">
-            The MCP server runs entirely on your own machine (Claude Desktop
-            extension or <code className="text-gray-300">uvx accountingqb</code>)
-            and talks directly to QuickBooks Online using your own OAuth token.
+            The MCP server runs entirely on your own machine (the downloadable
+            desktop app, the Claude Desktop extension, or{" "}
+            <code className="text-gray-300">uvx accountingqb</code>) and talks
+            directly to QuickBooks Online using your own OAuth token.
             Your financial data flows between your computer and QuickBooks and{" "}
             <strong className="text-gray-200">never passes through our servers</strong>
             . Your QuickBooks refresh token is encrypted at rest on your machine

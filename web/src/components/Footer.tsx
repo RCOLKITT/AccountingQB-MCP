@@ -53,6 +53,8 @@ export default function Footer() {
               <li><a href="/#faq" className="transition hover:text-white">FAQ</a></li>
               <li><a href="/changelog" className="transition hover:text-white">What&rsquo;s new</a></li>
               <li><a href="/canada" className="transition hover:text-white">For Canadian businesses</a></li>
+              <li><a href="/api/download/macos" className="transition hover:text-white">Download for macOS</a></li>
+              <li><a href="/api/download/windows" className="transition hover:text-white">Download for Windows</a></li>
               <li><a href="/downloads/accountingqb.plugin" download className="transition hover:text-white">Download for Cowork</a></li>
             </ul>
           </div>

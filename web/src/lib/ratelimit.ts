@@ -80,6 +80,17 @@ export function getOAuth2RegisterLimiter(): Ratelimit {
   });
 }
 
+// Rate limiter for desktop-app download redirects: 60/min per IP (generous —
+// legitimate re-downloads/retries happen; just blocks abusive hammering).
+export function getDownloadLimiter(): Ratelimit {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(60, "1 m"),
+    prefix: "ratelimit:download",
+    analytics: true,
+  });
+}
+
 // Rate limiter for the OAuth2 token endpoint: 20 requests per minute per IP
 export function getOAuth2TokenLimiter(): Ratelimit {
   return new Ratelimit({
