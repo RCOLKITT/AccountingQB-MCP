@@ -19,16 +19,16 @@ Create a public repo **`accountingqb-releases`** (or edit `RELEASES_REPO` in
 | `APPLE_APP_PASSWORD` | an app-specific password (appleid.apple.com → Sign-In & Security) |
 | `APPLE_TEAM_ID` | your 10-char Team ID |
 
-**Windows (Azure Trusted Signing — you already registered Azure):**
-| Secret | What |
-|--------|------|
-| `AZURE_TENANT_ID` / `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` | a service principal with the "Trusted Signing Certificate Profile Signer" role |
+**Windows (Azure Trusted Signing — reuse Hearth 1:1):** the workflow reads all Azure values
+from secrets (nothing hardcoded), using the **same secret names Hearth already has**. Copy these
+six from the Hearth repo into this repo — same values:
+`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_SIGNING_ENDPOINT`,
+`AZURE_SIGNING_ACCOUNT`, `AZURE_CERT_PROFILE`. (The Trusted Signing cert validates your org —
+Vaspera Capital — so the same profile signs AccountingQB; end users see the Vaspera publisher,
+not the profile name.)
 
-Then set your account/cert names in **two places** (currently placeholders `AccountingQB` /
-`AccountingQBPublic`): `src-tauri/tauri.conf.json` → `bundle.windows.signCommand`, and the
-"Sign the sidecar" step in `release-desktop.yml`.
-
-**Publish:** `RELEASES_TOKEN` — a PAT with `contents:write` on `accountingqb-releases`.
+**Publish:** `RELEASES_TOKEN` — a PAT with `contents:write` on `accountingqb-releases` (you can
+reuse Hearth's if it's scoped to your account's repos, or mint a new one).
 
 ## 3. Release
 ```bash

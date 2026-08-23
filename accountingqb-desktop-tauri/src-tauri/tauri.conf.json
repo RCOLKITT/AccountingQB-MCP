@@ -27,7 +27,7 @@
       "hardenedRuntime": true
     },
     "windows": {
-      "signCommand": "trusted-signing-cli -e https://eus.codesigning.azure.net -a AccountingQB -c AccountingQBPublic %1"
+      "signCommand": "trusted-signing-cli -e %AZURE_SIGNING_ENDPOINT% -a %AZURE_SIGNING_ACCOUNT% -c %AZURE_CERT_PROFILE% %1"
     }
   }
 }

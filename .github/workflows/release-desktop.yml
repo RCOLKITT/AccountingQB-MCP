@@ -1,0 +1,119 @@
+name: Release desktop app (signed)
+
+# Push a tag like `desktop-v0.1.0` → signed macOS .dmg + signed Windows installer,
+# published to the releases repo. Ported from Hearth; sidecar is PyInstaller (Python),
+# not Node SEA. Required secrets (see accountingqb-desktop-tauri/SIGNING.md):
+#   macOS:   APPLE_CERTIFICATE_B64, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
+#            APPLE_ID, APPLE_APP_PASSWORD, APPLE_TEAM_ID
+#   Windows: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET  (Trusted Signing)
+#   Publish: RELEASES_TOKEN  (PAT scoped to the releases repo)
+on:
+  push:
+    tags: ['desktop-v*']
+  workflow_dispatch: {}
+
+env:
+  RELEASES_REPO: RCOLKITT/accountingqb-releases   # create this repo (or change it)
+
+jobs:
+  macos-arm64:
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: accountingqb-desktop-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install signing certificate
+        env:
+          CERT_B64: ${{ secrets.APPLE_CERTIFICATE_B64 }}
+          CERT_PW: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KC=$RUNNER_TEMP/build.keychain
+          security create-keychain -p ci "$KC"
+          security default-keychain -s "$KC"
+          security unlock-keychain -p ci "$KC"
+          echo "$CERT_B64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$CERT_PW" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci "$KC"
+      - name: Build sidecar (PyInstaller)
+        run: python3 scripts/build_sidecar.py
+      - name: Generate app icons from the brand logo
+        run: npm ci && npm exec -- tauri icon ../web/public/logo-512.png
+      - name: Build, sign & notarize (.dmg)
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          npm exec -- tauri build --bundles dmg
+          DMG=$(ls src-tauri/target/release/bundle/dmg/*.dmg | head -1)
+          xcrun stapler staple "$DMG" || true
+          xcrun stapler validate "$DMG"
+          cp "$DMG" AccountingQB-macOS-AppleSilicon.dmg
+          echo "DMG=$DMG" >> "$GITHUB_ENV"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME:-manual-$(date +%Y%m%d%H%M)}"
+          gh release create "$TAG" "$DMG" AccountingQB-macOS-AppleSilicon.dmg --repo "$RELEASES_REPO" \
+            --title "AccountingQB ${TAG#desktop-v}" \
+            --notes "Signed & notarized macOS build (Apple Silicon). Download, open, drag to Applications." \
+            || gh release upload "$TAG" "$DMG" AccountingQB-macOS-AppleSilicon.dmg --repo "$RELEASES_REPO" --clobber
+
+  windows-x64:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: accountingqb-desktop-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build sidecar (PyInstaller)
+        run: python3 scripts/build_sidecar.py
+      - name: Install trusted-signing-cli
+        run: cargo install trusted-signing-cli --locked
+      - name: Sign the sidecar
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          AZURE_CERT_PROFILE: ${{ secrets.AZURE_CERT_PROFILE }}
+        run: |
+          $bin = Get-ChildItem src-tauri/binaries/accountingqb-server-*.exe | Select-Object -First 1
+          trusted-signing-cli -e $env:AZURE_SIGNING_ENDPOINT -a $env:AZURE_SIGNING_ACCOUNT -c $env:AZURE_CERT_PROFILE $bin.FullName
+      - name: Generate icons + build & sign installer
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          AZURE_CERT_PROFILE: ${{ secrets.AZURE_CERT_PROFILE }}
+        run: |
+          npm ci
+          npm exec -- tauri icon ../web/public/logo-512.png
+          npm exec -- tauri build --bundles nsis
+      - name: Verify + publish
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          $exe = Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
+          $sig = Get-AuthenticodeSignature $exe.FullName
+          if ($sig.Status -ne 'Valid') { "signature: $($sig.Status)"; exit 1 }
+          Copy-Item $exe.FullName AccountingQB-Windows-Setup.exe
+          $TAG = if ($env:GITHUB_REF_NAME -match '^desktop-v') { $env:GITHUB_REF_NAME } else { "manual-win-$(Get-Date -Format yyyyMMddHHmm)" }
+          gh release create $TAG $exe.FullName AccountingQB-Windows-Setup.exe --repo $env:RELEASES_REPO --title "AccountingQB $($TAG -replace '^desktop-v','')" --notes "Signed Windows build (x64). Download and run the installer."
+          if ($LASTEXITCODE -ne 0) { gh release upload $TAG $exe.FullName AccountingQB-Windows-Setup.exe --repo $env:RELEASES_REPO --clobber }
