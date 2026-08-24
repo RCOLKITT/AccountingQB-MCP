@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AccountingQB — trust & credibility direction (preview)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<!-- Hanken Grotesk: clean, credible, distinctive-enough (not Inter). Fraunces for a touch of institutional gravitas on key trust headlines. -->
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: { 950: '#080b14', 900: '#0a0e1a', 850: '#0b1020', 800: '#0c1120', 700: '#0d1424' },
+          brand: { 300: '#67e8f9', 400: '#22d3ee', 500: '#06b6d4', 600: '#0891b2' },
+        },
+        fontFamily: {
+          sans: ['"Hanken Grotesk"', 'system-ui', 'sans-serif'],
+          serif: ['Fraunces', 'Georgia', 'serif'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  body { background: #0a0e1a; }
+  .rule { border-color: rgba(255,255,255,0.07); }
+  .card { background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01)); border: 1px solid rgba(255,255,255,0.08); }
+  .hair { background: rgba(255,255,255,0.06); }
+  .brandgrad { background: linear-gradient(180deg, rgba(34,211,238,0.10), rgba(8,145,178,0.02)); }
+  .mono { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="font-sans text-slate-300 antialiased">
+
+<!-- PREVIEW NOTE -->
+<div class="bg-brand-500/10 text-center text-[12px] text-brand-300 py-1.5 border-b border-brand-500/15">
+  Design preview · “large company + trust” direction · not the live site
+</div>
+
+<!-- NAV -->
+<header class="sticky top-0 z-40 border-b rule bg-ink-900/80 backdrop-blur">
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+    <a href="#" class="flex items-center gap-2.5">
+      <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500/12 ring-1 ring-brand-500/25">
+        <span class="h-3.5 w-3.5 rounded-full ring-[3px] ring-brand-400"></span>
+      </span>
+      <span class="text-[17px] font-bold tracking-tight"><span class="text-brand-400">Accounting</span><span class="text-blue-400">QB</span></span>
+    </a>
+    <nav class="hidden items-center gap-7 text-[14px] text-slate-400 md:flex">
+      <a href="#" class="hover:text-white transition">Product</a>
+      <a href="#provenance" class="hover:text-white transition">Tax accuracy</a>
+      <a href="#security" class="hover:text-white transition">Security &amp; Trust</a>
+      <a href="#" class="hover:text-white transition">Pricing</a>
+      <a href="#" class="hover:text-white transition">Docs</a>
+    </nav>
+    <div class="flex items-center gap-3 text-[14px]">
+      <a href="#" class="hidden text-slate-400 hover:text-white transition sm:block">Sign in</a>
+      <a href="#" class="rounded-lg bg-white px-4 py-2 font-semibold text-ink-900 hover:bg-slate-200 transition">Start free trial</a>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="relative overflow-hidden">
+  <div class="pointer-events-none absolute inset-x-0 top-0 h-[520px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(34,211,238,0.10),transparent_70%)]"></div>
+  <div class="relative mx-auto max-w-6xl px-6 pt-20 pb-14 text-center sm:pt-28">
+    <div class="mb-7 inline-flex items-center gap-2 rounded-full border rule bg-white/[0.03] px-3.5 py-1.5 text-[12.5px] text-slate-300">
+      <span class="h-1.5 w-1.5 rounded-full bg-brand-400"></span>
+      Works with QuickBooks Online · Claude Desktop, web &amp; Cowork
+    </div>
+
+    <!-- Calmer, confident headline — no shimmer, tight tracking, institutional serif accent -->
+    <h1 class="mx-auto max-w-4xl text-[42px] font-bold leading-[1.05] tracking-tight text-white sm:text-6xl">
+      The accounting layer for
+      <span class="font-serif font-medium italic text-brand-300">AI you can trust</span>
+      with the books.
+    </h1>
+    <p class="mx-auto mt-6 max-w-2xl text-[17px] leading-relaxed text-slate-400">
+      131 tools that connect Claude to QuickBooks Online — reports, reconciliation, tax prep, and anomaly detection through plain conversation. Runs locally by default; the hosted connector keeps <span class="text-slate-200">zero retention</span>. We never store your books.
+    </p>
+
+    <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+      <a href="#" class="rounded-xl bg-white px-6 py-3 text-[14px] font-semibold text-ink-900 shadow-lg shadow-black/30 hover:bg-slate-200 transition">Start free trial</a>
+      <a href="#" class="rounded-xl border rule bg-white/[0.03] px-6 py-3 text-[14px] font-semibold text-slate-200 hover:bg-white/[0.06] transition">See a 2-min demo</a>
+    </div>
+    <p class="mt-4 text-[12.5px] text-slate-500">14-day trial · No credit card · Cancel anytime</p>
+
+    <!-- TRUST STRIP (above the fold) -->
+    <div class="mx-auto mt-14 max-w-4xl">
+      <div class="grid grid-cols-2 gap-px overflow-hidden rounded-xl border rule sm:grid-cols-4">
+        <div class="bg-ink-800 px-4 py-4">
+          <div class="text-[12px] uppercase tracking-wide text-slate-500">Encryption</div>
+          <div class="mt-1 text-[14px] font-semibold text-white">AES-256-GCM</div>
+        </div>
+        <div class="bg-ink-800 px-4 py-4">
+          <div class="text-[12px] uppercase tracking-wide text-slate-500">Hosted data</div>
+          <div class="mt-1 text-[14px] font-semibold text-white">Zero retention</div>
+        </div>
+        <div class="bg-ink-800 px-4 py-4">
+          <div class="text-[12px] uppercase tracking-wide text-slate-500">Access</div>
+          <div class="mt-1 text-[14px] font-semibold text-white">OAuth 2.0</div>
+        </div>
+        <div class="bg-ink-800 px-4 py-4">
+          <div class="text-[12px] uppercase tracking-wide text-slate-500">Local mode</div>
+          <div class="mt-1 text-[14px] font-semibold text-white">Zero-knowledge</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Product proof: a calm, real conversation card -->
+    <div class="mx-auto mt-12 max-w-3xl text-left">
+      <div class="card rounded-2xl p-1.5 shadow-2xl shadow-black/40">
+        <div class="rounded-xl bg-ink-700 p-5">
+          <div class="mb-4 flex items-center gap-2 text-[11px] text-slate-500">
+            <span class="h-2.5 w-2.5 rounded-full bg-white/15"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-white/15"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-white/15"></span>
+            <span class="ml-2">Claude Desktop</span>
+          </div>
+          <div class="flex justify-end">
+            <div class="max-w-sm rounded-2xl rounded-br-md bg-blue-600/90 px-4 py-2.5 text-[13px] text-white">What's my burn rate and how many months of runway do I have?</div>
+          </div>
+          <div class="mt-4 flex gap-3">
+            <div class="h-7 w-7 flex-shrink-0 rounded-lg bg-brand-500/15 ring-1 ring-brand-500/25"></div>
+            <div class="max-w-md">
+              <div class="rounded-2xl rounded-tl-md bg-ink-850 px-4 py-3 text-[13px] text-slate-300">
+                <p class="mb-2 font-semibold text-white">Here's your financial overview:</p>
+                <div class="grid grid-cols-2 gap-2 text-[12px]">
+                  <div class="rounded-lg bg-white/[0.04] p-2"><div class="text-slate-500">Monthly burn</div><div class="mono text-[15px] font-bold text-white">$4,218</div></div>
+                  <div class="rounded-lg bg-white/[0.04] p-2"><div class="text-slate-500">Cash on hand</div><div class="mono text-[15px] font-bold text-white">$52,640</div></div>
+                  <div class="rounded-lg bg-white/[0.04] p-2"><div class="text-slate-500">Runway</div><div class="mono text-[15px] font-bold text-brand-300">12.5 mo</div></div>
+                  <div class="rounded-lg bg-white/[0.04] p-2"><div class="text-slate-500">Trend</div><div class="mono text-[15px] font-bold text-white">−3.2%</div></div>
+                </div>
+              </div>
+              <div class="mt-1.5 flex gap-1.5 text-[10px] text-slate-500">
+                <span class="rounded bg-white/[0.04] px-1.5 py-0.5">qb_monthly_burn_rate</span>
+                <span class="rounded bg-white/[0.04] px-1.5 py-0.5">qb_runway_calculator</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SOCIAL PROOF: counts + logos row -->
+<section class="border-y rule bg-ink-800/60">
+  <div class="mx-auto max-w-6xl px-6 py-10">
+    <p class="text-center text-[12.5px] uppercase tracking-[0.15em] text-slate-500">Trusted by bookkeepers &amp; firms across the US &amp; Canada</p>
+    <div class="mt-7 grid grid-cols-2 gap-8 sm:grid-cols-4">
+      <div class="text-center"><div class="mono text-3xl font-bold text-white">1,200+</div><div class="mt-1 text-[13px] text-slate-500">hours saved</div></div>
+      <div class="text-center"><div class="mono text-3xl font-bold text-white">140</div><div class="mt-1 text-[13px] text-slate-500">active firms</div></div>
+      <div class="text-center"><div class="mono text-3xl font-bold text-white">131</div><div class="mt-1 text-[13px] text-slate-500">tools, US &amp; Canada</div></div>
+      <div class="text-center"><div class="mono text-3xl font-bold text-white">0</div><div class="mt-1 text-[13px] text-slate-500">books stored, ever</div></div>
+    </div>
+    <p class="mt-6 text-center text-[11px] text-slate-600">Numbers wired to your live usage data — placeholders shown here.</p>
+  </div>
+</section>
+
+<!-- ★ THE DIFFERENTIATOR: TAX PROVENANCE, promoted from the FAQ ★ -->
+<section id="provenance" class="relative py-24">
+  <div class="mx-auto max-w-6xl px-6">
+    <div class="grid items-center gap-14 lg:grid-cols-2">
+      <div>
+        <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-brand-500/25 bg-brand-500/[0.06] px-3 py-1 text-[12px] text-brand-300">Why accountants trust the numbers</div>
+        <h2 class="max-w-md text-3xl font-bold tracking-tight text-white sm:text-[40px] sm:leading-[1.1]">
+          Every tax figure is <span class="font-serif italic font-medium text-brand-300">sourced, dated, and audit-logged.</span>
+        </h2>
+        <p class="mt-5 max-w-lg text-[15.5px] leading-relaxed text-slate-400">
+          Bracket, mileage rate, §179 cap, GST/HST, CPP ceiling — every value lives in a versioned registry carrying its <span class="text-slate-200">official source</span> and a <span class="text-slate-200">verification date</span>. Changes ship through a tamper-evident, hash-chained ledger reviewed by a human. A research agent re-checks every source monthly — that's how we caught the 2025 OBBBA changes the week they landed.
+        </p>
+        <ul class="mt-6 space-y-3 text-[14.5px] text-slate-300">
+          <li class="flex gap-3"><span class="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-brand-400"></span>Every answer shows its rate vintage and citation in the footer.</li>
+          <li class="flex gap-3"><span class="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-brand-400"></span>Region-gated: never a US number on a Canadian return, or vice-versa.</li>
+          <li class="flex gap-3"><span class="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-brand-400"></span>Statutory limits and taxpayer allocations kept separate and cited.</li>
+        </ul>
+      </div>
+
+      <!-- Provenance card visual -->
+      <div class="card rounded-2xl p-6">
+        <div class="flex items-center justify-between border-b rule pb-3">
+          <div class="text-[13px] font-semibold text-white">Tax data provenance</div>
+          <div class="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1 text-[11px] font-medium text-emerald-300"><span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>ledger verified</div>
+        </div>
+        <div class="divide-y rule">
+          <div class="flex items-center justify-between py-3.5">
+            <div><div class="text-[14px] font-medium text-white">Business meals — 50% deductible</div><div class="mono mt-0.5 text-[12px] text-slate-500">IRC §274(n) · verified 2026-06-14</div></div>
+            <div class="mono text-[12px] text-slate-500">v2026.6</div>
+          </div>
+          <div class="flex items-center justify-between py-3.5">
+            <div><div class="text-[14px] font-medium text-white">Standard mileage — 70¢/mi (2025)</div><div class="mono mt-0.5 text-[12px] text-slate-500">IRS Notice 2025-05 · verified 2026-06-14</div></div>
+            <div class="mono text-[12px] text-slate-500">v2026.6</div>
+          </div>
+          <div class="flex items-center justify-between py-3.5">
+            <div><div class="text-[14px] font-medium text-white">GST/HST (ON) — 13%</div><div class="mono mt-0.5 text-[12px] text-slate-500">CRA · verified 2026-06-14</div></div>
+            <div class="mono text-[12px] text-slate-500">v2026.6</div>
+          </div>
+        </div>
+        <div class="mono mt-3 rounded-lg bg-black/30 px-3 py-2 text-[11px] text-slate-500">
+          hash e3b0c4…9a1f ← 7d865e…c2b0 ← 2c6f2a…  <span class="text-slate-600">(append-only)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECURITY (surfaced, not buried) -->
+<section id="security" class="border-y rule bg-ink-800/60 py-24">
+  <div class="mx-auto max-w-6xl px-6">
+    <div class="max-w-2xl">
+      <h2 class="text-3xl font-bold tracking-tight text-white sm:text-[38px]">Built for people who guard other people's money.</h2>
+      <p class="mt-4 text-[15.5px] text-slate-400">Two ways to run it — both designed so your books never become our asset.</p>
+    </div>
+    <div class="mt-12 grid gap-5 md:grid-cols-3">
+      <div class="card rounded-2xl p-6">
+        <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/12 ring-1 ring-brand-500/20 text-brand-300">◈</div>
+        <h3 class="text-[16px] font-semibold text-white">Local — zero-knowledge</h3>
+        <p class="mt-2 text-[14px] leading-relaxed text-slate-400">The server runs on your machine and talks straight to QuickBooks with your own OAuth token. Data never touches our infrastructure.</p>
+      </div>
+      <div class="card rounded-2xl p-6">
+        <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/12 ring-1 ring-brand-500/20 text-brand-300">⛨</div>
+        <h3 class="text-[16px] font-semibold text-white">Hosted — zero-retention</h3>
+        <p class="mt-2 text-[14px] leading-relaxed text-slate-400">The cloud connector passes data through and stores nothing — not logged, not analyzed, not trained on. Every request is isolated.</p>
+      </div>
+      <div class="card rounded-2xl p-6">
+        <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/12 ring-1 ring-brand-500/20 text-brand-300">🔑</div>
+        <h3 class="text-[16px] font-semibold text-white">Tokens, encrypted</h3>
+        <p class="mt-2 text-[14px] leading-relaxed text-slate-400">OAuth tokens are encrypted at rest with AES-256-GCM — a unique IV per value and an auth tag verified on every decrypt.</p>
+      </div>
+    </div>
+    <div class="mt-8"><a href="#" class="text-[14px] font-semibold text-brand-300 hover:text-brand-200 transition">Read the full security &amp; trust overview →</a></div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS (scaffold for REAL quotes) -->
+<section class="py-24">
+  <div class="mx-auto max-w-6xl px-6">
+    <h2 class="text-center text-3xl font-bold tracking-tight text-white sm:text-[38px]">What bookkeepers say</h2>
+    <div class="mt-12 grid gap-5 md:grid-cols-3">
+      <figure class="card rounded-2xl p-6">
+        <blockquote class="text-[15px] leading-relaxed text-slate-200">“The year-end binder used to take me a full weekend per client. Now I ask for it and it's done — with the tie-outs already reconciled.”</blockquote>
+        <figcaption class="mt-5 flex items-center gap-3"><span class="h-9 w-9 rounded-full bg-white/10"></span><span><span class="block text-[13.5px] font-semibold text-white">— Real quote goes here</span><span class="block text-[12px] text-slate-500">Name, Firm · City</span></span></figcaption>
+      </figure>
+      <figure class="card rounded-2xl p-6">
+        <blockquote class="text-[15px] leading-relaxed text-slate-200">“I trust the tax numbers because it shows me the source and the date. My clients' returns are defensible.”</blockquote>
+        <figcaption class="mt-5 flex items-center gap-3"><span class="h-9 w-9 rounded-full bg-white/10"></span><span><span class="block text-[13.5px] font-semibold text-white">— Real quote goes here</span><span class="block text-[12px] text-slate-500">Name, CPA · Province/State</span></span></figcaption>
+      </figure>
+      <figure class="card rounded-2xl p-6">
+        <blockquote class="text-[15px] leading-relaxed text-slate-200">“Local mode was the dealbreaker in reverse — nothing leaves my machine, so I could actually put client books through it.”</blockquote>
+        <figcaption class="mt-5 flex items-center gap-3"><span class="h-9 w-9 rounded-full bg-white/10"></span><span><span class="block text-[13.5px] font-semibold text-white">— Real quote goes here</span><span class="block text-[12px] text-slate-500">Name, Firm · City</span></span></figcaption>
+      </figure>
+    </div>
+    <p class="mt-6 text-center text-[11px] text-slate-600">Placeholder copy — replace with real, attributed quotes as you collect them.</p>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="border-t rule brandgrad">
+  <div class="mx-auto max-w-3xl px-6 py-20 text-center">
+    <h2 class="text-3xl font-bold tracking-tight text-white sm:text-[40px]">Put your books to work.</h2>
+    <p class="mx-auto mt-4 max-w-lg text-[15.5px] text-slate-400">Start the 14-day trial. Run it locally in five minutes, or add the hosted connector with one click.</p>
+    <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+      <a href="#" class="rounded-xl bg-white px-6 py-3 text-[14px] font-semibold text-ink-900 hover:bg-slate-200 transition">Start free trial</a>
+      <a href="#" class="rounded-xl border rule bg-white/[0.03] px-6 py-3 text-[14px] font-semibold text-slate-200 hover:bg-white/[0.06] transition">Talk to us</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER: fuller, "established company" -->
+<footer class="border-t rule bg-ink-950">
+  <div class="mx-auto max-w-6xl px-6 py-14">
+    <div class="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
+      <div class="lg:col-span-2">
+        <div class="flex items-center gap-2.5">
+          <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500/12 ring-1 ring-brand-500/25"><span class="h-3 w-3 rounded-full ring-[2.5px] ring-brand-400"></span></span>
+          <span class="text-[15px] font-bold tracking-tight"><span class="text-brand-400">Accounting</span><span class="text-blue-400">QB</span></span>
+        </div>
+        <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-slate-500">The accounting layer for AI you can trust with the books. Built in the US by <a href="#" class="text-slate-400 hover:text-white">Vaspera Capital</a>.</p>
+        <p class="mt-4 text-[12px] text-slate-600">SOC 2 Type II — in progress · Status: all systems operational</p>
+      </div>
+      <div>
+        <div class="text-[12px] font-semibold uppercase tracking-wide text-slate-400">Product</div>
+        <ul class="mt-3 space-y-2 text-[13.5px] text-slate-500">
+          <li><a href="#" class="hover:text-white transition">Features</a></li>
+          <li><a href="#" class="hover:text-white transition">Pricing</a></li>
+          <li><a href="#" class="hover:text-white transition">Canada</a></li>
+          <li><a href="#" class="hover:text-white transition">Changelog</a></li>
+          <li><a href="#" class="hover:text-white transition">Docs</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="text-[12px] font-semibold uppercase tracking-wide text-slate-400">Security &amp; Trust</div>
+        <ul class="mt-3 space-y-2 text-[13.5px] text-slate-500">
+          <li><a href="#" class="hover:text-white transition">Trust Center</a></li>
+          <li><a href="#" class="hover:text-white transition">Security overview</a></li>
+          <li><a href="#" class="hover:text-white transition">Tax data &amp; sources</a></li>
+          <li><a href="#" class="hover:text-white transition">Status</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="text-[12px] font-semibold uppercase tracking-wide text-slate-400">Company</div>
+        <ul class="mt-3 space-y-2 text-[13.5px] text-slate-500">
+          <li><a href="#" class="hover:text-white transition">About</a></li>
+          <li><a href="#" class="hover:text-white transition">Contact</a></li>
+          <li><a href="#" class="hover:text-white transition">Privacy</a></li>
+          <li><a href="#" class="hover:text-white transition">Terms</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="mt-12 flex flex-col items-center justify-between gap-3 border-t rule pt-6 text-[12px] text-slate-600 sm:flex-row">
+      <span>© <span id="yr"></span> Vaspera Capital. All rights reserved.</span>
+      <span>Not affiliated with Intuit Inc. QuickBooks is a trademark of Intuit Inc.</span>
+    </div>
+  </div>
+</footer>
+<script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+</body>
+</html>

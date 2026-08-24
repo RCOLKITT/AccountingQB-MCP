@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>About — AccountingQB (draft)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: { ink:{950:'#080b14',900:'#0a0e1a',850:'#0b1020',800:'#0c1120',700:'#0d1424'}, brand:{300:'#67e8f9',400:'#22d3ee',500:'#06b6d4',600:'#0891b2'} },
+    fontFamily: { sans:['"Hanken Grotesk"','system-ui','sans-serif'], serif:['Fraunces','Georgia','serif'] },
+  }}};
+</script>
+<style>
+  body{background:#0a0e1a}
+  .rule{border-color:rgba(255,255,255,0.07)}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.08)}
+  .todo{outline:1px dashed rgba(34,211,238,0.4);outline-offset:4px}
+  .prose p{margin-top:1.25rem;line-height:1.75}
+</style>
+</head>
+<body class="font-sans text-slate-300 antialiased">
+
+<div class="bg-brand-500/10 text-center text-[12px] text-brand-300 py-1.5 border-b border-brand-500/15">
+  Draft /about page · copy + photo approved · only the dashed LinkedIn link still needs a real URL
+</div>
+
+<!-- NAV (matches the site) -->
+<header class="sticky top-0 z-40 border-b rule bg-ink-900/80 backdrop-blur">
+  <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+    <a href="#" class="flex items-center gap-2.5">
+      <svg class="h-8 w-8" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lg" x1="60" y1="60" x2="452" y2="452" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#22d3ee" />
+            <stop offset="40%" stop-color="#3b82f6" />
+            <stop offset="100%" stop-color="#6366f1" />
+          </linearGradient>
+        </defs>
+        <path d="M 210 108 A 148 148 0 1 1 209.99 108 Z M 210 164 A 92 92 0 1 0 210.01 164 Z" fill="url(#lg)" fill-rule="evenodd" />
+        <rect x="290" y="310" width="120" height="52" rx="26" fill="url(#lg)" transform="rotate(42, 350, 336)" />
+        <rect x="290" y="118" width="42" height="268" rx="4" fill="url(#lg)" />
+        <path d="M 311 118 L 360 118 A 62 62 0 0 1 360 242 L 311 242 Z" fill="url(#lg)" />
+        <path d="M 311 242 L 370 242 A 72 72 0 0 1 370 386 L 311 386 Z" fill="url(#lg)" />
+        <path d="M 318 148 L 348 148 A 34 34 0 0 1 348 216 L 318 216 Z" fill="#0a0e1a" />
+        <path d="M 318 268 L 355 268 A 42 42 0 0 1 355 364 L 318 364 Z" fill="#0a0e1a" />
+      </svg>
+      <span class="text-lg font-bold tracking-tight text-white">Accounting<span class="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">QB</span></span>
+    </a>
+    <nav class="hidden items-center gap-7 text-[14px] text-slate-400 md:flex">
+      <a href="#" class="hover:text-white transition">Product</a>
+      <a href="#" class="hover:text-white transition">Security</a>
+      <a href="#" class="hover:text-white transition">Pricing</a>
+      <a href="#" class="text-white">About</a>
+    </nav>
+    <a href="#" class="rounded-lg bg-white px-4 py-2 text-[14px] font-semibold text-ink-900 hover:bg-slate-200 transition">Start free trial</a>
+  </div>
+</header>
+
+<main class="mx-auto max-w-3xl px-6">
+
+  <!-- HERO -->
+  <section class="pt-20 pb-10 text-center sm:pt-28">
+    <p class="text-[13px] uppercase tracking-[0.18em] text-brand-300">Our story</p>
+    <h1 class="mt-4 text-4xl font-bold leading-[1.1] tracking-tight text-white sm:text-5xl">
+      I built AccountingQB because
+      <span class="font-serif font-medium italic text-brand-300">I needed it first.</span>
+    </h1>
+    <p class="mx-auto mt-5 max-w-xl text-[16px] leading-relaxed text-slate-400">
+      It didn&rsquo;t start as a product. It started as me, late at night, trying to make
+      sense of my own books.
+    </p>
+  </section>
+
+  <!-- FOUNDER intro: photo + name -->
+  <section class="flex flex-col items-center gap-6 py-8 sm:flex-row sm:items-center sm:gap-8">
+    <div class="h-28 w-28 flex-shrink-0 overflow-hidden rounded-2xl ring-1 ring-white/10">
+      <img src="assets/founder.png" alt="Ryan Colkitt, Founder of AccountingQB" class="h-full w-full object-cover object-top" />
+    </div>
+    <div class="text-center sm:text-left">
+      <div class="text-lg font-semibold text-white">Ryan Colkitt</div>
+      <div class="text-[14px] text-slate-400">Founder, AccountingQB &middot; Boston, USA</div>
+      <div class="mt-2 flex justify-center gap-3 text-[13px] sm:justify-start">
+        <a href="#" class="todo text-brand-300 hover:text-brand-200">LinkedIn</a>
+        <span class="text-slate-600">·</span>
+        <a href="#" class="text-brand-300 hover:text-brand-200">A Vaspera Capital company</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE STORY -->
+  <section class="prose py-8 text-[16px] text-slate-300">
+    <p class="text-[13px] font-semibold uppercase tracking-wide text-brand-300">The struggle</p>
+    <p>
+      I run my own business. And for a long time, the part I dreaded most wasn&rsquo;t the
+      work &mdash; it was the books. Reconciliations I put off. A stack of transactions I
+      couldn&rsquo;t reconcile against the bank. Tax season that always seemed to arrive
+      before I was ready, with questions I couldn&rsquo;t answer: <em>what&rsquo;s actually
+      deductible here? Am I setting aside enough? Where did the money go this quarter?</em>
+    </p>
+    <p>
+      I&rsquo;m not an accountant. I had QuickBooks, and I had the data &mdash; I just
+      couldn&rsquo;t get straight answers out of it without hours of clicking, exporting,
+      and second-guessing myself.
+    </p>
+
+    <p class="text-[13px] font-semibold uppercase tracking-wide text-brand-300">The turning point</p>
+    <p>
+      Then I started asking an AI assistant my accounting questions — and realized the only
+      thing missing was a safe, accurate bridge to my actual QuickBooks data. Not another
+      dashboard. Not another export. A way to just <em>ask</em> &mdash; &ldquo;what&rsquo;s
+      my burn rate,&rdquo; &ldquo;find the deductions I&rsquo;m missing,&rdquo; &ldquo;get me
+      ready for taxes&rdquo; &mdash; and get an answer I could trust, with the numbers cited.
+    </p>
+    <p>
+      So I built it. First for myself. It turned a weekend of bookkeeping into a
+      conversation, and it caught things I&rsquo;d have missed. Then I realized every other
+      owner and bookkeeper I knew had the same problem &mdash; and AccountingQB became a
+      product.
+    </p>
+  </section>
+
+  <!-- THE PRIVACY PULL-QUOTE (the founder story = the architecture) -->
+  <section class="py-10">
+    <blockquote class="card rounded-2xl p-8 text-center">
+      <p class="font-serif text-[22px] italic leading-snug text-white sm:text-[26px]">
+        &ldquo;These are my books too. I was never going to hand my own financials to a black
+        box &mdash; so I didn&rsquo;t build one.&rdquo;
+      </p>
+      <p class="mt-5 text-[14px] leading-relaxed text-slate-400">
+        That&rsquo;s why AccountingQB runs on your machine by default, and why the hosted
+        option keeps <span class="text-slate-200">zero retention</span> &mdash; your books
+        transit, they&rsquo;re never stored. The less we hold, the less there is to lose.
+        It&rsquo;s not a compliance checkbox; it&rsquo;s the whole design, because it&rsquo;s
+        how I wanted <em>my</em> data handled.
+      </p>
+    </blockquote>
+  </section>
+
+  <!-- WHAT I CARE ABOUT -->
+  <section class="py-8">
+    <h2 class="text-2xl font-bold tracking-tight text-white">What I care about building</h2>
+    <div class="mt-6 grid gap-4 sm:grid-cols-3">
+      <div class="card rounded-xl p-5">
+        <div class="mb-3 h-8 w-8 rounded-lg bg-brand-500/12 ring-1 ring-brand-500/20"></div>
+        <h3 class="text-[15px] font-semibold text-white">Numbers you can defend</h3>
+        <p class="mt-1.5 text-[14px] leading-relaxed text-slate-400">Every tax figure sourced, dated, and audit-logged. If I&rsquo;m going to file on it, it has to be right.</p>
+      </div>
+      <div class="card rounded-xl p-5">
+        <div class="mb-3 h-8 w-8 rounded-lg bg-brand-500/12 ring-1 ring-brand-500/20"></div>
+        <h3 class="text-[15px] font-semibold text-white">Your data stays yours</h3>
+        <p class="mt-1.5 text-[14px] leading-relaxed text-slate-400">Local-first, zero-retention. The privacy I wanted for my own books, built in for everyone&rsquo;s.</p>
+      </div>
+      <div class="card rounded-xl p-5">
+        <div class="mb-3 h-8 w-8 rounded-lg bg-brand-500/12 ring-1 ring-brand-500/20"></div>
+        <h3 class="text-[15px] font-semibold text-white">Built by someone who uses it</h3>
+        <p class="mt-1.5 text-[14px] leading-relaxed text-slate-400">I run my own business on AccountingQB. If it doesn&rsquo;t work for me, it doesn&rsquo;t ship.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SIGNATURE -->
+  <section class="py-8">
+    <p class="text-[16px] leading-relaxed text-slate-300">
+      If you&rsquo;ve ever stared at your books wishing you could just <em>ask</em> them a
+      question &mdash; that&rsquo;s exactly who I built this for. I&rsquo;d genuinely love to
+      hear what you think.
+    </p>
+    <div class="mt-6">
+      <div class="font-serif text-2xl italic text-white">Ryan Colkitt</div>
+      <div class="text-[14px] text-slate-500">Founder, AccountingQB</div>
+      <a href="mailto:contact@vasperacapital.com" class="mt-1 inline-block text-[14px] text-brand-300 hover:text-brand-200">reach me directly →</a>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="my-8 rounded-2xl border rule bg-[radial-gradient(80%_120%_at_50%_0%,rgba(34,211,238,0.08),transparent)] px-6 py-12 text-center">
+    <h2 class="text-2xl font-bold tracking-tight text-white sm:text-3xl">Try it on your own books.</h2>
+    <p class="mx-auto mt-3 max-w-md text-[15px] text-slate-400">14-day trial. Run it locally in five minutes — the same way I do.</p>
+    <div class="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+      <a href="#" class="rounded-xl bg-white px-6 py-3 text-[14px] font-semibold text-ink-900 hover:bg-slate-200 transition">Start free trial</a>
+      <a href="#" class="rounded-xl border rule bg-white/[0.03] px-6 py-3 text-[14px] font-semibold text-slate-200 hover:bg-white/[0.06] transition">See how it works</a>
+    </div>
+  </section>
+</main>
+
+<!-- FOOTER (matches the site) -->
+<footer class="border-t rule bg-ink-950">
+  <div class="mx-auto max-w-5xl px-6 py-10 text-center text-[12px] text-slate-600">
+    <p>A Vaspera Capital product · Boston, USA</p>
+    <p class="mt-2">Not affiliated with Intuit Inc. QuickBooks is a trademark of Intuit Inc.</p>
+  </div>
+</footer>
+</body>
+</html>
