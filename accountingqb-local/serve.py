@@ -566,6 +566,9 @@ async def api_config(req: Request) -> JSONResponse:
             patch[k_cfg] = str(body[k_in])
     if patch:
         save_config(patch)
+    # Saving a license should immediately reuse the existing profile's hosted QuickBooks company.
+    if patch.get("license_key"):
+        _bootstrap_profile()
     return JSONResponse({"ok": True, "hasAnthropicKey": bool(_anthropic_key())})
 
 
@@ -876,7 +879,27 @@ refresh();
 </script></body></html>"""
 
 
+def _bootstrap_profile() -> None:
+    """Reuse the saved account profile: hand the license to the connector and pre-load the user's
+    already-connected QuickBooks company (hosted mode) so the desktop is configured on launch — the
+    SAME account as the Cowork plugin, no re-OAuth, no duplicate. Non-fatal if offline/unlicensed."""
+    lic = os.environ.get("QB_LICENSE_KEY") or load_config().get("license_key", "")
+    if not lic:
+        return
+    try:
+        qb.LICENSE_KEY = lic
+        ctx = get_ctx()
+        ctx.license_key = lic
+        if qb._fetch_hosted_tokens(ctx):
+            print(f"  Profile loaded (hosted): QuickBooks company realm {getattr(ctx, 'realm_id', '') or '—'}")
+        else:
+            print("  License set; no connected QuickBooks company found for it yet.")
+    except Exception as e:  # pragma: no cover - network/offline
+        print(f"  (profile bootstrap skipped: {type(e).__name__})")
+
+
 def main() -> None:
+    _bootstrap_profile()
     url = f"http://127.0.0.1:{PORT}"
     print(f"\n  AccountingQB local is live → {url}\n")
     if not os.environ.get("ACCOUNTINGQB_NO_OPEN"):
