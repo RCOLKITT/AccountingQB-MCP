@@ -91,6 +91,17 @@ export function getDownloadLimiter(): Ratelimit {
   });
 }
 
+// Rate limiter for cross-app pairing (issue/redeem/status): 10/min per IP —
+// tight, since these gate account linking + secret release.
+export function getLinkLimiter(): Ratelimit {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(10, "1 m"),
+    prefix: "ratelimit:link",
+    analytics: true,
+  });
+}
+
 // Rate limiter for the OAuth2 token endpoint: 20 requests per minute per IP
 export function getOAuth2TokenLimiter(): Ratelimit {
   return new Ratelimit({

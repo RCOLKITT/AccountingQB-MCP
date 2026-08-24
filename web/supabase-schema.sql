@@ -602,3 +602,34 @@ CREATE INDEX IF NOT EXISTS idx_app_downloads_platform      ON app_downloads (pla
 CREATE INDEX IF NOT EXISTS idx_app_downloads_downloaded_at ON app_downloads (downloaded_at DESC);
 CREATE INDEX IF NOT EXISTS idx_app_downloads_platform_time ON app_downloads (platform, downloaded_at DESC);
 ALTER TABLE app_downloads ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================================
+-- Cross-app pairing (AccountingQB ↔ Coffer/Hearth), identity-anchored
+-- (see migrations/2026-08-account-links.sql)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS link_codes (
+  code            TEXT PRIMARY KEY,
+  identity_hash   TEXT NOT NULL,
+  pairing_secret  TEXT NOT NULL,
+  license_key     TEXT REFERENCES licenses(key) ON DELETE CASCADE,
+  peer_product    TEXT NOT NULL DEFAULT 'coffer',
+  expires_at      TIMESTAMPTZ NOT NULL,
+  redeemed_at     TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_link_codes_expires ON link_codes (expires_at);
+ALTER TABLE link_codes ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS account_links (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  license_key     TEXT NOT NULL REFERENCES licenses(key) ON DELETE CASCADE,
+  identity_hash   TEXT NOT NULL,
+  peer_product    TEXT NOT NULL DEFAULT 'coffer',
+  peer_identity   TEXT,
+  pairing_secret  TEXT NOT NULL,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  revoked_at      TIMESTAMPTZ,
+  UNIQUE (license_key, peer_product)
+);
+CREATE INDEX IF NOT EXISTS idx_account_links_key ON account_links (license_key);
+ALTER TABLE account_links ENABLE ROW LEVEL SECURITY;
