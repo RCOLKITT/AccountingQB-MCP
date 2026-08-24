@@ -57,6 +57,11 @@ const isAdminRoute = createRouteMatcher([
   "/api/admin(.*)",
 ]);
 
+// The "Connect AccountingQB" consent page. Must exist for signed-out visitors —
+// send them through sign-in/sign-up and back to the SAME authorize URL (query
+// intact), rather than Clerk's default protect-rewrite-to-404.
+const isLinkAuthorize = createRouteMatcher(["/link/authorize"]);
+
 export default clerkMiddleware(async (auth, req) => {
   // Admin routes require admin role
   if (isAdminRoute(req)) {
@@ -74,6 +79,13 @@ export default clerkMiddleware(async (auth, req) => {
 
     if (role !== "admin") {
       return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+  }
+  // Cross-app link consent: redirect signed-out users to sign-in, returning here.
+  else if (isLinkAuthorize(req)) {
+    const { userId, redirectToSignIn } = await auth();
+    if (!userId) {
+      return redirectToSignIn({ returnBackUrl: req.url });
     }
   }
   // Other protected routes just need authentication
