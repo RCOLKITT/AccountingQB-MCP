@@ -229,10 +229,12 @@ async function cofferStatus(){
   }catch{ $("cofferstate").textContent="· unavailable"; return false; }
 }
 $("cofferconnect").onclick=()=>{
-  // Opens the peer's login+consent in a new tab; the loopback callback lands back on this shim.
-  window.open("/link/connect?peer=coffer","_blank");
-  $("coffermsg").textContent="Finish in the new tab, then return here…";
-  // Poll for completion (covers both AQB-initiated and Coffer-initiated links).
+  // AccountingQB is the single authorization server, so either app's Connect button drives the
+  // SAME flow: sign into AccountingQB, consent. We open Coffer's local link flow (127.0.0.1:4317),
+  // which redirects the user to accountingqb.com/link/authorize and stores the secret on Coffer's
+  // side; we then pull our own copy via /link/refresh. Coffer must be running.
+  window.open("http://127.0.0.1:4317/link/connect","_blank");
+  $("coffermsg").textContent="Sign in to AccountingQB in the new tab (Coffer must be open)…";
   let n=0; const iv=setInterval(async()=>{
     n++; try{await fetch("/link/refresh",{method:"POST"});}catch{}
     const ok=await cofferStatus();
