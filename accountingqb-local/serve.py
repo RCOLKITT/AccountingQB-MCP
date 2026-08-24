@@ -24,6 +24,7 @@ Env:  ACCOUNTINGQB_PORT, ACCOUNTINGQB_DATA_DIR, ACCOUNTINGQB_NO_OPEN,
 
 from __future__ import annotations
 
+import base64
 import datetime
 import hashlib
 import json
@@ -101,6 +102,46 @@ def _save_pairing(d: dict) -> dict:
     tmp.write_text(json.dumps(d, indent=2))
     tmp.replace(PAIRING_FILE)
     return d
+
+
+# --- OAuth-style "Connect …" linking (redirect + PKCE) ---------------------------
+# Where AccountingQB's own account lives (mint/status) and where the peer's authorize
+# page lives. Both overridable for local end-to-end testing.
+AQB_API_URL = os.environ.get("QB_API_URL", "https://accountingqb.com")
+COFFER_API_URL = os.environ.get("COFFER_API_URL", "https://coffermoney.com")
+LINK_STATE_FILE = DATA_DIR / "link_state.json"  # in-flight PKCE verifier + state (single-use)
+
+
+def _load_link_state() -> dict:
+    try:
+        return json.loads(LINK_STATE_FILE.read_text())
+    except Exception:
+        return {}
+
+
+def _save_link_state(d: dict) -> dict:
+    tmp = LINK_STATE_FILE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(d, indent=2))
+    tmp.replace(LINK_STATE_FILE)
+    return d
+
+
+def _pkce_pair() -> tuple[str, str]:
+    """(verifier, S256 challenge) — the challenge is base64url(sha256(verifier)), unpadded."""
+    verifier = secrets.token_urlsafe(64)
+    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+    return verifier, challenge
+
+
+def _link_result_html(title: str, body: str, ok: bool = True) -> str:
+    color = "#22d3ee" if ok else "#f87171"
+    return (
+        "<html><body style='font-family:system-ui;text-align:center;padding:64px;"
+        "background:#0a0e1a;color:#e5e7eb'>"
+        f"<h1 style='color:{color}'>{title}</h1><p>{body}</p>"
+        "<script>setTimeout(()=>window.close(),2500)</script></body></html>"
+    )
+
 
 ALLOWED_HOSTS = {"127.0.0.1", "localhost"}
 ALLOWED_ORIGIN_HOSTS = {"127.0.0.1", "localhost", "tauri.localhost"}
@@ -570,6 +611,96 @@ async def unpair(_req: Request) -> JSONResponse:
     return JSONResponse({"ok": True, "paired": False})
 
 
+# --- OAuth-style "Connect Coffer" (AccountingQB initiates) -----------------------
+async def link_connect(req: Request) -> RedirectResponse:
+    """Start linking the peer app from AccountingQB. Generates a PKCE verifier + state, then sends
+    the browser to the peer's authorize page with a loopback redirect back to THIS shim. The user
+    logs into the peer, consents, and is bounced to /link/callback. Symmetric to Coffer's own
+    'Connect AccountingQB' button — either app can start the link."""
+    peer = req.query_params.get("peer", "coffer")
+    verifier, challenge = _pkce_pair()
+    state = secrets.token_urlsafe(16)
+    _save_link_state({"verifier": verifier, "state": state, "peer": peer,
+                      "ts": datetime.datetime.now(datetime.timezone.utc).isoformat()})
+    port = req.url.port or PORT
+    redirect_uri = f"http://127.0.0.1:{port}/link/callback"
+    base = COFFER_API_URL.rstrip("/")  # only 'coffer' peer today
+    params = urllib.parse.urlencode({
+        "peer": "accountingqb",
+        "redirect_uri": redirect_uri,
+        "state": state,
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
+    })
+    return RedirectResponse(f"{base}/link/authorize?{params}", status_code=302)
+
+
+async def link_callback(req: Request) -> HTMLResponse:
+    """Return leg of an AccountingQB-initiated link. Verify state, redeem the code at the peer with
+    our PKCE verifier, and store the resulting pairing secret. One shared secret gates calls in both
+    directions — storing it here means Coffer↔AccountingQB is live on this machine."""
+    p = req.query_params
+    st = _load_link_state()
+    if p.get("error"):
+        _save_link_state({})
+        return HTMLResponse(_link_result_html("Link canceled", "You can close this tab and try again from AccountingQB.", ok=False), 200)
+    code = p.get("code")
+    state = p.get("state")
+    if not code or not state or not st.get("state") or not secrets.compare_digest(state, str(st.get("state"))):
+        return HTMLResponse(_link_result_html("Link failed", "State mismatch — please retry the connection.", ok=False), 400)
+    peer = st.get("peer", "coffer")
+    base = COFFER_API_URL.rstrip("/")
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(f"{base}/api/link/redeem",
+                                  json={"code": code, "codeVerifier": st.get("verifier", "")})
+        data = r.json() if r.status_code == 200 else {}
+    except Exception:
+        return HTMLResponse(_link_result_html("Link failed", f"Could not reach {peer}. Is it online?", ok=False), 502)
+    secret = data.get("pairingSecret")
+    if not secret:
+        detail = data.get("error") or "the peer rejected the code"
+        return HTMLResponse(_link_result_html("Link failed", f"{detail}. Please retry.", ok=False), 400)
+    rec = _load_pairing()
+    rec.update({
+        "pairing_secret": str(secret),
+        "peer_product": data.get("peerProduct") or peer,
+        "peer_base_url": base,
+        "linked_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    })
+    _save_pairing(rec)
+    _save_link_state({})
+    return HTMLResponse(_link_result_html(f"{peer.title()} connected ✓", "You can close this tab and return to AccountingQB."), 200)
+
+
+async def link_refresh(_req: Request) -> JSONResponse:
+    """Pull this account's pairing secret from the web and store it locally. Used after a
+    peer-initiated 'Connect AccountingQB' link (the secret was minted when the peer redeemed our
+    code) so incoming Coffer→AccountingQB calls are accepted. Idempotent; needs a license key."""
+    lic = getattr(qb, "LICENSE_KEY", "") or load_config().get("license_key", "")
+    if not lic:
+        return JSONResponse({"paired": False, "error": "no license key configured"}, status_code=400)
+    base = AQB_API_URL.rstrip("/")
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.get(f"{base}/api/link/status", params={"key": lic})
+        data = r.json() if r.status_code == 200 else {}
+    except Exception as e:
+        return JSONResponse({"paired": False, "error": f"{type(e).__name__}"}, status_code=502)
+    if data.get("paired") and data.get("pairingSecret"):
+        rec = _load_pairing()
+        rec.update({
+            "pairing_secret": str(data["pairingSecret"]),
+            "peer_product": data.get("peerProduct") or "coffer",
+            "peer_identity": data.get("peerIdentity") or rec.get("peer_identity", ""),
+            "peer_base_url": rec.get("peer_base_url") or COFFER_API_URL.rstrip("/"),
+            "linked_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        })
+        _save_pairing(rec)
+        return JSONResponse({"paired": True, "peerProduct": rec["peer_product"]})
+    return JSONResponse({"paired": False})
+
+
 def _redirect_uri(req: Request) -> str:
     # Loopback redirect back to THIS shim. Local (BYO Intuit app) users must register
     # this exact URI in their Intuit app; the hosted broker path avoids this entirely.
@@ -679,6 +810,9 @@ routes = [
     Route("/whoami", whoami),
     Route("/pair", pair, methods=["POST"]),
     Route("/unpair", unpair, methods=["POST"]),
+    Route("/link/connect", link_connect),
+    Route("/link/callback", link_callback),
+    Route("/link/refresh", link_refresh, methods=["POST"]),
     Route("/mcp", mcp_call, methods=["POST"]),
     Route("/sample", sample, methods=["POST"]),
     Route("/chat", chat, methods=["POST"]),
