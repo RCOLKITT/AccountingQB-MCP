@@ -251,6 +251,64 @@ def test_owner_paid_expense_confirm_gate_and_idempotency(client, paired, monkeyp
     assert r2["ok"] is True and r2.get("alreadyBooked") is True
 
 
+# --- OAuth-style linking (redirect + PKCE) ---
+
+def test_link_connect_redirects_to_peer_authorize(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(serve, "COFFER_API_URL", "https://coffermoney.com")
+    monkeypatch.setattr(serve, "LINK_STATE_FILE", tmp_path / "link_state.json")
+    r = client.get("/link/connect?peer=coffer", follow_redirects=False)
+    assert r.status_code == 302
+    loc = r.headers["location"]
+    assert loc.startswith("https://coffermoney.com/link/authorize?")
+    assert "code_challenge=" in loc and "code_challenge_method=S256" in loc
+    assert "redirect_uri=" in loc and "127.0.0.1" in loc
+    # The verifier+state are persisted for the callback leg.
+    st = serve._load_link_state()
+    assert st.get("verifier") and st.get("state")
+
+
+def test_link_callback_rejects_state_mismatch(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(serve, "LINK_STATE_FILE", tmp_path / "link_state.json")
+    serve._save_link_state({"verifier": "v", "state": "realstate", "peer": "coffer"})
+    r = client.get("/link/callback?code=abc&state=WRONG", follow_redirects=False)
+    assert r.status_code == 400
+    assert "State mismatch" in r.text
+
+
+def test_link_callback_stores_secret_on_success(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(serve, "LINK_STATE_FILE", tmp_path / "link_state.json")
+    monkeypatch.setattr(serve, "PAIRING_FILE", tmp_path / "pairing.json")
+    monkeypatch.setattr(serve, "COFFER_API_URL", "https://coffermoney.com")
+    serve._save_link_state({"verifier": "the-verifier", "state": "S", "peer": "coffer"})
+
+    class FakeResp:
+        status_code = 200
+        def json(self):
+            return {"ok": True, "pairingSecret": "SECRET123", "peerProduct": "coffer"}
+
+    class FakeClient:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def post(self, url, json=None):
+            assert url.endswith("/api/link/redeem")
+            assert json["code"] == "code-xyz" and json["codeVerifier"] == "the-verifier"
+            return FakeResp()
+
+    monkeypatch.setattr(serve.httpx, "AsyncClient", FakeClient)
+    r = client.get("/link/callback?code=code-xyz&state=S", follow_redirects=False)
+    assert r.status_code == 200 and "connected" in r.text.lower()
+    assert serve._load_pairing().get("pairing_secret") == "SECRET123"
+    assert serve._load_link_state() == {}  # consumed
+
+
+def test_link_refresh_requires_license(client, monkeypatch):
+    monkeypatch.setattr(serve, "load_config", lambda: {})
+    monkeypatch.setattr(serve.qb, "LICENSE_KEY", "", raising=False)
+    r = client.post("/link/refresh")
+    assert r.status_code == 400 and r.json()["paired"] is False
+
+
 def test_owner_paid_expense_expected_realm_guard(client, paired, monkeypatch, tmp_path):
     import types
     monkeypatch.setattr(serve, "BOOKED_FILE", tmp_path / "booked.json")

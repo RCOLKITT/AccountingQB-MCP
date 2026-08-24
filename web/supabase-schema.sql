@@ -615,7 +615,12 @@ CREATE TABLE IF NOT EXISTS link_codes (
   peer_product    TEXT NOT NULL DEFAULT 'coffer',
   expires_at      TIMESTAMPTZ NOT NULL,
   redeemed_at     TIMESTAMPTZ,
-  created_at      TIMESTAMPTZ DEFAULT NOW()
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  -- OAuth-style linking (see migrations/2026-08-link-pkce.sql): a code carrying a
+  -- code_challenge is redeemed with the matching code_verifier (S256) instead of the
+  -- same-email identity match. redirect_uri is recorded for audit + exact return.
+  code_challenge  TEXT,
+  redirect_uri    TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_link_codes_expires ON link_codes (expires_at);
 ALTER TABLE link_codes ENABLE ROW LEVEL SECURITY;

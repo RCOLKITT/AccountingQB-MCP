@@ -84,6 +84,15 @@
       <a class="btn" href="/oauth/start">Connect QuickBooks</a>
     </div>
     <div class="card" style="max-width:640px;margin-top:16px">
+      <h3>Coffer <span class="dim" id="cofferstate" style="font-weight:400;font-size:12px">· checking…</span></h3>
+      <p class="muted" style="font-size:13px">Link your Coffer (personal finances) account so business expenses paid from personal accounts can be booked here — and Coffer can pull your owner draws &amp; tax set-aside. You’ll log in and confirm; nothing about your books leaves your machine.</p>
+      <div style="margin-top:10px">
+        <button class="btn" id="cofferconnect">Connect Coffer</button>
+        <button class="btn" id="cofferdisconnect" style="display:none;background:#1e293b;color:#cbd5e1">Disconnect</button>
+        <span id="coffermsg" class="muted" style="font-size:13px;margin-left:8px"></span>
+      </div>
+    </div>
+    <div class="card" style="max-width:640px;margin-top:16px">
       <h3>Anthropic API key <span class="dim" style="font-weight:400;font-size:12px">(for Chat)</span></h3>
       <p class="muted" style="font-size:13px">Stored only in <code>~/.accountingqb</code>. Chat calls go from your machine straight to Anthropic — never through us.</p>
       <input class="field" id="key" type="password" placeholder="sk-ant-…" />
@@ -206,6 +215,37 @@ $("saveqb").onclick=async()=>{
   $("cid").value="";$("csec").value="";alert("Saved. Now click Connect QuickBooks.");
 };
 try{$("rduri").textContent="http://localhost:"+location.port+"/callback";}catch{}
+
+/* ---- Coffer link ---- */
+async function cofferStatus(){
+  try{
+    const w=await (await fetch("/whoami")).json();
+    const paired = !!w.paired && (w.peerProduct==="coffer" || !w.peerProduct);
+    $("cofferstate").textContent = paired ? "· connected" : "· not connected";
+    $("cofferstate").style.color = paired ? "#34d399" : "";
+    $("cofferconnect").style.display = paired ? "none" : "";
+    $("cofferdisconnect").style.display = paired ? "" : "none";
+    return paired;
+  }catch{ $("cofferstate").textContent="· unavailable"; return false; }
+}
+$("cofferconnect").onclick=()=>{
+  // Opens the peer's login+consent in a new tab; the loopback callback lands back on this shim.
+  window.open("/link/connect?peer=coffer","_blank");
+  $("coffermsg").textContent="Finish in the new tab, then return here…";
+  // Poll for completion (covers both AQB-initiated and Coffer-initiated links).
+  let n=0; const iv=setInterval(async()=>{
+    n++; try{await fetch("/link/refresh",{method:"POST"});}catch{}
+    const ok=await cofferStatus();
+    if(ok){ $("coffermsg").textContent="Connected ✓"; clearInterval(iv); }
+    else if(n>40){ $("coffermsg").textContent=""; clearInterval(iv); }
+  },3000);
+};
+$("cofferdisconnect").onclick=async()=>{
+  await fetch("/unpair",{method:"POST"});
+  $("coffermsg").textContent="Disconnected."; cofferStatus();
+};
+// On load, pull any pairing established from Coffer's side, then reflect status.
+(async()=>{ try{await fetch("/link/refresh",{method:"POST"});}catch{} cofferStatus(); })();
 
 status();
 </script>
