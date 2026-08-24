@@ -32,6 +32,8 @@ const isPublicRoute = createRouteMatcher([
   "/api/usage(.*)",
   // Desktop-app download redirect: records the click then 302s to the GitHub asset.
   "/api/download(.*)",
+  // Cross-app pairing: issue (Clerk-or-license), redeem (peer product), status (license).
+  "/api/link(.*)",
   // Allocation-profile broker: the MCP connector authenticates by license key in
   // the body/query (validated server-side), not a Clerk session — same as /api/usage.
   "/api/allocations(.*)",
