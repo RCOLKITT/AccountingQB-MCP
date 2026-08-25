@@ -427,6 +427,21 @@ async def api_tools(_req: Request) -> JSONResponse:
     )
 
 
+_WRITE_TOOLS_CACHE: set | None = None
+
+
+def _is_write_tool(name: str) -> bool:
+    """True if the tool mutates the books (readOnlyHint != true in the manifest). Any such tool
+    reached via /mcp from the UI must carry confirmed:true — no silent writes (Constitution:
+    write-safety, human-in-the-loop). The read-only chat loop never exposes these."""
+    global _WRITE_TOOLS_CACHE
+    if _WRITE_TOOLS_CACHE is None:
+        _WRITE_TOOLS_CACHE = {
+            t.get("name") for t in _manifest().get("tools", []) if not t.get("readOnlyHint")
+        }
+    return name in _WRITE_TOOLS_CACHE
+
+
 async def mcp_call(req: Request) -> JSONResponse:
     try:
         body = await req.json()
@@ -455,6 +470,16 @@ async def mcp_call(req: Request) -> JSONResponse:
             return JSONResponse(await handler(args))
         except Exception as e:
             return JSONResponse({"error": f"{type(e).__name__}: {e}"})
+    # No silent writes: any book-mutating tool must be explicitly confirmed by the user. The UI
+    # gathers the fields in a confirm card and re-sends with confirmed:true (see artifact.html).
+    if _is_write_tool(name) and not (isinstance(args, dict) and args.get("confirmed")):
+        return JSONResponse({
+            "needsConfirm": True,
+            "tool": name,
+            "error": f"{name} changes your books — confirm before it runs.",
+        })
+    if isinstance(args, dict):
+        args.pop("confirmed", None)  # UI flag; never forwarded to the tool
     try:
         result = await call_tool(name, args)
         return JSONResponse({"ok": True, "result": result})

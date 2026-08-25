@@ -89,7 +89,10 @@ def test_chat_tools_are_readonly_and_real():
 
 def test_index_serves_tabbed_artifact(client):
     html = client.get("/").text
-    assert "Dashboard" in html and "Chat" in html and "Ask your books" in html
+    # Ported "Ledger editorial" UI: 9 report tabs + the Ask panel, driven by the window.cowork shim.
+    assert "Dashboard" in html and "Ask AccountingQB" in html
+    assert 'data-tab="pl"' in html and 'data-tab="workbook"' in html
+    assert "window.cowork" in html and "desktopChatRun" in html
 
 
 def test_chat_without_key(client, monkeypatch):

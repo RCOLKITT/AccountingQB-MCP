@@ -195,8 +195,8 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 
 <div class="quickbar">
 <span class="qlabel">Quick actions</span>
-<button class="qbtn" data-action="Create a new invoice — ask me for the customer, amount, and line items"><span class="plus">+</span> Invoice</button>
-<button class="qbtn" data-action="Create a new expense — ask me for the vendor, amount, category, and date"><span class="plus">+</span> Expense</button>
+<button class="qbtn" data-write="invoice"><span class="plus">+</span> Invoice</button>
+<button class="qbtn" data-write="expense"><span class="plus">+</span> Expense</button>
 <button class="qbtn" data-action="Run qb_find_duplicates and show me any duplicate transactions">⧉ Find duplicates</button>
 <button class="qbtn" data-action="Run qb_anomaly_detection and flag anything unusual in my books">⚠ Detect anomalies</button>
 <button class="qbtn" data-action="Run the month-end close checklist for last month and walk me through each item">✓ Month-end close</button>
@@ -950,6 +950,8 @@ document.querySelectorAll('.refresh-btn').forEach(b => {
 // ============ Quick actions ============
 document.querySelectorAll('.qbtn').forEach(b => {
   b.addEventListener('click', () => {
+    const write = b.dataset.write;
+    if(write){ appendMsg('user', b.textContent.trim()); writeConfirmCard(write); return; }
     const action = b.dataset.action;
     if(!action) return;  // workbook pager/export buttons share the class
     appendMsg('user', b.textContent.trim());
@@ -1054,6 +1056,70 @@ async function desktopChatRun(promptText){
     chatHistory.push({role:'user', content:q}, {role:'assistant', content: reply});
   }catch(e){ hideThinking(); appendMsg('assistant', 'Network error: ' + e, 'deep'); }
   finally{ chatBusy = false; if(input){ input.disabled = false; input.focus(); } }
+}
+
+// ============ Confirmed writes (no silent mutations — books change only on Confirm) ============
+const WRITE_SPECS = {
+  invoice: { tool:'qb_create_invoice', title:'Create invoice', verb:'create invoice', refresh:'receivables',
+    fields:[
+      {k:'customer_name', label:'Customer', ph:'e.g. Acme Corp', req:true},
+      {k:'line_items', label:'Line items', ph:'e.g. Consulting — $2,000', req:true},
+      {k:'due_date', label:'Due date (optional)', ph:'YYYY-MM-DD'},
+    ]},
+  expense: { tool:'qb_create_expense', title:'Record expense', verb:'record expense', refresh:'transactions',
+    fields:[
+      {k:'vendor_name', label:'Vendor', ph:'e.g. Staples', req:true},
+      {k:'amount', label:'Amount', ph:'e.g. 149.99', req:true, type:'number'},
+      {k:'account_name', label:'Category / account', ph:'e.g. Office Supplies', req:true},
+      {k:'date', label:'Date', ph:'YYYY-MM-DD', val:new Date().toISOString().slice(0,10)},
+      {k:'description', label:'Description (optional)', ph:''},
+    ]},
+};
+function writeConfirmCard(key){
+  const spec = WRITE_SPECS[key]; if(!spec) return;
+  const msgs = document.getElementById('chat-msgs');
+  const hint = msgs.querySelector('.msg-hint'); if(hint) hint.remove();
+  const row = document.createElement('div'); row.className = 'msg-row a';
+  const card = document.createElement('div'); card.className = 'msg a'; card.style.whiteSpace = 'normal'; card.style.maxWidth = '100%';
+  const company = COMPANY ? escapeHtml(COMPANY) : 'your books';
+  card.innerHTML =
+    '<div style="font-weight:700;margin-bottom:2px">' + escapeHtml(spec.title) + '</div>' +
+    '<div class="msg-hint" style="text-align:left;padding:0 0 6px;font-style:normal">Writes to <strong>' + company + '</strong>. Review, then confirm.</div>' +
+    spec.fields.map(f =>
+      '<label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin:6px 0 3px">' + escapeHtml(f.label) + '</label>' +
+      '<input class="chat-input" data-wk="' + f.k + '"' + (f.type === 'number' ? ' type="number" step="0.01"' : '') +
+        ' placeholder="' + escapeHtml(f.ph || '') + '" value="' + escapeHtml(f.val || '') + '">'
+    ).join('') +
+    '<div style="display:flex;gap:8px;margin-top:10px">' +
+      '<button class="qbtn wc-confirm" style="background:var(--green);color:#fff;border-color:var(--green-deep)">Confirm &amp; ' + escapeHtml(spec.verb) + '</button>' +
+      '<button class="qbtn wc-cancel">Cancel</button>' +
+    '</div><div class="wc-msg msg-hint" style="text-align:left;padding:6px 0 0"></div>';
+  row.appendChild(card); msgs.appendChild(row); msgs.scrollTop = msgs.scrollHeight;
+  const firstInput = card.querySelector('input'); if(firstInput) firstInput.focus();
+  card.querySelector('.wc-cancel').addEventListener('click', () => row.remove());
+  card.querySelector('.wc-confirm').addEventListener('click', async () => {
+    const args = { confirmed:true }; let missing = false;
+    spec.fields.forEach(f => {
+      const v = (card.querySelector('[data-wk="' + f.k + '"]').value || '').trim();
+      if(f.req && !v) missing = true;
+      if(v) args[f.k] = (f.type === 'number') ? parseFloat(v) : v;
+    });
+    const msgEl = card.querySelector('.wc-msg');
+    if(missing){ msgEl.textContent = 'Fill in the required fields.'; return; }
+    msgEl.textContent = 'Writing…';
+    try{
+      const r = await fetch('/mcp', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({tool: spec.tool, args})});
+      const j = await r.json().catch(() => ({}));
+      if(j.ok){
+        row.remove();
+        appendAssistantRich(md2html(extractText(j)), [{tool: spec.tool}]);
+        logAction(spec.title);
+        if(loaded[spec.refresh]) loadTab(spec.refresh, true);
+      } else {
+        msgEl.textContent = j.error || 'Could not complete the write.';
+      }
+    }catch(e){ msgEl.textContent = 'Network error: ' + e; }
+  });
 }
 
 async function askAQB(question){
