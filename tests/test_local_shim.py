@@ -51,6 +51,39 @@ def test_mcp_unknown_tool_is_404_not_500(client):
     assert r.json()["isError"] is True
 
 
+# --- write safety: no silent mutations (Constitution) ---
+
+def test_write_tool_requires_confirmation(client):
+    # A book-mutating tool via /mcp is refused (and does nothing) unless confirmed.
+    r = client.post("/mcp", json={"tool": "qb_create_expense",
+                                  "args": {"vendor_name": "X", "amount": 1,
+                                           "account_name": "Office", "date": "2026-01-01"}})
+    d = r.json()
+    assert d.get("needsConfirm") is True and not d.get("ok")
+
+
+def test_write_tool_confirmed_passes_and_strips_flag(client, monkeypatch):
+    captured = {}
+
+    async def fake_call(name, args):
+        captured["name"] = name
+        captured["args"] = dict(args)
+        return "booked"
+
+    monkeypatch.setattr(serve, "call_tool", fake_call)
+    r = client.post("/mcp", json={"tool": "qb_create_expense",
+                                  "args": {"vendor_name": "X", "amount": 1, "account_name": "Office",
+                                           "date": "2026-01-01", "confirmed": True}})
+    d = r.json()
+    assert d.get("ok") is True and d.get("result") == "booked"
+    assert captured["name"] == "qb_create_expense"
+    assert "confirmed" not in captured["args"]  # UI flag never forwarded to the tool
+
+
+def test_read_tool_not_gated(client):
+    assert client.post("/mcp", json={"tool": "qb_server_info", "args": {}}).json().get("ok") is True
+
+
 def test_sample_without_key_reports_needskey(client, monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setattr(serve, "_anthropic_key", lambda: "")
