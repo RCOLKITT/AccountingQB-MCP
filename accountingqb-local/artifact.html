@@ -9,7 +9,7 @@
 /* ============ Ledger editorial: paper workspace under the brand navy header ============ */
 :root{color-scheme:light;
 --paper:#f6f5f1;--card:#ffffff;
---ink:#1c2b3a;--ink-soft:#51606f;--ink-dim:#8a95a1;
+--ink:#1c2b3a;--ink-soft:#51606f;--ink-dim:#6b7580;/* darkened for WCAG AA body contrast on white */
 --rule:#e6e4dc;--rule-dark:#c9c6bb;
 --green:#0f7b4d;--green-deep:#0a5c39;--green-soft:#eaf4ef;
 --red:#9f2226;--red-soft:#f9edec;
@@ -22,6 +22,11 @@
 --blue:#2563eb;--indigo:#4f46e5;
 --green-bg:var(--green-soft);--red-bg:var(--red-soft);--warn-bg:var(--warn-soft)}
 *{box-sizing:border-box}
+/* Accessibility: visible focus for keyboard users; respect reduced-motion */
+:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.tab:focus-visible,.chat-rail:focus-visible{outline:2px solid var(--cyan);outline-offset:-2px}
+.modal-x:focus-visible,.nav-gear:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;background:var(--paper);color:var(--ink);margin:0;padding:0;line-height:1.5;font-size:14px;-webkit-font-smoothing:antialiased}
 .app{max-width:1400px;margin:0 auto;padding:0 14px 14px}
 /* ---- Brand header: dark navy, full-width band ---- */
@@ -208,7 +213,7 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 </head>
 <body>
 <div class="app">
-<div class="nav">
+<div class="nav" role="banner" aria-label="AccountingQB">
 <div class="brand">
 <svg viewBox="0 0 512 512" width="22" height="22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 <defs><linearGradient id="aqbg" x1="60" y1="60" x2="452" y2="452" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#22d3ee"/><stop offset="40%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#6366f1"/></linearGradient></defs>
@@ -249,7 +254,7 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 </div>
 
 <div class="body">
-<div class="main">
+<main class="main" role="main">
 
 <div id="view-dashboard">
 <div class="card">
@@ -386,19 +391,22 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 </div>
 </div>
 
-</div>
+</main>
 
-<aside class="chat" aria-label="Ask AccountingQB">
+<aside class="chat" aria-label="Ask AccountingQB" role="complementary">
 <div class="chat-h">
 <span class="dot"></span> Ask AccountingQB
 <div class="modes"><span>Deep</span><label class="toggle"><input type="checkbox" id="deep-mode-toggle"><span class="slider"></span></label></div>
 <button class="chat-collapse" id="chat-collapse" title="Collapse (⌘K)" aria-label="Collapse chat panel">&#10095;</button>
 </div>
-<div class="chat-msgs" id="chat-msgs">
+<div class="chat-msgs" id="chat-msgs" role="log" aria-live="polite" aria-atomic="false" aria-label="Conversation with AccountingQB">
 <div class="msg-hint">Ask about your books or give a command. Questions answer instantly from loaded reports; commands run live tools right here.</div>
 </div>
 <div class="chat-i">
-<input id="chat-input" class="chat-input" placeholder="Ask a question or give a command..." aria-label="Ask AccountingQB">
+<div style="display:flex;gap:6px;align-items:stretch">
+<input id="chat-input" class="chat-input" placeholder="Ask a question or give a command…" aria-label="Ask AccountingQB">
+<button id="chat-send" class="btn2" style="flex-shrink:0;margin-top:0" aria-label="Send">Send</button>
+</div>
 <div class="chat-suggestions" id="chat-suggestions"></div>
 </div>
 <div class="action-log">
@@ -567,8 +575,10 @@ function md2html(s){
       const hasNum = r.some((c, i) => header ? (numericCols[i] && (c || '').trim() && c.trim() !== '\u2014') : isNum(c));
       let attrs = isTotal ? ' class="total-row"' : '';
       if(!isTotal && hasNum && (r[0] || '').trim()){
-        attrs = ' class="drill" data-drill="' + escapeHtml((r[0] || '').replace(/\*\*/g, '').trim()) + '"' +
-                ' title="Click to see the transactions behind this line"';
+        const dlabel = escapeHtml((r[0] || '').replace(/\*\*/g, '').trim());
+        attrs = ' class="drill" data-drill="' + dlabel + '" tabindex="0" role="button"' +
+                ' aria-label="Show the transactions behind ' + dlabel + '"' +
+                ' title="Show the transactions behind this line"';
       }
       return '<tr' + attrs + '>' + r.map((c, i) => cell(c, i, 'td')).join('') + '</tr>';
     }).join('') + '</tbody></table>';
@@ -1014,27 +1024,65 @@ document.getElementById('wb-export').addEventListener('click', () => {
 
 
 // ============ Row drill-down: click a ledger line, ask about it ============
-document.addEventListener('click', (e) => {
-  const row = e.target && e.target.closest ? e.target.closest('tr.drill') : null;
-  if(!row || !row.dataset.drill) return;
+function drillRow(row){
   const inWb = !!row.closest('#view-workbook');
   const [ws, we] = inWb ? wbRange() : periodRange('ytd');
+  if(document.querySelector('.body').classList.contains('chat-collapsed')) setChatOpen(true);
   askAQB('Show the transactions behind "' + row.dataset.drill + '" for ' + ws + ' to ' + we);
+}
+document.addEventListener('click', (e) => {
+  const row = e.target && e.target.closest ? e.target.closest('tr.drill') : null;
+  if(row && row.dataset.drill) drillRow(row);
+});
+document.addEventListener('keydown', (e) => {
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  const row = e.target && e.target.closest ? e.target.closest('tr.drill') : null;
+  if(!row || !row.dataset.drill) return;
+  e.preventDefault(); drillRow(row);
 });
 
 let activeTab = 'dashboard';
-document.querySelectorAll('.tab').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    activeTab = t.dataset.tab;
-    ['dashboard','pl','cashflow','receivables','payables','transactions','tax','workbook','health'].forEach(v => {
-      document.getElementById('view-' + v).style.display = v === activeTab ? '' : 'none';
-    });
-    loadTab(activeTab);
-    paintSuggestions(activeTab);
+const TAB_VIEWS = ['dashboard','pl','cashflow','receivables','payables','transactions','tax','workbook','health'];
+function activateTab(t, focusPanel){
+  document.querySelectorAll('.tab').forEach(x => {
+    const on = x === t;
+    x.classList.toggle('active', on);
+    x.setAttribute('aria-selected', on ? 'true' : 'false');
+    x.tabIndex = on ? 0 : -1;
   });
-});
+  activeTab = t.dataset.tab;
+  TAB_VIEWS.forEach(v => { document.getElementById('view-' + v).style.display = v === activeTab ? '' : 'none'; });
+  loadTab(activeTab);
+  paintSuggestions(activeTab);
+  if(focusPanel){ const p = document.getElementById('view-' + activeTab); if(p) p.focus(); }
+}
+(function initTabsA11y(){
+  const tabs = Array.from(document.querySelectorAll('.tab'));
+  tabs.forEach(t => {
+    const name = t.dataset.tab;
+    t.setAttribute('role', 'tab');
+    t.id = 'tab-' + name;
+    t.setAttribute('aria-controls', 'view-' + name);
+    const on = t.classList.contains('active');
+    t.setAttribute('aria-selected', on ? 'true' : 'false');
+    t.tabIndex = on ? 0 : -1;
+    const view = document.getElementById('view-' + name);
+    if(view){ view.setAttribute('role', 'tabpanel'); view.setAttribute('aria-labelledby', 'tab-' + name); view.tabIndex = -1; }
+    t.addEventListener('click', () => activateTab(t, false));
+  });
+  const list = document.querySelector('.tabs');
+  list.setAttribute('aria-label', 'Report sections');
+  list.addEventListener('keydown', (e) => {
+    const i = tabs.indexOf(document.activeElement);
+    if(i < 0) return;
+    let j = -1;
+    if(e.key === 'ArrowRight' || e.key === 'ArrowDown') j = (i + 1) % tabs.length;
+    else if(e.key === 'ArrowLeft' || e.key === 'ArrowUp') j = (i - 1 + tabs.length) % tabs.length;
+    else if(e.key === 'Home') j = 0;
+    else if(e.key === 'End') j = tabs.length - 1;
+    if(j >= 0){ e.preventDefault(); tabs[j].focus(); activateTab(tabs[j], false); }
+  });
+})();
 document.querySelectorAll('#pl-period-tabs .period-tab').forEach(t => {
   t.addEventListener('click', () => {
     document.querySelectorAll('#pl-period-tabs .period-tab').forEach(x => x.classList.remove('active'));
@@ -1134,7 +1182,9 @@ function showThinking(){
   const row = document.createElement('div');
   row.className = 'msg-row a';
   row.id = 'thinking-row';
-  row.innerHTML = '<div class="thinking"><span></span><span></span><span></span></div>';
+  row.setAttribute('role', 'status');
+  row.setAttribute('aria-label', 'AccountingQB is working');
+  row.innerHTML = '<div class="thinking" aria-hidden="true"><span></span><span></span><span></span></div>';
   msgs.appendChild(row);
   msgs.scrollTop = msgs.scrollHeight;
 }
@@ -1266,6 +1316,12 @@ async function askAQB(question){
 document.getElementById('chat-input').addEventListener('keydown', e => {
   if(e.key === 'Enter' && e.target.value.trim()){ askAQB(e.target.value.trim()); e.target.value = ''; }
 });
+document.getElementById('chat-send').addEventListener('click', () => {
+  const inp = document.getElementById('chat-input'); const v = inp.value.trim();
+  if(v){ askAQB(v); inp.value = ''; inp.focus(); }
+});
+// Icon-only refresh controls: give assistive tech an accessible name.
+document.querySelectorAll('.refresh-btn').forEach(b => b.setAttribute('aria-label', 'Refresh ' + (b.dataset.refresh || 'section')));
 
 // ============ Collapsible chat panel ============
 function setChatOpen(open, focus){
