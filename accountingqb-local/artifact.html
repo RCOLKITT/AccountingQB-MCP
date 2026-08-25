@@ -196,6 +196,14 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 .btn2.ghost:hover{background:var(--paper);color:var(--ink)}
 .conn-adv{margin-top:10px;font-size:12px}
 .conn-adv summary{cursor:pointer;color:var(--ink-soft);font-weight:600}
+/* ---- Onboarding: welcome + coach-mark tour ---- */
+.welcome-hero{font-size:13px;color:var(--ink-soft);margin:2px 0 12px;line-height:1.55}
+.tour-card{position:fixed;right:18px;bottom:18px;z-index:55;background:var(--card);border:1px solid var(--rule-dark);border-radius:10px;box-shadow:0 16px 40px rgba(10,14,26,.28);padding:14px 16px;max-width:300px}
+.tour-card[hidden]{display:none}
+.tour-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--green-deep);margin-bottom:8px}
+.tour-list{margin:0 0 10px;padding-left:18px;font-size:12px;color:var(--ink-soft);line-height:1.5}
+.tour-list li{margin:4px 0}
+.empty .e-h{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -440,6 +448,36 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
   </div>
 </div>
 
+<div class="modal-overlay" id="welcome-overlay" role="dialog" aria-modal="true" aria-labelledby="welcome-title" hidden>
+  <div class="modal">
+    <div class="modal-h"><h2 id="welcome-title">Welcome to AccountingQB</h2></div>
+    <div class="modal-body">
+      <p class="welcome-hero">Your books, on your machine. Explore live reports in the tabs, and <strong>ask questions or give commands</strong> in the Ask panel. Let’s connect your data — it stays local.</p>
+      <div class="conn-card">
+        <div class="conn-row"><h3>1 &middot; QuickBooks</h3><span class="conn-chip off" id="wc-qb">needed</span></div>
+        <p class="conn-sub">Connect your company to see live numbers.</p>
+        <div id="wc-qb-actions"><a class="btn2" href="/oauth/start">Connect QuickBooks</a></div>
+      </div>
+      <div class="conn-card">
+        <div class="conn-row"><h3>2 &middot; AI chat<span class="conn-opt">optional</span></h3><span class="conn-chip off" id="wc-key">optional</span></div>
+        <p class="conn-sub">Add an Anthropic key to ask questions in plain English. Reports work without it.</p>
+        <button class="btn2 ghost" id="wc-open-conn">Add a key</button>
+      </div>
+      <div style="text-align:right"><button class="btn2 ghost" id="welcome-skip">Skip for now</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="tour-card" id="tour-card" hidden>
+  <div class="tour-h">Quick tour</div>
+  <ol class="tour-list">
+    <li><strong>Tabs</strong> — your live reports: Dashboard, P&amp;L, Cash Flow, Tax, Workbook…</li>
+    <li><strong>Ask panel</strong> — ask a question or give a command; <strong>⌘K</strong> toggles it.</li>
+    <li><strong>Connections (⚙)</strong> — manage QuickBooks, your AI key, and Coffer.</li>
+  </ol>
+  <button class="btn2" id="tour-done">Got it</button>
+</div>
+
 </div><!-- .app -->
 
 <script>
@@ -481,6 +519,7 @@ window.cowork = {
 const NS_CANDIDATES = ['mcp__accountingqb__', 'mcp__quickbooks__'];
 let NS = null;
 let COMPANY = null;
+let CONNECTED = false;   // set from /api/status on boot; gates data loads vs. empty/onboarding states
 
 // ============ Data cache (powers chat context + timestamps) ============
 const CACHE = {};   // key -> { md: string, ts: Date }
@@ -695,6 +734,7 @@ async function loadHealthSummary(){
 // ============ Lazy tab loaders ============
 const loaded = {};
 async function loadTab(tab, force){
+  if(!CONNECTED){ renderTabEmpty(tab); return; }
   if(loaded[tab] && !force) return;
   loaded[tab] = true;
   if(tab === 'pl'){ await loadPL(currentPlPeriod); }
@@ -1320,11 +1360,83 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ============ Onboarding + empty states ============
+function emptyState(msg){
+  return '<div class="empty"><div class="e-h">Connect QuickBooks</div><div class="e-p">' +
+    (msg || 'Open Connections (⚙) to link your company and see live numbers here.') + '</div></div>';
+}
+const TAB_CONTENT_IDS = {
+  dashboard:['dashboard-pl','dashboard-health'], pl:['pl-content'],
+  cashflow:['cashflow-content','cashflow-forecast'], receivables:['ar-content','invoices-content'],
+  payables:['ap-content','vendors-content'], transactions:['uncat-content','anomaly-content','recent-content'],
+  tax:['tax-quarterly','tax-schedulec','tax-deductions'], workbook:['wb-content'], health:['health-content'],
+};
+function renderTabEmpty(tab){
+  (TAB_CONTENT_IDS[tab] || []).forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = emptyState(); });
+}
+function renderDisconnected(){
+  document.getElementById('company-name').textContent = 'not connected';
+  const pill = document.getElementById('runway-pill');
+  pill.className = 'runway-pill'; pill.textContent = 'Not connected';
+  ['kpi-cash','kpi-net','kpi-burn','kpi-runway'].forEach(id => document.getElementById(id).textContent = '—');
+  ['kpi-cash-s','kpi-net-s','kpi-burn-s','kpi-runway-s'].forEach(id => document.getElementById(id).textContent = 'not connected');
+  renderTabEmpty('dashboard');
+}
+
+let statusPoll = null;
+function showWelcome(){
+  document.getElementById('welcome-overlay').hidden = false;
+  if(statusPoll) return;
+  statusPoll = setInterval(async () => {
+    let s = {}; try{ s = await (await fetch('/api/status')).json(); }catch(e){}
+    document.getElementById('wc-key').textContent = s.hasAnthropicKey ? 'set' : 'optional';
+    document.getElementById('wc-key').className = 'conn-chip ' + (s.hasAnthropicKey ? 'ok' : 'off');
+    if(s.connected){
+      document.getElementById('wc-qb').textContent = 'connected';
+      document.getElementById('wc-qb').className = 'conn-chip ok';
+      clearInterval(statusPoll); statusPoll = null;
+      setTimeout(onConnected, 500);
+    }
+  }, 2500);
+}
+document.getElementById('welcome-skip').addEventListener('click', () => {
+  document.getElementById('welcome-overlay').hidden = true;
+  if(statusPoll){ clearInterval(statusPoll); statusPoll = null; }
+});
+document.getElementById('wc-open-conn').addEventListener('click', openConnections);
+
+function maybeShowTour(){
+  if(localStorage.getItem('aqb-tour-seen') === '1') return;
+  document.getElementById('tour-card').hidden = false;
+}
+document.getElementById('tour-done').addEventListener('click', () => {
+  document.getElementById('tour-card').hidden = true;
+  try{ localStorage.setItem('aqb-tour-seen', '1'); }catch(e){}
+});
+
+function onConnected(){
+  CONNECTED = true;
+  document.getElementById('welcome-overlay').hidden = true;
+  Object.keys(loaded).forEach(k => delete loaded[k]);   // let tabs reload with live data
+  loadCompany().then(() => { loadDashboardKpis(); loadHealthSummary(); });
+  maybeShowTour();
+}
+
 // ============ Boot ============
 setChatOpen((localStorage.getItem('aqb-chat-open') ?? '1') === '1', false);   // open, docked right by default
 paintSuggestions('dashboard');
 renderActionLog();
-loadCompany().then(() => { loadDashboardKpis(); loadHealthSummary(); });
+(async () => {
+  let s = {}; try{ s = await (await fetch('/api/status')).json(); }catch(e){}
+  if(s.connected){
+    CONNECTED = true;
+    loadCompany().then(() => { loadDashboardKpis(); loadHealthSummary(); });
+    maybeShowTour();   // returning/connected user: no overlay, just the one-time tour
+  } else {
+    renderDisconnected();
+    showWelcome();
+  }
+})();
 </script>
 </body>
 </html>
