@@ -160,6 +160,42 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 @media (max-width:900px){.wb-layout{grid-template-columns:1fr}.wb-toc{position:static;flex-direction:row;flex-wrap:wrap}}
 @media (max-width:1100px){.body{grid-template-columns:1fr}.chat{position:static;max-height:none;min-height:480px}}
 @media (max-width:600px){.kpi-grid{grid-template-columns:1fr}}
+/* ---- Collapsible chat panel ---- */
+.nav-gear{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:#cbd5e1;border-radius:6px;width:30px;height:28px;cursor:pointer;font-size:15px;line-height:1;display:grid;place-items:center;font-family:inherit}
+.nav-gear:hover{color:#fff;border-color:var(--cyan)}
+.chat-collapse{margin-left:6px;background:transparent;border:1px solid var(--rule);color:var(--ink-dim);border-radius:5px;width:24px;height:22px;cursor:pointer;font-size:13px;line-height:1;display:grid;place-items:center;font-family:inherit}
+.chat-collapse:hover{color:var(--green);border-color:#b5d6c6}
+.body.chat-collapsed{grid-template-columns:1fr}
+.body.chat-collapsed .chat{display:none}
+.chat-rail{display:none;position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:40;writing-mode:vertical-rl;background:linear-gradient(180deg,var(--navy),var(--navy-2));color:#e2e8f0;border:1px solid var(--cyan);border-right:none;border-radius:8px 0 0 8px;padding:16px 7px;cursor:pointer;font-weight:600;font-size:12px;letter-spacing:.06em;box-shadow:-2px 2px 10px rgba(10,14,26,.22);font-family:inherit}
+.chat-rail:hover{color:#fff}
+.chat-rail .rdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--cyan);margin-bottom:6px}
+/* ---- Connections modal ---- */
+.modal-overlay{position:fixed;inset:0;background:rgba(10,14,26,.55);backdrop-filter:blur(2px);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:48px 16px;overflow-y:auto}
+.modal-overlay[hidden]{display:none}
+.modal{background:var(--card);border:1px solid var(--rule-dark);border-radius:12px;width:100%;max-width:560px;box-shadow:0 24px 60px rgba(10,14,26,.32)}
+.modal-h{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--rule);background:linear-gradient(180deg,var(--navy),var(--navy-2));border-radius:12px 12px 0 0}
+.modal-h h2{margin:0;font-size:14px;font-weight:700;color:#f1f5f9;letter-spacing:.02em}
+.modal-x{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#cbd5e1;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1;display:grid;place-items:center}
+.modal-x:hover{color:#fff;border-color:var(--cyan)}
+.modal-body{padding:16px 20px 20px;display:flex;flex-direction:column;gap:14px}
+.conn-card{border:1px solid var(--rule);border-radius:8px;padding:14px 16px;background:#fdfdfb}
+.conn-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.conn-row h3{margin:0;font-size:13px;font-weight:700;color:var(--ink)}
+.conn-opt{font-size:10px;font-weight:600;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em;margin-left:6px}
+.conn-sub{font-size:12px;color:var(--ink-soft);margin:6px 0}
+.conn-chip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--rule);color:var(--ink-soft)}
+.conn-chip.ok{background:var(--green-soft);color:var(--green-deep)}
+.conn-chip.off{background:var(--warn-soft);color:var(--warn)}
+.field{width:100%;padding:9px 11px;border:1px solid var(--rule-dark);border-radius:6px;font-size:13px;font-family:inherit;color:var(--ink);background:#fff;outline:none;margin:5px 0}
+.field:focus{border-color:var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+.field-l{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-top:6px}
+.btn2{padding:8px 15px;font-size:12px;font-weight:600;border-radius:6px;border:1px solid var(--green-deep);background:var(--green);color:#fff;cursor:pointer;font-family:inherit;margin-top:4px}
+.btn2:hover{background:var(--green-deep)}
+.btn2.ghost{background:transparent;color:var(--ink-soft);border-color:var(--rule-dark)}
+.btn2.ghost:hover{background:var(--paper);color:var(--ink)}
+.conn-adv{margin-top:10px;font-size:12px}
+.conn-adv summary{cursor:pointer;color:var(--ink-soft);font-weight:600}
 </style>
 </head>
 <body>
@@ -191,6 +227,7 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 <button class="tab" data-tab="health">Health</button>
 </div>
 <span id="runway-pill" class="runway-pill loading">Loading</span>
+<button class="nav-gear" id="open-connections" title="Connections" aria-label="Open Connections">&#9881;</button>
 </div>
 
 <div class="quickbar">
@@ -347,6 +384,7 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 <div class="chat-h">
 <span class="dot"></span> Ask AccountingQB
 <div class="modes"><span>Deep</span><label class="toggle"><input type="checkbox" id="deep-mode-toggle"><span class="slider"></span></label></div>
+<button class="chat-collapse" id="chat-collapse" title="Collapse (⌘K)" aria-label="Collapse chat panel">&#10095;</button>
 </div>
 <div class="chat-msgs" id="chat-msgs">
 <div class="msg-hint">Ask about your books or give a command. Questions answer instantly from loaded reports; commands run live tools right here.</div>
@@ -361,8 +399,48 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 </div>
 </aside>
 
+</div><!-- .body -->
+
+<button class="chat-rail" id="chat-rail" onclick="setChatOpen(true)" aria-label="Open the Ask AccountingQB panel"><span class="rdot"></span>Ask AccountingQB</button>
+
+<div class="modal-overlay" id="connections-modal" role="dialog" aria-modal="true" aria-labelledby="conn-title" hidden>
+  <div class="modal">
+    <div class="modal-h"><h2 id="conn-title">Connections</h2><button class="modal-x" id="conn-close" aria-label="Close Connections">&#10005;</button></div>
+    <div class="modal-body">
+      <div class="conn-card">
+        <div class="conn-row"><h3>QuickBooks</h3><span class="conn-chip" id="qb-chip">checking…</span></div>
+        <p class="conn-sub" id="qb-sub">Your books. Data flows QuickBooks &rarr; your machine; nothing is stored on our servers.</p>
+        <div id="qb-actions"></div>
+        <details class="conn-adv"><summary>Advanced &mdash; use your own Intuit app (fully local)</summary>
+          <p class="conn-sub">Register <code id="rduri2">http://localhost/callback</code> as a redirect URI in your Intuit app.</p>
+          <input class="field" id="cid" placeholder="QB_CLIENT_ID">
+          <input class="field" id="csec" type="password" placeholder="QB_CLIENT_SECRET">
+          <button class="btn2" id="saveqb">Save Intuit creds</button>
+        </details>
+      </div>
+      <div class="conn-card">
+        <div class="conn-row"><h3>AI chat<span class="conn-opt">optional</span></h3><span class="conn-chip" id="key-chip">checking…</span></div>
+        <p class="conn-sub">Powers the Ask panel. Stored only in <code>~/.accountingqb</code>; calls go from your machine straight to Anthropic. Reports work without it.</p>
+        <input class="field" id="key" type="password" placeholder="sk-ant-…" aria-label="Anthropic API key">
+        <label class="field-l" for="model">Model</label>
+        <select class="field" id="model">
+          <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (default)</option>
+          <option value="claude-opus-4-8">Claude Opus 4.8</option>
+          <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
+        </select>
+        <button class="btn2" id="savekey">Save</button> <span id="savemsg" class="conn-sub" style="display:inline"></span>
+      </div>
+      <div class="conn-card">
+        <div class="conn-row"><h3>Coffer<span class="conn-opt">personal finances</span></h3><span class="conn-chip" id="coffer-chip">checking…</span></div>
+        <p class="conn-sub">Link Coffer so business expenses paid from personal cards can be booked here, and your owner draws &amp; tax set-aside flow across. You log in and confirm &mdash; nothing about your books leaves your machine.</p>
+        <div id="coffer-actions"></div>
+        <span id="coffermsg" class="conn-sub" style="display:inline"></span>
+      </div>
+    </div>
+  </div>
 </div>
-</div>
+
+</div><!-- .app -->
 
 <script>
 // ============ Desktop runtime shim: window.cowork over the local shim server ============
@@ -1149,7 +1227,101 @@ document.getElementById('chat-input').addEventListener('keydown', e => {
   if(e.key === 'Enter' && e.target.value.trim()){ askAQB(e.target.value.trim()); e.target.value = ''; }
 });
 
+// ============ Collapsible chat panel ============
+function setChatOpen(open, focus){
+  const body = document.querySelector('.body');
+  const rail = document.getElementById('chat-rail');
+  const aside = document.querySelector('.chat');
+  body.classList.toggle('chat-collapsed', !open);
+  if(rail) rail.style.display = open ? 'none' : 'block';
+  if(aside) aside.setAttribute('aria-hidden', open ? 'false' : 'true');
+  try{ localStorage.setItem('aqb-chat-open', open ? '1' : '0'); }catch(e){}
+  if(open && focus !== false){ const inp = document.getElementById('chat-input'); if(inp) setTimeout(() => inp.focus(), 40); }
+}
+function toggleChat(){ setChatOpen(document.querySelector('.body').classList.contains('chat-collapsed')); }
+document.getElementById('chat-collapse').addEventListener('click', () => setChatOpen(false));
+
+// ============ Connections ============
+function openConnections(){
+  document.getElementById('connections-modal').hidden = false;
+  loadConnStatus();
+  setTimeout(() => { const x = document.getElementById('conn-close'); if(x) x.focus(); }, 40);
+}
+function closeConnections(){ document.getElementById('connections-modal').hidden = true; }
+document.getElementById('open-connections').addEventListener('click', openConnections);
+document.getElementById('conn-close').addEventListener('click', closeConnections);
+document.getElementById('connections-modal').addEventListener('click', (e) => { if(e.target.id === 'connections-modal') closeConnections(); });
+
+async function loadConnStatus(){
+  let s = {};
+  try{ s = await (await fetch('/api/status')).json(); }catch(e){}
+  const qbChip = document.getElementById('qb-chip'), qbActions = document.getElementById('qb-actions'), qbSub = document.getElementById('qb-sub');
+  if(s.connected){
+    qbChip.textContent = 'connected'; qbChip.className = 'conn-chip ok';
+    qbSub.innerHTML = 'Connected' + (COMPANY ? ' &middot; <strong>' + escapeHtml(COMPANY) + '</strong>' : '') + (s.hostedMode ? ' &middot; hosted' : '') + '. Data flows QuickBooks &rarr; your machine.';
+    qbActions.innerHTML = '<a class="btn2 ghost" href="/oauth/start">Reconnect / switch company</a>';
+  } else {
+    qbChip.textContent = 'not connected'; qbChip.className = 'conn-chip off';
+    qbActions.innerHTML = '<a class="btn2" href="/oauth/start">Connect QuickBooks</a>';
+  }
+  const keyChip = document.getElementById('key-chip');
+  keyChip.textContent = s.hasAnthropicKey ? 'set' : 'not set';
+  keyChip.className = 'conn-chip ' + (s.hasAnthropicKey ? 'ok' : 'off');
+  try{ document.getElementById('rduri2').textContent = 'http://localhost:' + location.port + '/callback'; }catch(e){}
+  await loadCofferStatus();
+}
+async function loadCofferStatus(){
+  const chip = document.getElementById('coffer-chip'), actions = document.getElementById('coffer-actions');
+  let paired = false;
+  try{ const w = await (await fetch('/whoami')).json(); paired = !!w.paired && (w.peerProduct === 'coffer' || !w.peerProduct); }
+  catch(e){ chip.textContent = 'unavailable'; chip.className = 'conn-chip'; return; }
+  chip.textContent = paired ? 'connected' : 'not connected';
+  chip.className = 'conn-chip ' + (paired ? 'ok' : 'off');
+  actions.innerHTML = paired
+    ? '<button class="btn2 ghost" id="coffer-disconnect">Disconnect</button>'
+    : '<button class="btn2" id="coffer-connect">Connect Coffer</button>';
+  const c = document.getElementById('coffer-connect'); if(c) c.addEventListener('click', cofferConnect);
+  const d = document.getElementById('coffer-disconnect'); if(d) d.addEventListener('click', cofferDisconnect);
+}
+function cofferConnect(){
+  // AccountingQB is the single authorization server; this drives Coffer's own link flow.
+  window.open('http://127.0.0.1:4317/link/connect', '_blank');
+  document.getElementById('coffermsg').textContent = 'Sign in to AccountingQB in the new tab (Coffer must be open)…';
+  let n = 0; const iv = setInterval(async () => {
+    n++; try{ await fetch('/link/refresh', {method:'POST'}); }catch(e){}
+    let paired = false; try{ const w = await (await fetch('/whoami')).json(); paired = !!w.paired; }catch(e){}
+    if(paired){ document.getElementById('coffermsg').textContent = 'Connected ✓'; clearInterval(iv); loadCofferStatus(); }
+    else if(n > 40){ document.getElementById('coffermsg').textContent = ''; clearInterval(iv); }
+  }, 3000);
+}
+async function cofferDisconnect(){ try{ await fetch('/unpair', {method:'POST'}); }catch(e){} document.getElementById('coffermsg').textContent = 'Disconnected.'; loadCofferStatus(); }
+document.getElementById('savekey').addEventListener('click', async () => {
+  MODEL = document.getElementById('model').value;
+  const k = document.getElementById('key').value.trim();
+  await fetch('/api/config', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(k ? {anthropicApiKey:k} : {})});
+  document.getElementById('key').value = '';
+  document.getElementById('savemsg').textContent = 'Saved.';
+  loadConnStatus();
+});
+document.getElementById('saveqb').addEventListener('click', async () => {
+  const cid = document.getElementById('cid').value.trim(), csec = document.getElementById('csec').value.trim();
+  await fetch('/api/config', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({qbClientId:cid, qbClientSecret:csec})});
+  document.getElementById('cid').value = ''; document.getElementById('csec').value = '';
+  document.getElementById('savemsg').textContent = 'Saved. Now Connect QuickBooks.';
+});
+
+// ============ Global keyboard ============
+document.addEventListener('keydown', (e) => {
+  if((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'){ e.preventDefault(); toggleChat(); return; }
+  if(e.key === 'Escape'){
+    const modal = document.getElementById('connections-modal');
+    if(!modal.hidden){ closeConnections(); return; }
+    if(!document.querySelector('.body').classList.contains('chat-collapsed')){ setChatOpen(false); }
+  }
+});
+
 // ============ Boot ============
+setChatOpen((localStorage.getItem('aqb-chat-open') ?? '1') === '1', false);   // open, docked right by default
 paintSuggestions('dashboard');
 renderActionLog();
 loadCompany().then(() => { loadDashboardKpis(); loadHealthSummary(); });
