@@ -27,6 +27,7 @@ from __future__ import annotations
 import base64
 import datetime
 import hashlib
+import inspect
 import json
 import os
 import re
@@ -243,7 +244,17 @@ async def call_tool(name: str, args: dict) -> object:
         # none of the connector's tools need it today, but fail loud if that changes.
         raise RuntimeError(f"tool {name} requires a FastMCP Context (unsupported in the local shim)")
     fn = tool.fn
-    result = await fn(**(args or {})) if tool.is_async else fn(**(args or {}))
+    call_args = dict(args or {})
+    # Additive-fields rule: peers may send fields a tool doesn't declare yet (e.g. Coffer passing
+    # `type` to qb_list_accounts, whose param is `account_type`). Drop unknown kwargs instead of
+    # raising a TypeError — unless the tool itself accepts **kwargs.
+    try:
+        params = inspect.signature(fn).parameters
+        if not any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
+            call_args = {k: v for k, v in call_args.items() if k in params}
+    except (TypeError, ValueError):  # builtins / C-callables without a signature
+        pass
+    result = await fn(**call_args) if tool.is_async else fn(**call_args)
     return result
 
 
@@ -340,6 +351,48 @@ async def _int_estimate(args: dict) -> dict:
             "filing_status": fs, "state": state or "(auto)", "provenance": "qb_estimate_quarterly_tax"}
 
 
+# A fresh QuickBooks company has no clearing account and often no owner-equity account. Reuse any
+# existing owner-equity account before creating one, so we don't clutter the chart (Coffer never
+# names accounts — choosing/creating them is our domain per the contract).
+_OWNER_EQUITY_CANDIDATES = [
+    "Owner's Equity", "Owners Equity", "Owner Equity", "Owner Investment", "Owner investments",
+    "Owner's Investment", "Owner Contributions", "Member's Equity", "Opening Balance Equity",
+]
+
+
+def _parse_account_names(listing: str) -> dict:
+    """Parse qb_list_accounts markdown ('### <Type>' headers + '- <name> (ID: <id>) | …') into
+    {lowercased name: (name, account_type)}."""
+    out: dict = {}
+    cur = ""
+    for line in str(listing or "").splitlines():
+        line = line.strip()
+        if line.startswith("### "):
+            cur = line[4:].strip()
+        elif line.startswith("- "):
+            m = re.match(r"- (.+?) \(ID: ", line)
+            if m:
+                nm = m.group(1).strip()
+                out[nm.lower()] = (nm, cur)
+    return out
+
+
+async def _ensure_account(name: str, account_type: str, sub_type: str, existing: dict,
+                          candidates: list | None = None) -> str | None:
+    """Return the name of a usable account: the configured one if it exists, else an existing
+    candidate (equity reuse), else create it on first use. None if creation fails."""
+    if name.lower() in existing:
+        return existing[name.lower()][0]
+    for c in (candidates or []):
+        if c.lower() in existing:
+            return existing[c.lower()][0]
+    res = str(await call_tool("qb_create_account",
+                              {"name": name, "account_type": account_type, "account_sub_type": sub_type}))
+    if "Created account" in res or any(w in res.lower() for w in ("duplicate", "already", "exists")):
+        return name  # created, or a concurrent create won the race
+    return None
+
+
 async def _int_owner_paid_expense(args: dict) -> dict:
     key = str(args.get("key") or "").strip()
     if not key:
@@ -367,6 +420,20 @@ async def _int_owner_paid_expense(args: dict) -> dict:
     cfg = load_config()
     expense_acct = args.get("expense_account") or cfg.get("owner_paid_expense_account") or "Owner-Paid Expenses (review)"
     equity_acct = args.get("equity_account") or cfg.get("owner_equity_account") or "Owner's Equity"
+    # First-use bootstrap: ensure both booking accounts exist (fresh QuickBooks companies have
+    # neither the review clearing account nor an owner-equity account). Create the clearing account
+    # if missing; reuse any existing owner-equity account before creating one.
+    try:
+        existing = _parse_account_names(str(await call_tool("qb_list_accounts", {})))
+    except Exception:
+        existing = {}
+    resolved_expense = await _ensure_account(expense_acct, "Expense", "OfficeGeneralAdministrativeExpenses", existing)
+    resolved_equity = await _ensure_account(equity_acct, "Equity", "OwnersEquity", existing, _OWNER_EQUITY_CANDIDATES)
+    if not resolved_expense or not resolved_equity:
+        return {"ok": False, "key": key,
+                "error": "Could not ensure the booking accounts exist in QuickBooks.",
+                "needs": f"an Expense clearing account ('{expense_acct}') and an owner Equity account"}
+    expense_acct, equity_acct = resolved_expense, resolved_equity
     merchant = args.get("realMerchant") or args.get("merchant") or "Owner-paid"
     receipt = args.get("receipt") or {}
     memo = f"coffer:{key} | {merchant}"
