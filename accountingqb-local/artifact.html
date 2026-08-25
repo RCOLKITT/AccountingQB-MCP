@@ -1,255 +1,1092 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="UTF-8">
 <title>AccountingQB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#0a0e1a; --card:#131a2e; --panel:#0d1220; --line:rgba(255,255,255,.08); --muted:#94a3b8; --dim:#64748b; --cyan:#22d3ee; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,-apple-system,"Hanken Grotesk",sans-serif; background:var(--bg); color:#e5e7eb; height:100vh; display:flex; flex-direction:column; }
-  header { display:flex; align-items:center; gap:12px; padding:12px 20px; border-bottom:1px solid var(--line); }
-  .logo { font-weight:800; font-size:17px; }
-  .logo .a{color:var(--cyan)} .logo .b{color:#60a5fa}
-  .status { margin-left:auto; font-size:12px; color:var(--dim); text-align:right; }
-  nav { display:flex; gap:4px; padding:10px 20px 0; border-bottom:1px solid var(--line); }
-  nav button { background:none; border:0; color:var(--muted); padding:8px 14px; font-size:14px; font-weight:600; cursor:pointer; border-bottom:2px solid transparent; }
-  nav button.active { color:#fff; border-bottom-color:var(--cyan); }
-  main { flex:1; overflow:hidden; }
-  .tab { display:none; height:100%; } .tab.active { display:flex; flex-direction:column; }
-  /* chat */
-  #chatlog { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:16px; }
-  .msg { max-width:760px; }
-  .u { align-self:flex-end; background:rgba(37,99,235,.9); color:#fff; padding:10px 14px; border-radius:16px 16px 4px 16px; font-size:14px; }
-  .a { align-self:flex-start; display:flex; gap:10px; }
-  .a .body { background:#161d33; border-radius:16px 16px 16px 4px; padding:12px 14px; font-size:14px; color:#d1d5db; white-space:pre-wrap; line-height:1.5; }
-  .avatar { width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(59,130,246,.2));flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--cyan);font-weight:800;font-size:13px; }
-  .trace { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-  .trace span { font-size:10px; color:var(--dim); background:rgba(255,255,255,.04); border-radius:4px; padding:2px 6px; }
-  .composer { border-top:1px solid var(--line); padding:12px 20px; }
-  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
-  .chip { font-size:12px; color:var(--muted); background:rgba(255,255,255,.03); border:1px solid var(--line); border-radius:999px; padding:5px 12px; cursor:pointer; }
-  .chip:hover { color:#fff; border-color:rgba(34,211,238,.3); }
-  .row { display:flex; gap:8px; }
-  input,select,textarea { background:var(--panel); border:1px solid rgba(255,255,255,.15); color:#fff; border-radius:10px; padding:10px 12px; font-size:14px; font-family:inherit; }
-  #q { flex:1; }
-  button.send,a.btn,button.btn { background:#fff; color:var(--bg); border:0; border-radius:10px; padding:10px 16px; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block; }
-  button:disabled { opacity:.4; cursor:default; }
-  /* dashboard + settings */
-  .pad { padding:20px; overflow-y:auto; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; }
-  .card h3 { margin:0 0 8px; font-size:15px; }
-  .card pre { white-space:pre-wrap; font-size:12px; color:#cbd5e1; background:var(--panel); border-radius:8px; padding:10px; max-height:280px; overflow:auto; margin:8px 0 0; }
-  .banner { background:rgba(34,211,238,.08); border:1px solid rgba(34,211,238,.2); color:#a5f3fc; border-radius:12px; padding:12px 16px; margin-bottom:16px; font-size:14px; }
-  .muted { color:var(--muted); } .dim{color:var(--dim)} label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
-  .field { width:100%; }
+/* ============ Ledger editorial: paper workspace under the brand navy header ============ */
+:root{color-scheme:light;
+--paper:#f6f5f1;--card:#ffffff;
+--ink:#1c2b3a;--ink-soft:#51606f;--ink-dim:#8a95a1;
+--rule:#e6e4dc;--rule-dark:#c9c6bb;
+--green:#0f7b4d;--green-deep:#0a5c39;--green-soft:#eaf4ef;
+--red:#9f2226;--red-soft:#f9edec;
+--warn:#8a6d1a;--warn-soft:#f7f1de;
+--navy:#0a0e1a;--navy-2:#101729;--cyan:#22d3ee;
+--mono:'IBM Plex Mono','SF Mono',Menlo,Consolas,monospace;
+/* legacy var aliases used below */
+--bg:var(--paper);--bg-2:var(--card);--border:var(--rule);
+--text:var(--ink);--text-muted:var(--ink-soft);--text-dim:var(--ink-dim);
+--blue:#2563eb;--indigo:#4f46e5;
+--green-bg:var(--green-soft);--red-bg:var(--red-soft);--warn-bg:var(--warn-soft)}
+*{box-sizing:border-box}
+body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;background:var(--paper);color:var(--ink);margin:0;padding:0;line-height:1.5;font-size:14px;-webkit-font-smoothing:antialiased}
+.app{max-width:1400px;margin:0 auto;padding:0 14px 14px}
+/* ---- Brand header: dark navy, full-width band ---- */
+.nav{display:flex;align-items:center;gap:14px;padding:12px 18px;background:linear-gradient(180deg,var(--navy),var(--navy-2));border:none;border-bottom:2px solid var(--cyan);border-radius:0 0 10px 10px;margin:0 -14px 12px;flex-wrap:wrap;box-shadow:0 2px 10px rgba(10,14,26,.18)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:#f1f5f9;font-size:16px;letter-spacing:-0.01em}
+.brand .gradient{background:linear-gradient(135deg,#22d3ee 0%,#3b82f6 50%,#6366f1 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+@supports not ((-webkit-background-clip:text) or (background-clip:text)){.brand .gradient{color:#3b82f6;-webkit-text-fill-color:currentColor}}
+.brand .sub{font-size:11px;color:#7e8aa0;font-weight:500;margin-left:4px}
+.tabs{display:flex;gap:2px;flex:1;margin-left:10px;flex-wrap:wrap}
+.tab{padding:7px 12px 8px;font-size:13px;color:#93a0b4;border-radius:0;cursor:pointer;font-weight:500;border:none;border-bottom:2px solid transparent;background:transparent;font-family:inherit;margin-bottom:-14px;padding-bottom:16px}
+.tab.active{color:#fff;border-bottom-color:var(--cyan);font-weight:600}
+.tab:hover:not(.active){color:#d7dde7}
+.runway-pill{padding:5px 11px;font-size:12px;background:rgba(16,185,129,0.15);color:#34d399;border-radius:999px;font-weight:600;border:1px solid rgba(16,185,129,0.3);font-family:var(--mono)}
+.runway-pill.warn{background:rgba(245,158,11,0.15);color:#fbbf24;border-color:rgba(245,158,11,0.3)}
+.runway-pill.danger{background:rgba(239,68,68,0.15);color:#f87171;border-color:rgba(239,68,68,0.3)}
+.runway-pill.loading{animation:pulse 1.2s ease-in-out infinite;background:rgba(255,255,255,0.06);color:#7e8aa0;border-color:rgba(255,255,255,0.12)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+/* ---- Quick actions: light toolbar ---- */
+.quickbar{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px;background:var(--card);border:1px solid var(--rule);border-radius:8px;margin-bottom:12px;align-items:center;box-shadow:0 1px 2px rgba(28,43,58,.04)}
+.quickbar .qlabel{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-dim);font-weight:700;margin-right:4px}
+.qbtn{padding:5px 12px;font-size:12px;color:var(--ink-soft);border-radius:999px;cursor:pointer;font-weight:500;border:1px solid var(--rule);background:var(--card);font-family:inherit;display:flex;align-items:center;gap:5px}
+.qbtn:hover{background:var(--green-soft);color:var(--green-deep);border-color:#b5d6c6}
+.qbtn .plus{color:var(--green);font-weight:700}
+.body{display:grid;grid-template-columns:1fr 320px;gap:12px}
+.main{display:flex;flex-direction:column;gap:12px;min-width:0}
+/* ---- Cards: white paper, hairline rules ---- */
+.card{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:18px 20px;position:relative;box-shadow:0 1px 2px rgba(28,43,58,.05)}
+.card-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--rule);flex-wrap:wrap;gap:8px}
+.card-h h3{font-size:12px;font-weight:700;color:var(--ink);margin:0;letter-spacing:.08em;text-transform:uppercase}
+.card-h .meta{display:flex;align-items:center;gap:8px}
+.card-h .small{font-size:11px;color:var(--ink-dim)}
+.refresh-btn{background:transparent;border:1px solid var(--rule);color:var(--ink-dim);border-radius:5px;width:24px;height:24px;cursor:pointer;font-size:13px;line-height:1;display:grid;place-items:center;font-family:inherit}
+.refresh-btn:hover{color:var(--green);border-color:#b5d6c6}
+.refresh-btn.spinning{animation:spin 0.8s linear infinite}
+/* ---- KPI stat blocks ---- */
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi{background:var(--card);border:1px solid var(--rule);padding:14px 16px;border-radius:6px;position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;top:0;left:0;width:3px;height:100%;background:var(--green)}
+.kpi-l{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-soft);font-weight:700;margin-bottom:7px}
+.kpi-v{font-size:24px;font-weight:600;line-height:1.1;color:var(--ink);letter-spacing:-0.01em;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.kpi-s{font-size:11px;color:var(--green);margin-top:6px;font-weight:500}
+.kpi-s.neg{color:var(--red)}
+.period-tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.period-tab{padding:5px 11px;font-size:11px;color:var(--ink-soft);border-radius:5px;cursor:pointer;font-weight:600;border:1px solid var(--rule);background:var(--card);text-transform:uppercase;letter-spacing:.04em;font-family:inherit}
+.period-tab.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+/* ---- Statement / ledger rendering ---- */
+.md-content{font-size:13px;line-height:1.6;color:var(--ink)}
+.md-content h1{font-size:16px;color:var(--ink);font-weight:700;margin:14px 0 8px;letter-spacing:-0.01em}
+.md-content h2{font-size:13px;color:var(--ink);font-weight:700;margin:16px 0 6px;padding-bottom:5px;border-bottom:1.5px solid var(--rule-dark);letter-spacing:.02em}
+.md-content h3{font-size:11px;color:var(--green-deep);font-weight:700;margin:12px 0 4px;text-transform:uppercase;letter-spacing:.08em}
+.md-content h4{font-size:12px;color:var(--ink-soft);font-weight:600;margin:8px 0 4px;padding-left:10px}
+.md-content p{margin:6px 0;color:var(--ink-soft)}
+.md-content strong{color:var(--ink);font-weight:600}
+.md-content ul{margin:6px 0;padding-left:22px;color:var(--ink-soft)}
+.md-content li{margin:3px 0}
+.md-content table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12.5px}
+.md-content th{background:transparent;text-align:left;padding:6px 10px;border-bottom:1.5px solid var(--rule-dark);font-weight:700;color:var(--ink-soft);font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+.md-content th.num{text-align:right}
+.md-content td{padding:6px 10px;border-bottom:1px solid var(--rule);color:var(--ink)}
+.md-content td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:12px;white-space:nowrap}
+.md-content td.num.neg{color:var(--red)}
+.md-content tr.total-row td{border-top:1.5px solid var(--rule-dark);border-bottom:2.5px double var(--rule-dark);font-weight:600;background:#fbfaf7}
+.md-content tr:hover td{background:#fafaf6}
+.md-content tr.total-row:hover td{background:#fbfaf7}
+.md-content code{background:var(--green-soft);padding:1px 5px;border-radius:3px;font-size:11.5px;color:var(--green-deep);font-family:var(--mono)}
+.md-content blockquote{border-left:3px solid var(--green);padding:6px 14px;background:var(--green-soft);border-radius:0 6px 6px 0;margin:10px 0;color:var(--ink-soft)}
+.empty{text-align:center;padding:26px 18px;color:var(--ink-soft)}
+.empty .e-h{color:var(--ink);font-size:15px;margin-bottom:6px;font-weight:600}
+.empty .e-p{font-size:12px;line-height:1.6}
+.err-box{padding:14px;background:var(--red-soft);border:1px solid #e4c3c2;border-radius:6px;font-size:12px;color:var(--ink-soft)}
+.err-box .retry{margin-top:8px;padding:5px 12px;font-size:11px;background:#fff;border:1px solid #d3a5a4;color:var(--red);border-radius:5px;cursor:pointer;font-family:inherit;font-weight:600}
+.loading{text-align:center;padding:26px 18px;color:var(--ink-dim);font-style:italic;font-size:13px}
+.loading::after{content:"";display:inline-block;width:13px;height:13px;border:2px solid var(--rule);border-top-color:var(--green);border-radius:50%;animation:spin 0.8s linear infinite;margin-left:10px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* ---- Ask panel ---- */
+.chat{background:var(--card);border:1px solid var(--rule);border-radius:8px;display:flex;flex-direction:column;min-height:600px;position:sticky;top:12px;max-height:calc(100vh - 24px);box-shadow:0 1px 2px rgba(28,43,58,.05)}
+.chat-h{padding:12px 14px;border-bottom:1px solid var(--rule);display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink);font-size:12px;text-transform:uppercase;letter-spacing:.07em}
+.chat-h .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+.chat-h .modes{margin-left:auto;display:flex;align-items:center;gap:8px;font-weight:500;font-size:11px;color:var(--ink-soft);text-transform:none;letter-spacing:0}
+.toggle{position:relative;display:inline-block;width:32px;height:18px}
+.toggle input{opacity:0;width:0;height:0}
+.toggle .slider{position:absolute;cursor:pointer;inset:0;background:var(--rule);transition:.2s;border-radius:18px;border:1px solid var(--rule-dark)}
+.toggle .slider:before{position:absolute;content:"";height:12px;width:12px;left:2px;top:2px;background:#fff;transition:.2s;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.toggle input:checked+.slider{background:var(--green);border-color:var(--green-deep)}
+.toggle input:checked+.slider:before{transform:translateX(14px)}
+.chat-msgs{flex:1;padding:12px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+.msg-row{display:flex;flex-direction:column;gap:3px}
+.msg-row.u{align-items:flex-end}
+.msg-row.a{align-items:flex-start}
+.msg-meta{font-size:10px;color:var(--ink-dim);font-weight:500}
+.msg-meta .pill{padding:1px 6px;border-radius:4px;font-size:9px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.msg-meta .pill.q{background:var(--green-soft);color:var(--green-deep)}
+.msg-meta .pill.d{background:#e8eaf6;color:#4f46e5}
+.msg{font-size:12px;line-height:1.55}
+.msg.u{background:var(--green-soft);color:var(--ink);padding:7px 11px;border-radius:10px 10px 2px 10px;max-width:90%;border:1px solid #cfe5da}
+.msg.a{background:var(--paper);color:var(--ink);padding:7px 11px;border-radius:10px 10px 10px 2px;max-width:92%;border:1px solid var(--rule);white-space:pre-wrap}
+.msg-hint{font-size:11px;color:var(--ink-dim);font-style:italic;text-align:center;padding:8px}
+.thinking{display:flex;gap:4px;padding:9px 12px;background:var(--paper);border:1px solid var(--rule);border-radius:10px 10px 10px 2px;width:fit-content}
+.thinking span{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 1.2s infinite}
+.thinking span:nth-child(2){animation-delay:0.2s}
+.thinking span:nth-child(3){animation-delay:0.4s}
+@keyframes blink{0%,80%,100%{opacity:0.25}40%{opacity:1}}
+.chat-i{padding:10px 12px;border-top:1px solid var(--rule)}
+.chat-input{width:100%;padding:9px 12px;border:1px solid var(--rule-dark);border-radius:6px;font-size:12px;font-family:inherit;color:var(--ink);background:#fff;outline:none}
+.chat-input::placeholder{color:var(--ink-dim)}
+.chat-input:focus{border-color:var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+.chat-suggestions{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.chat-suggestion{font-size:11px;padding:5px 10px;border-radius:5px;background:var(--paper);color:var(--ink-soft);border:1px solid var(--rule);cursor:pointer;font-family:inherit}
+.chat-suggestion:hover{background:var(--green-soft);color:var(--green-deep);border-color:#b5d6c6}
+.action-log{padding:10px 12px;border-top:1px solid var(--rule);background:#fbfaf7;border-radius:0 0 8px 8px;font-size:11px;color:var(--ink-soft);max-height:110px;overflow-y:auto}
+.action-log .h{font-weight:700;color:var(--green-deep);text-transform:uppercase;letter-spacing:.07em;font-size:10px;margin-bottom:6px;display:flex;justify-content:space-between}
+.action-log .h button{background:transparent;border:0;color:var(--ink-dim);cursor:pointer;font-size:10px;font-family:inherit}
+.action-log .empty-log{font-style:italic;font-size:11px}
+.action-log .log-row{padding:4px 0;border-bottom:1px solid var(--rule);font-size:11px;display:flex;justify-content:space-between;gap:8px}
+.action-log .log-row:last-child{border-bottom:none}
+.action-log .log-row .what{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.action-log .log-row .when{color:var(--ink-dim);font-size:10px;flex-shrink:0}
+/* ---- CPA Workbook ---- */
+.wb-layout{display:grid;grid-template-columns:215px 1fr;gap:18px;margin-top:6px}
+.wb-toc{display:flex;flex-direction:column;gap:2px;align-self:start;position:sticky;top:12px}
+.wb-toc button{display:flex;align-items:center;gap:8px;text-align:left;padding:7px 10px;font-size:12px;color:var(--ink-soft);border:none;background:transparent;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:500}
+.wb-toc button:hover{background:var(--paper);color:var(--ink)}
+.wb-toc button.active{background:var(--ink);color:#fff;font-weight:600}
+.wb-toc .pgnum{font-family:var(--mono);font-size:10px;color:var(--ink-dim);width:16px;flex-shrink:0}
+.wb-toc button.active .pgnum{color:#9fb0c4}
+.wb-toc .dot{width:6px;height:6px;border-radius:50%;background:var(--rule-dark);margin-left:auto;flex-shrink:0}
+.wb-toc .dot.loaded{background:var(--green)}
+.wb-page{min-width:0}
+.wb-page-h{display:flex;justify-content:space-between;align-items:baseline;font-weight:700;font-size:14px;color:var(--ink);padding-bottom:8px;border-bottom:1.5px solid var(--rule-dark);margin-bottom:10px}
+.wb-tieout{margin-top:16px;padding-top:8px;border-top:1px solid var(--rule);font-size:10.5px;color:var(--ink-dim);font-family:var(--mono)}
+.wb-pager{display:flex;justify-content:space-between;margin-top:14px}
+.wb-notes{width:100%;min-height:240px;border:1px solid var(--rule-dark);border-radius:6px;padding:12px;font-family:inherit;font-size:13px;color:var(--ink);background:#fff;resize:vertical;outline:none;line-height:1.6}
+.wb-notes:focus{border-color:var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+.md-content tr.drill{cursor:pointer}
+.md-content tr.drill:hover td:first-child{box-shadow:inset 3px 0 0 var(--green)}
+@media (max-width:900px){.wb-layout{grid-template-columns:1fr}.wb-toc{position:static;flex-direction:row;flex-wrap:wrap}}
+@media (max-width:1100px){.body{grid-template-columns:1fr}.chat{position:static;max-height:none;min-height:480px}}
+@media (max-width:600px){.kpi-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<header>
-  <span class="logo"><span class="a">Accounting</span><span class="b">QB</span></span>
-  <span class="dim" style="font-size:12px">local</span>
-  <span class="status" id="status">…</span>
-</header>
-<nav>
-  <button data-tab="chat" class="active">Chat</button>
-  <button data-tab="dashboard">Dashboard</button>
-  <button data-tab="settings">Settings</button>
-</nav>
-<main>
-  <!-- CHAT -->
-  <section class="tab active" id="tab-chat">
-    <div id="chatlog"></div>
-    <div class="composer">
-      <div class="chips" id="chips"></div>
-      <form class="row" id="chatform">
-        <input id="q" placeholder="Ask your books anything…" autocomplete="off" />
-        <button class="send" id="sendbtn" type="submit">Send</button>
-      </form>
-    </div>
-  </section>
+<div class="app">
+<div class="nav">
+<div class="brand">
+<svg viewBox="0 0 512 512" width="22" height="22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<defs><linearGradient id="aqbg" x1="60" y1="60" x2="452" y2="452" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#22d3ee"/><stop offset="40%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#6366f1"/></linearGradient></defs>
+<path d="M 210 108 A 148 148 0 1 1 209.99 108 Z M 210 164 A 92 92 0 1 0 210.01 164 Z" fill="url(#aqbg)" fill-rule="evenodd"/>
+<rect x="290" y="310" width="120" height="52" rx="26" fill="url(#aqbg)" transform="rotate(42, 350, 336)"/>
+<rect x="290" y="118" width="42" height="268" rx="4" fill="url(#aqbg)"/>
+<path d="M 311 118 L 360 118 A 62 62 0 0 1 360 242 L 311 242 Z" fill="url(#aqbg)"/>
+<path d="M 311 242 L 370 242 A 72 72 0 0 1 370 386 L 311 386 Z" fill="url(#aqbg)"/>
+<path d="M 318 148 L 348 148 A 34 34 0 0 1 348 216 L 318 216 Z" fill="#0a0e1a"/>
+<path d="M 318 268 L 355 268 A 42 42 0 0 1 355 364 L 318 364 Z" fill="#0a0e1a"/>
+</svg>
+<span class="gradient">AccountingQB</span>
+<span class="sub" id="company-name">connecting…</span>
+</div>
+<div class="tabs" role="tablist">
+<button class="tab active" data-tab="dashboard">Dashboard</button>
+<button class="tab" data-tab="pl">P&amp;L</button>
+<button class="tab" data-tab="cashflow">Cash Flow</button>
+<button class="tab" data-tab="receivables">A/R</button>
+<button class="tab" data-tab="payables">A/P</button>
+<button class="tab" data-tab="transactions">Transactions</button>
+<button class="tab" data-tab="tax">Tax</button>
+<button class="tab" data-tab="workbook">Workbook</button>
+<button class="tab" data-tab="health">Health</button>
+</div>
+<span id="runway-pill" class="runway-pill loading">Loading</span>
+</div>
 
-  <!-- DASHBOARD -->
-  <section class="tab pad" id="tab-dashboard">
-    <div id="dashbanner"></div>
-    <div class="grid" id="dashgrid"></div>
-  </section>
+<div class="quickbar">
+<span class="qlabel">Quick actions</span>
+<button class="qbtn" data-action="Create a new invoice — ask me for the customer, amount, and line items"><span class="plus">+</span> Invoice</button>
+<button class="qbtn" data-action="Create a new expense — ask me for the vendor, amount, category, and date"><span class="plus">+</span> Expense</button>
+<button class="qbtn" data-action="Run qb_find_duplicates and show me any duplicate transactions">⧉ Find duplicates</button>
+<button class="qbtn" data-action="Run qb_anomaly_detection and flag anything unusual in my books">⚠ Detect anomalies</button>
+<button class="qbtn" data-action="Run the month-end close checklist for last month and walk me through each item">✓ Month-end close</button>
+<button class="qbtn" data-action="Run qb_unknown_vendor_report and help me assign vendors to the unnamed transactions">☰ Fix vendors</button>
+</div>
 
-  <!-- SETTINGS -->
-  <section class="tab pad" id="tab-settings">
-    <div class="card" style="max-width:640px">
-      <h3>QuickBooks</h3>
-      <p class="muted" style="font-size:13px">Connect your books. Data flows QuickBooks → your machine; nothing is stored on our servers.</p>
-      <a class="btn" href="/oauth/start">Connect QuickBooks</a>
-    </div>
-    <div class="card" style="max-width:640px;margin-top:16px">
-      <h3>Coffer <span class="dim" id="cofferstate" style="font-weight:400;font-size:12px">· checking…</span></h3>
-      <p class="muted" style="font-size:13px">Link your Coffer (personal finances) account so business expenses paid from personal accounts can be booked here — and Coffer can pull your owner draws &amp; tax set-aside. You’ll log in and confirm; nothing about your books leaves your machine.</p>
-      <div style="margin-top:10px">
-        <button class="btn" id="cofferconnect">Connect Coffer</button>
-        <button class="btn" id="cofferdisconnect" style="display:none;background:#1e293b;color:#cbd5e1">Disconnect</button>
-        <span id="coffermsg" class="muted" style="font-size:13px;margin-left:8px"></span>
-      </div>
-    </div>
-    <div class="card" style="max-width:640px;margin-top:16px">
-      <h3>Anthropic API key <span class="dim" style="font-weight:400;font-size:12px">(for Chat)</span></h3>
-      <p class="muted" style="font-size:13px">Stored only in <code>~/.accountingqb</code>. Chat calls go from your machine straight to Anthropic — never through us.</p>
-      <input class="field" id="key" type="password" placeholder="sk-ant-…" />
-      <label>Model</label>
-      <select class="field" id="model">
-        <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (default)</option>
-        <option value="claude-opus-4-8">Claude Opus 4.8</option>
-        <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
-      </select>
-      <div style="margin-top:12px"><button class="btn" id="savekey">Save</button> <span id="savemsg" class="muted" style="font-size:13px"></span></div>
-    </div>
-    <details class="card" style="max-width:640px;margin-top:16px">
-      <summary style="cursor:pointer">Advanced — use your own Intuit app (fully local, no broker)</summary>
-      <p class="muted" style="font-size:13px;margin-top:10px">Register <code id="rduri">http://localhost/callback</code> as a redirect URI in your Intuit app.</p>
-      <input class="field" id="cid" placeholder="QB_CLIENT_ID" style="margin-bottom:8px" />
-      <input class="field" id="csec" type="password" placeholder="QB_CLIENT_SECRET" />
-      <div style="margin-top:10px"><button class="btn" id="saveqb">Save Intuit creds</button></div>
-    </details>
-  </section>
-</main>
+<div class="body">
+<div class="main">
+
+<div id="view-dashboard">
+<div class="card">
+<div class="card-h"><h3>At a glance</h3><div class="meta"><span id="as-of" class="small"></span><button class="refresh-btn" data-refresh="dashboard" title="Refresh">↻</button></div></div>
+<div class="kpi-grid">
+<div class="kpi"><div class="kpi-l">Cash on hand</div><div class="kpi-v" id="kpi-cash">—</div><div class="kpi-s" id="kpi-cash-s">loading</div></div>
+<div class="kpi"><div class="kpi-l">Net Income (YTD)</div><div class="kpi-v" id="kpi-net">—</div><div class="kpi-s" id="kpi-net-s">loading</div></div>
+<div class="kpi"><div class="kpi-l">Avg monthly burn</div><div class="kpi-v" id="kpi-burn">—</div><div class="kpi-s" id="kpi-burn-s">loading</div></div>
+<div class="kpi"><div class="kpi-l">Runway</div><div class="kpi-v" id="kpi-runway">—</div><div class="kpi-s" id="kpi-runway-s">loading</div></div>
+</div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Profit &amp; Loss</h3><div class="meta"><span class="small" id="pl-period-label">Year-to-date</span></div></div>
+<div id="dashboard-pl" class="md-content"><div class="loading">Loading P&amp;L</div></div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Books health</h3><div class="meta"><span class="small ts" data-ts="health"></span><button class="refresh-btn" data-refresh="healthsum" title="Refresh">↻</button></div></div>
+<div id="dashboard-health" class="md-content"><div class="loading">Loading audit</div></div>
+</div>
+</div>
+
+<div id="view-pl" style="display:none">
+<div class="card">
+<div class="card-h"><h3>Profit &amp; Loss</h3><div class="meta"><span class="small ts" data-ts="pl"></span><button class="refresh-btn" data-refresh="pl" title="Refresh">↻</button></div></div>
+<div class="period-tabs" id="pl-period-tabs">
+<button class="period-tab" data-period="mtd">Month</button>
+<button class="period-tab" data-period="qtd">Quarter</button>
+<button class="period-tab active" data-period="ytd">Year</button>
+<button class="period-tab" data-period="prev_year">Prior Year</button>
+</div>
+<div id="pl-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+</div>
+
+<div id="view-cashflow" style="display:none">
+<div class="card">
+<div class="card-h"><h3>Cash flow statement</h3><div class="meta"><span class="small ts" data-ts="cashflow"></span><button class="refresh-btn" data-refresh="cashflow" title="Refresh">↻</button></div></div>
+<div class="period-tabs" id="cf-period-tabs">
+<button class="period-tab" data-period="mtd">Month</button>
+<button class="period-tab" data-period="qtd">Quarter</button>
+<button class="period-tab active" data-period="ytd">Year</button>
+</div>
+<div id="cashflow-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Cash flow forecast</h3><div class="meta"><span class="small">Next 90 days</span></div></div>
+<div id="cashflow-forecast" class="md-content"><div class="loading">Loading</div></div>
+</div>
+</div>
+
+<div id="view-receivables" style="display:none">
+<div class="card">
+<div class="card-h"><h3>Accounts Receivable aging</h3><div class="meta"><span class="small ts" data-ts="receivables"></span><button class="refresh-btn" data-refresh="receivables" title="Refresh">↻</button></div></div>
+<div id="ar-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Open invoices</h3><div class="meta"><span class="small">Unpaid &amp; overdue</span></div></div>
+<div id="invoices-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+</div>
+
+<div id="view-payables" style="display:none">
+<div class="card">
+<div class="card-h"><h3>Accounts Payable aging</h3><div class="meta"><span class="small ts" data-ts="payables"></span><button class="refresh-btn" data-refresh="payables" title="Refresh">↻</button></div></div>
+<div id="ap-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Top vendors by spend</h3><div class="meta"><span class="small">Year-to-date</span></div></div>
+<div id="vendors-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+</div>
+
+<div id="view-transactions" style="display:none">
+<div class="card">
+<div class="card-h"><h3>Uncategorized transactions</h3><div class="meta"><span class="small ts" data-ts="transactions"></span><button class="refresh-btn" data-refresh="transactions" title="Refresh">↻</button></div></div>
+<div id="uncat-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Anomalies &amp; duplicates</h3><div class="meta"><span class="small">AI-detected</span></div></div>
+<div id="anomaly-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Recent activity</h3><div class="meta"><span class="small">Last 90 days</span></div></div>
+<div id="recent-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+</div>
+
+<div id="view-tax" style="display:none">
+<div class="card">
+<div class="card-h"><h3>Quarterly tax estimate</h3><div class="meta"><span class="small ts" data-ts="tax"></span><button class="refresh-btn" data-refresh="tax" title="Refresh">↻</button></div></div>
+<div id="tax-quarterly" class="md-content"><div class="loading">Loading</div></div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Schedule C summary</h3><div class="meta"><span class="small">Year-to-date</span></div></div>
+<div id="tax-schedulec" class="md-content"><div class="loading">Loading</div></div>
+</div>
+<div class="card">
+<div class="card-h"><h3>Deduction finder</h3><div class="meta"><span class="small">AI-spotted opportunities</span></div></div>
+<div id="tax-deductions" class="md-content"><div class="loading">Loading</div></div>
+</div>
+</div>
+
+<div id="view-workbook" style="display:none">
+<div class="card">
+<div class="card-h">
+<h3>CPA Workbook</h3>
+<div class="meta">
+<div class="period-tabs" id="wb-period-tabs" style="margin:0">
+<button class="period-tab" data-wbperiod="prior_year">Prior year</button>
+<button class="period-tab" data-wbperiod="ytd">Year-to-date</button>
+</div>
+<button class="qbtn" id="wb-export" title="Have Claude assemble the Excel/CSV workbook">&#11015; Export workbook</button>
+</div>
+</div>
+<div class="wb-layout">
+<nav class="wb-toc" id="wb-toc" aria-label="Workbook pages"></nav>
+<div class="wb-page">
+<div class="wb-page-h"><span id="wb-page-title"></span><span class="small" id="wb-page-count"></span></div>
+<div id="wb-content" class="md-content"><div class="loading">Loading</div></div>
+<div class="wb-tieout" id="wb-tieout"></div>
+<div class="wb-pager">
+<button class="qbtn" id="wb-prev">&larr; Prev</button>
+<button class="qbtn" id="wb-next">Next &rarr;</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div id="view-health" style="display:none">
+<div class="card">
+<div class="card-h"><h3>Books health audit</h3><div class="meta"><span class="small ts" data-ts="health"></span><button class="refresh-btn" data-refresh="health" title="Refresh">↻</button></div></div>
+<div id="health-content" class="md-content"><div class="loading">Loading</div></div>
+</div>
+</div>
+
+</div>
+
+<aside class="chat" aria-label="Ask AccountingQB">
+<div class="chat-h">
+<span class="dot"></span> Ask AccountingQB
+<div class="modes"><span>Deep</span><label class="toggle"><input type="checkbox" id="deep-mode-toggle"><span class="slider"></span></label></div>
+</div>
+<div class="chat-msgs" id="chat-msgs">
+<div class="msg-hint">Ask about your books or give a command. Questions answer instantly from loaded reports; commands run live tools right here.</div>
+</div>
+<div class="chat-i">
+<input id="chat-input" class="chat-input" placeholder="Ask a question or give a command..." aria-label="Ask AccountingQB">
+<div class="chat-suggestions" id="chat-suggestions"></div>
+</div>
+<div class="action-log">
+<div class="h"><span>Recent actions</span><button onclick="clearActions()">Clear</button></div>
+<div id="action-log-list"><div class="empty-log">No actions yet — try a quick action above.</div></div>
+</div>
+</aside>
+
+</div>
+</div>
 
 <script>
-let MODEL = "claude-sonnet-4-6";
-const history = [];
-const $ = (id) => document.getElementById(id);
+// ============ Desktop runtime shim: window.cowork over the local shim server ============
+// The desktop app serves this artifact from the local AccountingQB shim (127.0.0.1). The plugin
+// UI expects a Cowork host that provides window.cowork.{callMcpTool, askClaude, sendPrompt}. We
+// implement those against the shim's HTTP endpoints so ~all of the plugin UI runs UNCHANGED:
+//   callMcpTool -> POST /mcp   |   askClaude -> POST /sample   |   sendPrompt -> POST /chat (in-panel)
+let MODEL = 'claude-sonnet-4-6';
+const chatHistory = [];   // rolling transcript for the agentic /chat loop
+window.cowork = {
+  async callMcpTool(nsTool, args){
+    const tool = String(nsTool || '').replace(/^mcp__[a-z0-9]+__/i, '');   // strip mcp__accountingqb__ / mcp__quickbooks__
+    const r = await fetch('/mcp', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({tool, args: args || {}})});
+    const j = await r.json().catch(() => ({}));
+    if(!r.ok || j.isError || j.error){
+      return { isError:true, content:[{text: j.error || ('tool error ' + r.status)}] };
+    }
+    return { result: j.result };   // extractText() already understands the {result} shape
+  },
+  async askClaude(system, ctxArray){
+    const payload = Array.isArray(ctxArray) ? (ctxArray[0] ?? {}) : (ctxArray ?? {});
+    const r = await fetch('/sample', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ system, messages:[{role:'user', content: JSON.stringify(payload)}] })});
+    const j = await r.json().catch(() => ({}));
+    if(j.needsKey) return { text:null, needsKey:true };
+    return { text: j.text || null, error: j.error };
+  },
+  // Desktop has no separate "main chat" — THIS panel is the chat. Run the request through the local
+  // read-only agentic /chat loop and render the reply + tool trace inline (see desktopChatRun below).
+  sendPrompt(text){ desktopChatRun(String(text || '').replace(/^AccountingQB:\s*/i, '')); return true; },
+};
 
-const SUGGESTIONS = [
-  "What's my burn rate and runway?",
-  "Find deductions I might be missing",
-  "How healthy are my books?",
-  "Summarize my P&L",
-];
+// ============ Namespace auto-detection ============
+// The product server registers as mcp__accountingqb__* (PyPI package + mcpb
+// plugin). Prefer it. mcp__quickbooks__* is a legacy dev-only alias some local
+// configs still carry; kept last as a fallback. Same product either way.
+const NS_CANDIDATES = ['mcp__accountingqb__', 'mcp__quickbooks__'];
+let NS = null;
+let COMPANY = null;
 
-async function status() {
-  try {
-    const s = await (await fetch("/api/status")).json();
-    $("status").textContent = `v${s.version} · ${s.toolCount} tools · QuickBooks ${s.connected ? "connected" : "not connected"} · key ${s.hasAnthropicKey ? "set" : "missing"}`;
-    $("dashbanner").innerHTML = s.connected ? "" : '<div class="banner">No QuickBooks company connected yet. <a href="/oauth/start" style="color:#67e8f9">Connect QuickBooks</a> to see live data — or explore the tools below.</div>';
-    return s;
-  } catch { return {}; }
-}
-
-/* ---- tabs ---- */
-document.querySelectorAll("nav button").forEach((b) => {
-  b.onclick = () => {
-    document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
-    document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
-    b.classList.add("active");
-    $("tab-" + b.dataset.tab).classList.add("active");
-    if (b.dataset.tab === "dashboard") loadDashboard();
-  };
-});
-
-/* ---- chat ---- */
-function esc(s){const d=document.createElement("div");d.textContent=s;return d.innerHTML;}
-function addUser(text){const el=document.createElement("div");el.className="msg u";el.textContent=text;$("chatlog").appendChild(el);scroll();}
-function addAssistant(reply, trace){
-  const wrap=document.createElement("div");wrap.className="msg a";
-  const traceHtml=(trace&&trace.length)?`<div class="trace">${trace.map(t=>`<span>${esc(t.tool)}</span>`).join("")}</div>`:"";
-  wrap.innerHTML=`<div class="avatar">Q</div><div><div class="body">${esc(reply)}</div>${traceHtml}</div>`;
-  $("chatlog").appendChild(wrap);scroll();
-}
-function addTyping(){const w=document.createElement("div");w.className="msg a";w.id="typing";w.innerHTML=`<div class="avatar">Q</div><div class="body">…</div>`;$("chatlog").appendChild(w);scroll();}
-function rmTyping(){const t=$("typing");if(t)t.remove();}
-function scroll(){$("chatlog").scrollTop=$("chatlog").scrollHeight;}
-
-async function ask(text){
-  const q=(text||"").trim(); if(!q) return;
-  $("q").value=""; addUser(q); history.push({role:"user",content:q});
-  $("sendbtn").disabled=true; addTyping();
-  try{
-    const r=await fetch("/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({messages:history,model:MODEL})});
-    const j=await r.json(); rmTyping();
-    if(j.needsKey){addAssistant("Add your Anthropic API key in Settings to enable chat.",[]);}
-    else if(j.error){addAssistant("Error: "+j.error,[]);}
-    else{addAssistant(j.reply||"(no reply)",j.trace); history.push({role:"assistant",content:j.reply||""});}
-  }catch(e){rmTyping();addAssistant("Network error: "+e,[]);}
-  $("sendbtn").disabled=false; $("q").focus();
-}
-$("chatform").onsubmit=(e)=>{e.preventDefault();ask($("q").value);};
-$("chips").innerHTML=SUGGESTIONS.map(s=>`<span class="chip">${esc(s)}</span>`).join("");
-$("chips").querySelectorAll(".chip").forEach((c)=>c.onclick=()=>ask(c.textContent));
-addAssistant("Hi — I'm connected to your QuickBooks through local tools. Ask me anything about your books, or tap a suggestion below. (Add your Anthropic key in Settings first.)",[]);
-
-/* ---- dashboard ---- */
-const PANELS=[
-  {title:"Company",tool:"qb_company_info"},
-  {title:"Profit & Loss",tool:"qb_profit_loss"},
-  {title:"Books Health",tool:"qb_books_health_audit"},
-  {title:"Burn & Runway",tool:"qb_monthly_burn_rate"},
-];
-let dashLoaded=false;
-async function runPanel(p,pre){
-  pre.textContent="Running "+p.tool+"…";
-  try{const r=await fetch("/mcp",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({tool:p.tool,args:{}})});
-    const j=await r.json(); pre.textContent=j.ok?(typeof j.result==="string"?j.result:JSON.stringify(j.result,null,2)):("Error: "+(j.error||"failed"));
-  }catch(e){pre.textContent="Error: "+e;}
-}
-function loadDashboard(){
-  if(dashLoaded) return; dashLoaded=true;
-  const g=$("dashgrid"); g.innerHTML="";
-  PANELS.forEach((p)=>{
-    const card=document.createElement("div");card.className="card";
-    card.innerHTML=`<h3>${p.title} <button class="chip" style="float:right">Run</button></h3><pre>—</pre>`;
-    const pre=card.querySelector("pre"); card.querySelector("button").onclick=()=>runPanel(p,pre);
-    g.appendChild(card);
+// ============ Data cache (powers chat context + timestamps) ============
+const CACHE = {};   // key -> { md: string, ts: Date }
+function cachePut(key, md){ CACHE[key] = { md: String(md||'').slice(0, 4000), ts: new Date() }; paintTs(key); }
+function paintTs(key){
+  document.querySelectorAll('.ts[data-ts="' + key + '"]').forEach(el => {
+    if(CACHE[key]) el.textContent = 'as of ' + CACHE[key].ts.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
   });
 }
 
-/* ---- settings ---- */
-$("savekey").onclick=async()=>{
-  MODEL=$("model").value;
-  const k=$("key").value.trim();
-  await fetch("/api/config",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(k?{anthropicApiKey:k}:{})});
-  $("key").value=""; $("savemsg").textContent="Saved."; status();
-};
-$("saveqb").onclick=async()=>{
-  const cid=$("cid").value.trim(), csec=$("csec").value.trim();
-  await fetch("/api/config",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({qbClientId:cid,qbClientSecret:csec})});
-  $("cid").value="";$("csec").value="";alert("Saved. Now click Connect QuickBooks.");
-};
-try{$("rduri").textContent="http://localhost:"+location.port+"/callback";}catch{}
-
-/* ---- Coffer link ---- */
-async function cofferStatus(){
-  try{
-    const w=await (await fetch("/whoami")).json();
-    const paired = !!w.paired && (w.peerProduct==="coffer" || !w.peerProduct);
-    $("cofferstate").textContent = paired ? "· connected" : "· not connected";
-    $("cofferstate").style.color = paired ? "#34d399" : "";
-    $("cofferconnect").style.display = paired ? "none" : "";
-    $("cofferdisconnect").style.display = paired ? "" : "none";
-    return paired;
-  }catch{ $("cofferstate").textContent="· unavailable"; return false; }
+// ============ Markdown renderer ============
+function md2html(s){
+  if(!s) return '<div class="empty"><div class="e-p">No data returned.</div></div>';
+  if(typeof s !== 'string') s = (s.result || s.text || JSON.stringify(s));
+  s = s.replace(/\r\n/g, '\n');
+  s = s.replace(/((?:^\|.*\|\s*\n)+)/gm, (m) => {
+    const rows = m.trim().split('\n').map(r => r.replace(/^\||\|$/g,'').split('|').map(c => c.trim()));
+    if(rows.length < 2) return m;
+    const isSep = (r) => r.every(c => /^:?-+:?$/.test(c));
+    const sepIdx = rows.findIndex(isSep);
+    const header = sepIdx >= 0 ? rows[sepIdx-1] : null;
+    const data = sepIdx >= 0 ? rows.slice(sepIdx+1) : rows;
+    // Accounting rendering: detect numeric cells (right-align, tabular mono),
+    // show negatives in parentheses, and give Total/Net rows statement rules.
+    const numRe = /^\**\(?-?\$?[\d,]+(\.\d+)?\)?%?\**$/;
+    const isNum = (c) => c !== '' && numRe.test(c.trim());
+    const numericCols = header ? header.map((_, i) =>
+      data.length > 0 && data.every(r => r[i] === undefined || r[i] === '' || r[i] === '—' || isNum(r[i]))) : [];
+    const cell = (c, i, tag) => {
+      const numeric = header ? numericCols[i] : isNum(c);
+      let cls = numeric ? ' class="num' : '';
+      let body = c;
+      if(numeric && tag === 'td'){
+        const neg = /^\**-/.test(c.trim()) || /^\**\(/.test(c.trim());
+        if(neg){ cls += ' neg'; body = c.replace(/-?\$?([\d,]+(?:\.\d+)?)/, (m0, d) => '(' + (m0.includes('$') ? '$' : '') + d + ')').replace(/^(\**)-/, '$1'); }
+      }
+      if(cls) cls += '"';
+      return '<' + tag + cls + '>' + inlineMd(body) + '</' + tag + '>';
+    };
+    const totalRe = /^\**\s*(total|net |gross |subtotal|balance|sum)/i;
+    let out = '<table>';
+    if(header) out += '<thead><tr>' + header.map((c, i) => cell(c, i, 'th')).join('') + '</tr></thead>';
+    out += '<tbody>' + data.map(r => {
+      const isTotal = totalRe.test((r[0] || '').trim());
+      const hasNum = r.some((c, i) => header ? (numericCols[i] && (c || '').trim() && c.trim() !== '\u2014') : isNum(c));
+      let attrs = isTotal ? ' class="total-row"' : '';
+      if(!isTotal && hasNum && (r[0] || '').trim()){
+        attrs = ' class="drill" data-drill="' + escapeHtml((r[0] || '').replace(/\*\*/g, '').trim()) + '"' +
+                ' title="Click to see the transactions behind this line"';
+      }
+      return '<tr' + attrs + '>' + r.map((c, i) => cell(c, i, 'td')).join('') + '</tr>';
+    }).join('') + '</tbody></table>';
+    return out + '\n';
+  });
+  s = s.replace(/^####\s+(.+)$/gm, '<h4>$1</h4>');
+  s = s.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
+  s = s.replace(/^##\s+(.+)$/gm, '<h2>$1</h2>');
+  s = s.replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
+  s = s.replace(/(?:^[-*]\s+.*\n?)+/gm, (m) => {
+    const items = m.trim().split('\n').map(line => '<li>' + inlineMd(line.replace(/^[-*]\s+/, '')) + '</li>').join('');
+    return '<ul>' + items + '</ul>';
+  });
+  s = s.replace(/^>\s+(.+)$/gm, '<blockquote>$1</blockquote>');
+  s = s.split(/\n{2,}/).map(block => {
+    if(!block.trim()) return '';
+    // Blocks can mix rendered HTML (headings/tables) with plain text lines —
+    // group consecutive text lines into paragraphs instead of skipping them.
+    const parts = []; let buf = [];
+    const flush = () => { if(buf.length){ parts.push('<p>' + buf.map(inlineMd).join('<br>') + '</p>'); buf = []; } };
+    for(const line of block.split('\n')){
+      if(/^\s*<(h[1-6]|table|ul|blockquote|\/)/.test(line)){ flush(); parts.push(line); }
+      else if(line.trim()) buf.push(line);
+      else flush();
+    }
+    flush();
+    return parts.join('\n');
+  }).join('\n');
+  return s;
 }
-$("cofferconnect").onclick=()=>{
-  // AccountingQB is the single authorization server, so either app's Connect button drives the
-  // SAME flow: sign into AccountingQB, consent. We open Coffer's local link flow (127.0.0.1:4317),
-  // which redirects the user to accountingqb.com/link/authorize and stores the secret on Coffer's
-  // side; we then pull our own copy via /link/refresh. Coffer must be running.
-  window.open("http://127.0.0.1:4317/link/connect","_blank");
-  $("coffermsg").textContent="Sign in to AccountingQB in the new tab (Coffer must be open)…";
-  let n=0; const iv=setInterval(async()=>{
-    n++; try{await fetch("/link/refresh",{method:"POST"});}catch{}
-    const ok=await cofferStatus();
-    if(ok){ $("coffermsg").textContent="Connected ✓"; clearInterval(iv); }
-    else if(n>40){ $("coffermsg").textContent=""; clearInterval(iv); }
-  },3000);
-};
-$("cofferdisconnect").onclick=async()=>{
-  await fetch("/unpair",{method:"POST"});
-  $("coffermsg").textContent="Disconnected."; cofferStatus();
-};
-// On load, pull any pairing established from Coffer's side, then reflect status.
-(async()=>{ try{await fetch("/link/refresh",{method:"POST"});}catch{} cofferStatus(); })();
+function inlineMd(s){ s = escapeHtml(s); s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'); s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>'); s = s.replace(/`(.+?)`/g, '<code>$1</code>'); return s; }
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-status();
+// ============ Helpers ============
+function periodRange(period){
+  const t = new Date(); const y = t.getFullYear(); const m = t.getMonth();
+  const iso = (d) => d.toISOString().slice(0,10);
+  if(period === 'mtd') return [iso(new Date(y, m, 1)), iso(t)];
+  if(period === 'qtd') return [iso(new Date(y, Math.floor(m/3)*3, 1)), iso(t)];
+  if(period === 'prev_year') return [iso(new Date(y-1, 0, 1)), iso(new Date(y-1, 11, 31))];
+  return [iso(new Date(y, 0, 1)), iso(t)];
+}
+async function rawCall(ns, tool, args){
+  const r = await window.cowork.callMcpTool(ns + tool, args || {});
+  if(r && r.isError) throw new Error((r.content && r.content[0] && r.content[0].text) || 'tool error');
+  return r;
+}
+// Route a natural-language instruction back to the Claude/Cowork conversation so
+// the sibling AccountingQB skills run it. The runtime exposes this as
+// window.cowork.sendPrompt() (same namespace as callMcpTool/sample); some hosts
+// inject a bare sendPrompt global instead. Try both so the chat panel works
+// across runtimes. Returns false if neither is available.
+function routePrompt(text){
+  const fn = (window.cowork && typeof window.cowork.sendPrompt === 'function')
+    ? window.cowork.sendPrompt.bind(window.cowork)
+    : (typeof sendPrompt === 'function' ? sendPrompt : null);
+  if(!fn) return false;
+  try { fn(text); return true; } catch(e){ return false; }
+}
+async function call(tool, args){
+  if(!window.cowork || !window.cowork.callMcpTool) return { error: 'Not running inside Cowork.' };
+  if(NS){
+    try { return await rawCall(NS, tool, args); } catch(e){ return { error: e.message || String(e) }; }
+  }
+  for(const cand of NS_CANDIDATES){
+    try { const r = await rawCall(cand, tool, args); NS = cand; return r; } catch(e){}
+  }
+  return { error: 'AccountingQB connector not found. Check that the MCP server is running.' };
+}
+function extractText(r){
+  if(!r) return '';
+  if(typeof r === 'string') return r;
+  if(r.result) return r.result;
+  if(r.structuredContent && r.structuredContent.result) return r.structuredContent.result;
+  if(r.content && r.content[0] && r.content[0].text){
+    try { const p = JSON.parse(r.content[0].text); return p.result || r.content[0].text; } catch(e){ return r.content[0].text; }
+  }
+  return JSON.stringify(r);
+}
+function setContent(id, r, errMessage, cacheKey){
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(r && r.error){
+    el.innerHTML = '<div class="err-box">' + escapeHtml(errMessage || 'Could not load data') + ' — ' + escapeHtml(r.error) +
+      '<br><button class="retry" onclick="retrySection(\'' + id + '\')">Retry</button></div>';
+    return;
+  }
+  const md = extractText(r);
+  el.innerHTML = md2html(md);
+  if(cacheKey) cachePut(cacheKey, md);
+}
+const SECTION_LOADERS = {};  // id -> reload fn, used by retry buttons
+function retrySection(id){ if(SECTION_LOADERS[id]) SECTION_LOADERS[id](); }
+const fmt = n => n == null ? '—' : '$' + Math.round(Math.abs(n)).toLocaleString();
+// Accounting convention: negatives in parentheses
+const fmtSign = n => n == null ? '—' : (n < 0 ? '(' + fmt(n) + ')' : fmt(n));
+function parseAmountFromMd(s, label){
+  if(typeof s !== 'string') s = extractText(s);
+  const m = s.match(new RegExp('\\*\\*' + label + '[:\\s]*\\**\\s*\\$?([\\-\\(\\)\\d,\\.]+)', 'i'));
+  if(!m) return null;
+  const n = parseFloat(m[1].replace(/[\(\)$,]/g, ''));
+  return isNaN(n) ? null : n;
+}
+function parseRunwayMonthsFromMd(s){
+  if(typeof s !== 'string') s = extractText(s);
+  const m = s.match(/Runway:\s*([\d\.]+)\s*months/i);
+  return m ? parseFloat(m[1]) : null;
+}
+
+// ============ Company name ============
+async function loadCompany(){
+  const r = await call('qb_company_info', {});
+  const el = document.getElementById('company-name');
+  if(r && r.error){ el.textContent = 'not connected'; return; }
+  const md = extractText(r);
+  cachePut('company', md);
+  const m = md.match(/\*\*Company:\*\*\s*(.+)/);
+  COMPANY = m ? m[1].trim() : null;
+  el.textContent = COMPANY || 'connected';
+}
+
+// ============ Dashboard ============
+async function loadDashboardKpis(){
+  const [start, end] = periodRange('ytd');
+  const [pl, runway] = await Promise.all([
+    call('qb_profit_loss', { start_date: start, end_date: end, summarize_by: 'Total' }),
+    call('qb_runway_calculator', {})
+  ]);
+  setContent('dashboard-pl', pl, 'Could not load P&L', 'pl');
+  SECTION_LOADERS['dashboard-pl'] = loadDashboardKpis;
+  const plStr = extractText(pl); const runwayStr = extractText(runway);
+  cachePut('runway', runwayStr);
+  const netIncome = parseAmountFromMd(plStr, 'Net Income');
+  const cash = parseAmountFromMd(runwayStr, 'Cash on hand');
+  const burn = parseAmountFromMd(runwayStr, 'Net monthly burn');
+  const runMonths = parseRunwayMonthsFromMd(runwayStr);
+  document.getElementById('kpi-cash').textContent = cash != null ? fmt(cash) : '—';
+  document.getElementById('kpi-cash-s').textContent = cash != null ? 'across primary accounts' : 'no data';
+  document.getElementById('kpi-net').textContent = netIncome != null ? fmtSign(netIncome) : '—';
+  const netS = document.getElementById('kpi-net-s');
+  if(netIncome != null){ netS.textContent = netIncome >= 0 ? 'profitable YTD' : 'loss YTD'; netS.className = 'kpi-s' + (netIncome < 0 ? ' neg' : ''); }
+  else netS.textContent = 'no P&L data yet';
+  document.getElementById('kpi-burn').textContent = burn != null ? fmt(burn) : '—';
+  document.getElementById('kpi-burn-s').textContent = burn != null ? '90-day rolling' : 'no data';
+  document.getElementById('kpi-runway').textContent = runMonths != null ? runMonths.toFixed(1) + ' mo' : '—';
+  document.getElementById('kpi-runway-s').textContent = runMonths != null ? 'at current burn' : 'needs data';
+  const pill = document.getElementById('runway-pill');
+  pill.classList.remove('loading');
+  if(runMonths == null){ pill.textContent = burn != null && burn <= 0 ? 'Profitable' : 'No data'; pill.className = 'runway-pill'; }
+  else if(runMonths < 3){ pill.textContent = runMonths.toFixed(1) + ' mo runway'; pill.className = 'runway-pill danger'; }
+  else if(runMonths < 12){ pill.textContent = runMonths.toFixed(1) + ' mo runway'; pill.className = 'runway-pill warn'; }
+  else { pill.textContent = runMonths.toFixed(1) + ' mo runway'; pill.className = 'runway-pill'; }
+  document.getElementById('as-of').textContent = 'As of ' + new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+}
+async function loadHealthSummary(){
+  const r = await call('qb_books_health_audit', { tax_year: String(new Date().getFullYear()) });
+  setContent('dashboard-health', r, 'Could not run audit', 'health');
+  setContent('health-content', r, 'Could not run audit', 'health');
+  SECTION_LOADERS['dashboard-health'] = loadHealthSummary;
+  SECTION_LOADERS['health-content'] = loadHealthSummary;
+}
+
+// ============ Lazy tab loaders ============
+const loaded = {};
+async function loadTab(tab, force){
+  if(loaded[tab] && !force) return;
+  loaded[tab] = true;
+  if(tab === 'pl'){ await loadPL(currentPlPeriod); }
+  else if(tab === 'cashflow'){
+    await loadCashflow(currentCfPeriod);
+    const fc = await call('qb_cash_flow_forecast', { months_forward: 3 });
+    setContent('cashflow-forecast', fc, 'Could not load forecast', 'forecast');
+    SECTION_LOADERS['cashflow-forecast'] = () => loadTab('cashflow', true);
+  }
+  else if(tab === 'receivables'){
+    const [ar, inv] = await Promise.all([ call('qb_ar_aging', { as_of_date: new Date().toISOString().slice(0,10) }), call('qb_list_invoices', { start_date: periodRange('ytd')[0], end_date: periodRange('ytd')[1], status: 'unpaid', max_results: 20 }) ]);
+    setContent('ar-content', ar, 'Could not load A/R aging', 'receivables');
+    setContent('invoices-content', inv, 'Could not load invoices', 'invoices');
+    SECTION_LOADERS['ar-content'] = () => loadTab('receivables', true);
+    SECTION_LOADERS['invoices-content'] = () => loadTab('receivables', true);
+  }
+  else if(tab === 'payables'){
+    const [ap, vend] = await Promise.all([ call('qb_ap_aging', { as_of_date: new Date().toISOString().slice(0,10) }), call('qb_vendor_summary', { start_date: periodRange('ytd')[0], end_date: periodRange('ytd')[1] }) ]);
+    setContent('ap-content', ap, 'Could not load A/P aging', 'payables');
+    setContent('vendors-content', vend, 'Could not load vendor summary', 'vendors');
+    SECTION_LOADERS['ap-content'] = () => loadTab('payables', true);
+    SECTION_LOADERS['vendors-content'] = () => loadTab('payables', true);
+  }
+  else if(tab === 'transactions'){
+    const [uncat, anom, recent] = await Promise.all([
+      call('qb_uncategorized_transactions', { max_results: 25 }),
+      call('qb_find_duplicates', { start_date: periodRange('ytd')[0], end_date: periodRange('ytd')[1] }),
+      call('qb_search_transactions', { start_date: periodRange('ytd')[0], end_date: periodRange('ytd')[1], max_results: 30 })
+    ]);
+    setContent('uncat-content', uncat, 'Could not load uncategorized', 'transactions');
+    setContent('anomaly-content', anom, 'Could not run duplicate detection', 'anomalies');
+    setContent('recent-content', recent, 'Could not load recent transactions', 'recent');
+    SECTION_LOADERS['uncat-content'] = () => loadTab('transactions', true);
+    SECTION_LOADERS['anomaly-content'] = () => loadTab('transactions', true);
+    SECTION_LOADERS['recent-content'] = () => loadTab('transactions', true);
+  }
+  else if(tab === 'tax'){
+    const [q, sc, ded] = await Promise.all([
+      call('qb_estimate_quarterly_tax', {}),
+      call('qb_schedule_c_detailed', { tax_year: String(new Date().getFullYear()) }),
+      call('qb_deduction_finder', { tax_year: String(new Date().getFullYear()) })
+    ]);
+    setContent('tax-quarterly', q, 'Could not estimate quarterly tax', 'tax');
+    setContent('tax-schedulec', sc, 'Could not load Schedule C', 'schedulec');
+    setContent('tax-deductions', ded, 'Could not run deduction finder', 'deductions');
+    SECTION_LOADERS['tax-quarterly'] = () => loadTab('tax', true);
+    SECTION_LOADERS['tax-schedulec'] = () => loadTab('tax', true);
+    SECTION_LOADERS['tax-deductions'] = () => loadTab('tax', true);
+  }
+  else if(tab === 'workbook'){ await initWorkbook(); }
+  else if(tab === 'health'){ if(!CACHE['health']) await loadHealthSummary(); }
+}
+let currentPlPeriod = 'ytd';
+async function loadPL(period){
+  currentPlPeriod = period;
+  const [start, end] = periodRange(period);
+  const r = await call('qb_profit_loss', { start_date: start, end_date: end, summarize_by: 'Total' });
+  setContent('pl-content', r, 'Could not load P&L', 'pl');
+  SECTION_LOADERS['pl-content'] = () => loadPL(currentPlPeriod);
+  const labels = {mtd:'Month-to-date', qtd:'Quarter-to-date', ytd:'Year-to-date', prev_year:'Prior year'};
+  document.getElementById('pl-period-label').textContent = labels[period];
+}
+let currentCfPeriod = 'ytd';
+async function loadCashflow(period){
+  currentCfPeriod = period;
+  const [start, end] = periodRange(period);
+  const r = await call('qb_cash_flow', { start_date: start, end_date: end });
+  setContent('cashflow-content', r, 'Could not load cash flow', 'cashflow');
+  SECTION_LOADERS['cashflow-content'] = () => loadCashflow(currentCfPeriod);
+}
+
+// ============ Tab switching + per-tab chat suggestions ============
+const TAB_SUGGESTIONS = {
+  dashboard: [ ['How are my books overall?', 'Overview'], ['What should I fix first?', 'Priorities'], ['Compare this month to last month', 'Compare'] ],
+  pl: [ ['Why is my net income negative?', 'Explain P&L'], ['What is my biggest expense category?', 'Top expense'], ['Compare this quarter to last quarter', 'Compare'] ],
+  cashflow: [ ['When will I run out of cash?', 'Runway'], ['What is driving my burn?', 'Burn drivers'], ['Forecast next quarter', 'Forecast'] ],
+  receivables: [ ['Who owes me the most?', 'Top debtor'], ['Draft a payment reminder for my oldest invoice', 'Chase payment'], ['Create a new invoice', 'New invoice'] ],
+  payables: [ ['What bills are due this week?', 'Due soon'], ['Who is my biggest vendor?', 'Top vendor'], ['Record a bill payment', 'Pay bill'] ],
+  transactions: [ ['Categorize my uncategorized transactions', 'Categorize'], ['Merge the duplicate transactions', 'Fix dupes'], ['Assign vendors to unknown transactions', 'Fix vendors'] ],
+  tax: [ ['How much should I set aside for Q3 taxes?', 'Q3 estimate'], ['What deductions am I missing?', 'Deductions'], ['Export my Schedule C', 'Schedule C'] ],
+  workbook: [ ['What will my CPA ask about?', 'CPA questions'], ['Explain the open items', 'Open items'], ['Export the workbook', 'Export'] ],
+  health: [ ['Fix all critical issues', 'Fix critical'], ['What does my accountant need?', 'For CPA'], ['Run month-end close', 'Close books'] ]
+};
+function paintSuggestions(tab){
+  const wrap = document.getElementById('chat-suggestions');
+  wrap.innerHTML = (TAB_SUGGESTIONS[tab] || TAB_SUGGESTIONS.dashboard).map(([q, label]) =>
+    '<button class="chat-suggestion" data-q="' + escapeHtml(q) + '">' + escapeHtml(label) + '</button>'
+  ).join('');
+  wrap.querySelectorAll('.chat-suggestion').forEach(s => s.addEventListener('click', () => askAQB(s.dataset.q)));
+}
+// ============ CPA Workbook ============
+let WB_REGION = null;   // 'US' | 'CA' — from company info (Business Number => CA)
+let wbPeriod = (new Date().getMonth() < 4) ? 'prior_year' : 'ytd';  // CPA season default
+let wbIndex = 0;
+const WB_LOADED = {};   // pageId -> true
+
+function wbRange(){ return periodRange(wbPeriod === 'prior_year' ? 'prev_year' : 'ytd'); }
+function wbYear(){ return wbRange()[0].slice(0, 4); }
+
+function wbPages(){
+  const [start, end] = wbRange();
+  const y = wbYear();
+  const us = WB_REGION !== 'CA';
+  return [
+    {id:'cover', title:'Cover & Summary', multi:[['qb_company_info',{}],['qb_books_health_audit',{tax_year:y}]], cover:true},
+    {id:'tb', title:'Trial Balance', tool:'qb_trial_balance', args:{start_date:start, end_date:end}},
+    {id:'recon', title:'Reconciliation Status', tool:'qb_reconciliation_status', args:{as_of_date:end}},
+    {id:'plw', title:'Profit & Loss (Comparative)', tool:'qb_comparative_statements', args:{statement:'pl', year:parseInt(y, 10)}},
+    {id:'bs', title:'Balance Sheet (Comparative)', tool:'qb_comparative_statements', args:{statement:'bs', year:parseInt(y, 10)}},
+    {id:'cfw', title:'Cash Flow', tool:'qb_cash_flow', args:{start_date:start, end_date:end}},
+    {id:'gl', title:'General Ledger', tool:'qb_general_ledger', args:{start_date:start, end_date:end}},
+    us ? {id:'taxmap', title:'Schedule C Mapping', tool:'qb_schedule_c_detailed', args:{tax_year:y}}
+       : {id:'taxmap', title:'T2125 Mapping', tool:'qb_t2125_summary', args:{year:parseInt(y, 10)}},
+    us ? {id:'contract', title:'1099 Contractors', tool:'qb_1099_contractor_report', args:{tax_year:y}}
+       : {id:'contract', title:'T4A Contractors', tool:'qb_t4a_contractor_report', args:{year:parseInt(y, 10)}},
+    us ? {id:'salestax', title:'Sales Tax', tool:'qb_sales_tax_summary', args:{start_date:start, end_date:end}}
+       : {id:'salestax', title:'GST/HST Return', tool:'qb_gst_hst_return', args:{start_date:start, end_date:end}},
+    us ? {id:'assets', title:'Fixed Assets & Depreciation', tool:'qb_depreciation_schedule', args:{tax_year:y}}
+       : {id:'assets', title:'CCA Schedule', tool:'qb_cca_schedule', args:{year:parseInt(y, 10)}},
+    {id:'taxpaid', title:'Tax Payments Made', tool:'qb_tax_payments_made', args:{tax_year:y}},
+    {id:'draws', title:"Owner's Draws", tool:'qb_owner_draws', args:{year:parseInt(y, 10)}},
+    {id:'open', title:'Open Items', multi:[['qb_uncategorized_transactions',{start_date:start, end_date:end}],
+                                          ['qb_find_duplicates',{start_date:start, end_date:end}],
+                                          ['qb_unknown_vendor_report',{start_date:start, end_date:end}]]},
+    {id:'organizer', title:'Tax Organizer', organizer:true},
+  ];
+}
+
+function renderWbToc(){
+  const pages = wbPages();
+  document.getElementById('wb-toc').innerHTML = pages.map((p, i) =>
+    '<button data-wbpage="' + i + '"' + (i === wbIndex ? ' class="active"' : '') + '>' +
+    '<span class="pgnum">' + (i + 1) + '</span>' + escapeHtml(p.title) +
+    '<span class="dot' + (WB_LOADED[p.id] ? ' loaded' : '') + '"></span></button>').join('');
+  document.getElementById('wb-toc').querySelectorAll('button').forEach(b =>
+    b.addEventListener('click', () => loadWbPage(parseInt(b.dataset.wbpage, 10))));
+}
+
+function wbOrganizerKey(){ return 'aqb-wb-organizer-' + wbYear(); }
+
+// The questions a CPA's tax organizer always asks — answered before the
+// follow-up email is ever sent.
+const ORGANIZER_FIELDS = [
+  {id:'miles', label:'Business miles driven', ph:'e.g. 4,250'},
+  {id:'office_sqft', label:'Home office sq ft', ph:'e.g. 200'},
+  {id:'home_sqft', label:'Total home sq ft', ph:'e.g. 2,000'},
+  {id:'health_prem', label:'Health insurance premiums paid', ph:'e.g. $6,400'},
+  {id:'loans', label:'New loans this year (lender / amount)', ph:'e.g. SBA \u2014 $25,000, or none'},
+  {id:'assets', label:'Assets purchased or sold', ph:'e.g. bought MacBook $3,000 in March'},
+  {id:'est_confirmed', label:'Estimated tax payments confirmed?', ph:'yes / see Tax Payments page'},
+  {id:'unusual', label:'Anything unusual this year', ph:'one-off events, mixed-use expenses\u2026'},
+];
+
+function organizerData(){
+  try { return JSON.parse(sessionStorage.getItem(wbOrganizerKey()) || '{}'); }
+  catch(e){ return {}; }
+}
+
+function renderOrganizer(el){
+  const data = organizerData();
+  el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin-top:0">' +
+    'Your CPA\u2019s organizer asks these every year \u2014 answer once, they ride along on export.</p>' +
+    ORGANIZER_FIELDS.map(f =>
+      '<div style="margin-bottom:10px"><label style="display:block;font-size:10px;font-weight:700;' +
+      'text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);margin-bottom:4px">' + f.label +
+      '</label><input class="chat-input" style="font-size:13px" data-org="' + f.id + '" placeholder="' + f.ph +
+      '" value="' + escapeHtml(data[f.id] || '') + '"></div>').join('');
+  el.querySelectorAll('input[data-org]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const d = organizerData();
+      d[inp.dataset.org] = inp.value;
+      try { sessionStorage.setItem(wbOrganizerKey(), JSON.stringify(d)); } catch(e){}
+    });
+  });
+}
+
+function organizerSummary(){
+  const d = organizerData();
+  const parts = ORGANIZER_FIELDS.filter(f => (d[f.id] || '').trim())
+    .map(f => f.label + ': ' + d[f.id].trim());
+  return parts.length ? parts.join('; ') : '';
+}
+
+async function loadWbPage(i, force){
+  const pages = wbPages();
+  wbIndex = Math.max(0, Math.min(pages.length - 1, i));
+  const page = pages[wbIndex];
+  const [start, end] = wbRange();
+  document.getElementById('wb-page-title').textContent = page.title;
+  document.getElementById('wb-page-count').textContent = 'Page ' + (wbIndex + 1) + ' of ' + pages.length;
+  document.getElementById('wb-prev').disabled = wbIndex === 0;
+  document.getElementById('wb-next').disabled = wbIndex === pages.length - 1;
+  renderWbToc();
+  const el = document.getElementById('wb-content');
+  const tie = document.getElementById('wb-tieout');
+
+  if(page.organizer){
+    renderOrganizer(el);
+    tie.textContent = 'Answers land on the cover sheet of the exported workbook \u00b7 period ' + start + ' \u2013 ' + end;
+    WB_LOADED[page.id] = true;
+    renderWbToc();
+    return;
+  }
+
+  const cacheKey = 'wb-' + page.id + '-' + wbPeriod;
+  if(WB_LOADED[page.id] && !force && CACHE[cacheKey]){
+    el.innerHTML = md2html(CACHE[cacheKey].md);
+    paintWbTieout(page, start, end, CACHE[cacheKey].ts);
+    return;
+  }
+
+  el.innerHTML = '<div class="loading">Loading</div>';
+  tie.textContent = '';
+  const specs = page.multi || [[page.tool, page.args]];
+  const results = await Promise.all(specs.map(([t, a]) => call(t, a)));
+  const errs = results.filter(r => r && r.error);
+  if(errs.length === results.length){
+    el.innerHTML = '<div class="err-box">Could not load ' + escapeHtml(page.title) + ' \u2014 ' +
+      escapeHtml(errs[0].error) + '<br><button class="retry" onclick="loadWbPage(' + wbIndex + ', true)">Retry</button></div>';
+    return;
+  }
+  let md = results.map(r => (r && r.error) ? ('> Section unavailable: ' + r.error) : extractText(r)).join('\n\n---\n\n');
+  if(page.cover){
+    md += '\n\n---\n\n> **Payroll: not included** \u2014 attach W-2/941 (US) or T4 summaries (CA) from your payroll provider.';
+  }
+  cachePut(cacheKey, md);
+  el.innerHTML = md2html(md);
+  WB_LOADED[page.id] = true;
+  renderWbToc();
+  paintWbTieout(page, start, end, new Date());
+}
+
+function paintWbTieout(page, start, end, ts){
+  const tools = (page.multi ? page.multi.map(s => s[0]) : [page.tool]).join(' + ');
+  document.getElementById('wb-tieout').textContent =
+    'Source: ' + tools + ' \u00b7 pulled ' + ts.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'}) +
+    ' \u00b7 period ' + start + ' \u2013 ' + end + ' \u00b7 workpapers, not filings';
+}
+
+async function initWorkbook(force){
+  if(WB_REGION === null){
+    let md = CACHE.company ? CACHE.company.md : '';
+    if(!md){
+      const r = await call('qb_company_info', {});
+      if(!(r && r.error)) { md = extractText(r); cachePut('company', md); }
+    }
+    WB_REGION = /Business Number/i.test(md) ? 'CA' : 'US';
+  }
+  // Period toggle active state
+  document.querySelectorAll('#wb-period-tabs .period-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.wbperiod === wbPeriod));
+  renderWbToc();
+  await loadWbPage(wbIndex, force);
+}
+
+document.getElementById('wb-prev').addEventListener('click', () => loadWbPage(wbIndex - 1));
+document.getElementById('wb-next').addEventListener('click', () => loadWbPage(wbIndex + 1));
+document.querySelectorAll('#wb-period-tabs .period-tab').forEach(t => {
+  t.addEventListener('click', () => {
+    if(wbPeriod === t.dataset.wbperiod) return;
+    wbPeriod = t.dataset.wbperiod;
+    Object.keys(WB_LOADED).forEach(k => delete WB_LOADED[k]);
+    initWorkbook(true);
+  });
+});
+document.getElementById('wb-export').addEventListener('click', () => {
+  const [start, end] = wbRange();
+  const org = organizerSummary();
+  const instruction = 'Assemble my CPA year-end workbook for ' + start + ' to ' + end +
+    ' using the workbook tools (trial balance, comparative P&L and balance sheet, general ledger, ' +
+    'tax mapping, reconciliation status, open items), and summarize what it contains' +
+    (org ? '. Tax organizer answers for the cover sheet \u2014 ' + org : '');
+  appendMsg('user', 'Export workbook (' + wbYear() + ')');
+  logAction('Export CPA workbook \u00b7 ' + wbYear());
+  desktopChatRun(instruction);
+});
+
+
+// ============ Row drill-down: click a ledger line, ask about it ============
+document.addEventListener('click', (e) => {
+  const row = e.target && e.target.closest ? e.target.closest('tr.drill') : null;
+  if(!row || !row.dataset.drill) return;
+  const inWb = !!row.closest('#view-workbook');
+  const [ws, we] = inWb ? wbRange() : periodRange('ytd');
+  askAQB('Show the transactions behind "' + row.dataset.drill + '" for ' + ws + ' to ' + we);
+});
+
+let activeTab = 'dashboard';
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    activeTab = t.dataset.tab;
+    ['dashboard','pl','cashflow','receivables','payables','transactions','tax','workbook','health'].forEach(v => {
+      document.getElementById('view-' + v).style.display = v === activeTab ? '' : 'none';
+    });
+    loadTab(activeTab);
+    paintSuggestions(activeTab);
+  });
+});
+document.querySelectorAll('#pl-period-tabs .period-tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('#pl-period-tabs .period-tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('pl-content').innerHTML = '<div class="loading">Loading</div>';
+    loadPL(t.dataset.period);
+  });
+});
+document.querySelectorAll('#cf-period-tabs .period-tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('#cf-period-tabs .period-tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('cashflow-content').innerHTML = '<div class="loading">Loading</div>';
+    loadCashflow(t.dataset.period);
+  });
+});
+
+// ============ Refresh buttons ============
+document.querySelectorAll('.refresh-btn').forEach(b => {
+  b.addEventListener('click', async () => {
+    b.classList.add('spinning');
+    const what = b.dataset.refresh;
+    try {
+      if(what === 'dashboard'){ await loadDashboardKpis(); }
+      else if(what === 'healthsum' || what === 'health'){ await loadHealthSummary(); }
+      else { await loadTab(what, true); }
+    } finally { b.classList.remove('spinning'); }
+  });
+});
+
+// ============ Quick actions ============
+document.querySelectorAll('.qbtn').forEach(b => {
+  b.addEventListener('click', () => {
+    const action = b.dataset.action;
+    if(!action) return;  // workbook pager/export buttons share the class
+    appendMsg('user', b.textContent.trim());
+    logAction(b.textContent.trim());
+    desktopChatRun(action);
+  });
+});
+
+// ============ Intent classifier ============
+const ACTION_VERBS = ['create','reclassify','categorize','recategorize','delete','set ','update','import','export','add ','remove','push','rename','apply','tag ','merge','split','archive','mark ','flag ','assign','move ','rerun','run ','build ','generate','send','sync','reconcile','void','pay ','record','close ','match','file ','draft','fix ','chase','invoice ','bill '];
+const ASK_STARTERS = ['where','what','how much','what\'s','show me','tell me','summarize','compare','why','when','who','do i','am i','is my','are my','should i','can you tell','how many','how is','how are','explain'];
+function classifyIntent(q){
+  q = q.toLowerCase().trim();
+  for(const a of ASK_STARTERS){ if(q.startsWith(a)) return 'ask'; }
+  for(const v of ACTION_VERBS){ if(q.startsWith(v) || q.includes(' ' + v)) return 'do'; }
+  return 'ask';
+}
+
+// ============ Action log ============
+const ACTION_LOG = JSON.parse(sessionStorage.getItem('aqb-actions') || '[]');
+function logAction(text){
+  ACTION_LOG.unshift({text, ts: new Date().toISOString()});
+  ACTION_LOG.splice(20);
+  try{ sessionStorage.setItem('aqb-actions', JSON.stringify(ACTION_LOG)); }catch(e){}
+  renderActionLog();
+}
+function clearActions(){ ACTION_LOG.length = 0; try{ sessionStorage.removeItem('aqb-actions'); }catch(e){} renderActionLog(); }
+function renderActionLog(){
+  const el = document.getElementById('action-log-list');
+  if(ACTION_LOG.length === 0){ el.innerHTML = '<div class="empty-log">No actions yet — try a quick action above.</div>'; return; }
+  el.innerHTML = ACTION_LOG.slice(0,6).map(a => {
+    const s = Math.round((Date.now() - new Date(a.ts).getTime()) / 1000);
+    const ago = s < 60 ? s+'s ago' : s < 3600 ? Math.round(s/60)+'m ago' : s < 86400 ? Math.round(s/3600)+'h ago' : Math.round(s/86400)+'d ago';
+    return '<div class="log-row"><span class="what">' + escapeHtml(a.text.length > 48 ? a.text.slice(0,48)+'…' : a.text) + '</span><span class="when">' + ago + '</span></div>';
+  }).join('');
+}
+
+// ============ Chat ============
+function appendMsg(role, content, mode){
+  const msgs = document.getElementById('chat-msgs');
+  const hint = msgs.querySelector('.msg-hint'); if(hint) hint.remove();
+  const row = document.createElement('div');
+  row.className = 'msg-row ' + (role === 'user' ? 'u' : 'a');
+  if(mode){
+    const meta = document.createElement('div');
+    meta.className = 'msg-meta';
+    if(mode === 'quick') meta.innerHTML = '<span class="pill q">⚡ QUICK</span>';
+    else if(mode === 'pending') meta.innerHTML = '<span class="pill d">→ SENT</span>';
+    else meta.innerHTML = '<span class="pill d">→ DEEP</span>';
+    row.appendChild(meta);
+  }
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role === 'user' ? 'u' : 'a');
+  div.textContent = content;
+  row.appendChild(div);
+  msgs.appendChild(row);
+  msgs.scrollTop = msgs.scrollHeight;
+  return row;
+}
+function showThinking(){
+  const msgs = document.getElementById('chat-msgs');
+  const row = document.createElement('div');
+  row.className = 'msg-row a';
+  row.id = 'thinking-row';
+  row.innerHTML = '<div class="thinking"><span></span><span></span><span></span></div>';
+  msgs.appendChild(row);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+function hideThinking(){ const r = document.getElementById('thinking-row'); if(r) r.remove(); }
+
+// Assistant reply rendered as markdown (tables/drill-downs work) + the tools it consulted.
+function appendAssistantRich(html, trace){
+  const msgs = document.getElementById('chat-msgs');
+  const hint = msgs.querySelector('.msg-hint'); if(hint) hint.remove();
+  const row = document.createElement('div'); row.className = 'msg-row a';
+  if(trace && trace.length){
+    const seen = []; trace.forEach(t => { if(t && t.tool && seen.indexOf(t.tool) < 0) seen.push(t.tool); });
+    const meta = document.createElement('div'); meta.className = 'msg-meta';
+    meta.innerHTML = '<span class="pill d">&rarr; DEEP</span> ' +
+      seen.map(t => '<span class="pill d">' + escapeHtml(t) + '</span>').join(' ');
+    row.appendChild(meta);
+  }
+  const div = document.createElement('div'); div.className = 'msg a'; div.style.whiteSpace = 'normal';
+  div.innerHTML = html;
+  row.appendChild(div); msgs.appendChild(row); msgs.scrollTop = msgs.scrollHeight;
+}
+// Run a request through the local agentic /chat loop (read-only tools) and render it here.
+let chatBusy = false;
+async function desktopChatRun(promptText){
+  const q = String(promptText || '').trim(); if(!q || chatBusy) return;
+  chatBusy = true; showThinking();
+  const input = document.getElementById('chat-input'); if(input) input.disabled = true;
+  try{
+    const r = await fetch('/chat', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ messages: chatHistory.concat([{role:'user', content:q}]), model: MODEL })});
+    const j = await r.json().catch(() => ({}));
+    hideThinking();
+    if(j.needsKey){ appendMsg('assistant', 'Add your Anthropic API key in Connections to enable chat.', 'deep'); return; }
+    if(j.error){ appendMsg('assistant', 'Error: ' + j.error, 'deep'); return; }
+    const reply = j.reply || '(no reply)';
+    appendAssistantRich(md2html(reply), j.trace);
+    chatHistory.push({role:'user', content:q}, {role:'assistant', content: reply});
+  }catch(e){ hideThinking(); appendMsg('assistant', 'Network error: ' + e, 'deep'); }
+  finally{ chatBusy = false; if(input){ input.disabled = false; input.focus(); } }
+}
+
+async function askAQB(question){
+  const forceDeep = document.getElementById('deep-mode-toggle').checked;
+  const intent = forceDeep ? 'do' : classifyIntent(question);
+  appendMsg('user', question);
+
+  if(intent === 'do'){ logAction(question); await desktopChatRun(question); return; }
+
+  showThinking();
+  // Build context from everything already loaded (cached tab data)
+  const ctx = { company: COMPANY, as_of: new Date().toISOString().slice(0,10), loaded_reports: {} };
+  for(const [k, v] of Object.entries(CACHE)){ ctx.loaded_reports[k] = v.md; }
+  const systemPrompt = 'You are AccountingQB, an accounting AI. Answer the question concisely (2-4 sentences) using ONLY the loaded_reports data provided — these are live QuickBooks reports already fetched for this user. Reference specific numbers from the reports. If the loaded reports do not contain the answer, say which dashboard tab to open (Dashboard, P&L, Cash Flow, A/R, A/P, Transactions, Tax, Health) so the data loads, or suggest toggling Deep mode for a full analysis. Never invent numbers. Question: "' + question + '"';
+  try {
+    const result = await window.cowork.askClaude(systemPrompt, [ctx]);
+    hideThinking();
+    if(result && result.needsKey){ appendMsg('assistant', 'Add your Anthropic API key in Connections to enable chat.', 'quick'); return; }
+    if(result && result.text) appendMsg('assistant', result.text, 'quick');
+    else appendMsg('assistant', 'Could not answer from the loaded data — toggle Deep for a full analysis with live tools.', 'quick');
+  } catch(e){
+    hideThinking();
+    appendMsg('assistant', 'Chat service unavailable — check your Anthropic key in Connections.', 'quick');
+  }
+}
+document.getElementById('chat-input').addEventListener('keydown', e => {
+  if(e.key === 'Enter' && e.target.value.trim()){ askAQB(e.target.value.trim()); e.target.value = ''; }
+});
+
+// ============ Boot ============
+paintSuggestions('dashboard');
+renderActionLog();
+loadCompany().then(() => { loadDashboardKpis(); loadHealthSummary(); });
 </script>
 </body>
 </html>
