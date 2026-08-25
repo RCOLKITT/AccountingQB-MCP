@@ -338,6 +338,38 @@ def test_link_callback_stores_secret_on_success(client, monkeypatch, tmp_path):
     assert serve._load_link_state() == {}  # consumed
 
 
+def test_bootstrap_pairing_restores_from_web(monkeypatch, tmp_path):
+    # A restart that emptied the local cache must re-pair from the web on boot (source of truth).
+    monkeypatch.setattr(serve, "PAIRING_FILE", tmp_path / "pairing.json")
+    monkeypatch.delenv("QB_LICENSE_KEY", raising=False)
+    monkeypatch.setattr(serve, "load_config", lambda: {"license_key": "LK-TEST"})
+
+    class FakeResp:
+        status_code = 200
+        def json(self):
+            return {"paired": True, "pairingSecret": "SEKRET", "peerProduct": "coffer"}
+
+    class FakeClient:
+        def __init__(self, *a, **k): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def get(self, url, params=None):
+            assert url.endswith("/api/link/status") and params.get("key") == "LK-TEST"
+            return FakeResp()
+
+    monkeypatch.setattr(serve.httpx, "Client", FakeClient)
+    serve._bootstrap_pairing()
+    assert serve._load_pairing().get("pairing_secret") == "SEKRET"
+
+
+def test_bootstrap_pairing_no_license_is_noop(monkeypatch, tmp_path):
+    monkeypatch.setattr(serve, "PAIRING_FILE", tmp_path / "pairing.json")
+    monkeypatch.delenv("QB_LICENSE_KEY", raising=False)
+    monkeypatch.setattr(serve, "load_config", lambda: {})
+    serve._bootstrap_pairing()  # no license → no network, no crash
+    assert serve._load_pairing() == {}
+
+
 def test_link_refresh_requires_license(client, monkeypatch):
     monkeypatch.setattr(serve, "load_config", lambda: {})
     monkeypatch.setattr(serve.qb, "LICENSE_KEY", "", raising=False)

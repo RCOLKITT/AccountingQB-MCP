@@ -923,8 +923,40 @@ def _bootstrap_profile() -> None:
         print(f"  (profile bootstrap skipped: {type(e).__name__})")
 
 
+def _bootstrap_pairing() -> None:
+    """Restore the Coffer pairing from the web on launch. The web (account_links, keyed by license)
+    is the source of truth; the local pairing.json is only a cache that a restart / fresh install /
+    unpair can empty — which left whoami reporting paired:false and Coffer firing into an inert peer.
+    Re-pulling here guarantees the shim comes up paired whenever the account is linked. Non-fatal."""
+    lic = os.environ.get("QB_LICENSE_KEY") or load_config().get("license_key", "")
+    if not lic:
+        return
+    base = AQB_API_URL.rstrip("/")
+    try:
+        with httpx.Client(timeout=15) as client:
+            r = client.get(f"{base}/api/link/status", params={"key": lic})
+        data = r.json() if r.status_code == 200 else {}
+    except Exception as e:  # pragma: no cover - network/offline
+        print(f"  (pairing bootstrap skipped: {type(e).__name__})")
+        return
+    if data.get("paired") and data.get("pairingSecret"):
+        rec = _load_pairing()
+        rec.update({
+            "pairing_secret": str(data["pairingSecret"]),
+            "peer_product": data.get("peerProduct") or "coffer",
+            "peer_identity": data.get("peerIdentity") or rec.get("peer_identity", ""),
+            "peer_base_url": rec.get("peer_base_url") or COFFER_API_URL.rstrip("/"),
+            "linked_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        })
+        _save_pairing(rec)
+        print("  Coffer pairing restored from web (paired).")
+    elif not _load_pairing().get("pairing_secret"):
+        print("  No Coffer pairing linked to this account yet.")
+
+
 def main() -> None:
     _bootstrap_profile()
+    _bootstrap_pairing()   # restore Coffer pairing from web so a restart never comes up inert
     url = f"http://127.0.0.1:{PORT}"
     print(f"\n  AccountingQB local is live → {url}\n")
     if not os.environ.get("ACCOUNTINGQB_NO_OPEN"):
