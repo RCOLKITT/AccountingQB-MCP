@@ -209,12 +209,21 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 .tour-list{margin:0 0 10px;padding-left:18px;font-size:12px;color:var(--ink-soft);line-height:1.5}
 .tour-list li{margin:4px 0}
 .empty .e-h{color:var(--ink)}
+/* ---- Skeleton loading (perceived structure > spinners) ---- */
+.skel{background:linear-gradient(90deg,#ecebe6 25%,#f5f4f0 37%,#ecebe6 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;border-radius:4px}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.skel-line{height:11px;margin:9px 0}
+.skel-wrap{padding:6px 2px}
+/* ---- Keyboard shortcut sheet ---- */
+.kbd{display:inline-block;font-family:var(--mono);font-size:11px;background:var(--paper);border:1px solid var(--rule-dark);border-bottom-width:2px;border-radius:4px;padding:1px 6px;color:var(--ink);line-height:1.6}
+.sheet-row{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:7px 0;border-bottom:1px solid var(--rule);font-size:13px;color:var(--ink-soft)}
+.sheet-row:last-child{border-bottom:none}
 </style>
 </head>
 <body>
 <div class="app">
 <div class="nav" role="banner" aria-label="AccountingQB">
-<div class="brand">
+<div class="brand" data-tauri-drag-region>
 <svg viewBox="0 0 512 512" width="22" height="22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 <defs><linearGradient id="aqbg" x1="60" y1="60" x2="452" y2="452" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#22d3ee"/><stop offset="40%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#6366f1"/></linearGradient></defs>
 <path d="M 210 108 A 148 148 0 1 1 209.99 108 Z M 210 164 A 92 92 0 1 0 210.01 164 Z" fill="url(#aqbg)" fill-rule="evenodd"/>
@@ -486,6 +495,20 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
   <button class="btn2" id="tour-done">Got it</button>
 </div>
 
+<div class="modal-overlay" id="shortcuts-modal" role="dialog" aria-modal="true" aria-labelledby="sc-title" hidden>
+  <div class="modal" style="max-width:420px">
+    <div class="modal-h"><h2 id="sc-title">Keyboard shortcuts</h2><button class="modal-x" id="sc-close" aria-label="Close shortcuts">&#10005;</button></div>
+    <div class="modal-body">
+      <div class="sheet-row"><span>Toggle the Ask panel</span><span><span class="kbd">⌘/Ctrl</span> <span class="kbd">K</span></span></div>
+      <div class="sheet-row"><span>Collapse the Ask panel</span><span class="kbd">Esc</span></div>
+      <div class="sheet-row"><span>Move between report tabs</span><span><span class="kbd">←</span> <span class="kbd">→</span></span></div>
+      <div class="sheet-row"><span>Open a report line’s transactions</span><span><span class="kbd">Enter</span> on a row</span></div>
+      <div class="sheet-row"><span>Manage connections</span><span>the <span class="kbd">⚙</span> gear</span></div>
+      <div class="sheet-row"><span>Show this help</span><span class="kbd">?</span></div>
+    </div>
+  </div>
+</div>
+
 </div><!-- .app -->
 
 <script>
@@ -496,6 +519,7 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 //   callMcpTool -> POST /mcp   |   askClaude -> POST /sample   |   sendPrompt -> POST /chat (in-panel)
 let MODEL = 'claude-sonnet-4-6';
 const chatHistory = [];   // rolling transcript for the agentic /chat loop
+const SKEL = '<div class="skel-wrap"><div class="skel skel-line" style="width:64%"></div><div class="skel skel-line"></div><div class="skel skel-line" style="width:86%"></div><div class="skel skel-line" style="width:52%"></div></div>';
 window.cowork = {
   async callMcpTool(nsTool, args){
     const tool = String(nsTool || '').replace(/^mcp__[a-z0-9]+__/i, '');   // strip mcp__accountingqb__ / mcp__quickbooks__
@@ -956,7 +980,7 @@ async function loadWbPage(i, force){
     return;
   }
 
-  el.innerHTML = '<div class="loading">Loading</div>';
+  el.innerHTML = SKEL;
   tie.textContent = '';
   const specs = page.multi || [[page.tool, page.args]];
   const results = await Promise.all(specs.map(([t, a]) => call(t, a)));
@@ -1087,7 +1111,7 @@ document.querySelectorAll('#pl-period-tabs .period-tab').forEach(t => {
   t.addEventListener('click', () => {
     document.querySelectorAll('#pl-period-tabs .period-tab').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
-    document.getElementById('pl-content').innerHTML = '<div class="loading">Loading</div>';
+    document.getElementById('pl-content').innerHTML = SKEL;
     loadPL(t.dataset.period);
   });
 });
@@ -1095,7 +1119,7 @@ document.querySelectorAll('#cf-period-tabs .period-tab').forEach(t => {
   t.addEventListener('click', () => {
     document.querySelectorAll('#cf-period-tabs .period-tab').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
-    document.getElementById('cashflow-content').innerHTML = '<div class="loading">Loading</div>';
+    document.getElementById('cashflow-content').innerHTML = SKEL;
     loadCashflow(t.dataset.period);
   });
 });
@@ -1406,10 +1430,20 @@ document.getElementById('saveqb').addEventListener('click', async () => {
   document.getElementById('savemsg').textContent = 'Saved. Now Connect QuickBooks.';
 });
 
+// ============ Keyboard shortcut sheet ============
+function openShortcuts(){ document.getElementById('shortcuts-modal').hidden = false; setTimeout(() => document.getElementById('sc-close').focus(), 40); }
+function closeShortcuts(){ document.getElementById('shortcuts-modal').hidden = true; }
+document.getElementById('sc-close').addEventListener('click', closeShortcuts);
+document.getElementById('shortcuts-modal').addEventListener('click', (e) => { if(e.target.id === 'shortcuts-modal') closeShortcuts(); });
+
 // ============ Global keyboard ============
 document.addEventListener('keydown', (e) => {
+  const typing = /^(input|textarea|select)$/i.test((e.target && e.target.tagName) || '');
   if((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'){ e.preventDefault(); toggleChat(); return; }
+  if(e.key === '?' && !typing){ e.preventDefault(); openShortcuts(); return; }
   if(e.key === 'Escape'){
+    const sc = document.getElementById('shortcuts-modal');
+    if(!sc.hidden){ closeShortcuts(); return; }
     const modal = document.getElementById('connections-modal');
     if(!modal.hidden){ closeConnections(); return; }
     if(!document.querySelector('.body').classList.contains('chat-collapsed')){ setChatOpen(false); }
@@ -1479,6 +1513,8 @@ function onConnected(){
 }
 
 // ============ Boot ============
+if(/[?&]in_app=1/.test(location.search)) document.body.classList.add('in-app');   // packaged desktop shell
+document.querySelectorAll('.md-content .loading').forEach(el => { el.classList.remove('loading'); el.innerHTML = SKEL; });  // shimmer, not spinner text
 setChatOpen((localStorage.getItem('aqb-chat-open') ?? '1') === '1', false);   // open, docked right by default
 paintSuggestions('dashboard');
 renderActionLog();
