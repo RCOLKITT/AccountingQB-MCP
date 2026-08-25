@@ -267,10 +267,18 @@ def test_estimate_structured(client, paired, monkeypatch):
     assert d["period"] == "Q3 2026" and d["due"] == "Sep 15"
 
 
+# Both booking accounts already present → the wrapper reuses them, no account is created.
+_ACCTS_PRESENT_MD = (
+    "### Equity\n- Owner's Equity (ID: 91) | OwnersEquity | Balance: $0.00\n\n"
+    "### Expense\n- Owner-Paid Expenses (review) (ID: 90) |  | Balance: $0.00\n"
+)
+
+
 def test_owner_paid_expense_confirm_gate_and_idempotency(client, paired, monkeypatch, tmp_path):
     monkeypatch.setattr(serve, "BOOKED_FILE", tmp_path / "booked.json")
     monkeypatch.setattr(serve, "call_tool", _fake_call_tool(
-        {"qb_create_journal_entry": "Journal entry created!\nId: 42\n"}))
+        {"qb_list_accounts": _ACCTS_PRESENT_MD,
+         "qb_create_journal_entry": "Journal entry created!\nId: 42\n"}))
     txn = {"key": "id:999", "date": "2026-08-14", "amount": -184.32, "merchant": "Staples",
            "note": "printer", "receipt": {"orderId": "9483-2211"}}
 
@@ -288,6 +296,43 @@ def test_owner_paid_expense_confirm_gate_and_idempotency(client, paired, monkeyp
     r2 = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense", "args": {**txn, "confirmed": True}},
                      headers=_PAIR_HDR).json()
     assert r2["ok"] is True and r2.get("alreadyBooked") is True
+
+
+def test_owner_paid_expense_bootstraps_missing_accounts(client, paired, monkeypatch, tmp_path):
+    """Fresh QuickBooks company: the review clearing account is missing → create it; an existing
+    owner-equity account is reused, not duplicated. This is attempt-4's real-world blocker."""
+    monkeypatch.setattr(serve, "BOOKED_FILE", tmp_path / "booked.json")
+    calls = []
+    accounts_md = (  # no 'Owner-Paid Expenses (review)'; has 'Owner investments' equity (like NutriFitAI)
+        "### Equity\n- Owner investments (ID: 57) | OwnersEquity | Balance: $0.00\n\n"
+        "### Expense\n- Office expenses (ID: 46) |  | Balance: $0.00\n"
+    )
+
+    async def fake(name, args):
+        calls.append((name, dict(args)))
+        if name == "qb_list_accounts":
+            return accounts_md
+        if name == "qb_create_account":
+            return f"✅ Created account '{args['name']}' (ID: 201)"
+        if name == "qb_create_journal_entry":
+            return "Journal entry created!\nId: 42\n"
+        return ""
+
+    monkeypatch.setattr(serve, "call_tool", fake)
+    txn = {"key": "k-boot", "date": "2026-08-14", "amount": -71.75, "merchant": "GitHub", "confirmed": True}
+    d = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense", "args": txn}, headers=_PAIR_HDR).json()
+    assert d["ok"] is True and d["booked"] is True
+    created = [c for c in calls if c[0] == "qb_create_account"]
+    # Exactly the missing clearing account is created (Expense); equity is REUSED, not created.
+    assert len(created) == 1
+    assert created[0][1]["name"] == "Owner-Paid Expenses (review)" and created[0][1]["account_type"] == "Expense"
+    assert "Owner investments" in d["treatment"]  # existing equity reused for the credit
+
+
+def test_call_tool_drops_unknown_kwargs(client):
+    # Additive-fields rule: an unknown kwarg (e.g. Coffer's `type`) must be dropped, not TypeError.
+    r = client.post("/mcp", json={"tool": "qb_server_info", "args": {"type": "Expense", "bogus": 1}})
+    assert r.json().get("ok") is True
 
 
 # --- OAuth-style linking (redirect + PKCE) ---
