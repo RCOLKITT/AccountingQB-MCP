@@ -234,7 +234,10 @@ def test_whoami(client):
     assert d["app"] == "accountingqb" and "paired" in d
 
 
-def test_pair_and_unpair(client):
+def test_pair_and_unpair(client, monkeypatch, tmp_path):
+    # Isolate the pairing file — /pair and /unpair write to disk, and without this the test
+    # would clobber a developer's real ~/.accountingqb/pairing.json (their live Coffer link).
+    monkeypatch.setattr(serve, "PAIRING_FILE", tmp_path / "pairing.json")
     assert client.post("/pair", json={"pairingSecret": "s1", "peerProduct": "coffer"}).json()["paired"] is True
     assert client.get("/whoami").json()["paired"] is True
     assert client.post("/unpair", json={}).json()["paired"] is False
