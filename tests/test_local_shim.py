@@ -84,6 +84,44 @@ def test_read_tool_not_gated(client):
     assert client.post("/mcp", json={"tool": "qb_server_info", "args": {}}).json().get("ok") is True
 
 
+# --- Client Package reports: vendored pdfmake + openpyxl xlsx export ---
+
+def test_vendor_serves_js_and_guards(client, monkeypatch, tmp_path):
+    (tmp_path / "lib.js").write_text("console.log(1)")
+    monkeypatch.setattr(serve, "_VENDOR_DIR", tmp_path)
+    r = client.get("/vendor/lib.js")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("application/javascript")
+    assert client.get("/vendor/nope.js").status_code == 404          # missing
+    assert client.get("/vendor/foo$bar").status_code == 400          # illegal name (no traversal)
+
+
+def test_export_xlsx_builds_real_workbook(client):
+    import io
+    from openpyxl import load_workbook
+
+    payload = {
+        "client": "Acme LLC",
+        "period": {"start": "2026-01-01", "end": "2026-08-28", "label": "YTD"},
+        "narrative": "Solid quarter.",
+        "sections": [
+            {"title": "Profit & Loss", "parsed": {"kind": "statement", "items": [
+                {"sub": "Income"}, {"label": "Sales", "val": "$195.00"},
+                {"label": "Total Income", "val": "$156.00", "total": True}]}},
+            {"title": "A/R Aging", "parsed": {"kind": "table", "header": ["Customer", "Total"],
+                                              "rows": [["Acme", "$100.00"], ["Total", "$100.00"]]}},
+        ],
+    }
+    r = client.post("/export/xlsx", json=payload)
+    assert r.status_code == 200 and "spreadsheetml" in r.headers["content-type"]
+    wb = load_workbook(io.BytesIO(r.content))
+    # Cover + one sheet per section; "/" is stripped from tab names (Excel forbids it → "A R Aging").
+    assert "Cover" in wb.sheetnames and "Profit & Loss" in wb.sheetnames
+    assert "A R Aging" in wb.sheetnames and "/" not in "".join(wb.sheetnames)
+    # Money strings become real numbers (sortable/sum-able), never re-computed.
+    vals = [c.value for row in wb["Profit & Loss"].iter_rows() for c in row]
+    assert 195 in vals and 156 in vals
+
+
 def test_sample_without_key_reports_needskey(client, monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setattr(serve, "_anthropic_key", lambda: "")
