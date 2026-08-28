@@ -257,6 +257,7 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 
 <div class="quickbar">
 <span class="qlabel">Quick actions</span>
+<button class="qbtn" id="report-open" title="Build a branded client report package">&#128196; Client Package</button>
 <button class="qbtn" data-write="invoice"><span class="plus">+</span> Invoice</button>
 <button class="qbtn" data-write="expense"><span class="plus">+</span> Expense</button>
 <button class="qbtn" data-action="Run qb_find_duplicates and show me any duplicate transactions">⧉ Find duplicates</button>
@@ -508,6 +509,54 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
       <div class="sheet-row"><span>Open a report line’s transactions</span><span><span class="kbd">Enter</span> on a row</span></div>
       <div class="sheet-row"><span>Manage connections</span><span>the <span class="kbd">⚙</span> gear</span></div>
       <div class="sheet-row"><span>Show this help</span><span class="kbd">?</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="report-modal" role="dialog" aria-modal="true" aria-labelledby="rep-title" hidden>
+  <div class="modal" style="max-width:600px">
+    <div class="modal-h"><h2 id="rep-title">Client Package</h2><button class="modal-x" id="rep-close" aria-label="Close">&#10005;</button></div>
+    <div class="modal-body">
+      <p class="conn-sub" style="margin-top:0">A branded PDF (and Excel) of your client’s financials. Every figure is pulled live from QuickBooks — nothing is invented.</p>
+      <label class="field-l" for="rep-client">Client / company name</label>
+      <input class="field" id="rep-client" placeholder="Acme LLC">
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:180px">
+          <label class="field-l" for="rep-period">Period</label>
+          <select class="field" id="rep-period">
+            <option value="mtd">This month</option>
+            <option value="qtd">This quarter</option>
+            <option value="ytd" selected>Year to date</option>
+            <option value="prev_year">Prior year</option>
+          </select>
+        </div>
+        <div style="flex:1;min-width:180px">
+          <label class="field-l" for="rep-compare">Comparison</label>
+          <select class="field" id="rep-compare">
+            <option value="none" selected>This period only</option>
+            <option value="prior_year">vs prior year</option>
+          </select>
+        </div>
+      </div>
+      <label class="field-l">Include</label>
+      <div id="rep-sections" style="display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--ink-soft)">
+        <label><input type="checkbox" value="pl" checked> Profit &amp; Loss</label>
+        <label><input type="checkbox" value="bs" checked> Balance Sheet</label>
+        <label><input type="checkbox" value="ar" checked> A/R aging</label>
+        <label><input type="checkbox" value="ap" checked> A/P aging</label>
+      </div>
+      <label class="field-l" for="rep-logo">Logo (optional)</label>
+      <input class="field" id="rep-logo" type="file" accept="image/png,image/jpeg" style="padding:7px">
+      <label class="field-l" for="rep-narrative">Management commentary <span class="conn-opt">AI-drafted, you edit</span></label>
+      <textarea class="field" id="rep-narrative" rows="4" placeholder="Write a note to the client, or click ‘Draft with AI’ to generate one from the numbers — then edit before export." style="resize:vertical"></textarea>
+      <div class="dr-actions" style="margin-top:6px">
+        <button class="btn2 ghost" id="rep-draft">Draft with AI</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px;border-top:1px solid var(--rule);padding-top:14px">
+        <button class="btn2" id="rep-pdf">Download PDF</button>
+        <button class="btn2 ghost" id="rep-xlsx">Download Excel</button>
+        <span id="rep-msg" class="conn-sub" style="display:inline;align-self:center"></span>
+      </div>
     </div>
   </div>
 </div>
@@ -1485,6 +1534,8 @@ document.addEventListener('keydown', (e) => {
   if(e.key === 'Escape'){
     const sc = document.getElementById('shortcuts-modal');
     if(!sc.hidden){ closeShortcuts(); return; }
+    const rep = document.getElementById('report-modal');
+    if(!rep.hidden){ closeReport(); return; }
     const modal = document.getElementById('connections-modal');
     if(!modal.hidden){ closeConnections(); return; }
     if(!document.querySelector('.body').classList.contains('chat-collapsed')){ setChatOpen(false); }
@@ -1552,6 +1603,161 @@ function onConnected(){
   loadCompany().then(() => { loadDashboardKpis(); loadHealthSummary(); });
   maybeShowTour();
 }
+
+// ============ Client Package reports (branded PDF via pdfmake / Excel via the shim) ============
+let _pdfmakeReady = null, _reportLogo = null;
+function _loadScript(src){ return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('failed to load ' + src)); document.head.appendChild(s); }); }
+function ensurePdfmake(){
+  if(_pdfmakeReady) return _pdfmakeReady;
+  _pdfmakeReady = (async () => { await _loadScript('/vendor/pdfmake.min.js'); await _loadScript('/vendor/vfs_fonts.js'); if(!window.pdfMake) throw new Error('pdfmake did not load'); })();
+  return _pdfmakeReady;
+}
+function _isNumCell(s){ s = String(s || '').trim(); return /\d/.test(s) && /^\**[-–]?\(?[-–]?\$?[\d,]+\.?\d*\)?%?\**$/.test(s); }
+// Parse a tool's markdown into a structured section — never re-computing a value, just arranging it.
+function parseSection(md){
+  md = String(md || '').replace(/\r/g, '');
+  const pipe = md.split('\n').filter(l => /^\s*\|.*\|\s*$/.test(l));
+  if(pipe.length >= 2){
+    const rows = pipe.map(l => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim().replace(/\*\*/g, '')))
+                     .filter(r => !r.every(c => /^:?-+:?$/.test(c)));
+    return { kind: 'table', header: rows[0], rows: rows.slice(1) };
+  }
+  const items = [];
+  for(const raw of md.split('\n')){
+    const t = raw.trim(); if(!t) continue; let m;
+    if((m = t.match(/^#{2,6}\s+(.+)$/))){ items.push({ sub: m[1].replace(/\*\*/g, '') }); continue; }
+    if(/^#\s+/.test(t)) continue;   // the '## Title' line — the section title is set separately
+    if((m = t.match(/^\*{0,2}(.+?):\s*\*{0,2}([-–]?\$?\(?[-–]?[\d,]+\.?\d*\)?%?)\*{0,2}\s*$/))){
+      items.push({ label: m[1].replace(/\*\*/g, '').trim(), val: m[2].trim(),
+                   total: /^\**\s*(total|net |gross |subtotal|ending|beginning|balance)/i.test(t) });
+      continue;
+    }
+    items.push({ label: t.replace(/^[-*]\s+/, '').replace(/\*\*/g, ''), val: '' });
+  }
+  return { kind: 'statement', items };
+}
+const _repLayout = {
+  hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 0 : 0.5,
+  vLineWidth: () => 0, hLineColor: () => '#e6e4dc',
+  paddingTop: () => 3, paddingBottom: () => 3, paddingLeft: () => 2, paddingRight: () => 6,
+};
+function sectionToPdfTable(p){
+  if(p.kind === 'table'){
+    const numCol = p.header.map((_, i) => p.rows.length && p.rows.every(r => !r[i] || _isNumCell(r[i])));
+    const head = p.header.map((h, i) => ({ text: h, bold: true, fontSize: 8, color: '#51606f', alignment: numCol[i] ? 'right' : 'left' }));
+    const body = p.rows.map(r => {
+      const total = /^\**\s*(total|net |gross |subtotal)/i.test(r[0] || '');
+      return r.map((c, i) => ({ text: c || '', alignment: numCol[i] ? 'right' : 'left', bold: total, fontSize: 9 }));
+    });
+    return { table: { headerRows: 1, widths: p.header.map((_, i) => i === 0 ? '*' : 'auto'), body: [head, ...body] }, layout: _repLayout, margin: [0, 0, 0, 6] };
+  }
+  const body = p.items.map(it => it.sub
+    ? [{ text: it.sub, colSpan: 2, bold: true, color: '#0a5c39', fontSize: 9, margin: [0, 5, 0, 1] }, {}]
+    : [{ text: it.label || '', bold: !!it.total, fontSize: 9 }, { text: it.val || '', alignment: 'right', bold: !!it.total, fontSize: 9 }]);
+  return { table: { widths: ['*', 'auto'], body }, layout: _repLayout, margin: [0, 0, 0, 6] };
+}
+const _REPORT_SECTIONS = {
+  pl: ['Profit & Loss', 'qb_profit_loss', (s, e) => ({ start_date: s, end_date: e, summarize_by: 'Total' })],
+  bs: ['Balance Sheet', 'qb_balance_sheet', (s, e) => ({ as_of_date: e })],
+  ar: ['Accounts Receivable Aging', 'qb_ar_aging', (s, e) => ({ as_of_date: e })],
+  ap: ['Accounts Payable Aging', 'qb_ap_aging', (s, e) => ({ as_of_date: e })],
+};
+async function gatherReport(){
+  const period = document.getElementById('rep-period').value;
+  const [start, end] = periodRange(period);
+  const picks = [...document.querySelectorAll('#rep-sections input:checked')].map(c => c.value);
+  const chosen = picks.map(k => _REPORT_SECTIONS[k]).filter(Boolean);
+  const results = await Promise.all(chosen.map(([, tool, args]) => call(tool, args(start, end))));
+  const sections = chosen.map(([title], i) => {
+    const r = results[i];
+    if(r && r.error) return { title, parsed: { kind: 'statement', items: [{ label: 'Unavailable: ' + r.error, val: '' }] } };
+    return { title, parsed: parseSection(extractText(r)) };
+  });
+  const labels = { mtd: 'Month to date', qtd: 'Quarter to date', ytd: 'Year to date', prev_year: 'Prior year' };
+  return { sections, period: { start, end, label: labels[period] || period } };
+}
+function _reportMeta(){ return { client: (document.getElementById('rep-client').value || '').trim(), logo: _reportLogo, narrative: document.getElementById('rep-narrative').value || '' }; }
+function buildReportDoc(data, meta){
+  const content = [
+    { text: meta.client || COMPANY || 'Financial Package', style: 'title' },
+    { text: 'Financial Package', style: 'subtitle' },
+    { text: data.period.label + '  ·  ' + data.period.start + ' to ' + data.period.end, style: 'period', margin: [0, 2, 0, 14] },
+  ];
+  data.sections.forEach(s => { content.push({ text: s.title, style: 'h2' }); content.push(sectionToPdfTable(s.parsed)); });
+  if(meta.narrative.trim()){ content.push({ text: 'Management commentary', style: 'h2', margin: [0, 14, 0, 4] }); content.push({ text: meta.narrative.trim(), style: 'body' }); }
+  return {
+    pageSize: 'LETTER', pageMargins: [46, meta.logo ? 84 : 50, 46, 52],
+    header: () => ({ margin: [46, 20, 46, 0], columns: [
+      meta.logo ? { image: meta.logo, fit: [130, 38] } : { text: '', width: '*' },
+      { text: meta.client || COMPANY || '', alignment: 'right', color: '#8a95a1', fontSize: 9, margin: [0, 6, 0, 0] } ] }),
+    footer: (cur, tot) => ({ margin: [46, 0, 46, 0], columns: [
+      { text: 'Generated by AccountingQB · figures pulled live from QuickBooks', fontSize: 7, color: '#b5bcc4' },
+      { text: 'Page ' + cur + ' of ' + tot, alignment: 'right', fontSize: 7, color: '#b5bcc4' } ] }),
+    content,
+    styles: { title: { fontSize: 20, bold: true, color: '#1c2b3a' }, subtitle: { fontSize: 12, color: '#51606f', margin: [0, 1, 0, 0] },
+              period: { fontSize: 9.5, color: '#8a95a1' }, h2: { fontSize: 12, bold: true, color: '#0a5c39', margin: [0, 12, 0, 5] },
+              body: { fontSize: 10, color: '#1c2b3a', lineHeight: 1.35 } },
+    defaultStyle: { fontSize: 9, color: '#1c2b3a' },
+  };
+}
+async function generateReportPdf(){
+  const msg = document.getElementById('rep-msg'); msg.textContent = 'Building PDF…';
+  try{
+    await ensurePdfmake();
+    const meta = _reportMeta();
+    const data = await gatherReport();
+    if(!data.sections.length){ msg.textContent = 'Pick at least one report.'; return; }
+    const fname = (meta.client || COMPANY || 'AccountingQB').replace(/[^\w-]+/g, '_') + '_Package_' + data.period.start.slice(0, 4) + '.pdf';
+    pdfMake.createPdf(buildReportDoc(data, meta)).download(fname);
+    msg.textContent = 'Downloaded ✓'; logAction('Client package PDF · ' + (meta.client || COMPANY || ''));
+  }catch(e){ msg.textContent = 'PDF failed: ' + e; }
+}
+async function generateReportXlsx(){
+  const msg = document.getElementById('rep-msg'); msg.textContent = 'Building Excel…';
+  try{
+    const meta = _reportMeta();
+    const data = await gatherReport();
+    if(!data.sections.length){ msg.textContent = 'Pick at least one report.'; return; }
+    const r = await fetch('/export/xlsx', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ client: meta.client || COMPANY || 'AccountingQB', period: data.period, narrative: meta.narrative, sections: data.sections }) });
+    if(!r.ok){ msg.textContent = 'Excel failed (' + r.status + ')'; return; }
+    const blob = await r.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a');
+    a.href = url; a.download = (meta.client || COMPANY || 'AccountingQB').replace(/[^\w-]+/g, '_') + '_Package_' + data.period.start.slice(0, 4) + '.xlsx';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+    msg.textContent = 'Downloaded ✓'; logAction('Client package Excel · ' + (meta.client || COMPANY || ''));
+  }catch(e){ msg.textContent = 'Excel failed: ' + e; }
+}
+async function draftNarrative(){
+  const btn = document.getElementById('rep-draft'), ta = document.getElementById('rep-narrative'), msg = document.getElementById('rep-msg');
+  btn.disabled = true; msg.textContent = 'Drafting…';
+  try{
+    const data = await gatherReport();
+    const ctx = { company: (document.getElementById('rep-client').value || '').trim() || COMPANY, period: data.period, reports: {} };
+    data.sections.forEach(s => {
+      ctx.reports[s.title] = s.parsed.kind === 'statement'
+        ? s.parsed.items.map(i => i.sub ? ('# ' + i.sub) : (i.label + ': ' + i.val)).join('\n')
+        : ([s.parsed.header].concat(s.parsed.rows).map(r => r.join(' | ')).join('\n'));
+    });
+    const system = 'You are a bookkeeper writing 3-5 sentences of management commentary for a small-business client, using ONLY the figures in the reports provided. Reference specific numbers (revenue, margin, net income, cash, aging). Explain what happened and flag anything notable (a loss, thin runway, overdue receivables). Never invent a number. Plain, professional, no fluff.';
+    const res = await window.cowork.askClaude(system, [ctx]);
+    if(res && res.needsKey) msg.textContent = 'Add an Anthropic key in Connections to draft.';
+    else if(res && res.text){ ta.value = res.text.trim(); msg.textContent = 'Draft ready — edit before export.'; }
+    else msg.textContent = 'Could not draft a note.';
+  }catch(e){ msg.textContent = 'Draft failed: ' + e; }
+  finally{ btn.disabled = false; }
+}
+function openReport(){ const c = document.getElementById('rep-client'); if(!c.value) c.value = COMPANY || ''; document.getElementById('report-modal').hidden = false; setTimeout(() => document.getElementById('rep-close').focus(), 40); }
+function closeReport(){ document.getElementById('report-modal').hidden = true; }
+document.getElementById('report-open').addEventListener('click', openReport);
+document.getElementById('rep-close').addEventListener('click', closeReport);
+document.getElementById('report-modal').addEventListener('click', e => { if(e.target.id === 'report-modal') closeReport(); });
+document.getElementById('rep-pdf').addEventListener('click', generateReportPdf);
+document.getElementById('rep-xlsx').addEventListener('click', generateReportXlsx);
+document.getElementById('rep-draft').addEventListener('click', draftNarrative);
+document.getElementById('rep-logo').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0]; if(!f){ _reportLogo = null; return; }
+  const rd = new FileReader(); rd.onload = () => { _reportLogo = rd.result; }; rd.readAsDataURL(f);
+});
 
 // ============ Boot ============
 if(/[?&]in_app=1/.test(location.search)) document.body.classList.add('in-app');   // packaged desktop shell

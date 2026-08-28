@@ -19,6 +19,8 @@ SRC = os.path.join(REPO, "mcpb", "src")
 datas = [
     (os.path.join(REPO, "mcpb", "manifest.json"), "."),
     (os.path.join(REPO, "accountingqb-local", "artifact.html"), "."),
+    # Vendored front-end libs (pdfmake) served by the shim's /vendor route for branded PDF reports.
+    (os.path.join(REPO, "accountingqb-local", "vendor"), "vendor"),
     # Loaded by the connector via Path(__file__).parent / "tax_ledger.jsonl".
     (os.path.join(SRC, "accountingqb", "tax_ledger.jsonl"), "accountingqb"),
 ]
@@ -27,7 +29,8 @@ hiddenimports = (
     collect_submodules("accountingqb")
     + collect_submodules("uvicorn")
     + collect_submodules("mcp")
-    + ["httpx", "starlette", "cryptography"]
+    + collect_submodules("openpyxl")   # lazy-imported by /export/xlsx (Client Package Excel)
+    + ["httpx", "starlette", "cryptography", "openpyxl", "et_xmlfile"]
 )
 
 a = Analysis(

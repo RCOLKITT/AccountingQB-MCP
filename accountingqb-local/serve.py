@@ -62,6 +62,7 @@ from starlette.responses import (  # noqa: E402
     JSONResponse,
     PlainTextResponse,
     RedirectResponse,
+    Response,
 )
 from starlette.routing import Route  # noqa: E402
 
@@ -869,6 +870,142 @@ async def oauth_callback(req: Request) -> HTMLResponse:
 
 
 _ARTIFACT_PATH = _RES / "artifact.html"
+_VENDOR_DIR = _RES / "vendor"   # bundled JS (pdfmake) shipped next to the artifact
+
+
+async def vendor(req: Request) -> Response:
+    """Serve vendored front-end libraries (pdfmake) from disk / the PyInstaller bundle. Localhost-only
+    (LocalOnly middleware); no path traversal (name is a bare filename)."""
+    name = req.path_params.get("name", "")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", name):
+        return PlainTextResponse("bad request", status_code=400)
+    f = _VENDOR_DIR / name
+    if not f.exists() or not f.is_file():
+        return PlainTextResponse("not found", status_code=404)
+    ct = "application/javascript" if name.endswith(".js") else "application/octet-stream"
+    return Response(f.read_bytes(), media_type=ct, headers={"cache-control": "max-age=86400"})
+
+
+# --- Client Package: real multi-sheet, formatted .xlsx (openpyxl) from already-gathered sections ---
+_XLSX_NUM = re.compile(r"^\**[-–]?\(?[-–]?\$?[\d,]+\.?\d*\)?%?\**$")
+_XLSX_FMT = "#,##0.00;(#,##0.00)"
+
+
+def _xlsx_cell(s):
+    """Return (value, is_number). Parse '$1,234.00' / '(20,224)' into real numbers so the workbook is
+    sortable/sum-able; leave non-numeric strings as text. Never re-computes — just types the value."""
+    s = str(s or "").strip()
+    if not s:
+        return "", False
+    if _XLSX_NUM.match(s) and any(c.isdigit() for c in s) and not s.strip("*").endswith("%"):
+        neg = s.lstrip("*").startswith(("(", "-", "–"))
+        try:
+            return (-1 if neg else 1) * float(re.sub(r"[^\d.]", "", s)), True
+        except ValueError:
+            return s, False
+    return s, False
+
+
+def _xlsx_sheet_title(t, used):
+    t = re.sub(r"[\\/*?:\[\]]", " ", str(t))[:31].strip() or "Sheet"
+    base, i = t, 2
+    while t in used:
+        t = (base[:27] + f" {i}")[:31]
+        i += 1
+    used.add(t)
+    return t
+
+
+async def export_xlsx(req: Request) -> Response:
+    """Build a formatted, multi-sheet Excel workbook from the sections the UI already gathered
+    (each figure is a live QuickBooks value — the server only formats, never computes)."""
+    try:
+        body = await req.json()
+    except Exception:
+        return JSONResponse({"error": "bad json"}, status_code=400)
+    try:
+        import io
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Font
+        from openpyxl.utils import get_column_letter
+    except Exception:
+        return JSONResponse({"error": "Excel export unavailable (openpyxl not installed)."}, status_code=501)
+
+    client = str(body.get("client") or "Client")
+    period = body.get("period") or {}
+    narrative = str(body.get("narrative") or "")
+    sections = body.get("sections") or []
+    bold = Font(bold=True)
+
+    wb = Workbook()
+    cover = wb.active
+    cover.title = "Cover"
+    cover["A1"] = "AccountingQB — Financial Package"
+    cover["A1"].font = Font(bold=True, size=16)
+    cover["A3"], cover["B3"] = "Client", client
+    cover["A4"], cover["B4"] = "Period", f"{period.get('start', '')} to {period.get('end', '')}"
+    cover["A3"].font = cover["A4"].font = bold
+    if narrative:
+        cover["A6"] = "Management commentary"
+        cover["A6"].font = bold
+        cover["A7"] = narrative
+        cover["A7"].alignment = Alignment(wrap_text=True, vertical="top")
+        cover.merge_cells("A7:F22")
+    cover.column_dimensions["A"].width = 22
+    cover.column_dimensions["B"].width = 44
+
+    used = {"Cover"}
+    for sec in sections:
+        ws = wb.create_sheet(_xlsx_sheet_title(sec.get("title") or "Report", used))
+        parsed = sec.get("parsed") or {}
+        if parsed.get("kind") == "table":
+            header = parsed.get("header") or []
+            ws.append(header)
+            for c in ws[1]:
+                c.font = bold
+            for r in (parsed.get("rows") or []):
+                vals, isnum = [], []
+                for cell in r:
+                    v, n = _xlsx_cell(cell)
+                    vals.append(v)
+                    isnum.append(n)
+                ws.append(vals)
+                total = str(r[0] if r else "").lower().lstrip("*").startswith(("total", "net ", "gross ", "subtotal"))
+                for i, cell in enumerate(ws[ws.max_row]):
+                    if i < len(isnum) and isnum[i]:
+                        cell.number_format = _XLSX_FMT
+                        cell.alignment = Alignment(horizontal="right")
+                    if total:
+                        cell.font = bold
+            ws.freeze_panes = "A2"
+            for i, _ in enumerate(header, 1):
+                ws.column_dimensions[get_column_letter(i)].width = 32 if i == 1 else 16
+        else:
+            for it in (parsed.get("items") or []):
+                if it.get("sub"):
+                    ws.append([it["sub"]])
+                    ws[ws.max_row][0].font = Font(bold=True, color="FF0A5C39")
+                    continue
+                v, n = _xlsx_cell(it.get("val"))
+                ws.append([it.get("label", ""), v])
+                row = ws[ws.max_row]
+                if it.get("total"):
+                    for cell in row:
+                        cell.font = bold
+                if n:
+                    row[1].number_format = _XLSX_FMT
+                    row[1].alignment = Alignment(horizontal="right")
+            ws.column_dimensions["A"].width = 46
+            ws.column_dimensions["B"].width = 18
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    fname = re.sub(r"[^\w-]+", "_", client) + "_Package.xlsx"
+    return Response(
+        buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"content-disposition": f'attachment; filename="{fname}"'},
+    )
 
 
 async def index(_req: Request) -> HTMLResponse:
@@ -898,6 +1035,8 @@ class LocalOnly(BaseHTTPMiddleware):
 
 routes = [
     Route("/", index),
+    Route("/vendor/{name}", vendor),
+    Route("/export/xlsx", export_xlsx, methods=["POST"]),
     Route("/healthz", healthz),
     Route("/api/status", api_status),
     Route("/api/tools", api_tools),
