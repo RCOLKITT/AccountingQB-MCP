@@ -378,7 +378,7 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 <button class="period-tab" data-wbperiod="prior_year">Prior year</button>
 <button class="period-tab" data-wbperiod="ytd">Year-to-date</button>
 </div>
-<button class="qbtn" id="wb-export" title="Have Claude assemble the Excel/CSV workbook">&#11015; Export workbook</button>
+<button class="qbtn" id="wb-export" title="Download the workbook as a CSV (opens in Excel / Sheets)">&#11015; Download CSV</button>
 </div>
 </div>
 <div class="wb-layout">
@@ -1037,17 +1037,55 @@ document.querySelectorAll('#wb-period-tabs .period-tab').forEach(t => {
     initWorkbook(true);
   });
 });
-document.getElementById('wb-export').addEventListener('click', () => {
-  const [start, end] = wbRange();
-  const org = organizerSummary();
-  const instruction = 'Assemble my CPA year-end workbook for ' + start + ' to ' + end +
-    ' using the workbook tools (trial balance, comparative P&L and balance sheet, general ledger, ' +
-    'tax mapping, reconciliation status, open items), and summarize what it contains' +
-    (org ? '. Tax organizer answers for the cover sheet \u2014 ' + org : '');
-  appendMsg('user', 'Export workbook (' + wbYear() + ')');
-  logAction('Export CPA workbook \u00b7 ' + wbYear());
-  desktopChatRun(instruction);
-});
+// Build a downloadable CSV from the workbook's already-fetched pages \u2014 no chat, no fabrication:
+// every value is a real QuickBooks figure the pages already loaded. Markdown tables become CSV
+// rows; each page is a labeled section (one file, opens straight in Excel/Sheets).
+function _csvEscape(v){ v = String(v == null ? '' : v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+function _mdToCsvRows(md){
+  const rows = [];
+  for(const line of String(md || '').split('\n')){
+    const t = line.trim();
+    if(!t) continue;
+    if(t.startsWith('|') && t.endsWith('|')){
+      const cells = t.replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim().replace(/\*\*/g, ''));
+      if(cells.every(c => /^:?-+:?$/.test(c))) continue;   // markdown separator row
+      rows.push(cells);
+    } else {
+      rows.push([t.replace(/^#+\s*/, '').replace(/^>\s*/, '').replace(/\*\*/g, '')]);   // heading / prose line
+    }
+  }
+  return rows;
+}
+async function downloadWorkbookCsv(){
+  const btn = document.getElementById('wb-export');
+  const label = btn ? btn.innerHTML : '';
+  if(btn){ btn.innerHTML = 'Building\u2026'; btn.disabled = true; }
+  try{
+    const pages = wbPages();
+    for(let i = 0; i < pages.length; i++){ if(!WB_LOADED[pages[i].id]) await loadWbPage(i); }   // ensure every page is fetched
+    const [start, end] = wbRange();
+    const org = organizerSummary();
+    const out = [['AccountingQB CPA Workbook'], ['Company', COMPANY || ''], ['Period', start + ' to ' + end]];
+    if(org) out.push(['Tax organizer', org]);
+    for(const p of pages){
+      if(p.organizer) continue;
+      out.push([], ['=== ' + p.title + ' ===']);
+      const c = CACHE['wb-' + p.id + '-' + wbPeriod];
+      _mdToCsvRows(c ? c.md : '').forEach(r => out.push(r));
+    }
+    const csv = out.map(r => (r || []).map(_csvEscape).join(',')).join('\r\n');
+    const blob = new Blob(['\ufeff' + csv], {type: 'text/csv;charset=utf-8'});   // BOM so Excel reads UTF-8
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'AccountingQB-Workbook-' + wbYear() + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    logAction('Downloaded CPA workbook CSV \u00b7 ' + wbYear());
+  } catch(e){
+    appendMsg('assistant', 'Could not build the workbook CSV: ' + e, 'deep');
+  } finally { if(btn){ btn.innerHTML = label; btn.disabled = false; } }
+}
+document.getElementById('wb-export').addEventListener('click', downloadWorkbookCsv);
 
 
 // ============ Row drill-down: click a ledger line, ask about it ============
