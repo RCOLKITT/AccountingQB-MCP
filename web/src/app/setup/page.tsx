@@ -272,7 +272,7 @@ function SetupContent() {
             <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
               <h2 className="text-xl font-semibold">Step 4: Add to Claude Desktop</h2>
               <p className="mt-2 text-gray-400">
-                Add this MCP server configuration to your Claude Desktop settings. Replace the placeholder values with your actual credentials.
+                Add this MCP server configuration to your Claude Desktop settings. Replace the example values with your actual credentials.
               </p>
 
               <div className="mt-6 space-y-4">

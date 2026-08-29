@@ -13,8 +13,8 @@ export interface Testimonial {
 
 /* EMPTY until real, permissioned customer quotes exist.
  *
- * The testimonial wall renders NOTHING while this array is empty — no placeholder
- * faces, no invented names, no fake outcomes (audit D3.2/D3.1, and our own honesty
+ * The testimonial wall renders NOTHING while this array is empty — no stand-in
+ * faces, no invented names, no fabricated outcomes (audit D3.2/D3.1, and our own honesty
  * guardrail). To turn the section on: collect 5–8 named beta-tester quotes (first
  * name + role + a specific outcome, with written permission), drop a headshot in
  * /public/testimonials/, add entries below, and the homepage section appears
