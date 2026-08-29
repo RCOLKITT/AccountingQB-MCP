@@ -78,6 +78,8 @@ CONFIG_FILE = DATA_DIR / "config.json"
 # Idempotency ledger for Coffer/Hearth-pushed expenses (key -> booking ref). A key
 # already here is never re-booked (the Coffer contract requires idempotent success).
 BOOKED_FILE = DATA_DIR / "coffer_booked.json"
+# Saved Client Package report templates (per client): name/logo/period/comparison/sections/line-edits.
+TEMPLATES_DIR = DATA_DIR / "templates"
 
 # Cross-app pairing (identity-verified). The integration bridge is INERT until a
 # pairing exists here — populated by the account-anchored link flow (same verified
@@ -1024,6 +1026,49 @@ async def export_xlsx(req: Request) -> Response:
     )
 
 
+# --- Client Package templates (reusable per-client report config; local files only) ---
+def _tmpl_safe(name: str):
+    s = re.sub(r"[^A-Za-z0-9 _.-]", "", str(name or "")).strip()[:60]
+    return s or None
+
+
+async def templates_list_or_save(req: Request) -> JSONResponse:
+    if req.method == "POST":
+        try:
+            body = await req.json()
+        except Exception:
+            body = {}
+        name = _tmpl_safe(body.get("name"))
+        if not name:
+            return JSONResponse({"error": "template name required"}, status_code=400)
+        TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = TEMPLATES_DIR / (name + ".json.tmp")
+        tmp.write_text(json.dumps({"name": name, "config": body.get("config") or {}}, indent=2))
+        tmp.replace(TEMPLATES_DIR / (name + ".json"))
+        return JSONResponse({"ok": True, "name": name})
+    names = sorted(f.stem for f in TEMPLATES_DIR.glob("*.json")) if TEMPLATES_DIR.exists() else []
+    return JSONResponse({"templates": names})
+
+
+async def template_get_or_delete(req: Request) -> JSONResponse:
+    name = _tmpl_safe(req.path_params.get("name"))
+    if not name:
+        return JSONResponse({"error": "bad name"}, status_code=400)
+    f = TEMPLATES_DIR / (name + ".json")
+    if req.method == "DELETE":
+        try:
+            f.unlink()
+        except FileNotFoundError:
+            pass
+        return JSONResponse({"ok": True})
+    if not f.exists():
+        return JSONResponse({"error": "not found"}, status_code=404)
+    try:
+        return JSONResponse(json.loads(f.read_text()))
+    except Exception:
+        return JSONResponse({"error": "corrupt template"}, status_code=500)
+
+
 async def index(_req: Request) -> HTMLResponse:
     # Phase 2b: the tabbed Chat + Dashboard artifact. Loaded from disk in dev; the
     # Tauri build (2c) will embed it. Falls back to the Phase-2a status shell.
@@ -1053,6 +1098,8 @@ routes = [
     Route("/", index),
     Route("/vendor/{name}", vendor),
     Route("/export/xlsx", export_xlsx, methods=["POST"]),
+    Route("/templates", templates_list_or_save, methods=["GET", "POST"]),
+    Route("/templates/{name}", template_get_or_delete, methods=["GET", "DELETE"]),
     Route("/healthz", healthz),
     Route("/api/status", api_status),
     Route("/api/tools", api_tools),
