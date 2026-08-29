@@ -981,13 +981,24 @@ async def export_xlsx(req: Request) -> Response:
             for i, _ in enumerate(header, 1):
                 ws.column_dimensions[get_column_letter(i)].width = 32 if i == 1 else 16
         else:
+            cmp_label = parsed.get("compareLabel")
+            if cmp_label:
+                ws.append(["", "Current", cmp_label])
+                for c in ws[ws.max_row]:
+                    c.font = bold
+                ws.freeze_panes = "A2"
             for it in (parsed.get("items") or []):
                 if it.get("sub"):
                     ws.append([it["sub"]])
                     ws[ws.max_row][0].font = Font(bold=True, color="FF0A5C39")
                     continue
                 v, n = _xlsx_cell(it.get("val"))
-                ws.append([it.get("label", ""), v])
+                if cmp_label:
+                    v2, n2 = _xlsx_cell(it.get("val2"))
+                    ws.append([it.get("label", ""), v, v2])
+                else:
+                    ws.append([it.get("label", ""), v])
+                    n2 = False
                 row = ws[ws.max_row]
                 if it.get("total"):
                     for cell in row:
@@ -995,8 +1006,13 @@ async def export_xlsx(req: Request) -> Response:
                 if n:
                     row[1].number_format = _XLSX_FMT
                     row[1].alignment = Alignment(horizontal="right")
+                if cmp_label and n2:
+                    row[2].number_format = _XLSX_FMT
+                    row[2].alignment = Alignment(horizontal="right")
             ws.column_dimensions["A"].width = 46
             ws.column_dimensions["B"].width = 18
+            if cmp_label:
+                ws.column_dimensions["C"].width = 18
 
     buf = io.BytesIO()
     wb.save(buf)
