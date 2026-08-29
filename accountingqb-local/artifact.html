@@ -204,6 +204,13 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 .btn2.ghost:hover{background:var(--paper);color:var(--ink)}
 .conn-adv{margin-top:10px;font-size:12px}
 .conn-adv summary{cursor:pointer;color:var(--ink-soft);font-weight:600}
+/* ---- Report line editor (hide / rename / collapse) ---- */
+.le-sec{margin-bottom:10px}
+.le-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--green-deep);margin:8px 0 4px}
+.le-sub{font-size:12px;color:var(--ink-soft);margin:5px 0 2px}
+.le-row{display:flex;gap:8px;align-items:center;margin:2px 0}
+.le-rename{flex:1;padding:4px 8px;border:1px solid var(--rule);border-radius:5px;font-size:12px;font-family:inherit;color:var(--ink);background:#fff;min-width:0}
+.le-hide{font-size:11px;color:var(--ink-soft);white-space:nowrap;display:flex;align-items:center;gap:4px}
 /* ---- Onboarding: welcome + coach-mark tour ---- */
 .welcome-hero{font-size:13px;color:var(--ink-soft);margin:2px 0 12px;line-height:1.55}
 .tour-card{position:fixed;right:18px;bottom:18px;z-index:55;background:var(--card);border-radius:10px;box-shadow:0 10px 26px rgba(10,14,26,.22);padding:14px 16px;max-width:300px}
@@ -545,6 +552,10 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
         <label><input type="checkbox" value="ar" checked> A/R aging</label>
         <label><input type="checkbox" value="ap" checked> A/P aging</label>
       </div>
+      <details id="rep-customize" class="conn-adv" style="margin-top:10px">
+        <summary>Customize lines — hide, rename, collapse (P&amp;L / Balance Sheet)</summary>
+        <div id="rep-lines" style="max-height:300px;overflow:auto;margin-top:8px"></div>
+      </details>
       <label class="field-l" for="rep-logo">Logo (optional)</label>
       <input class="field" id="rep-logo" type="file" accept="image/png,image/jpeg" style="padding:7px">
       <label class="field-l" for="rep-narrative">Management commentary <span class="conn-opt">AI-drafted, you edit</span></label>
@@ -1651,27 +1662,67 @@ function sectionToPdfTable(p){
     });
     return { table: { headerRows: 1, widths: p.header.map((_, i) => i === 0 ? '*' : 'auto'), body: [head, ...body] }, layout: _repLayout, margin: [0, 0, 0, 6] };
   }
-  const body = p.items.map(it => it.sub
-    ? [{ text: it.sub, colSpan: 2, bold: true, color: '#0a5c39', fontSize: 9, margin: [0, 5, 0, 1] }, {}]
-    : [{ text: it.label || '', bold: !!it.total, fontSize: 9 }, { text: it.val || '', alignment: 'right', bold: !!it.total, fontSize: 9 }]);
-  return { table: { widths: ['*', 'auto'], body }, layout: _repLayout, margin: [0, 0, 0, 6] };
+  const cmp = !!p.compareLabel;   // comparison column present (prior period)
+  const body = [];
+  if(cmp) body.push([{ text: '', bold: true }, { text: 'Current', bold: true, alignment: 'right', fontSize: 8, color: '#51606f' }, { text: p.compareLabel, bold: true, alignment: 'right', fontSize: 8, color: '#51606f' }]);
+  p.items.forEach(it => {
+    if(it.sub){ const c = [{ text: it.sub, colSpan: cmp ? 3 : 2, bold: true, color: '#0a5c39', fontSize: 9, margin: [0, 5, 0, 1] }, {}]; if(cmp) c.push({}); body.push(c); return; }
+    const row = [{ text: it.label || '', bold: !!it.total, fontSize: 9 }, { text: it.val || '', alignment: 'right', bold: !!it.total, fontSize: 9 }];
+    if(cmp) row.push({ text: it.val2 || '', alignment: 'right', bold: !!it.total, fontSize: 9, color: '#51606f' });
+    body.push(row);
+  });
+  return { table: { widths: cmp ? ['*', 'auto', 'auto'] : ['*', 'auto'], headerRows: cmp ? 1 : 0, body }, layout: _repLayout, margin: [0, 0, 0, 6] };
 }
+// [title, tool, args(start,end), comparable?] — only statements (P&L, BS) get a prior-year column.
 const _REPORT_SECTIONS = {
-  pl: ['Profit & Loss', 'qb_profit_loss', (s, e) => ({ start_date: s, end_date: e, summarize_by: 'Total' })],
-  bs: ['Balance Sheet', 'qb_balance_sheet', (s, e) => ({ as_of_date: e })],
-  ar: ['Accounts Receivable Aging', 'qb_ar_aging', (s, e) => ({ as_of_date: e })],
-  ap: ['Accounts Payable Aging', 'qb_ap_aging', (s, e) => ({ as_of_date: e })],
+  pl: ['Profit & Loss', 'qb_profit_loss', (s, e) => ({ start_date: s, end_date: e, summarize_by: 'Total' }), true],
+  bs: ['Balance Sheet', 'qb_balance_sheet', (s, e) => ({ as_of_date: e }), true],
+  ar: ['Accounts Receivable Aging', 'qb_ar_aging', (s, e) => ({ as_of_date: e }), false],
+  ap: ['Accounts Payable Aging', 'qb_ap_aging', (s, e) => ({ as_of_date: e }), false],
 };
+// Per-report line customization (hide / rename / collapse), keyed by lowercased label.
+let _reportEdits = { hidden: {}, renamed: {}, collapsed: {} };
+function _shiftYear(iso, d){ const p = iso.split('-'); return (Number(p[0]) + d) + '-' + p[1] + '-' + p[2]; }
+function mergePriorInto(cur, prior, label){
+  if(cur.kind !== 'statement' || !prior || prior.kind !== 'statement') return;
+  const m = {}; prior.items.forEach(it => { if(it.label) m[it.label.toLowerCase()] = it.val; });
+  cur.items.forEach(it => { if(it.label) it.val2 = m[it.label.toLowerCase()] || '—'; });
+  cur.compareLabel = label;
+}
+function applyEdits(parsed){
+  if(parsed.kind !== 'statement') return parsed;   // line edits target statement lines
+  const E = _reportEdits, out = []; let collapsing = false;
+  for(const it of parsed.items){
+    if(it.sub){ collapsing = !!E.collapsed[it.sub.toLowerCase()]; out.push(it); continue; }
+    const key = (it.label || '').toLowerCase();
+    if(E.hidden[key]) continue;                  // hidden line
+    if(collapsing && !it.total) continue;        // collapsed group: keep the subtotal, drop children
+    if(it.total) collapsing = false;
+    const c = { ...it }; if(E.renamed[key]) c.label = E.renamed[key];   // renamed line
+    out.push(c);
+  }
+  parsed.items = out; return parsed;
+}
 async function gatherReport(){
   const period = document.getElementById('rep-period').value;
+  const compare = document.getElementById('rep-compare').value;
   const [start, end] = periodRange(period);
   const picks = [...document.querySelectorAll('#rep-sections input:checked')].map(c => c.value);
-  const chosen = picks.map(k => _REPORT_SECTIONS[k]).filter(Boolean);
-  const results = await Promise.all(chosen.map(([, tool, args]) => call(tool, args(start, end))));
-  const sections = chosen.map(([title], i) => {
+  const chosen = picks.filter(k => _REPORT_SECTIONS[k]).map(k => [k, ..._REPORT_SECTIONS[k]]);
+  const results = await Promise.all(chosen.map(([, , tool, args]) => call(tool, args(start, end))));
+  let prior = null, priorLabel = '';
+  if(compare === 'prior_year'){
+    const ps = _shiftYear(start, -1), pe = _shiftYear(end, -1);
+    priorLabel = 'Prior yr (' + ps.slice(0, 4) + ')';
+    prior = await Promise.all(chosen.map(([, , tool, args, cmp]) => cmp ? call(tool, args(ps, pe)) : Promise.resolve(null)));
+  }
+  const sections = chosen.map(([, title], i) => {
     const r = results[i];
     if(r && r.error) return { title, parsed: { kind: 'statement', items: [{ label: 'Unavailable: ' + r.error, val: '' }] } };
-    return { title, parsed: parseSection(extractText(r)) };
+    const parsed = parseSection(extractText(r));
+    if(prior && prior[i]) mergePriorInto(parsed, parseSection(extractText(prior[i])), priorLabel);
+    applyEdits(parsed);
+    return { title, parsed };
   });
   const labels = { mtd: 'Month to date', qtd: 'Quarter to date', ytd: 'Year to date', prev_year: 'Prior year' };
   return { sections, period: { start, end, label: labels[period] || period } };
@@ -1758,6 +1809,32 @@ document.getElementById('rep-logo').addEventListener('change', e => {
   const f = e.target.files && e.target.files[0]; if(!f){ _reportLogo = null; return; }
   const rd = new FileReader(); rd.onload = () => { _reportLogo = rd.result; }; rd.readAsDataURL(f);
 });
+// Line editor: list the raw statement lines with hide / rename / collapse; edits flow into _reportEdits.
+async function openLineEditor(){
+  const host = document.getElementById('rep-lines');
+  host.innerHTML = '<div class="conn-sub" style="margin:0">Loading lines…</div>';
+  const saved = _reportEdits; _reportEdits = { hidden: {}, renamed: {}, collapsed: {} };   // list RAW lines
+  let data;
+  try{ data = await gatherReport(); } catch(e){ _reportEdits = saved; host.innerHTML = '<div class="conn-sub" style="margin:0">Could not load lines: ' + e + '</div>'; return; }
+  _reportEdits = saved;
+  const stmts = data.sections.filter(s => s.parsed.kind === 'statement' && (s.parsed.items || []).length);
+  if(!stmts.length){ host.innerHTML = '<div class="conn-sub" style="margin:0">Pick P&amp;L or Balance Sheet to customize — aging tables aren’t line-editable.</div>'; return; }
+  host.innerHTML = stmts.map(s => {
+    const rows = (s.parsed.items || []).map(it => {
+      if(it.sub){
+        const k = it.sub.toLowerCase();
+        return '<div class="le-sub"><label class="le-hide"><input type="checkbox" class="le-collapse" data-k="' + escapeHtml(k) + '"' + (_reportEdits.collapsed[k] ? ' checked' : '') + '> collapse</label> <b>' + escapeHtml(it.sub) + '</b></div>';
+      }
+      const k = (it.label || '').toLowerCase(); if(!k) return '';
+      return '<div class="le-row"><input class="le-rename" data-k="' + escapeHtml(k) + '" data-orig="' + escapeHtml(it.label || '') + '" value="' + escapeHtml(_reportEdits.renamed[k] || it.label || '') + '"><label class="le-hide"><input type="checkbox" class="le-hidechk" data-k="' + escapeHtml(k) + '"' + (_reportEdits.hidden[k] ? ' checked' : '') + '> hide</label></div>';
+    }).join('');
+    return '<div class="le-sec"><div class="le-h">' + escapeHtml(s.title) + '</div>' + rows + '</div>';
+  }).join('');
+  host.querySelectorAll('.le-hidechk').forEach(c => c.addEventListener('change', e => { const k = e.target.dataset.k; if(e.target.checked) _reportEdits.hidden[k] = true; else delete _reportEdits.hidden[k]; }));
+  host.querySelectorAll('.le-collapse').forEach(c => c.addEventListener('change', e => { const k = e.target.dataset.k; if(e.target.checked) _reportEdits.collapsed[k] = true; else delete _reportEdits.collapsed[k]; }));
+  host.querySelectorAll('.le-rename').forEach(inp => inp.addEventListener('input', e => { const k = e.target.dataset.k, v = e.target.value.trim(), orig = e.target.dataset.orig; if(v && v !== orig) _reportEdits.renamed[k] = v; else delete _reportEdits.renamed[k]; }));
+}
+document.getElementById('rep-customize').addEventListener('toggle', function(){ if(this.open) openLineEditor(); });
 
 // ============ Boot ============
 if(/[?&]in_app=1/.test(location.search)) document.body.classList.add('in-app');   // packaged desktop shell

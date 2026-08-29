@@ -367,6 +367,28 @@ def test_owner_paid_expense_bootstraps_missing_accounts(client, paired, monkeypa
     assert "Owner investments" in d["treatment"]  # existing equity reused for the credit
 
 
+def test_export_xlsx_comparison_column(client):
+    import io
+    from openpyxl import load_workbook
+
+    payload = {
+        "client": "Acme",
+        "period": {"start": "2026-01-01", "end": "2026-08-29", "label": "YTD"},
+        "sections": [{"title": "Profit & Loss", "parsed": {"kind": "statement",
+            "compareLabel": "Prior yr (2025)", "items": [
+                {"sub": "Income"},
+                {"label": "Sales", "val": "$195.00", "val2": "$180.00"},
+                {"label": "Total Income", "val": "$156.00", "val2": "$140.00", "total": True}]}}],
+    }
+    r = client.post("/export/xlsx", json=payload)
+    assert r.status_code == 200
+    wb = load_workbook(io.BytesIO(r.content))
+    rows = [[c.value for c in row] for row in wb["Profit & Loss"].iter_rows()]
+    assert rows[0] == [None, "Current", "Prior yr (2025)"]        # comparison header
+    sales = next(r for r in rows if r and r[0] == "Sales")
+    assert sales[1] == 195 and sales[2] == 180                     # both columns typed as numbers
+
+
 def test_call_tool_drops_unknown_kwargs(client):
     # Additive-fields rule: an unknown kwarg (e.g. Coffer's `type`) must be dropped, not TypeError.
     r = client.post("/mcp", json={"tool": "qb_server_info", "args": {"type": "Expense", "bogus": 1}})
