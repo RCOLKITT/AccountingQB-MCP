@@ -525,6 +525,12 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
     <div class="modal-h"><h2 id="rep-title">Client Package</h2><button class="modal-x" id="rep-close" aria-label="Close">&#10005;</button></div>
     <div class="modal-body">
       <p class="conn-sub" style="margin-top:0">A branded PDF (and Excel) of your client’s financials. Every figure is pulled live from QuickBooks — nothing is invented.</p>
+      <div style="display:flex;gap:6px;align-items:stretch;margin-bottom:6px">
+        <select class="field" id="rep-template" style="flex:1;margin:0" aria-label="Saved templates"><option value="">— Saved templates —</option></select>
+        <button class="btn2 ghost" id="rep-tmpl-load" style="margin:0">Load</button>
+        <button class="btn2 ghost" id="rep-tmpl-save" style="margin:0">Save</button>
+        <button class="btn2 ghost" id="rep-tmpl-del" style="margin:0" title="Delete template" aria-label="Delete template">&#10005;</button>
+      </div>
       <label class="field-l" for="rep-client">Client / company name</label>
       <input class="field" id="rep-client" placeholder="Acme LLC">
       <div style="display:flex;gap:12px;flex-wrap:wrap">
@@ -1797,7 +1803,7 @@ async function draftNarrative(){
   }catch(e){ msg.textContent = 'Draft failed: ' + e; }
   finally{ btn.disabled = false; }
 }
-function openReport(){ const c = document.getElementById('rep-client'); if(!c.value) c.value = COMPANY || ''; document.getElementById('report-modal').hidden = false; setTimeout(() => document.getElementById('rep-close').focus(), 40); }
+function openReport(){ const c = document.getElementById('rep-client'); if(!c.value) c.value = COMPANY || ''; document.getElementById('report-modal').hidden = false; refreshTemplates(); setTimeout(() => document.getElementById('rep-close').focus(), 40); }
 function closeReport(){ document.getElementById('report-modal').hidden = true; }
 document.getElementById('report-open').addEventListener('click', openReport);
 document.getElementById('rep-close').addEventListener('click', closeReport);
@@ -1835,6 +1841,57 @@ async function openLineEditor(){
   host.querySelectorAll('.le-rename').forEach(inp => inp.addEventListener('input', e => { const k = e.target.dataset.k, v = e.target.value.trim(), orig = e.target.dataset.orig; if(v && v !== orig) _reportEdits.renamed[k] = v; else delete _reportEdits.renamed[k]; }));
 }
 document.getElementById('rep-customize').addEventListener('toggle', function(){ if(this.open) openLineEditor(); });
+
+// ---- Saved per-client templates (reusable report config; month 2 is one click) ----
+function currentReportConfig(){
+  return {
+    client: (document.getElementById('rep-client').value || '').trim(),
+    period: document.getElementById('rep-period').value,
+    compare: document.getElementById('rep-compare').value,
+    sections: [...document.querySelectorAll('#rep-sections input:checked')].map(c => c.value),
+    logo: _reportLogo,
+    edits: _reportEdits,
+  };
+}
+function applyReportConfig(cfg){
+  cfg = cfg || {};
+  if(cfg.client != null) document.getElementById('rep-client').value = cfg.client;
+  if(cfg.period) document.getElementById('rep-period').value = cfg.period;
+  if(cfg.compare) document.getElementById('rep-compare').value = cfg.compare;
+  if(Array.isArray(cfg.sections)) document.querySelectorAll('#rep-sections input').forEach(c => { c.checked = cfg.sections.includes(c.value); });
+  _reportLogo = cfg.logo || null;
+  const e = cfg.edits || {};
+  _reportEdits = { hidden: e.hidden || {}, renamed: e.renamed || {}, collapsed: e.collapsed || {} };
+}
+async function refreshTemplates(selected){
+  const sel = document.getElementById('rep-template');
+  let names = [];
+  try{ names = (await (await fetch('/templates')).json()).templates || []; }catch(e){}
+  sel.innerHTML = '<option value="">— Saved templates —</option>' +
+    names.map(n => '<option value="' + escapeHtml(n) + '"' + (n === selected ? ' selected' : '') + '>' + escapeHtml(n) + '</option>').join('');
+}
+document.getElementById('rep-tmpl-save').addEventListener('click', async () => {
+  const msg = document.getElementById('rep-msg'), cfg = currentReportConfig();
+  if(!cfg.client){ msg.textContent = 'Enter a client name first — templates are saved per client.'; return; }
+  try{
+    await fetch('/templates', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: cfg.client, config: cfg }) });
+    await refreshTemplates(cfg.client); msg.textContent = 'Template “' + cfg.client + '” saved ✓';
+  }catch(e){ msg.textContent = 'Save failed: ' + e; }
+});
+document.getElementById('rep-tmpl-load').addEventListener('click', async () => {
+  const sel = document.getElementById('rep-template'), msg = document.getElementById('rep-msg'), name = sel.value;
+  if(!name){ msg.textContent = 'Pick a saved template first.'; return; }
+  try{
+    const t = await (await fetch('/templates/' + encodeURIComponent(name))).json();
+    applyReportConfig(t.config || {}); document.getElementById('rep-customize').open = false;
+    msg.textContent = 'Loaded “' + name + '” ✓';
+  }catch(e){ msg.textContent = 'Load failed: ' + e; }
+});
+document.getElementById('rep-tmpl-del').addEventListener('click', async () => {
+  const sel = document.getElementById('rep-template'), msg = document.getElementById('rep-msg'), name = sel.value;
+  if(!name) return;
+  try{ await fetch('/templates/' + encodeURIComponent(name), { method: 'DELETE' }); await refreshTemplates(); msg.textContent = 'Deleted “' + name + '”'; }catch(e){}
+});
 
 // ============ Boot ============
 if(/[?&]in_app=1/.test(location.search)) document.body.classList.add('in-app');   // packaged desktop shell

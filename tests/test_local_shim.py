@@ -389,6 +389,20 @@ def test_export_xlsx_comparison_column(client):
     assert sales[1] == 195 and sales[2] == 180                     # both columns typed as numbers
 
 
+def test_templates_roundtrip(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(serve, "TEMPLATES_DIR", tmp_path / "templates")
+    cfg = {"client": "Acme LLC", "period": "ytd", "compare": "prior_year",
+           "sections": ["pl", "bs"], "edits": {"hidden": {"communications": True}}}
+    assert client.post("/templates", json={"name": "Acme LLC", "config": cfg}).json()["ok"] is True
+    assert "Acme LLC" in client.get("/templates").json()["templates"]
+    got = client.get("/templates/Acme LLC").json()
+    assert got["config"]["compare"] == "prior_year"
+    assert got["config"]["edits"]["hidden"]["communications"] is True
+    assert client.delete("/templates/Acme LLC").json()["ok"] is True
+    assert "Acme LLC" not in client.get("/templates").json()["templates"]
+    assert client.get("/templates/Acme LLC").status_code == 404
+
+
 def test_call_tool_drops_unknown_kwargs(client):
     # Additive-fields rule: an unknown kwarg (e.g. Coffer's `type`) must be dropped, not TypeError.
     r = client.post("/mcp", json={"tool": "qb_server_info", "args": {"type": "Expense", "bogus": 1}})
