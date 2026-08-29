@@ -611,7 +611,7 @@ def _demo_active() -> bool:
     """Per-request demo check. Local mode: the QB_LICENSE_KEY env var
     (module-level _DEMO_MODE). Hosted mode: the per-request ctx.license_key
     set by remote.py — a reviewer signing in with an LK-DEMO- license gets
-    mock data through the remote connector too."""
+    demo-mode mock data through the remote connector too."""
     if _DEMO_MODE:
         return True
     key = (getattr(get_ctx(), "license_key", "") or "").upper()

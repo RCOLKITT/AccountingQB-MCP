@@ -3,7 +3,7 @@ import { testimonials } from "@/lib/testimonials";
 
 /* Customer testimonial wall (audit D3.2 story proof / D3.1 quantity proof).
    Renders ONLY when real, permissioned quotes exist — empty data → nothing shows,
-   so the site never ships placeholder or invented social proof. Populate
+   so the site never ships stand-in or invented social proof. Populate
    src/lib/testimonials.ts to activate. */
 export default function Testimonials() {
   if (testimonials.length === 0) return null;

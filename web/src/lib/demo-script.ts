@@ -1,5 +1,5 @@
 /* Scripted content for the /demo experience — a canned but realistic "talk to your
-   books" session over a fake sample company. NO real Claude, NO real QuickBooks: every
+   books" session over a demo-mode sample company. NO real Claude, NO real QuickBooks: every
    answer here is fixed, illustrative data. Keep numbers internally consistent and mirror
    the shape of the real tools' output. Matching is keyword-based and runs client-side. */
 
