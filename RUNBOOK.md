@@ -16,15 +16,23 @@ Operational procedures. Keep truthful; if a step here doesn't match reality, fix
 ## Deploy
 - **Web:** open a PR → green pytest + secret-scan → squash-merge to `main` → Vercel auto-deploys.
   `main` is branch-protected; never push directly. Verify live after: `curl -s https://accountingqb.com/api/health`.
-- **Desktop release:** bump `accountingqb-desktop-tauri/src-tauri/tauri.conf.json` version, tag
-  `desktop-vX.Y.Z`, push the tag → CI builds/signs/publishes. Signing secrets: Apple (6) + Azure (6)
-  in Doppler + mirrored to GitHub Actions secrets.
+- **Desktop release (deliberate, not per-merge):** bump the version in
+  `accountingqb-desktop-tauri/src-tauri/tauri.conf.json` + `src-tauri/Cargo.toml` + `package.json`,
+  add a `## X.Y.Z — <date>` entry to `CHANGELOG.md` (the in-app "What's new"). **Validate first:**
+  tag `desktop-vX.Y.Z-beta.N` → published as a GitHub *prerelease* the auto-updater ignores; install
+  + validate by hand. Then tag `desktop-vX.Y.Z` (stable) → CI builds/signs/notarizes, signs the
+  updater artifacts, assembles `latest.json`, and publishes. Installed apps auto-update from
+  `latest.json` on next launch. Signing secrets: Apple (6) + Azure (6) + updater (2,
+  `TAURI_SIGNING_PRIVATE_KEY[_PASSWORD]`) in Doppler + mirrored to GitHub Actions secrets. See
+  `accountingqb-desktop-tauri/SIGNING.md`.
 - **PyPI:** version bump + changelog; publish token is `UV_PUBLISH_TOKEN` in Doppler.
 
 ## Rollback
 - **Web:** in Vercel, promote the previous good deployment (Deployments → ⋯ → Promote to Production).
   Or `git revert <sha>` → PR → merge.
-- **Desktop:** point the download route at the prior release, or delete the bad GitHub Release asset.
+- **Desktop:** a bad release also auto-updates users, so act fast — delete/mark the bad GitHub
+  Release (so `releases/latest` falls back to the prior good one, which restores `latest.json`), then
+  cut a fixed `desktop-vX.Y.(Z+1)`. Downloads auto-resolve to `latest`. Never delete the signing key.
 - **DB migration gone wrong:** migrations are forward-only; write a new compensating migration in
   `web/migrations/` and apply. Never edit a shipped migration.
 

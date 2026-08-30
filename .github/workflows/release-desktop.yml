@@ -1,11 +1,16 @@
 name: Release desktop app (signed)
 
-# Push a tag like `desktop-v0.1.0` → signed macOS .dmg + signed Windows installer,
-# published to the releases repo. Ported from Hearth; sidecar is PyInstaller (Python),
-# not Node SEA. Required secrets (see accountingqb-desktop-tauri/SIGNING.md):
+# Push a tag like `desktop-v0.2.0` → signed + notarized macOS .dmg + signed Windows
+# installer + Tauri updater artifacts, published to the releases repo. A tag with a
+# `-beta`/`-rc` suffix (e.g. `desktop-v0.2.0-beta.1`) is published as a GitHub
+# *prerelease*: `releases/latest` skips prereleases, so the auto-updater never serves
+# it — install a beta by hand, validate, then tag the stable version to ship it.
+#
+# Required secrets (see accountingqb-desktop-tauri/SIGNING.md):
 #   macOS:   APPLE_CERTIFICATE_B64, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
 #            APPLE_ID, APPLE_APP_PASSWORD, APPLE_TEAM_ID
 #   Windows: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET  (Trusted Signing)
+#   Updater: TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD (minisign)
 #   Publish: uses the built-in GITHUB_TOKEN (permissions: contents: write) — no PAT
 on:
   push:
@@ -47,31 +52,48 @@ jobs:
         run: python3 scripts/build_sidecar.py
       - name: Generate app icons from the brand logo
         run: npm install && npm exec -- tauri icon app-icon.png
-      - name: Build, sign & notarize (.dmg)
+      - name: Build, sign & notarize (.dmg + updater artifact)
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          npm exec -- tauri build --bundles dmg
+          # `app` = the .app that createUpdaterArtifacts tars into the updater bundle; `dmg` = human download.
+          npm exec -- tauri build --bundles app,dmg
           DMG=$(ls src-tauri/target/release/bundle/dmg/*.dmg | head -1)
           # Tauri notarizes the .app but not the DMG, so the DMG has no ticket to staple.
-          # Notarize the DMG itself, then staple + validate (offline first-launch works).
           xcrun notarytool submit "$DMG" --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
           xcrun stapler staple "$DMG"
           xcrun stapler validate "$DMG"
           cp "$DMG" AccountingQB-macOS-AppleSilicon.dmg
           echo "DMG=$DMG" >> "$GITHUB_ENV"
-      - name: Publish
+          # Updater artifact (signed .app.tar.gz + .sig) produced by createUpdaterArtifacts.
+          TARGZ=$(ls src-tauri/target/release/bundle/macos/*.app.tar.gz | head -1)
+          echo "TARGZ=$TARGZ" >> "$GITHUB_ENV"
+      - name: Publish macOS assets + updater fragment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${GITHUB_REF_NAME:-manual-$(date +%Y%m%d%H%M)}"
-          gh release create "$TAG" "$DMG" AccountingQB-macOS-AppleSilicon.dmg --repo "$RELEASES_REPO" \
+          PRE=""; case "$TAG" in *-beta*|*-rc*) PRE="--prerelease";; esac
+          # Create the release if it doesn't exist yet (the other job may create it first).
+          gh release create "$TAG" --repo "$RELEASES_REPO" $PRE \
             --title "AccountingQB ${TAG#desktop-v}" \
-            --notes "Signed & notarized macOS build (Apple Silicon). Download, open, drag to Applications." \
-            || gh release upload "$TAG" "$DMG" AccountingQB-macOS-AppleSilicon.dmg --repo "$RELEASES_REPO" --clobber
+            --notes "Signed & notarized macOS (Apple Silicon) + signed Windows build. Auto-updates from here on." \
+            || true
+          gh release upload "$TAG" "$DMG" AccountingQB-macOS-AppleSilicon.dmg "$TARGZ" "$TARGZ.sig" --repo "$RELEASES_REPO" --clobber
+          BASE=$(basename "$TARGZ")
+          mkdir -p frag
+          jq -n --arg sig "$(cat "$TARGZ.sig")" \
+                --arg url "https://github.com/$RELEASES_REPO/releases/download/$TAG/$BASE" \
+                '{"darwin-aarch64": {signature: $sig, url: $url}}' > frag/darwin.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frag-darwin
+          path: accountingqb-desktop-tauri/frag/darwin.json
 
   windows-x64:
     runs-on: windows-latest
@@ -100,7 +122,7 @@ jobs:
         run: |
           $bin = Get-ChildItem src-tauri/binaries/accountingqb-server-*.exe | Select-Object -First 1
           trusted-signing-cli -e $env:AZURE_SIGNING_ENDPOINT -a $env:AZURE_SIGNING_ACCOUNT -c $env:AZURE_CERT_PROFILE $bin.FullName
-      - name: Generate icons + build & sign installer
+      - name: Generate icons + build & sign installer (+ updater artifact)
         env:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -108,6 +130,8 @@ jobs:
           AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
           AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
           AZURE_CERT_PROFILE: ${{ secrets.AZURE_CERT_PROFILE }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           # Tauri's signCommand doesn't expand %VAR%; substitute the real Azure values
           # into the config at build time (kept out of the repo — injected from secrets).
@@ -116,7 +140,7 @@ jobs:
           npm install
           npm exec -- tauri icon app-icon.png
           npm exec -- tauri build --bundles nsis
-      - name: Verify + publish
+      - name: Verify + publish Windows assets + updater fragment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -125,5 +149,43 @@ jobs:
           if ($sig.Status -ne 'Valid') { "signature: $($sig.Status)"; exit 1 }
           Copy-Item $exe.FullName AccountingQB-Windows-Setup.exe
           $TAG = if ($env:GITHUB_REF_NAME -match '^desktop-v') { $env:GITHUB_REF_NAME } else { "manual-win-$(Get-Date -Format yyyyMMddHHmm)" }
-          gh release create $TAG $exe.FullName AccountingQB-Windows-Setup.exe --repo $env:RELEASES_REPO --title "AccountingQB $($TAG -replace '^desktop-v','')" --notes "Signed Windows build (x64). Download and run the installer."
-          if ($LASTEXITCODE -ne 0) { gh release upload $TAG $exe.FullName AccountingQB-Windows-Setup.exe --repo $env:RELEASES_REPO --clobber }
+          $PRE = if ($TAG -match '-beta|-rc') { '--prerelease' } else { '' }
+          gh release create $TAG --repo $env:RELEASES_REPO $PRE --title "AccountingQB $($TAG -replace '^desktop-v','')" --notes "Signed & notarized macOS (Apple Silicon) + signed Windows build. Auto-updates from here on." 2>$null
+          $upSig = "$($exe.FullName).sig"
+          gh release upload $TAG $exe.FullName AccountingQB-Windows-Setup.exe $upSig --repo $env:RELEASES_REPO --clobber
+          $base = $exe.Name
+          $frag = @{ "windows-x86_64" = @{ signature = (Get-Content $upSig -Raw).Trim(); url = "https://github.com/$env:RELEASES_REPO/releases/download/$TAG/$base" } }
+          New-Item -ItemType Directory -Force -Path frag | Out-Null
+          $frag | ConvertTo-Json -Depth 5 | Set-Content frag/windows.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frag-windows
+          path: accountingqb-desktop-tauri/frag/windows.json
+
+  # Assemble the updater manifest from both platforms' signatures and attach it to the
+  # release. Skipped for -beta/-rc tags (prereleases carry no latest.json; the updater
+  # only ever reads latest.json from `releases/latest`, which excludes prereleases).
+  updater-manifest:
+    needs: [macos-arm64, windows-x64]
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-rc') }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: frag-darwin, path: frag }
+      - uses: actions/download-artifact@v4
+        with: { name: frag-windows, path: frag }
+      - name: Assemble + upload latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="$GITHUB_REF_NAME"
+          VERSION="${TAG#desktop-v}"
+          jq -s '.[0] * .[1]' frag/darwin.json frag/windows.json > platforms.json
+          jq -n --arg v "$VERSION" \
+                --arg notes "AccountingQB $VERSION — see the in-app What's new." \
+                --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+                --slurpfile p platforms.json \
+                '{version: $v, notes: $notes, pub_date: $date, platforms: $p[0]}' > latest.json
+          echo "----- latest.json -----"; cat latest.json
+          gh release upload "$TAG" latest.json --repo "$RELEASES_REPO" --clobber
