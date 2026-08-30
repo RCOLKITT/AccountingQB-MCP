@@ -3,9 +3,10 @@
 The code is scaffolded and the sidecar is verified. To produce **signed installers** you
 need to add secrets and run the release once. This is the part I can't do from the repo.
 
-## 1. Create the releases repo
-Create a public repo **`accountingqb-releases`** (or edit `RELEASES_REPO` in
-`.github/workflows/release-desktop.yml`). Downloads/links point at its Releases.
+## 1. Releases repo
+Releases publish to **this repo** (`RELEASES_REPO: RCOLKITT/AccountingQB-MCP` in
+`.github/workflows/release-desktop.yml`); the site's `/api/download/*` and the updater's
+`releases/latest/download/latest.json` both resolve against it. Already configured.
 
 ## 2. Add GitHub Actions secrets (to THIS repo)
 
@@ -27,15 +28,37 @@ six from the Hearth repo into this repo — same values:
 Vaspera Capital — so the same profile signs AccountingQB; end users see the Vaspera publisher,
 not the profile name.)
 
-**Publish:** `RELEASES_TOKEN` — a PAT with `contents:write` on `accountingqb-releases` (you can
-reuse Hearth's if it's scoped to your account's repos, or mint a new one).
+**Updater (auto-update signing — minisign, already set):** the release also signs Tauri updater
+artifacts so the app can verify an update before installing it.
+| Secret | What |
+|--------|------|
+| `TAURI_SIGNING_PRIVATE_KEY` | the minisign private key from `tauri signer generate` |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | its password |
 
-## 3. Release
+Both are already set in this repo's Actions secrets **and** backed up in Doppler
+(`accountingqb-mcp/prd`). The matching **public** key is committed in `tauri.conf.json`
+(`plugins.updater.pubkey`). ⚠️ If you ever rotate this key, existing installs can no longer
+verify updates and must be reinstalled by hand — treat it like the Apple cert.
+
+**Publish:** uses the built-in `GITHUB_TOKEN` (`permissions: contents: write`) to publish to this
+repo's Releases — no PAT needed.
+
+## 3. Release (deliberate, batched — not per-merge)
+Work merges to `main` continuously (gated + QA'd). Cut a desktop release only when a batch is
+ready, by pushing a tag. **Validate with a beta first:**
 ```bash
-git tag desktop-v0.1.0 && git push origin desktop-v0.1.0
+# 1. Beta lane — published as a GitHub *prerelease*; the auto-updater ignores it.
+git tag desktop-v0.2.0-beta.1 && git push origin desktop-v0.2.0-beta.1
+#    Install the beta by hand, validate on real data.
+# 2. Ship it — the stable tag is the one users auto-update to.
+git tag desktop-v0.2.0 && git push origin desktop-v0.2.0
 ```
-The workflow builds the PyInstaller sidecar, generates icons from `web/public/logo-512.png`,
-builds + signs the `.dmg` (notarized/stapled) and the Windows `-setup.exe`, and publishes both.
+The workflow builds the PyInstaller sidecar, generates icons from `app-icon.png`, builds + signs
+the `.dmg` (notarized/stapled) and the Windows `-setup.exe`, signs the updater artifacts, and — for
+a stable tag — assembles `latest.json` (the updater manifest) and attaches it to the release.
+Because `releases/latest` skips prereleases, a `-beta`/`-rc` tag never reaches the auto-updater.
+Bump `version` in `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, and `package.json`, and add
+a `## <version> — <date>` entry to `CHANGELOG.md` (the in-app "What's new") before tagging.
 
 ## 4. Verify on clean machines (your hands)
 - A Mac with no dev tools: download the `.dmg`, open, drag to Applications, launch → the app

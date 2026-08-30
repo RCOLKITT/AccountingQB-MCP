@@ -14,6 +14,7 @@ real behavior drifts from its designed state, that's a bug — fix the code or u
 | `MCP_JWT_SECRET` fail-closed | Remote connector refuses all requests if unset | `remote.py` | Platform |
 | `TOKEN_ENCRYPTION_KEY` fail-closed | Production refuses to run without it | server.py / web | Platform |
 | Branch protection | `main` requires PR + pytest + secret-scan + theater + web-checks | GitHub settings | Owner |
+| Update signature | Desktop auto-update installs only artifacts signed by the pinned minisign pubkey | `plugins.updater.pubkey` (tauri.conf.json) + CI `TAURI_SIGNING_PRIVATE_KEY` | Owner |
 
 ## Rate limits (hard stops on public endpoints — Upstash)
 `web/src/lib/ratelimit.ts`. Per IP or per license as noted. Owner: Platform.
