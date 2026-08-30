@@ -19,6 +19,7 @@ Usage:
   python scripts/deploy-smoke.py [--expect-version X.Y.Z] [--host URL]
   # version defaults to mcpb/pyproject.toml; host defaults to mcp.accountingqb.com
 """
+
 import argparse
 import json
 import os
@@ -28,7 +29,7 @@ import urllib.request
 from pathlib import Path
 
 DEFAULT_HOST = "https://mcp.accountingqb.com"
-DEMO_LICENSE = "LK-DEMO-REVIEW2026"      # qb_server_info needs no real QB connection
+DEMO_LICENSE = "LK-DEMO-REVIEW2026"  # qb_server_info needs no real QB connection
 AUDIENCE = "https://mcp.accountingqb.com"
 
 
@@ -39,8 +40,9 @@ def _pyproject_version() -> str:
 
 
 def _get_json(url: str, headers=None, data=None, timeout=30):
-    req = urllib.request.Request(url, data=data, headers=headers or {},
-                                 method="POST" if data else "GET")
+    req = urllib.request.Request(
+        url, data=data, headers=headers or {}, method="POST" if data else "GET"
+    )
     with urllib.request.urlopen(req, timeout=timeout) as r:
         raw = r.read().decode()
         return r.status, dict(r.headers), raw
@@ -59,8 +61,10 @@ def check_version(host: str, expect: str) -> bool:
     info = json.loads(raw)
     ok = True
     if info.get("version") != expect:
-        print(f"  ✗ version {info.get('version')!r} != expected {expect!r} "
-              "(stale or failed deploy)")
+        print(
+            f"  ✗ version {info.get('version')!r} != expected {expect!r} "
+            "(stale or failed deploy)"
+        )
         ok = False
     else:
         print(f"  ✓ version {info['version']}")
@@ -76,11 +80,19 @@ def check_version(host: str, expect: str) -> bool:
 def _mint_jwt(secret: str) -> str:
     import jwt as pyjwt  # PyJWT
     from datetime import datetime, timezone, timedelta
+
     now = datetime.now(timezone.utc)
     return pyjwt.encode(
-        {"license_key": DEMO_LICENSE, "sub": "deploy-smoke",
-         "aud": AUDIENCE, "iat": now, "exp": now + timedelta(minutes=5)},
-        secret, algorithm="HS256")
+        {
+            "license_key": DEMO_LICENSE,
+            "sub": "deploy-smoke",
+            "aud": AUDIENCE,
+            "iat": now,
+            "exp": now + timedelta(minutes=5),
+        },
+        secret,
+        algorithm="HS256",
+    )
 
 
 def _parse_mcp_body(raw: str) -> dict:
@@ -105,19 +117,33 @@ def check_authenticated(host: str, expect: str, secret: str) -> bool:
     # supports (the advertised 2026-07-28 is ahead of the SDK, which rejects it on
     # tools/call). Use the NEGOTIATED version for the follow-up request.
     negotiate = "2025-11-25"
-    hdrs = {"Authorization": f"Bearer {token}", "Content-Type": "application/json",
-            "Accept": "application/json, text/event-stream",
-            "MCP-Protocol-Version": negotiate}
-    init = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
-            "params": {"protocolVersion": negotiate, "capabilities": {},
-                       "clientInfo": {"name": "deploy-smoke", "version": "1.0"}}}
+    hdrs = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream",
+        "MCP-Protocol-Version": negotiate,
+    }
+    init = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": negotiate,
+            "capabilities": {},
+            "clientInfo": {"name": "deploy-smoke", "version": "1.0"},
+        },
+    }
     try:
-        status, respheaders, initraw = _get_json(f"{host}/mcp", hdrs, json.dumps(init).encode())
+        status, respheaders, initraw = _get_json(
+            f"{host}/mcp", hdrs, json.dumps(init).encode()
+        )
         if status == 401:
             print("  ✗ 401 — JWT rejected (secret/audience mismatch)")
             return False
-        negotiated = (_parse_mcp_body(initraw).get("result", {})
-                      .get("protocolVersion") or negotiate)
+        negotiated = (
+            _parse_mcp_body(initraw).get("result", {}).get("protocolVersion")
+            or negotiate
+        )
         sid = respheaders.get("mcp-session-id") or respheaders.get("Mcp-Session-Id")
         call_hdrs = dict(hdrs)
         call_hdrs["MCP-Protocol-Version"] = negotiated
@@ -125,8 +151,12 @@ def check_authenticated(host: str, expect: str, secret: str) -> bool:
             call_hdrs["Mcp-Session-Id"] = sid
             note = {"jsonrpc": "2.0", "method": "notifications/initialized"}
             _get_json(f"{host}/mcp", call_hdrs, json.dumps(note).encode())
-        call = {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
-                "params": {"name": "qb_server_info", "arguments": {}}}
+        call = {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {"name": "qb_server_info", "arguments": {}},
+        }
         status, _, raw = _get_json(f"{host}/mcp", call_hdrs, json.dumps(call).encode())
     except Exception as e:
         print(f"  ✗ MCP call failed: {e}")
@@ -165,8 +195,10 @@ def main() -> int:
     if secret:
         ok = check_authenticated(host, expect, secret) and ok
     else:
-        print("→ authenticated check: MCP_JWT_SECRET not set — skipping "
-              "(run under `doppler run` to exercise the /mcp path).")
+        print(
+            "→ authenticated check: MCP_JWT_SECRET not set — skipping "
+            "(run under `doppler run` to exercise the /mcp path)."
+        )
 
     print()
     print("✅ SMOKE PASS" if ok else "❌ SMOKE FAIL")

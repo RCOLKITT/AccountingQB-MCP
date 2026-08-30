@@ -43,7 +43,9 @@ def test_wrapper_posts_with_ctx_license_and_realm(qb_ctx, monkeypatch):
     wrapped = qb_server.track_usage(_dummy)
 
     with respx.mock(assert_all_called=True) as router:
-        route = router.post(USAGE_URL).mock(return_value=Response(200, json={"tracked": True}))
+        route = router.post(USAGE_URL).mock(
+            return_value=Response(200, json={"tracked": True})
+        )
 
         async def _run():
             result = await wrapped()
@@ -55,6 +57,7 @@ def test_wrapper_posts_with_ctx_license_and_realm(qb_ctx, monkeypatch):
     assert result == "ok"
     body = route.calls[0].request.read()
     import json
+
     payload = json.loads(body)
     assert payload["licenseKey"] == "LK-REMOTE-TEST"
     assert payload["realmId"] == "9130350000000000"

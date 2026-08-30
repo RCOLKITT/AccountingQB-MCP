@@ -29,8 +29,8 @@ inferred from code and needs a live check (that check is itself the gap).
 | Typecheck (web) | 🟢 | `cd web && npx tsc --noEmit` | **In CI (blocking)** — `web-checks` job |
 | Typecheck (py) | N/A | — | Python; type hints present, no mypy gate (optional) |
 | Lint | 🟡 | `ruff check` in CI (report-only) | Python ruff runs VISIBLE (~144 issues) — cleanup = **Gap G9**; ESLint not configured = **Gap G9** |
-| Format | 🟡 | `prettier --check` in CI (report-only) | Runs VISIBLE — **~137 web files need formatting** (not clean); a one-time `prettier --write` makes it blocking = **Gap G10**. Python `black` also unwired. |
-| Tests (py) | 🟢 | `python3 -m pytest tests/ -q` | **406 pass**; in CI (`tests.yml`) |
+| Format | 🟢 | `prettier --check` (web) + `black --check` (py), both in CI | **BLOCKING** — G10 done: 139 web files reformatted + prettier gate in `web-checks`; 43 py files reformatted + `black --check` in the `pytest` job. |
+| Tests (py) | 🟢 | `python3 -m pytest tests/ -q` | **412 pass**; in CI (`tests.yml`) |
 | Tests (web) | 🔴 | (none) | **Gap G11:** no web unit/e2e suite |
 | Secret scan | 🟢 | `bash scripts/scan-secrets.sh` | In CI; also blocks real QBO realm ids in tracked files |
 | Theater scan | 🟢 | `bash scripts/scan-theater.sh` | **In CI (blocking)** — clean; demo mode + UI placeholders excluded with reasons |
@@ -42,6 +42,13 @@ blocking). Installed report-only (VISIBLE, not yet blocking — real counts): pr
 files), ruff (~144), pip-audit — **G7/G9/G10** cleanup remains. Enforcement added: `main` now also
 requires `theater` + `web-checks`. (Correction: an earlier note claimed prettier was clean — a bad
 grep; the real run finds 137 files. Fixed here per ZERO THEATER.)
+
+## Progress (Phase 2, 2026-08-30)
+Closed **G10** (format gate blocking): one-time `prettier --write` (139 web files) + `black`
+(43 py files), then flipped both to blocking — prettier in `web-checks`, `black --check` in the
+`pytest` job, each with a pinned config (`.prettierrc.json`, `[tool.black]`). Also shipped desktop
+**auto-update** (Tauri v2 updater, signed, + in-app What's new) and its **signed release pipeline**
+(latest.json + beta prerelease lane). Remaining format/lint work: **G9** (ruff ~144 + ESLint).
 
 ## Declared gaps (with rough cost to close)
 
@@ -61,9 +68,9 @@ grep; the real run finds 137 files. Fixed here per ZERO THEATER.)
 8. ~~**G8 web typecheck in CI**~~ — DONE: `web-checks` job runs `tsc --noEmit` (blocking).
 9. **G9 lint gate** — ruff runs report-only in CI (~144 issues to clear); ESLint (web) not yet
    configured. Fix the ruff findings + add ESLint, then make blocking. *~3-4h.*
-10. **G10 format gate** — prettier + ruff run report-only. To make blocking: one-time `prettier
-    --write` on the ~137 web files + `black` on the connector (big but safe deterministic diffs),
-    each as its own PR. *~2-3h.*
+10. ~~**G10 format gate**~~ — DONE: one-time `prettier --write` (139 web files) + `black` (43 py
+    files), both now blocking in CI with pinned configs (prettier in `web-checks`, `black --check`
+    in `pytest`).
 11. **G11 web tests** — a starter Playwright e2e against the dashboard + a dedicated test license
     (top-3 riskiest paths: license verify, OAuth connect, checkout). *~1 day.*
 12. ~~**G12 theater-scan gate**~~ — DONE: `scripts/scan-theater.sh` in CI (blocking), clean.

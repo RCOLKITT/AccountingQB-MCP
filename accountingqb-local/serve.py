@@ -86,12 +86,16 @@ TEMPLATES_DIR = DATA_DIR / "templates"
 # Google/email owns both apps) and required on every integration /mcp call. This is
 # what prevents cross-user contamination: no pairing → no cross-app data, ever.
 PAIRING_FILE = DATA_DIR / "pairing.json"
-_IDENTITY_NS = "aqb-coffer-link:v1:"  # both products hash the account email with this prefix
+_IDENTITY_NS = (
+    "aqb-coffer-link:v1:"  # both products hash the account email with this prefix
+)
 
 
 def identity_hash(email: str) -> str:
     """Deterministic, cross-product identity from a verified account email."""
-    return hashlib.sha256((_IDENTITY_NS + (email or "").strip().lower()).encode()).hexdigest()
+    return hashlib.sha256(
+        (_IDENTITY_NS + (email or "").strip().lower()).encode()
+    ).hexdigest()
 
 
 def _load_pairing() -> dict:
@@ -113,7 +117,9 @@ def _save_pairing(d: dict) -> dict:
 # page lives. Both overridable for local end-to-end testing.
 AQB_API_URL = os.environ.get("QB_API_URL", "https://accountingqb.com")
 COFFER_API_URL = os.environ.get("COFFER_API_URL", "https://coffermoney.com")
-LINK_STATE_FILE = DATA_DIR / "link_state.json"  # in-flight PKCE verifier + state (single-use)
+LINK_STATE_FILE = (
+    DATA_DIR / "link_state.json"
+)  # in-flight PKCE verifier + state (single-use)
 
 
 def _load_link_state() -> dict:
@@ -133,7 +139,11 @@ def _save_link_state(d: dict) -> dict:
 def _pkce_pair() -> tuple[str, str]:
     """(verifier, S256 challenge) — the challenge is base64url(sha256(verifier)), unpadded."""
     verifier = secrets.token_urlsafe(64)
-    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+    challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())
+        .rstrip(b"=")
+        .decode()
+    )
     return verifier, challenge
 
 
@@ -175,7 +185,9 @@ def save_config(patch: dict) -> dict:
 
 
 def _anthropic_key() -> str:
-    return os.environ.get("ANTHROPIC_API_KEY") or load_config().get("anthropic_api_key", "")
+    return os.environ.get("ANTHROPIC_API_KEY") or load_config().get(
+        "anthropic_api_key", ""
+    )
 
 
 def _manifest() -> dict:
@@ -194,12 +206,28 @@ def _server_version() -> str:
 # human in the loop (that stays in Door 1 / a future confirm-gated flow). Names are
 # intersected with what actually exists + the manifest's readOnlyHint at runtime.
 _CHAT_ALLOW = {
-    "qb_company_info", "qb_list_companies", "qb_profit_loss", "qb_balance_sheet",
-    "qb_cash_flow", "qb_monthly_burn_rate", "qb_runway_calculator", "qb_deduction_finder",
-    "qb_anomaly_detection", "qb_find_duplicates", "qb_books_health_audit", "qb_tax_summary",
-    "qb_schedule_c", "qb_t2125_summary", "qb_estimate_quarterly_tax", "qb_stripe_reconcile",
-    "qb_list_transactions", "qb_search_transactions", "qb_trial_balance",
-    "qb_uncategorized_transactions", "qb_1099_contractor_report", "qb_account_balance",
+    "qb_company_info",
+    "qb_list_companies",
+    "qb_profit_loss",
+    "qb_balance_sheet",
+    "qb_cash_flow",
+    "qb_monthly_burn_rate",
+    "qb_runway_calculator",
+    "qb_deduction_finder",
+    "qb_anomaly_detection",
+    "qb_find_duplicates",
+    "qb_books_health_audit",
+    "qb_tax_summary",
+    "qb_schedule_c",
+    "qb_t2125_summary",
+    "qb_estimate_quarterly_tax",
+    "qb_stripe_reconcile",
+    "qb_list_transactions",
+    "qb_search_transactions",
+    "qb_trial_balance",
+    "qb_uncategorized_transactions",
+    "qb_1099_contractor_report",
+    "qb_account_balance",
     "qb_tax_data_info",
 }
 
@@ -215,7 +243,8 @@ def _anthropic_tools() -> list:
                 {
                     "name": name,
                     "description": (t.get("description") or "")[:1024],
-                    "input_schema": t.get("inputSchema") or {"type": "object", "properties": {}},
+                    "input_schema": t.get("inputSchema")
+                    or {"type": "object", "properties": {}},
                 }
             )
     return out
@@ -245,7 +274,9 @@ async def call_tool(name: str, args: dict) -> object:
     if getattr(tool, "context_kwarg", None):
         # A tool that wants FastMCP's request Context can't be called bare here;
         # none of the connector's tools need it today, but fail loud if that changes.
-        raise RuntimeError(f"tool {name} requires a FastMCP Context (unsupported in the local shim)")
+        raise RuntimeError(
+            f"tool {name} requires a FastMCP Context (unsupported in the local shim)"
+        )
     fn = tool.fn
     call_args = dict(args or {})
     # Additive-fields rule: peers may send fields a tool doesn't declare yet (e.g. Coffer passing
@@ -273,6 +304,7 @@ async def call_tool(name: str, args: dict) -> object:
 #                                  equity (owner paid personally); confirm-gated.
 # Reads are fail-closed: if the number can't be read unambiguously we return {error} and Coffer
 # shows nothing — never a wrong figure (Constitution: always accurate).
+
 
 def _load_booked() -> dict:
     try:
@@ -311,7 +343,9 @@ async def _int_owner_draws(args: dict) -> dict:
             net = 0.0
         else:
             return {"error": "could not read owner draws", "summary": md}
-    ytd = round(-net, 2) if net < 0 else 0.0  # money drawn OUT of the business = household income
+    ytd = (
+        round(-net, 2) if net < 0 else 0.0
+    )  # money drawn OUT of the business = household income
     return {
         "year": year,
         "net": net,
@@ -330,10 +364,21 @@ async def _int_estimate(args: dict) -> dict:
         return {"error": "filing_status required", "needs": ["filing_status"]}
     ty = str(args.get("tax_year") or datetime.date.today().year)
     state = args.get("state") or ""
-    md = str(await call_tool("qb_estimate_quarterly_tax", {"tax_year": ty, "filing_status": fs, "state": state}))
+    md = str(
+        await call_tool(
+            "qb_estimate_quarterly_tax",
+            {"tax_year": ty, "filing_status": fs, "state": state},
+        )
+    )
     if "no estimated payments are due" in md:  # net loss
-        return {"amount": 0.0, "period": None, "due": None, "annual": 0.0,
-                "note": "net loss — no estimated payments due", "provenance": "qb_estimate_quarterly_tax"}
+        return {
+            "amount": 0.0,
+            "period": None,
+            "due": None,
+            "annual": 0.0,
+            "note": "net loss — no estimated payments due",
+            "provenance": "qb_estimate_quarterly_tax",
+        }
     amount = annual = None
     for line in md.splitlines():
         if "Each quarterly payment:" in line and amount is None:
@@ -350,16 +395,30 @@ async def _int_estimate(args: dict) -> dict:
                 break
     if amount is None or period is None:
         return {"error": "could not read estimate", "summary": md}
-    return {"amount": amount, "due": due, "period": period, "annual": annual,
-            "filing_status": fs, "state": state or "(auto)", "provenance": "qb_estimate_quarterly_tax"}
+    return {
+        "amount": amount,
+        "due": due,
+        "period": period,
+        "annual": annual,
+        "filing_status": fs,
+        "state": state or "(auto)",
+        "provenance": "qb_estimate_quarterly_tax",
+    }
 
 
 # A fresh QuickBooks company has no clearing account and often no owner-equity account. Reuse any
 # existing owner-equity account before creating one, so we don't clutter the chart (Coffer never
 # names accounts — choosing/creating them is our domain per the contract).
 _OWNER_EQUITY_CANDIDATES = [
-    "Owner's Equity", "Owners Equity", "Owner Equity", "Owner Investment", "Owner investments",
-    "Owner's Investment", "Owner Contributions", "Member's Equity", "Opening Balance Equity",
+    "Owner's Equity",
+    "Owners Equity",
+    "Owner Equity",
+    "Owner Investment",
+    "Owner investments",
+    "Owner's Investment",
+    "Owner Contributions",
+    "Member's Equity",
+    "Opening Balance Equity",
 ]
 
 
@@ -380,18 +439,29 @@ def _parse_account_names(listing: str) -> dict:
     return out
 
 
-async def _ensure_account(name: str, account_type: str, sub_type: str, existing: dict,
-                          candidates: list | None = None) -> str | None:
+async def _ensure_account(
+    name: str,
+    account_type: str,
+    sub_type: str,
+    existing: dict,
+    candidates: list | None = None,
+) -> str | None:
     """Return the name of a usable account: the configured one if it exists, else an existing
     candidate (equity reuse), else create it on first use. None if creation fails."""
     if name.lower() in existing:
         return existing[name.lower()][0]
-    for c in (candidates or []):
+    for c in candidates or []:
         if c.lower() in existing:
             return existing[c.lower()][0]
-    res = str(await call_tool("qb_create_account",
-                              {"name": name, "account_type": account_type, "account_sub_type": sub_type}))
-    if "Created account" in res or any(w in res.lower() for w in ("duplicate", "already", "exists")):
+    res = str(
+        await call_tool(
+            "qb_create_account",
+            {"name": name, "account_type": account_type, "account_sub_type": sub_type},
+        )
+    )
+    if "Created account" in res or any(
+        w in res.lower() for w in ("duplicate", "already", "exists")
+    ):
         return name  # created, or a concurrent create won the race
     return None
 
@@ -408,8 +478,12 @@ async def _int_owner_paid_expense(args: dict) -> dict:
     if expected_realm:
         active_realm = str(getattr(get_ctx(), "realm_id", "") or "")
         if active_realm and active_realm != expected_realm:
-            return {"ok": False, "error": "active QuickBooks company does not match expected_realm_id",
-                    "activeRealm": active_realm, "expectedRealm": expected_realm}
+            return {
+                "ok": False,
+                "error": "active QuickBooks company does not match expected_realm_id",
+                "activeRealm": active_realm,
+                "expectedRealm": expected_realm,
+            }
     booked = _load_booked()
     if key in booked:  # idempotent: already booked → succeed again, never duplicate
         return {"ok": True, "key": key, "alreadyBooked": True, "qb": booked[key]}
@@ -421,8 +495,16 @@ async def _int_owner_paid_expense(args: dict) -> dict:
         return {"ok": False, "error": "amount must be non-zero"}
     date = str(args.get("date") or "")
     cfg = load_config()
-    expense_acct = args.get("expense_account") or cfg.get("owner_paid_expense_account") or "Owner-Paid Expenses (review)"
-    equity_acct = args.get("equity_account") or cfg.get("owner_equity_account") or "Owner's Equity"
+    expense_acct = (
+        args.get("expense_account")
+        or cfg.get("owner_paid_expense_account")
+        or "Owner-Paid Expenses (review)"
+    )
+    equity_acct = (
+        args.get("equity_account")
+        or cfg.get("owner_equity_account")
+        or "Owner's Equity"
+    )
     # First-use bootstrap: ensure both booking accounts exist (fresh QuickBooks companies have
     # neither the review clearing account nor an owner-equity account). Create the clearing account
     # if missing; reuse any existing owner-equity account before creating one.
@@ -430,12 +512,19 @@ async def _int_owner_paid_expense(args: dict) -> dict:
         existing = _parse_account_names(str(await call_tool("qb_list_accounts", {})))
     except Exception:
         existing = {}
-    resolved_expense = await _ensure_account(expense_acct, "Expense", "OfficeGeneralAdministrativeExpenses", existing)
-    resolved_equity = await _ensure_account(equity_acct, "Equity", "OwnersEquity", existing, _OWNER_EQUITY_CANDIDATES)
+    resolved_expense = await _ensure_account(
+        expense_acct, "Expense", "OfficeGeneralAdministrativeExpenses", existing
+    )
+    resolved_equity = await _ensure_account(
+        equity_acct, "Equity", "OwnersEquity", existing, _OWNER_EQUITY_CANDIDATES
+    )
     if not resolved_expense or not resolved_equity:
-        return {"ok": False, "key": key,
-                "error": "Could not ensure the booking accounts exist in QuickBooks.",
-                "needs": f"an Expense clearing account ('{expense_acct}') and an owner Equity account"}
+        return {
+            "ok": False,
+            "key": key,
+            "error": "Could not ensure the booking accounts exist in QuickBooks.",
+            "needs": f"an Expense clearing account ('{expense_acct}') and an owner Equity account",
+        }
     expense_acct, equity_acct = resolved_expense, resolved_equity
     merchant = args.get("realMerchant") or args.get("merchant") or "Owner-paid"
     receipt = args.get("receipt") or {}
@@ -447,18 +536,47 @@ async def _int_owner_paid_expense(args: dict) -> dict:
     if args.get("category"):
         memo += f" | coffer-cat: {args['category']}"
     lines = [
-        {"account_name": expense_acct, "amount": amt, "type": "Debit", "description": memo},
-        {"account_name": equity_acct, "amount": amt, "type": "Credit", "description": memo},
+        {
+            "account_name": expense_acct,
+            "amount": amt,
+            "type": "Debit",
+            "description": memo,
+        },
+        {
+            "account_name": equity_acct,
+            "amount": amt,
+            "type": "Credit",
+            "description": memo,
+        },
     ]
-    result = str(await call_tool("qb_create_journal_entry", {"date": date, "lines_json": json.dumps(lines), "memo": memo}))
+    result = str(
+        await call_tool(
+            "qb_create_journal_entry",
+            {"date": date, "lines_json": json.dumps(lines), "memo": memo},
+        )
+    )
     if "Journal entry created" in result:
-        ref = {"account": expense_acct, "equity": equity_acct, "amount": amt, "date": date}
+        ref = {
+            "account": expense_acct,
+            "equity": equity_acct,
+            "amount": amt,
+            "date": date,
+        }
         _record_booked(key, ref)
-        return {"ok": True, "key": key, "booked": True, "amount": amt,
-                "treatment": f"DR {expense_acct} / CR {equity_acct}",
-                "message": "Booked as an owner-paid business expense (review account); credited owner's equity."}
-    return {"ok": False, "key": key, "error": result,
-            "needs": f"QuickBooks accounts '{expense_acct}' (Expense) and '{equity_acct}' (Equity) must exist."}
+        return {
+            "ok": True,
+            "key": key,
+            "booked": True,
+            "amount": amt,
+            "treatment": f"DR {expense_acct} / CR {equity_acct}",
+            "message": "Booked as an owner-paid business expense (review account); credited owner's equity.",
+        }
+    return {
+        "ok": False,
+        "key": key,
+        "error": result,
+        "needs": f"QuickBooks accounts '{expense_acct}' (Expense) and '{equity_acct}' (Equity) must exist.",
+    }
 
 
 INTEGRATION_HANDLERS = {
@@ -493,7 +611,12 @@ async def api_status(_req: Request) -> JSONResponse:
 async def api_tools(_req: Request) -> JSONResponse:
     tools = _tool_registry()
     return JSONResponse(
-        {"tools": [{"name": n, "description": (t.description or "").split("\n")[0]} for n, t in sorted(tools.items())]}
+        {
+            "tools": [
+                {"name": n, "description": (t.description or "").split("\n")[0]}
+                for n, t in sorted(tools.items())
+            ]
+        }
     )
 
 
@@ -507,7 +630,9 @@ def _is_write_tool(name: str) -> bool:
     global _WRITE_TOOLS_CACHE
     if _WRITE_TOOLS_CACHE is None:
         _WRITE_TOOLS_CACHE = {
-            t.get("name") for t in _manifest().get("tools", []) if not t.get("readOnlyHint")
+            t.get("name")
+            for t in _manifest().get("tools", [])
+            if not t.get("readOnlyHint")
         }
     return name in _WRITE_TOOLS_CACHE
 
@@ -516,11 +641,15 @@ async def mcp_call(req: Request) -> JSONResponse:
     try:
         body = await req.json()
     except Exception:
-        return JSONResponse({"isError": True, "error": "invalid JSON body"}, status_code=400)
+        return JSONResponse(
+            {"isError": True, "error": "invalid JSON body"}, status_code=400
+        )
     name = (body or {}).get("tool")
     args = (body or {}).get("args") or {}
     if not name:
-        return JSONResponse({"isError": True, "error": "missing 'tool'"}, status_code=400)
+        return JSONResponse(
+            {"isError": True, "error": "missing 'tool'"}, status_code=400
+        )
     # Integration dialect: the three contract tools return structured JSON for Coffer,
     # but ONLY when an identity-verified pairing exists AND the caller presents its secret.
     # No pairing / wrong secret → inert (this is the cross-user contamination guard).
@@ -529,11 +658,21 @@ async def mcp_call(req: Request) -> JSONResponse:
         pairing = _load_pairing()
         if not pairing.get("pairing_secret"):
             return JSONResponse(
-                {"error": "AccountingQB isn't linked to a Coffer account yet — pair the two apps first.",
-                 "needs": "pairing"}, status_code=403)
-        presented = req.headers.get("x-aqb-pairing") or (args.get("pairing_secret") if isinstance(args, dict) else None)
-        if not presented or not secrets.compare_digest(str(presented), str(pairing["pairing_secret"])):
-            return JSONResponse({"error": "invalid or missing pairing secret"}, status_code=403)
+                {
+                    "error": "AccountingQB isn't linked to a Coffer account yet — pair the two apps first.",
+                    "needs": "pairing",
+                },
+                status_code=403,
+            )
+        presented = req.headers.get("x-aqb-pairing") or (
+            args.get("pairing_secret") if isinstance(args, dict) else None
+        )
+        if not presented or not secrets.compare_digest(
+            str(presented), str(pairing["pairing_secret"])
+        ):
+            return JSONResponse(
+                {"error": "invalid or missing pairing secret"}, status_code=403
+            )
         if isinstance(args, dict):
             args.pop("pairing_secret", None)  # don't pass the secret through to tools
         try:
@@ -543,11 +682,13 @@ async def mcp_call(req: Request) -> JSONResponse:
     # No silent writes: any book-mutating tool must be explicitly confirmed by the user. The UI
     # gathers the fields in a confirm card and re-sends with confirmed:true (see artifact.html).
     if _is_write_tool(name) and not (isinstance(args, dict) and args.get("confirmed")):
-        return JSONResponse({
-            "needsConfirm": True,
-            "tool": name,
-            "error": f"{name} changes your books — confirm before it runs.",
-        })
+        return JSONResponse(
+            {
+                "needsConfirm": True,
+                "tool": name,
+                "error": f"{name} changes your books — confirm before it runs.",
+            }
+        )
     if isinstance(args, dict):
         args.pop("confirmed", None)  # UI flag; never forwarded to the tool
     try:
@@ -563,7 +704,12 @@ async def sample(req: Request) -> JSONResponse:
     """BYO-key Claude relay. NO proxy — the key never leaves the machine."""
     key = _anthropic_key()
     if not key:
-        return JSONResponse({"needsKey": True, "error": "No Anthropic API key set. Add one to enable chat."})
+        return JSONResponse(
+            {
+                "needsKey": True,
+                "error": "No Anthropic API key set. Add one to enable chat.",
+            }
+        )
     try:
         body = await req.json()
     except Exception:
@@ -572,7 +718,12 @@ async def sample(req: Request) -> JSONResponse:
     messages = body.get("messages")
     if not messages:
         # accept a simple {system, ctx} shape too
-        messages = [{"role": "user", "content": json.dumps(body.get("ctx") or body.get("prompt") or {})}]
+        messages = [
+            {
+                "role": "user",
+                "content": json.dumps(body.get("ctx") or body.get("prompt") or {}),
+            }
+        ]
     model = body.get("model") or DEFAULT_MODEL
     try:
         async with httpx.AsyncClient(timeout=120) as client:
@@ -583,10 +734,17 @@ async def sample(req: Request) -> JSONResponse:
                     "x-api-key": key,
                     "anthropic-version": "2023-06-01",
                 },
-                json={"model": model, "max_tokens": 2048, "system": system, "messages": messages},
+                json={
+                    "model": model,
+                    "max_tokens": 2048,
+                    "system": system,
+                    "messages": messages,
+                },
             )
         if r.status_code != 200:
-            return JSONResponse({"error": f"Anthropic {r.status_code}: {r.text[:400]}"}, status_code=502)
+            return JSONResponse(
+                {"error": f"Anthropic {r.status_code}: {r.text[:400]}"}, status_code=502
+            )
         data = r.json()
         text = "".join(part.get("text", "") for part in data.get("content", []))
         return JSONResponse({"text": text})
@@ -600,7 +758,9 @@ async def chat(req: Request) -> JSONResponse:
     plus a trace of the tools it called. Bounded to keep cost sane on the user's key."""
     key = _anthropic_key()
     if not key:
-        return JSONResponse({"needsKey": True, "error": "Add your Anthropic API key to use chat."})
+        return JSONResponse(
+            {"needsKey": True, "error": "Add your Anthropic API key to use chat."}
+        )
     try:
         body = await req.json()
     except Exception:
@@ -611,17 +771,30 @@ async def chat(req: Request) -> JSONResponse:
     model = body.get("model") or DEFAULT_MODEL
     tools = _anthropic_tools()
     trace: list = []
-    headers = {"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01"}
+    headers = {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+    }
     try:
         async with httpx.AsyncClient(timeout=180) as client:
             for _round in range(6):  # bound tool-use rounds
                 r = await client.post(
                     "https://api.anthropic.com/v1/messages",
                     headers=headers,
-                    json={"model": model, "max_tokens": 2048, "system": _CHAT_SYSTEM, "tools": tools, "messages": messages},
+                    json={
+                        "model": model,
+                        "max_tokens": 2048,
+                        "system": _CHAT_SYSTEM,
+                        "tools": tools,
+                        "messages": messages,
+                    },
                 )
                 if r.status_code != 200:
-                    return JSONResponse({"error": f"Anthropic {r.status_code}: {r.text[:400]}"}, status_code=502)
+                    return JSONResponse(
+                        {"error": f"Anthropic {r.status_code}: {r.text[:400]}"},
+                        status_code=502,
+                    )
                 data = r.json()
                 content = data.get("content", [])
                 messages.append({"role": "assistant", "content": content})
@@ -632,14 +805,34 @@ async def chat(req: Request) -> JSONResponse:
                         trace.append({"tool": tu.get("name"), "args": tu.get("input")})
                         try:
                             out = await call_tool(tu["name"], tu.get("input") or {})
-                            results.append({"type": "tool_result", "tool_use_id": tu["id"], "content": str(out)[:20000]})
+                            results.append(
+                                {
+                                    "type": "tool_result",
+                                    "tool_use_id": tu["id"],
+                                    "content": str(out)[:20000],
+                                }
+                            )
                         except Exception as e:
-                            results.append({"type": "tool_result", "tool_use_id": tu["id"], "content": f"error: {e}", "is_error": True})
+                            results.append(
+                                {
+                                    "type": "tool_result",
+                                    "tool_use_id": tu["id"],
+                                    "content": f"error: {e}",
+                                    "is_error": True,
+                                }
+                            )
                     messages.append({"role": "user", "content": results})
                     continue
-                text = "".join(b.get("text", "") for b in content if b.get("type") == "text")
+                text = "".join(
+                    b.get("text", "") for b in content if b.get("type") == "text"
+                )
                 return JSONResponse({"reply": text, "trace": trace})
-        return JSONResponse({"reply": "I ran several tools but couldn't finish — try narrowing the question.", "trace": trace})
+        return JSONResponse(
+            {
+                "reply": "I ran several tools but couldn't finish — try narrowing the question.",
+                "trace": trace,
+            }
+        )
     except Exception as e:
         return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=502)
 
@@ -669,16 +862,19 @@ async def api_config(req: Request) -> JSONResponse:
 
 async def whoami(_req: Request) -> JSONResponse:
     """Peer-identity probe. Coffer calls this to confirm it's really talking to AccountingQB
-    and to read the active QB realm (to pass back as expected_realm_id). No secret exposed."""
+    and to read the active QB realm (to pass back as expected_realm_id). No secret exposed.
+    """
     p = _load_pairing()
     ctx = get_ctx()
-    return JSONResponse({
-        "app": "accountingqb",
-        "version": _server_version(),
-        "paired": bool(p.get("pairing_secret")),
-        "peerProduct": p.get("peer_product"),
-        "realm": str(getattr(ctx, "realm_id", "") or ""),
-    })
+    return JSONResponse(
+        {
+            "app": "accountingqb",
+            "version": _server_version(),
+            "paired": bool(p.get("pairing_secret")),
+            "peerProduct": p.get("peer_product"),
+            "realm": str(getattr(ctx, "realm_id", "") or ""),
+        }
+    )
 
 
 async def pair(req: Request) -> JSONResponse:
@@ -692,7 +888,9 @@ async def pair(req: Request) -> JSONResponse:
         body = {}
     secret = body.get("pairingSecret") or body.get("pairing_secret")
     if not secret:
-        return JSONResponse({"ok": False, "error": "pairingSecret required"}, status_code=400)
+        return JSONResponse(
+            {"ok": False, "error": "pairingSecret required"}, status_code=400
+        )
     rec = {
         "pairing_secret": str(secret),
         "peer_product": body.get("peerProduct") or "coffer",
@@ -701,7 +899,9 @@ async def pair(req: Request) -> JSONResponse:
         "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
     _save_pairing(rec)
-    return JSONResponse({"ok": True, "paired": True, "peerProduct": rec["peer_product"]})
+    return JSONResponse(
+        {"ok": True, "paired": True, "peerProduct": rec["peer_product"]}
+    )
 
 
 async def unpair(_req: Request) -> JSONResponse:
@@ -718,18 +918,26 @@ async def link_connect(req: Request) -> RedirectResponse:
     peer = req.query_params.get("peer", "coffer")
     verifier, challenge = _pkce_pair()
     state = secrets.token_urlsafe(16)
-    _save_link_state({"verifier": verifier, "state": state, "peer": peer,
-                      "ts": datetime.datetime.now(datetime.timezone.utc).isoformat()})
+    _save_link_state(
+        {
+            "verifier": verifier,
+            "state": state,
+            "peer": peer,
+            "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+    )
     port = req.url.port or PORT
     redirect_uri = f"http://127.0.0.1:{port}/link/callback"
     base = COFFER_API_URL.rstrip("/")  # only 'coffer' peer today
-    params = urllib.parse.urlencode({
-        "peer": "accountingqb",
-        "redirect_uri": redirect_uri,
-        "state": state,
-        "code_challenge": challenge,
-        "code_challenge_method": "S256",
-    })
+    params = urllib.parse.urlencode(
+        {
+            "peer": "accountingqb",
+            "redirect_uri": redirect_uri,
+            "state": state,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+        }
+    )
     return RedirectResponse(f"{base}/link/authorize?{params}", status_code=302)
 
 
@@ -741,59 +949,101 @@ async def link_callback(req: Request) -> HTMLResponse:
     st = _load_link_state()
     if p.get("error"):
         _save_link_state({})
-        return HTMLResponse(_link_result_html("Link canceled", "You can close this tab and try again from AccountingQB.", ok=False), 200)
+        return HTMLResponse(
+            _link_result_html(
+                "Link canceled",
+                "You can close this tab and try again from AccountingQB.",
+                ok=False,
+            ),
+            200,
+        )
     code = p.get("code")
     state = p.get("state")
-    if not code or not state or not st.get("state") or not secrets.compare_digest(state, str(st.get("state"))):
-        return HTMLResponse(_link_result_html("Link failed", "State mismatch — please retry the connection.", ok=False), 400)
+    if (
+        not code
+        or not state
+        or not st.get("state")
+        or not secrets.compare_digest(state, str(st.get("state")))
+    ):
+        return HTMLResponse(
+            _link_result_html(
+                "Link failed", "State mismatch — please retry the connection.", ok=False
+            ),
+            400,
+        )
     peer = st.get("peer", "coffer")
     base = COFFER_API_URL.rstrip("/")
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            r = await client.post(f"{base}/api/link/redeem",
-                                  json={"code": code, "codeVerifier": st.get("verifier", "")})
+            r = await client.post(
+                f"{base}/api/link/redeem",
+                json={"code": code, "codeVerifier": st.get("verifier", "")},
+            )
         data = r.json() if r.status_code == 200 else {}
     except Exception:
-        return HTMLResponse(_link_result_html("Link failed", f"Could not reach {peer}. Is it online?", ok=False), 502)
+        return HTMLResponse(
+            _link_result_html(
+                "Link failed", f"Could not reach {peer}. Is it online?", ok=False
+            ),
+            502,
+        )
     secret = data.get("pairingSecret")
     if not secret:
         detail = data.get("error") or "the peer rejected the code"
-        return HTMLResponse(_link_result_html("Link failed", f"{detail}. Please retry.", ok=False), 400)
+        return HTMLResponse(
+            _link_result_html("Link failed", f"{detail}. Please retry.", ok=False), 400
+        )
     rec = _load_pairing()
-    rec.update({
-        "pairing_secret": str(secret),
-        "peer_product": data.get("peerProduct") or peer,
-        "peer_base_url": base,
-        "linked_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-    })
+    rec.update(
+        {
+            "pairing_secret": str(secret),
+            "peer_product": data.get("peerProduct") or peer,
+            "peer_base_url": base,
+            "linked_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+    )
     _save_pairing(rec)
     _save_link_state({})
-    return HTMLResponse(_link_result_html(f"{peer.title()} connected ✓", "You can close this tab and return to AccountingQB."), 200)
+    return HTMLResponse(
+        _link_result_html(
+            f"{peer.title()} connected ✓",
+            "You can close this tab and return to AccountingQB.",
+        ),
+        200,
+    )
 
 
 async def link_refresh(_req: Request) -> JSONResponse:
     """Pull this account's pairing secret from the web and store it locally. Used after a
     peer-initiated 'Connect AccountingQB' link (the secret was minted when the peer redeemed our
-    code) so incoming Coffer→AccountingQB calls are accepted. Idempotent; needs a license key."""
+    code) so incoming Coffer→AccountingQB calls are accepted. Idempotent; needs a license key.
+    """
     lic = getattr(qb, "LICENSE_KEY", "") or load_config().get("license_key", "")
     if not lic:
-        return JSONResponse({"paired": False, "error": "no license key configured"}, status_code=400)
+        return JSONResponse(
+            {"paired": False, "error": "no license key configured"}, status_code=400
+        )
     base = AQB_API_URL.rstrip("/")
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.get(f"{base}/api/link/status", params={"key": lic})
         data = r.json() if r.status_code == 200 else {}
     except Exception as e:
-        return JSONResponse({"paired": False, "error": f"{type(e).__name__}"}, status_code=502)
+        return JSONResponse(
+            {"paired": False, "error": f"{type(e).__name__}"}, status_code=502
+        )
     if data.get("paired") and data.get("pairingSecret"):
         rec = _load_pairing()
-        rec.update({
-            "pairing_secret": str(data["pairingSecret"]),
-            "peer_product": data.get("peerProduct") or "coffer",
-            "peer_identity": data.get("peerIdentity") or rec.get("peer_identity", ""),
-            "peer_base_url": rec.get("peer_base_url") or COFFER_API_URL.rstrip("/"),
-            "linked_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        })
+        rec.update(
+            {
+                "pairing_secret": str(data["pairingSecret"]),
+                "peer_product": data.get("peerProduct") or "coffer",
+                "peer_identity": data.get("peerIdentity")
+                or rec.get("peer_identity", ""),
+                "peer_base_url": rec.get("peer_base_url") or COFFER_API_URL.rstrip("/"),
+                "linked_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            }
+        )
         _save_pairing(rec)
         return JSONResponse({"paired": True, "peerProduct": rec["peer_product"]})
     return JSONResponse({"paired": False})
@@ -812,7 +1062,9 @@ async def oauth_start(req: Request) -> RedirectResponse:
         # Hosted broker path (no Intuit app needed): hand off to the web connect flow.
         lic = getattr(qb, "LICENSE_KEY", "") or cfg.get("license_key", "")
         api = os.environ.get("QB_API_URL", "https://accountingqb.com").rstrip("/")
-        dest = f"{api}/setup-wizard" + (f"?key={urllib.parse.quote(lic)}" if lic else "")
+        dest = f"{api}/setup-wizard" + (
+            f"?key={urllib.parse.quote(lic)}" if lic else ""
+        )
         return RedirectResponse(dest, status_code=302)
     state = secrets.token_urlsafe(16)
     save_config({"oauth_state": state})
@@ -831,13 +1083,18 @@ async def oauth_start(req: Request) -> RedirectResponse:
 async def oauth_callback(req: Request) -> HTMLResponse:
     p = req.query_params
     if p.get("error"):
-        return HTMLResponse(f"<h1>Authorization failed</h1><p>{p.get('error_description', p.get('error'))}</p>", 400)
+        return HTMLResponse(
+            f"<h1>Authorization failed</h1><p>{p.get('error_description', p.get('error'))}</p>",
+            400,
+        )
     code = p.get("code")
     realm = p.get("realmId")
     if not code:
         return HTMLResponse("<h1>Missing authorization code</h1>", 400)
     if p.get("state") and p.get("state") != load_config().get("oauth_state"):
-        return HTMLResponse("<h1>State mismatch</h1><p>Please retry the connection.</p>", 400)
+        return HTMLResponse(
+            "<h1>State mismatch</h1><p>Please retry the connection.</p>", 400
+        )
     cfg = load_config()
     client_id = os.environ.get("QB_CLIENT_ID") or cfg.get("qb_client_id")
     client_secret = os.environ.get("QB_CLIENT_SECRET") or cfg.get("qb_client_secret")
@@ -845,12 +1102,18 @@ async def oauth_callback(req: Request) -> HTMLResponse:
         async with httpx.AsyncClient(timeout=30) as client:
             r = await client.post(
                 OAUTH_TOKEN_URL,
-                data={"grant_type": "authorization_code", "code": code, "redirect_uri": _redirect_uri(req)},
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": _redirect_uri(req),
+                },
                 auth=(client_id, client_secret),
                 headers={"Accept": "application/json"},
             )
         if r.status_code != 200:
-            return HTMLResponse(f"<h1>Token exchange failed</h1><pre>{r.text[:500]}</pre>", 400)
+            return HTMLResponse(
+                f"<h1>Token exchange failed</h1><pre>{r.text[:500]}</pre>", 400
+            )
         tok = r.json()
     except Exception as e:
         return HTMLResponse(f"<h1>Token exchange error</h1><pre>{e}</pre>", 502)
@@ -872,9 +1135,11 @@ async def oauth_callback(req: Request) -> HTMLResponse:
 
 
 _ARTIFACT_PATH = _RES / "artifact.html"
-_VENDOR_DIR = _RES / "vendor"   # bundled JS (pdfmake) shipped next to the artifact
+_VENDOR_DIR = _RES / "vendor"  # bundled JS (pdfmake) shipped next to the artifact
 # CHANGELOG.md (repo root; bundled into the sidecar) powers the in-app "What's new" panel.
-_CHANGELOG_PATH = (_RES / "CHANGELOG.md") if _BUNDLE_DIR else (_REPO_ROOT / "CHANGELOG.md")
+_CHANGELOG_PATH = (
+    (_RES / "CHANGELOG.md") if _BUNDLE_DIR else (_REPO_ROOT / "CHANGELOG.md")
+)
 
 
 async def vendor(req: Request) -> Response:
@@ -886,8 +1151,12 @@ async def vendor(req: Request) -> Response:
     f = _VENDOR_DIR / name
     if not f.exists() or not f.is_file():
         return PlainTextResponse("not found", status_code=404)
-    ct = "application/javascript" if name.endswith(".js") else "application/octet-stream"
-    return Response(f.read_bytes(), media_type=ct, headers={"cache-control": "max-age=86400"})
+    ct = (
+        "application/javascript" if name.endswith(".js") else "application/octet-stream"
+    )
+    return Response(
+        f.read_bytes(), media_type=ct, headers={"cache-control": "max-age=86400"}
+    )
 
 
 # --- Client Package: real multi-sheet, formatted .xlsx (openpyxl) from already-gathered sections ---
@@ -897,11 +1166,16 @@ _XLSX_FMT = "#,##0.00;(#,##0.00)"
 
 def _xlsx_cell(s):
     """Return (value, is_number). Parse '$1,234.00' / '(20,224)' into real numbers so the workbook is
-    sortable/sum-able; leave non-numeric strings as text. Never re-computes — just types the value."""
+    sortable/sum-able; leave non-numeric strings as text. Never re-computes — just types the value.
+    """
     s = str(s or "").strip()
     if not s:
         return "", False
-    if _XLSX_NUM.match(s) and any(c.isdigit() for c in s) and not s.strip("*").endswith("%"):
+    if (
+        _XLSX_NUM.match(s)
+        and any(c.isdigit() for c in s)
+        and not s.strip("*").endswith("%")
+    ):
         neg = s.lstrip("*").startswith(("(", "-", "–"))
         try:
             return (-1 if neg else 1) * float(re.sub(r"[^\d.]", "", s)), True
@@ -922,7 +1196,8 @@ def _xlsx_sheet_title(t, used):
 
 async def export_xlsx(req: Request) -> Response:
     """Build a formatted, multi-sheet Excel workbook from the sections the UI already gathered
-    (each figure is a live QuickBooks value — the server only formats, never computes)."""
+    (each figure is a live QuickBooks value — the server only formats, never computes).
+    """
     try:
         body = await req.json()
     except Exception:
@@ -933,7 +1208,10 @@ async def export_xlsx(req: Request) -> Response:
         from openpyxl.styles import Alignment, Font
         from openpyxl.utils import get_column_letter
     except Exception:
-        return JSONResponse({"error": "Excel export unavailable (openpyxl not installed)."}, status_code=501)
+        return JSONResponse(
+            {"error": "Excel export unavailable (openpyxl not installed)."},
+            status_code=501,
+        )
 
     client = str(body.get("client") or "Client")
     period = body.get("period") or {}
@@ -947,7 +1225,10 @@ async def export_xlsx(req: Request) -> Response:
     cover["A1"] = "AccountingQB — Financial Package"
     cover["A1"].font = Font(bold=True, size=16)
     cover["A3"], cover["B3"] = "Client", client
-    cover["A4"], cover["B4"] = "Period", f"{period.get('start', '')} to {period.get('end', '')}"
+    cover["A4"], cover["B4"] = (
+        "Period",
+        f"{period.get('start', '')} to {period.get('end', '')}",
+    )
     cover["A3"].font = cover["A4"].font = bold
     if narrative:
         cover["A6"] = "Management commentary"
@@ -967,14 +1248,19 @@ async def export_xlsx(req: Request) -> Response:
             ws.append(header)
             for c in ws[1]:
                 c.font = bold
-            for r in (parsed.get("rows") or []):
+            for r in parsed.get("rows") or []:
                 vals, isnum = [], []
                 for cell in r:
                     v, n = _xlsx_cell(cell)
                     vals.append(v)
                     isnum.append(n)
                 ws.append(vals)
-                total = str(r[0] if r else "").lower().lstrip("*").startswith(("total", "net ", "gross ", "subtotal"))
+                total = (
+                    str(r[0] if r else "")
+                    .lower()
+                    .lstrip("*")
+                    .startswith(("total", "net ", "gross ", "subtotal"))
+                )
                 for i, cell in enumerate(ws[ws.max_row]):
                     if i < len(isnum) and isnum[i]:
                         cell.number_format = _XLSX_FMT
@@ -991,7 +1277,7 @@ async def export_xlsx(req: Request) -> Response:
                 for c in ws[ws.max_row]:
                     c.font = bold
                 ws.freeze_panes = "A2"
-            for it in (parsed.get("items") or []):
+            for it in parsed.get("items") or []:
                 if it.get("sub"):
                     ws.append([it["sub"]])
                     ws[ws.max_row][0].font = Font(bold=True, color="FF0A5C39")
@@ -1045,10 +1331,16 @@ async def templates_list_or_save(req: Request) -> JSONResponse:
             return JSONResponse({"error": "template name required"}, status_code=400)
         TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
         tmp = TEMPLATES_DIR / (name + ".json.tmp")
-        tmp.write_text(json.dumps({"name": name, "config": body.get("config") or {}}, indent=2))
+        tmp.write_text(
+            json.dumps({"name": name, "config": body.get("config") or {}}, indent=2)
+        )
         tmp.replace(TEMPLATES_DIR / (name + ".json"))
         return JSONResponse({"ok": True, "name": name})
-    names = sorted(f.stem for f in TEMPLATES_DIR.glob("*.json")) if TEMPLATES_DIR.exists() else []
+    names = (
+        sorted(f.stem for f in TEMPLATES_DIR.glob("*.json"))
+        if TEMPLATES_DIR.exists()
+        else []
+    )
     return JSONResponse({"templates": names})
 
 
@@ -1097,7 +1389,8 @@ def _parse_changelog(text: str) -> "list[dict]":
 
 async def api_whatsnew(req: Request) -> JSONResponse:
     """The release-notes entry for a version (defaults to the running app version), for the
-    in-app "What's new" panel. Read-only, localhost-only. Returns {} if there's no changelog."""
+    in-app "What's new" panel. Read-only, localhost-only. Returns {} if there's no changelog.
+    """
     try:
         entries = _parse_changelog(_CHANGELOG_PATH.read_text())
     except Exception:
@@ -1169,7 +1462,11 @@ def pick_port() -> int:
     env = os.environ.get("ACCOUNTINGQB_PORT") or os.environ.get("PORT")
     if env:
         return int(env)
-    for p in (4318, 4319, 4320):  # 4318 = the port Coffer/Hearth's contract expects (Hearth is 4317)
+    for p in (
+        4318,
+        4319,
+        4320,
+    ):  # 4318 = the port Coffer/Hearth's contract expects (Hearth is 4317)
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             if s.connect_ex(("127.0.0.1", p)) != 0:
                 return p
@@ -1217,7 +1514,8 @@ refresh();
 def _bootstrap_profile() -> None:
     """Reuse the saved account profile: hand the license to the connector and pre-load the user's
     already-connected QuickBooks company (hosted mode) so the desktop is configured on launch — the
-    SAME account as the Cowork plugin, no re-OAuth, no duplicate. Non-fatal if offline/unlicensed."""
+    SAME account as the Cowork plugin, no re-OAuth, no duplicate. Non-fatal if offline/unlicensed.
+    """
     lic = os.environ.get("QB_LICENSE_KEY") or load_config().get("license_key", "")
     if not lic:
         return
@@ -1226,7 +1524,9 @@ def _bootstrap_profile() -> None:
         ctx = get_ctx()
         ctx.license_key = lic
         if qb._fetch_hosted_tokens(ctx):
-            print(f"  Profile loaded (hosted): QuickBooks company realm {getattr(ctx, 'realm_id', '') or '—'}")
+            print(
+                f"  Profile loaded (hosted): QuickBooks company realm {getattr(ctx, 'realm_id', '') or '—'}"
+            )
         else:
             print("  License set; no connected QuickBooks company found for it yet.")
     except Exception as e:  # pragma: no cover - network/offline
@@ -1237,7 +1537,8 @@ def _bootstrap_pairing() -> None:
     """Restore the Coffer pairing from the web on launch. The web (account_links, keyed by license)
     is the source of truth; the local pairing.json is only a cache that a restart / fresh install /
     unpair can empty — which left whoami reporting paired:false and Coffer firing into an inert peer.
-    Re-pulling here guarantees the shim comes up paired whenever the account is linked. Non-fatal."""
+    Re-pulling here guarantees the shim comes up paired whenever the account is linked. Non-fatal.
+    """
     lic = os.environ.get("QB_LICENSE_KEY") or load_config().get("license_key", "")
     if not lic:
         return
@@ -1251,13 +1552,16 @@ def _bootstrap_pairing() -> None:
         return
     if data.get("paired") and data.get("pairingSecret"):
         rec = _load_pairing()
-        rec.update({
-            "pairing_secret": str(data["pairingSecret"]),
-            "peer_product": data.get("peerProduct") or "coffer",
-            "peer_identity": data.get("peerIdentity") or rec.get("peer_identity", ""),
-            "peer_base_url": rec.get("peer_base_url") or COFFER_API_URL.rstrip("/"),
-            "linked_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        })
+        rec.update(
+            {
+                "pairing_secret": str(data["pairingSecret"]),
+                "peer_product": data.get("peerProduct") or "coffer",
+                "peer_identity": data.get("peerIdentity")
+                or rec.get("peer_identity", ""),
+                "peer_base_url": rec.get("peer_base_url") or COFFER_API_URL.rstrip("/"),
+                "linked_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            }
+        )
         _save_pairing(rec)
         print("  Coffer pairing restored from web (paired).")
     elif not _load_pairing().get("pairing_secret"):
@@ -1266,17 +1570,23 @@ def _bootstrap_pairing() -> None:
 
 def main() -> None:
     _bootstrap_profile()
-    _bootstrap_pairing()   # restore Coffer pairing from web so a restart never comes up inert
+    _bootstrap_pairing()  # restore Coffer pairing from web so a restart never comes up inert
     url = f"http://127.0.0.1:{PORT}"
     print(f"\n  AccountingQB local is live → {url}\n")
     if not os.environ.get("ACCOUNTINGQB_NO_OPEN"):
         try:
             if sys.platform == "darwin":
-                subprocess.Popen(["open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.Popen(
+                    ["open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
             elif sys.platform.startswith("win"):
                 os.startfile(url)  # type: ignore[attr-defined]
             else:
-                subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.Popen(
+                    ["xdg-open", url],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
         except Exception:
             pass
     uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="warning")

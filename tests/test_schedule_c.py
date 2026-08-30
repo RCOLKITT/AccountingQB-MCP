@@ -11,36 +11,57 @@ import re
 
 import accountingqb.server as s
 
-
 # --- Synthetic P&L with the exact account names QA flagged --------------------
 _EXPENSES = {
-    "Taxis or shared rides": 690.94,      # must be Travel (24a), NOT Taxes (23)
-    "Credit Card Interest": 7417.04,      # Other interest (16b), NOT 16a
-    "Mortgage Interest": 3613.41,         # 16a
-    "Business Licences": 806.00,          # Taxes & licenses (23)
-    "Hotels": 690.30,                     # Travel (24a)
-    "Electricity": 317.00,                # Utilities (25)
-    "Advertising": 500.00,                # 8
-    "Office Supplies": 1200.00,           # 18
+    "Taxis or shared rides": 690.94,  # must be Travel (24a), NOT Taxes (23)
+    "Credit Card Interest": 7417.04,  # Other interest (16b), NOT 16a
+    "Mortgage Interest": 3613.41,  # 16a
+    "Business Licences": 806.00,  # Taxes & licenses (23)
+    "Hotels": 690.30,  # Travel (24a)
+    "Electricity": 317.00,  # Utilities (25)
+    "Advertising": 500.00,  # 8
+    "Office Supplies": 1200.00,  # 18
 }
 _INCOME = 57.06
 _EXP_TOTAL = round(sum(_EXPENSES.values()), 2)  # 15234.69
 
 
 def _pl_fixture():
-    exp_rows = [{"ColData": [{"value": n}, {"value": f"{v}"}]}
-                for n, v in _EXPENSES.items()]
-    return {"Rows": {"Row": [
-        {"Header": {"ColData": [{"value": "Income"}]},
-         "Rows": {"Row": [{"ColData": [{"value": "Other Income"},
-                                       {"value": f"{_INCOME}"}]}]},
-         "Summary": {"ColData": [{"value": "Total Income"},
-                                 {"value": f"{_INCOME}"}]}},
-        {"Header": {"ColData": [{"value": "Expenses"}]},
-         "Rows": {"Row": exp_rows},
-         "Summary": {"ColData": [{"value": "Total Expenses"},
-                                 {"value": f"{_EXP_TOTAL}"}]}},
-    ]}}
+    exp_rows = [
+        {"ColData": [{"value": n}, {"value": f"{v}"}]} for n, v in _EXPENSES.items()
+    ]
+    return {
+        "Rows": {
+            "Row": [
+                {
+                    "Header": {"ColData": [{"value": "Income"}]},
+                    "Rows": {
+                        "Row": [
+                            {
+                                "ColData": [
+                                    {"value": "Other Income"},
+                                    {"value": f"{_INCOME}"},
+                                ]
+                            }
+                        ]
+                    },
+                    "Summary": {
+                        "ColData": [{"value": "Total Income"}, {"value": f"{_INCOME}"}]
+                    },
+                },
+                {
+                    "Header": {"ColData": [{"value": "Expenses"}]},
+                    "Rows": {"Row": exp_rows},
+                    "Summary": {
+                        "ColData": [
+                            {"value": "Total Expenses"},
+                            {"value": f"{_EXP_TOTAL}"},
+                        ]
+                    },
+                },
+            ]
+        }
+    }
 
 
 def _patch(monkeypatch):
@@ -51,8 +72,12 @@ def _patch(monkeypatch):
         return {"QueryResponse": {}}
 
     async def fake_region():
-        return {"region": "US", "subdivision": "", "home_currency": "USD",
-                "multicurrency": False}
+        return {
+            "region": "US",
+            "subdivision": "",
+            "home_currency": "USD",
+            "multicurrency": False,
+        }
 
     monkeypatch.setattr(s, "qb_request", fake_request)
     monkeypatch.setattr(s, "qb_query", fake_query)
@@ -71,17 +96,19 @@ def _line(name):
 
 def test_matcher_no_substring_bugs():
     assert _line("Delta Platinum Business Card") == "27a"  # not car (catch-all)
-    assert _line("Taxis or shared rides") == "24a"         # not tax
-    assert _line("Credit Card Interest") == "16b"          # not mortgage
+    assert _line("Taxis or shared rides") == "24a"  # not tax
+    assert _line("Credit Card Interest") == "16b"  # not mortgage
     assert _line("Mortgage Interest") == "16a"
-    assert _line("Advertising") == "8"                     # stem match
+    assert _line("Advertising") == "8"  # stem match
     assert _line("Electricity") == "25"
 
 
 def test_nothing_dropped_reconciles():
     res = s._map_expenses_to_schedule_c(_EXPENSES)
     total = sum(d["amount"] for d in res["lines"].values())
-    total += sum(a for _, a in res["home_indirect"]) + sum(a for _, a in res["mileage_excluded"])
+    total += sum(a for _, a in res["home_indirect"]) + sum(
+        a for _, a in res["mileage_excluded"]
+    )
     assert abs(total - _EXP_TOTAL) < 0.01  # every dollar lands somewhere
 
 
@@ -100,8 +127,9 @@ def test_schedule_c_reconciles_to_pl(monkeypatch):
 def test_two_schedule_c_tools_agree(monkeypatch):
     _patch(monkeypatch)
     a = _dollar(asyncio.run(s.qb_schedule_c("2025")), "Line 28 — Total expenses")
-    b = _dollar(asyncio.run(s.qb_schedule_c_detailed("2025")),
-                "Line 28 — Total expenses")
+    b = _dollar(
+        asyncio.run(s.qb_schedule_c_detailed("2025")), "Line 28 — Total expenses"
+    )
     assert a is not None and b is not None
     assert abs(a - b) < 0.01, f"tools disagree: {a} vs {b}"
     assert abs(a - _EXP_TOTAL) < 0.01

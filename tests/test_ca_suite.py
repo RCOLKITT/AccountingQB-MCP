@@ -31,74 +31,156 @@ def _prime_ctx(ctx):
 # ---------------------------------------------------------------------------
 
 INVOICES = [  # 113 total incl. 13 HST -> line 101 += 100, line 103 += 13
-    {"Id": "1", "TxnDate": "2026-01-10", "TotalAmt": 113.0,
-     "TxnTaxDetail": {"TotalTax": 13.0}},
+    {
+        "Id": "1",
+        "TxnDate": "2026-01-10",
+        "TotalAmt": 113.0,
+        "TxnTaxDetail": {"TotalTax": 13.0},
+    },
 ]
 SALES_RECEIPTS = [  # 226 total incl. 26 -> line 101 += 200, line 103 += 26
-    {"Id": "2", "TxnDate": "2026-02-05", "TotalAmt": 226.0,
-     "TxnTaxDetail": {"TotalTax": 26.0}},
+    {
+        "Id": "2",
+        "TxnDate": "2026-02-05",
+        "TotalAmt": 226.0,
+        "TxnTaxDetail": {"TotalTax": 26.0},
+    },
 ]
 PURCHASES = [
     # plain office purchase: full $5.00 ITC
-    {"Id": "3", "TxnDate": "2026-01-20", "TotalAmt": 105.0,
-     "EntityRef": {"value": "10", "name": "Staples"},
-     "TxnTaxDetail": {"TotalTax": 5.0},
-     "Line": [{"Amount": 100.0, "DetailType": "AccountBasedExpenseLineDetail",
-               "AccountBasedExpenseLineDetail": {
-                   "AccountRef": {"name": "Office Supplies"}}}]},
+    {
+        "Id": "3",
+        "TxnDate": "2026-01-20",
+        "TotalAmt": 105.0,
+        "EntityRef": {"value": "10", "name": "Staples"},
+        "TxnTaxDetail": {"TotalTax": 5.0},
+        "Line": [
+            {
+                "Amount": 100.0,
+                "DetailType": "AccountBasedExpenseLineDetail",
+                "AccountBasedExpenseLineDetail": {
+                    "AccountRef": {"name": "Office Supplies"}
+                },
+            }
+        ],
+    },
     # meals purchase: only 50% of the $6.50 GST/HST claimable -> $3.25
-    {"Id": "4", "TxnDate": "2026-02-14", "TotalAmt": 56.50,
-     "EntityRef": {"value": "11", "name": "The Keg"},
-     "TxnTaxDetail": {"TotalTax": 6.50},
-     "Line": [{"Amount": 50.0, "DetailType": "AccountBasedExpenseLineDetail",
-               "AccountBasedExpenseLineDetail": {
-                   "AccountRef": {"name": "Meals and Entertainment"}}}]},
+    {
+        "Id": "4",
+        "TxnDate": "2026-02-14",
+        "TotalAmt": 56.50,
+        "EntityRef": {"value": "11", "name": "The Keg"},
+        "TxnTaxDetail": {"TotalTax": 6.50},
+        "Line": [
+            {
+                "Amount": 50.0,
+                "DetailType": "AccountBasedExpenseLineDetail",
+                "AccountBasedExpenseLineDetail": {
+                    "AccountRef": {"name": "Meals and Entertainment"}
+                },
+            }
+        ],
+    },
 ]
 BILLS = [
-    {"Id": "5", "TxnDate": "2026-03-01", "TotalAmt": 42.0,
-     "VendorRef": {"value": "12", "name": "Landlord"},
-     "TxnTaxDetail": {"TotalTax": 2.0},
-     "Line": [{"Amount": 40.0, "DetailType": "AccountBasedExpenseLineDetail",
-               "AccountBasedExpenseLineDetail": {
-                   "AccountRef": {"name": "Rent"}}}]},
+    {
+        "Id": "5",
+        "TxnDate": "2026-03-01",
+        "TotalAmt": 42.0,
+        "VendorRef": {"value": "12", "name": "Landlord"},
+        "TxnTaxDetail": {"TotalTax": 2.0},
+        "Line": [
+            {
+                "Amount": 40.0,
+                "DetailType": "AccountBasedExpenseLineDetail",
+                "AccountBasedExpenseLineDetail": {"AccountRef": {"name": "Rent"}},
+            }
+        ],
+    },
 ]
 TAX_PAYMENTS = [
     {"Id": "6", "PaymentDate": "2026-02-15", "PaymentAmount": 500.0},
     {"Id": "7", "PaymentDate": "2025-11-30", "PaymentAmount": 999.0},  # out of range
 ]
 T4A_VENDORS = [
-    {"Id": "10", "DisplayName": "Design Co", "TaxIdentifier": "123456789RT0001",
-     "BillAddr": {"Line1": "1 Main St", "City": "Toronto",
-                  "CountrySubDivisionCode": "ON", "PostalCode": "M1M 1M1"}},
+    {
+        "Id": "10",
+        "DisplayName": "Design Co",
+        "TaxIdentifier": "123456789RT0001",
+        "BillAddr": {
+            "Line1": "1 Main St",
+            "City": "Toronto",
+            "CountrySubDivisionCode": "ON",
+            "PostalCode": "M1M 1M1",
+        },
+    },
     {"Id": "11", "DisplayName": "Corner Coffee"},
 ]
 T4A_PURCHASES = [
-    {"Id": "20", "TxnDate": "2026-04-01", "TotalAmt": 1200.0,
-     "EntityRef": {"value": "10", "name": "Design Co"}},
-    {"Id": "21", "TxnDate": "2026-04-02", "TotalAmt": 100.0,
-     "EntityRef": {"value": "11", "name": "Corner Coffee"}},
+    {
+        "Id": "20",
+        "TxnDate": "2026-04-01",
+        "TotalAmt": 1200.0,
+        "EntityRef": {"value": "10", "name": "Design Co"},
+    },
+    {
+        "Id": "21",
+        "TxnDate": "2026-04-02",
+        "TotalAmt": 100.0,
+        "EntityRef": {"value": "11", "name": "Corner Coffee"},
+    },
 ]
 
-PL_REPORT = {"Rows": {"Row": [
-    {"Header": {"ColData": [{"value": "Income"}]},
-     "Rows": {"Row": [{"ColData": [{"value": "Sales"}, {"value": "1000.00"}]}]},
-     "Summary": {"ColData": [{"value": "Total Income"}, {"value": "1000.00"}]}},
-    {"Header": {"ColData": [{"value": "Expenses"}]},
-     "Rows": {"Row": [
-         {"ColData": [{"value": "Advertising"}, {"value": "100.00"}]},
-         {"ColData": [{"value": "Meals and Entertainment"}, {"value": "80.00"}]},
-     ]},
-     "Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "180.00"}]}},
-]}}
+PL_REPORT = {
+    "Rows": {
+        "Row": [
+            {
+                "Header": {"ColData": [{"value": "Income"}]},
+                "Rows": {
+                    "Row": [{"ColData": [{"value": "Sales"}, {"value": "1000.00"}]}]
+                },
+                "Summary": {
+                    "ColData": [{"value": "Total Income"}, {"value": "1000.00"}]
+                },
+            },
+            {
+                "Header": {"ColData": [{"value": "Expenses"}]},
+                "Rows": {
+                    "Row": [
+                        {"ColData": [{"value": "Advertising"}, {"value": "100.00"}]},
+                        {
+                            "ColData": [
+                                {"value": "Meals and Entertainment"},
+                                {"value": "80.00"},
+                            ]
+                        },
+                    ]
+                },
+                "Summary": {
+                    "ColData": [{"value": "Total Expenses"}, {"value": "180.00"}]
+                },
+            },
+        ]
+    }
+}
 
-PL_REPORT_200K = {"Rows": {"Row": [
-    {"Summary": {"ColData": [{"value": "Total Income"}, {"value": "200000.00"}]}},
-    {"Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "0.00"}]}},
-]}}
+PL_REPORT_200K = {
+    "Rows": {
+        "Row": [
+            {
+                "Summary": {
+                    "ColData": [{"value": "Total Income"}, {"value": "200000.00"}]
+                }
+            },
+            {"Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "0.00"}]}},
+        ]
+    }
+}
 
 
-def _query_dispatcher(country="CA", vendors=None, purchases=None, bills=None,
-                      province=None, agencies=None):
+def _query_dispatcher(
+    country="CA", vendors=None, purchases=None, bills=None, province=None, agencies=None
+):
     vendors = T4A_VENDORS if vendors is None else vendors
     purchases = PURCHASES if purchases is None else purchases
     bills = BILLS if bills is None else bills
@@ -118,7 +200,9 @@ def _query_dispatcher(country="CA", vendors=None, purchases=None, bills=None,
         if "FROM Invoice" in q:
             return Response(200, json={"QueryResponse": {"Invoice": INVOICES}})
         if "FROM SalesReceipt" in q:
-            return Response(200, json={"QueryResponse": {"SalesReceipt": SALES_RECEIPTS}})
+            return Response(
+                200, json={"QueryResponse": {"SalesReceipt": SALES_RECEIPTS}}
+            )
         if "FROM Purchase" in q:
             return Response(200, json={"QueryResponse": {"Purchase": purchases}})
         if "FROM Bill" in q:
@@ -128,19 +212,39 @@ def _query_dispatcher(country="CA", vendors=None, purchases=None, bills=None,
         if "FROM Vendor" in q:
             return Response(200, json={"QueryResponse": {"Vendor": vendors}})
         if "FROM Account" in q:
-            return Response(200, json={"QueryResponse": {"Account": [
-                {"Id": "80", "Name": "Computer Equipment",
-                 "AccountType": "Fixed Asset", "CurrentBalance": 9000.0}]}})
+            return Response(
+                200,
+                json={
+                    "QueryResponse": {
+                        "Account": [
+                            {
+                                "Id": "80",
+                                "Name": "Computer Equipment",
+                                "AccountType": "Fixed Asset",
+                                "CurrentBalance": 9000.0,
+                            }
+                        ]
+                    }
+                },
+            )
         return Response(200, json={"QueryResponse": {}})
+
     return handler
 
 
 def _prefs_response(partner_tax=False, currency="CAD"):
-    return Response(200, json={"Preferences": {
-        "TaxPrefs": {"PartnerTaxEnabled": partner_tax},
-        "CurrencyPrefs": {"MultiCurrencyEnabled": False,
-                          "HomeCurrency": {"value": currency}},
-    }})
+    return Response(
+        200,
+        json={
+            "Preferences": {
+                "TaxPrefs": {"PartnerTaxEnabled": partner_tax},
+                "CurrencyPrefs": {
+                    "MultiCurrencyEnabled": False,
+                    "HomeCurrency": {"value": currency},
+                },
+            }
+        },
+    )
 
 
 def _ca_router(router, **dispatcher_kwargs):
@@ -152,13 +256,27 @@ def _ca_router(router, **dispatcher_kwargs):
 # qb_gst_hst_return
 # ---------------------------------------------------------------------------
 
+
 def test_gst_hst_return_workpaper_math_with_report_fallback(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
         _ca_router(router)
-        router.get(TAX_SUMMARY_URL).mock(return_value=Response(400, json={
-            "Fault": {"Error": [{"code": "4000", "Message": "bad request",
-                                 "Detail": "no report"}]}}))
+        router.get(TAX_SUMMARY_URL).mock(
+            return_value=Response(
+                400,
+                json={
+                    "Fault": {
+                        "Error": [
+                            {
+                                "code": "4000",
+                                "Message": "bad request",
+                                "Detail": "no report",
+                            }
+                        ]
+                    }
+                },
+            )
+        )
 
         result = asyncio.run(qb_server.qb_gst_hst_return("2026-01-01", "2026-03-31"))
 
@@ -180,20 +298,34 @@ def test_gst_hst_return_workpaper_math_with_report_fallback(qb_ctx):
     # Quick Method eligibility note ($339 tax-included << $400k)
     assert "Quick Method" in result
     # Mandatory footer
-    assert ("This is a workpaper, not a filing. Verify against QuickBooks' "
-            "Sales Tax Centre before filing with CRA.") in result
+    assert (
+        "This is a workpaper, not a filing. Verify against QuickBooks' "
+        "Sales Tax Centre before filing with CRA."
+    ) in result
 
 
 def test_gst_hst_return_renders_taxsummary_report_rows(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
         _ca_router(router)
-        router.get(TAX_SUMMARY_URL).mock(return_value=Response(200, json={
-            "Header": {"ReportName": "TaxSummary"},
-            "Rows": {"Row": [
-                {"ColData": [{"value": "Line 101 Gross sales"}, {"value": "300.00"}]},
-            ]},
-        }))
+        router.get(TAX_SUMMARY_URL).mock(
+            return_value=Response(
+                200,
+                json={
+                    "Header": {"ReportName": "TaxSummary"},
+                    "Rows": {
+                        "Row": [
+                            {
+                                "ColData": [
+                                    {"value": "Line 101 Gross sales"},
+                                    {"value": "300.00"},
+                                ]
+                            },
+                        ]
+                    },
+                },
+            )
+        )
 
         result = asyncio.run(qb_server.qb_gst_hst_return("2026-01-01", "2026-03-31"))
 
@@ -220,15 +352,31 @@ def test_gst_hst_return_ontario_regime_header(qb_ctx):
 def test_gst_hst_return_bc_pst_excluded_warning(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
-        _ca_router(router, province="BC", agencies=[
-            {"Id": "1", "DisplayName": "Canada Revenue Agency"},
-            {"Id": "2", "DisplayName": "BC Ministry of Finance"},
-        ])
-        router.get(TAX_SUMMARY_URL).mock(return_value=Response(200, json={
-            "Rows": {"Row": [
-                {"ColData": [{"value": "GST collected"}, {"value": "15.00"}]},
-            ]},
-        }))
+        _ca_router(
+            router,
+            province="BC",
+            agencies=[
+                {"Id": "1", "DisplayName": "Canada Revenue Agency"},
+                {"Id": "2", "DisplayName": "BC Ministry of Finance"},
+            ],
+        )
+        router.get(TAX_SUMMARY_URL).mock(
+            return_value=Response(
+                200,
+                json={
+                    "Rows": {
+                        "Row": [
+                            {
+                                "ColData": [
+                                    {"value": "GST collected"},
+                                    {"value": "15.00"},
+                                ]
+                            },
+                        ]
+                    },
+                },
+            )
+        )
 
         result = asyncio.run(qb_server.qb_gst_hst_return("2026-01-01", "2026-03-31"))
 
@@ -243,9 +391,13 @@ def test_gst_hst_return_bc_pst_excluded_warning(qb_ctx):
 def test_gst_hst_return_quebec_fpz500_note(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
-        _ca_router(router, province="QC", agencies=[
-            {"Id": "1", "DisplayName": "Revenu Québec"},
-        ])
+        _ca_router(
+            router,
+            province="QC",
+            agencies=[
+                {"Id": "1", "DisplayName": "Revenu Québec"},
+            ],
+        )
         router.get(TAX_SUMMARY_URL).mock(return_value=Response(400, json={}))
 
         result = asyncio.run(qb_server.qb_gst_hst_return("2026-01-01", "2026-03-31"))
@@ -285,7 +437,8 @@ def test_gst_hst_return_redirects_for_us_company(qb_ctx):
     with respx.mock(assert_all_called=False) as router:
         router.get(QUERY_URL).mock(side_effect=_query_dispatcher("US"))
         router.get(PREFS_URL).mock(
-            return_value=_prefs_response(partner_tax=True, currency="USD"))
+            return_value=_prefs_response(partner_tax=True, currency="USD")
+        )
 
         result = asyncio.run(qb_server.qb_gst_hst_return("2026-01-01", "2026-03-31"))
 
@@ -297,6 +450,7 @@ def test_gst_hst_return_redirects_for_us_company(qb_ctx):
 # ---------------------------------------------------------------------------
 # qb_t2125_summary
 # ---------------------------------------------------------------------------
+
 
 def test_t2125_maps_accounts_to_lines(qb_ctx):
     _prime_ctx(qb_ctx)
@@ -324,10 +478,12 @@ def test_t2125_maps_accounts_to_lines(qb_ctx):
 # qb_cca_schedule
 # ---------------------------------------------------------------------------
 
+
 def test_cca_class_50_half_year_pre_2025(qb_ctx):
     _prime_ctx(qb_ctx)
-    assets = json.dumps([{"name": "Server", "cost": 10000, "class": "50",
-                          "acquired": "2024-03-01"}])
+    assets = json.dumps(
+        [{"name": "Server", "cost": 10000, "class": "50", "acquired": "2024-03-01"}]
+    )
     with respx.mock(assert_all_called=False) as router:
         _ca_router(router)
         result = asyncio.run(qb_server.qb_cca_schedule(assets, year=2024))
@@ -339,8 +495,9 @@ def test_cca_class_50_half_year_pre_2025(qb_ctx):
 
 def test_cca_class_50_aii_2026_no_half_year(qb_ctx):
     _prime_ctx(qb_ctx)
-    assets = json.dumps([{"name": "Server", "cost": 10000, "class": "50",
-                          "acquired": "2026-01-15"}])
+    assets = json.dumps(
+        [{"name": "Server", "cost": 10000, "class": "50", "acquired": "2026-01-15"}]
+    )
     with respx.mock(assert_all_called=False) as router:
         _ca_router(router)
         result = asyncio.run(qb_server.qb_cca_schedule(assets, year=2026))
@@ -353,8 +510,9 @@ def test_cca_class_50_aii_2026_no_half_year(qb_ctx):
 
 def test_cca_class_10_1_ceiling_clamp(qb_ctx):
     _prime_ctx(qb_ctx)
-    assets = json.dumps([{"name": "BMW", "cost": 60000, "class": "10.1",
-                          "acquired": "2025-05-01"}])
+    assets = json.dumps(
+        [{"name": "BMW", "cost": 60000, "class": "10.1", "acquired": "2025-05-01"}]
+    )
     with respx.mock(assert_all_called=False) as router:
         _ca_router(router)
         result = asyncio.run(qb_server.qb_cca_schedule(assets, year=2025))
@@ -380,6 +538,7 @@ def test_cca_without_assets_lists_fixed_asset_accounts(qb_ctx):
 # qb_t4a_contractor_report
 # ---------------------------------------------------------------------------
 
+
 def test_t4a_threshold_and_february_deadline(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
@@ -400,13 +559,16 @@ def test_t4a_threshold_and_february_deadline(qb_ctx):
 # qb_estimate_instalments
 # ---------------------------------------------------------------------------
 
+
 def test_instalments_cpp_2026_above_yampe(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
         _ca_router(router)
         router.get(PL_URL).mock(return_value=Response(200, json=PL_REPORT_200K))
 
-        result = asyncio.run(qb_server.qb_estimate_instalments(year=2026, province="ON"))
+        result = asyncio.run(
+            qb_server.qb_estimate_instalments(year=2026, province="ON")
+        )
 
     # Base CPP: (74,600 - 3,500) * 11.9% = 8,460.90
     assert "$8,460.90" in result
@@ -427,6 +589,8 @@ def test_instalments_quebec_note(qb_ctx):
         _ca_router(router)
         router.get(PL_URL).mock(return_value=Response(200, json=PL_REPORT_200K))
 
-        result = asyncio.run(qb_server.qb_estimate_instalments(year=2026, province="QC"))
+        result = asyncio.run(
+            qb_server.qb_estimate_instalments(year=2026, province="QC")
+        )
 
     assert "Revenu Québec" in result

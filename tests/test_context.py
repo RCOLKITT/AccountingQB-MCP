@@ -16,7 +16,11 @@ def test_two_tasks_see_isolated_contexts():
         # Mutations must also stay task-local
         ctx.refresh_token = f"rt-{name}"
         await asyncio.sleep(0.01)
-        observed[name] = (get_ctx().realm_id, get_ctx().access_token, get_ctx().refresh_token)
+        observed[name] = (
+            get_ctx().realm_id,
+            get_ctx().access_token,
+            get_ctx().refresh_token,
+        )
 
     async def main():
         await asyncio.gather(
@@ -36,8 +40,11 @@ def test_default_context_untouched_by_task_contexts():
     before = (_default_ctx.realm_id, _default_ctx.access_token)
 
     async def tenant():
-        set_ctx(QBContext(realm_id="other-realm", access_token="other-token",
-                          persist_tokens=False))
+        set_ctx(
+            QBContext(
+                realm_id="other-realm", access_token="other-token", persist_tokens=False
+            )
+        )
         get_ctx().refresh_token = "other-rt"
 
     asyncio.run(tenant())

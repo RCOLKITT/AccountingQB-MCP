@@ -37,3 +37,7 @@ build-backend = "hatchling.build"
 # point. The root server.py is a thin shim over mcpb/src/accountingqb.
 [project.scripts]
 accountingqb = "server:main"
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312"]

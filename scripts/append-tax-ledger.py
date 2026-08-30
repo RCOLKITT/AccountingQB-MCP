@@ -7,6 +7,7 @@ gate stays green.
 
 Usage: python3 scripts/append-tax-ledger.py [--dry-run]
 """
+
 import hashlib
 import json
 import sys
