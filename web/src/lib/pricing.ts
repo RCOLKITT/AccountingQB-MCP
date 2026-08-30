@@ -88,10 +88,16 @@ export const comparisonRows: CompareRow[] = [
   { label: "Monthly price (USD)", values: ["$39", "$99", "$299"] },
   { label: "QuickBooks companies", values: ["1", "Up to 3", "Unlimited"] },
   { label: "All 131 tools (read + write)", values: ["✓", "✓", "✓"] },
-  { label: "US & Canadian tax prep (Schedule C / T2125)", values: ["✓", "✓", "✓"] },
+  {
+    label: "US & Canadian tax prep (Schedule C / T2125)",
+    values: ["✓", "✓", "✓"],
+  },
   { label: "Deduction finder & anomaly detection", values: ["✓", "✓", "✓"] },
   { label: "1099 & T4A contractor reporting", values: ["—", "✓", "✓"] },
-  { label: "Budget vs actual & cash-flow forecasting", values: ["—", "✓", "✓"] },
+  {
+    label: "Budget vs actual & cash-flow forecasting",
+    values: ["—", "✓", "✓"],
+  },
   { label: "Month-end & year-end close workflows", values: ["—", "—", "✓"] },
   { label: "Bulk operations", values: ["—", "—", "✓"] },
   { label: "Support", values: ["Email", "Priority", "Dedicated"] },

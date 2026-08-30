@@ -20,13 +20,14 @@ function SuccessContent() {
           QuickBooks Connected!
         </h1>
         <p className="mt-4 text-lg text-gray-300">
-          <span className="text-cyan-400 font-medium">{company}</span> is now connected to AccountingQB.
+          <span className="text-cyan-400 font-medium">{company}</span> is now
+          connected to AccountingQB.
         </p>
 
         <div className="mt-8 rounded-2xl border border-green-400/20 bg-green-400/5 p-6">
           <p className="text-gray-300">
-            You can close this window and return to Claude Desktop.
-            Your QuickBooks data is now accessible through natural conversation.
+            You can close this window and return to Claude Desktop. Your
+            QuickBooks data is now accessible through natural conversation.
           </p>
         </div>
 
@@ -50,11 +51,13 @@ function SuccessContent() {
 
 export default function OAuthSuccessPage() {
   return (
-    <Suspense fallback={
-      <main className="min-h-screen bg-[#0a0e1a] text-white flex items-center justify-center">
-        <p className="text-gray-400">Loading...</p>
-      </main>
-    }>
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#0a0e1a] text-white flex items-center justify-center">
+          <p className="text-gray-400">Loading...</p>
+        </main>
+      }
+    >
       <SuccessContent />
     </Suspense>
   );

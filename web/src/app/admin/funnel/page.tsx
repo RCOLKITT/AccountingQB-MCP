@@ -34,13 +34,16 @@ function median(nums: number[]): number | null {
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
-async function getFunnel(range: Range, includeTest: boolean): Promise<FunnelData> {
+async function getFunnel(
+  range: Range,
+  includeTest: boolean,
+): Promise<FunnelData> {
   const supabase = getSupabase();
   const since =
     range === "all"
       ? null
       : new Date(
-          Date.now() - Number(range) * 24 * 60 * 60 * 1000
+          Date.now() - Number(range) * 24 * 60 * 60 * 1000,
         ).toISOString();
 
   // Licenses in range (by signup date). Internal/demo accounts (is_test)
@@ -61,7 +64,12 @@ async function getFunnel(range: Range, includeTest: boolean): Promise<FunnelData
     supabase
       .from("user_milestones")
       .select("license_key, milestone, completed_at")
-      .in("milestone", ["signup", "qb_connected", "claude_configured", "trial_converted"])
+      .in("milestone", [
+        "signup",
+        "qb_connected",
+        "claude_configured",
+        "trial_converted",
+      ])
       .limit(20000),
   ]);
   const rows = licenses || [];
@@ -81,11 +89,14 @@ async function getFunnel(range: Range, includeTest: boolean): Promise<FunnelData
   const signupTime = new Map<string, string>();
   for (const r of rows) {
     signupTime.set(r.key, r.created_at);
-    if (r.status === "active" || convertedM.has(r.key)) convertedKeys.add(r.key);
+    if (r.status === "active" || convertedM.has(r.key))
+      convertedKeys.add(r.key);
   }
 
   const signedUp = rows.length;
-  const connectedCount = [...connected.keys()].filter((k) => keys.has(k)).length;
+  const connectedCount = [...connected.keys()].filter((k) =>
+    keys.has(k),
+  ).length;
   const convertedCount = convertedKeys.size;
 
   // Median days signup -> qb_connected
@@ -113,12 +124,22 @@ async function getFunnel(range: Range, includeTest: boolean): Promise<FunnelData
     signedUp,
     stages: [
       { label: "Signed up", count: signedUp, hint: "license created" },
-      { label: "Connected QuickBooks", count: connectedCount, hint: "qb_connected" },
-      { label: "Converted to paid", count: convertedCount, hint: "active / trial_converted" },
+      {
+        label: "Connected QuickBooks",
+        count: connectedCount,
+        hint: "qb_connected",
+      },
+      {
+        label: "Converted to paid",
+        count: convertedCount,
+        hint: "active / trial_converted",
+      },
     ],
     medianDaysToConnect: median(durations),
     byTier,
-    churned: rows.filter((r) => r.status === "canceled" || r.status === "expired").length,
+    churned: rows.filter(
+      (r) => r.status === "canceled" || r.status === "expired",
+    ).length,
     activeNow: rows.filter((r) => r.status === "active").length,
     trialingNow: rows.filter((r) => r.status === "trialing").length,
   };
@@ -143,7 +164,7 @@ export default async function FunnelPage({
   const load = unstable_cache(
     (r: Range, t: boolean) => Promise.all([getFunnel(r, t), getRetention()]),
     ["admin-funnel"],
-    { revalidate: 60 }
+    { revalidate: 60 },
   );
   const [f, cohorts] = await load(range, includeTest);
   const top = f.signedUp || 1;
@@ -205,7 +226,9 @@ export default async function FunnelPage({
                 <span className="text-white font-medium">{s.label}</span>
                 <span className="text-gray-400">
                   <span className="text-white font-semibold">{s.count}</span>{" "}
-                  <span className="text-gray-500">({pct(s.count, top)} of signups)</span>
+                  <span className="text-gray-500">
+                    ({pct(s.count, top)} of signups)
+                  </span>
                 </span>
               </div>
               <div className="relative h-9 w-full rounded-md bg-white/5 overflow-hidden">
@@ -213,13 +236,16 @@ export default async function FunnelPage({
                   className="h-full rounded-md bg-gradient-to-r from-cyan-500/40 to-blue-600/40 border-r-2 border-cyan-400/60 flex items-center px-3"
                   style={{ width: `${width}%` }}
                 >
-                  <span className="text-xs text-cyan-100 font-mono">{s.hint}</span>
+                  <span className="text-xs text-cyan-100 font-mono">
+                    {s.hint}
+                  </span>
                 </div>
               </div>
               {i > 0 && (
                 <div className="flex items-center gap-3 mt-1 text-xs">
                   <span className="text-gray-500">
-                    step conversion: <span className="text-gray-300">{stepConv}</span>
+                    step conversion:{" "}
+                    <span className="text-gray-300">{stepConv}</span>
                   </span>
                   {dropoff > 0 && (
                     <span className="text-amber-400/80">
@@ -264,7 +290,9 @@ export default async function FunnelPage({
       {/* Conversion by tier */}
       <div className="bg-[#131a2e] rounded-xl border border-white/10 overflow-hidden">
         <div className="px-6 py-3 border-b border-white/5">
-          <h2 className="text-sm font-semibold text-white">Conversion by tier</h2>
+          <h2 className="text-sm font-semibold text-white">
+            Conversion by tier
+          </h2>
         </div>
         <table className="w-full">
           <thead>
@@ -278,9 +306,13 @@ export default async function FunnelPage({
           <tbody>
             {f.byTier.map((t) => (
               <tr key={t.tier} className="border-b border-white/5">
-                <td className="px-6 py-3 text-sm text-white capitalize">{t.tier}</td>
+                <td className="px-6 py-3 text-sm text-white capitalize">
+                  {t.tier}
+                </td>
                 <td className="px-6 py-3 text-sm text-gray-300">{t.signups}</td>
-                <td className="px-6 py-3 text-sm text-gray-300">{t.converted}</td>
+                <td className="px-6 py-3 text-sm text-gray-300">
+                  {t.converted}
+                </td>
                 <td className="px-6 py-3 text-sm text-cyan-400">
                   {pct(t.converted, t.signups)}
                 </td>
@@ -293,7 +325,9 @@ export default async function FunnelPage({
       {/* Retention by signup cohort */}
       <div className="bg-[#131a2e] rounded-xl border border-white/10 overflow-hidden">
         <div className="flex items-center justify-between border-b border-white/5 px-6 py-3">
-          <h2 className="text-sm font-semibold text-white">Retention by signup cohort</h2>
+          <h2 className="text-sm font-semibold text-white">
+            Retention by signup cohort
+          </h2>
           <span className="text-xs text-gray-500">
             % of each month&rsquo;s signups paying now
           </span>
@@ -316,9 +350,15 @@ export default async function FunnelPage({
                 <tr key={c.month} className="border-b border-white/5">
                   <td className="px-6 py-3 text-sm text-white">{c.month}</td>
                   <td className="px-6 py-3 text-sm text-gray-300">{c.size}</td>
-                  <td className="px-6 py-3 text-sm text-emerald-400">{c.paying}</td>
-                  <td className="px-6 py-3 text-sm text-gray-400">{c.trialing}</td>
-                  <td className="px-6 py-3 text-sm text-gray-400">{c.churned}</td>
+                  <td className="px-6 py-3 text-sm text-emerald-400">
+                    {c.paying}
+                  </td>
+                  <td className="px-6 py-3 text-sm text-gray-400">
+                    {c.trialing}
+                  </td>
+                  <td className="px-6 py-3 text-sm text-gray-400">
+                    {c.churned}
+                  </td>
                   <td className="px-6 py-3 text-sm text-cyan-400">
                     {Math.round(c.retentionPct)}%
                   </td>
@@ -327,18 +367,19 @@ export default async function FunnelPage({
           </tbody>
         </table>
         <p className="px-6 py-3 text-xs text-gray-600">
-          Newer cohorts show more &ldquo;in trial&rdquo; — they haven&rsquo;t settled
-          yet. Read the older rows for a true retention signal.
+          Newer cohorts show more &ldquo;in trial&rdquo; — they haven&rsquo;t
+          settled yet. Read the older rows for a true retention signal.
         </p>
       </div>
 
       <p className="text-xs text-gray-600">
-        Post-signup funnel from <code className="text-gray-500">user_milestones</code>{" "}
-        (test/demo accounts excluded). Tool-usage telemetry was blocked by an auth
-        rule and is now fixed — an &ldquo;activated (ran a tool)&rdquo; step will
+        Post-signup funnel from{" "}
+        <code className="text-gray-500">user_milestones</code> (test/demo
+        accounts excluded). Tool-usage telemetry was blocked by an auth rule and
+        is now fixed — an &ldquo;activated (ran a tool)&rdquo; step will
         populate going forward and can be added here. Pre-signup web behavior
-        (traffic, page clicks, checkout starts) lands in PostHog once the key is set —
-        that becomes the top of this funnel.
+        (traffic, page clicks, checkout starts) lands in PostHog once the key is
+        set — that becomes the top of this funnel.
       </p>
     </div>
   );

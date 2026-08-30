@@ -34,7 +34,7 @@ export async function sendLicenseEmail({
   // read "14-day". Round to whole days from now → trial_ends_at.
   const trialDays = Math.max(
     1,
-    Math.round((new Date(trialEndsAt).getTime() - Date.now()) / 86400000)
+    Math.round((new Date(trialEndsAt).getTime() - Date.now()) / 86400000),
   );
 
   const { data, error } = await getResend().emails.send({

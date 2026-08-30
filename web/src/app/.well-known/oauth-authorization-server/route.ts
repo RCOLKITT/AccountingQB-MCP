@@ -21,6 +21,6 @@ export async function GET() {
       token_endpoint_auth_methods_supported: ["none", "client_secret_post"],
       scopes_supported: ["quickbooks"],
     },
-    { headers: { "Cache-Control": "public, max-age=3600" } }
+    { headers: { "Cache-Control": "public, max-age=3600" } },
   );
 }

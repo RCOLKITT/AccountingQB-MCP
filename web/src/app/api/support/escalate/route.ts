@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     if (!conversationId) {
       return NextResponse.json(
         { error: "Conversation ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     if (!conversation || !messages) {
       return NextResponse.json(
         { error: "Conversation not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -103,10 +103,14 @@ export async function POST(req: NextRequest) {
       </tr>
     </table>
 
-    ${additionalContext ? `
+    ${
+      additionalContext
+        ? `
     <h3 style="color: #333;">Additional Context</h3>
     <p style="background: #f9f9f9; padding: 12px; border-radius: 4px;">${additionalContext}</p>
-    ` : ""}
+    `
+        : ""
+    }
 
     <h3 style="color: #333;">Conversation Transcript</h3>
     <div style="background: #f9f9f9; padding: 16px; border-radius: 4px; white-space: pre-wrap; font-size: 14px; line-height: 1.5;">
@@ -126,16 +130,13 @@ ${transcript}
       console.error("Failed to send escalation email:", emailError);
       return NextResponse.json(
         { error: "Failed to send escalation email" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Escalation error:", err);
-    return NextResponse.json(
-      { error: "Failed to escalate" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to escalate" }, { status: 500 });
   }
 }

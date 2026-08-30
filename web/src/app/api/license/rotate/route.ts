@@ -19,7 +19,7 @@ async function logRotation(
   newKey: string,
   success: boolean,
   ip: string,
-  reason?: string
+  reason?: string,
 ) {
   try {
     await supabase.from("event_logs").insert({
@@ -44,7 +44,9 @@ export async function POST(req: NextRequest) {
 
   // Stricter rate limit for rotation (1 per hour per IP)
   if (isRateLimitingEnabled()) {
-    const { success, reset } = await getLicenseVerifyLimiter().limit(`rotate:${ip}`);
+    const { success, reset } = await getLicenseVerifyLimiter().limit(
+      `rotate:${ip}`,
+    );
     if (!success) {
       return rateLimitResponse(reset);
     }
@@ -54,10 +56,7 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   const { license_key, reason } = body;
@@ -65,7 +64,7 @@ export async function POST(req: NextRequest) {
   if (!license_key) {
     return NextResponse.json(
       { error: "Current license key required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -82,7 +81,7 @@ export async function POST(req: NextRequest) {
     logRotation(supabase, license_key, "", false, ip, "not_found");
     return NextResponse.json(
       { error: "License key not found" },
-      { status: 404 }
+      { status: 404 },
     );
   }
 
@@ -90,7 +89,7 @@ export async function POST(req: NextRequest) {
     logRotation(supabase, license_key, "", false, ip, "inactive_license");
     return NextResponse.json(
       { error: "Cannot rotate inactive license" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -110,7 +109,7 @@ export async function POST(req: NextRequest) {
     logRotation(supabase, license_key, newKey, false, ip, "update_failed");
     return NextResponse.json(
       { error: "Failed to rotate key" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -126,11 +125,19 @@ export async function POST(req: NextRequest) {
     .update({ license_key: newKey })
     .eq("license_key", license_key);
 
-  logRotation(supabase, license_key, newKey, true, ip, reason || "user_requested");
+  logRotation(
+    supabase,
+    license_key,
+    newKey,
+    true,
+    ip,
+    reason || "user_requested",
+  );
 
   return NextResponse.json({
     success: true,
     new_key: newKey,
-    message: "License key rotated successfully. Update your local config with the new key.",
+    message:
+      "License key rotated successfully. Update your local config with the new key.",
   });
 }

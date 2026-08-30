@@ -18,7 +18,7 @@ interface ScheduleResult {
  * Schedule an email for future delivery
  */
 export async function scheduleEmail(
-  params: ScheduleEmailParams
+  params: ScheduleEmailParams,
 ): Promise<ScheduleResult> {
   const supabase = getSupabase();
 
@@ -45,7 +45,7 @@ export async function scheduleEmail(
  * Cancel a scheduled email
  */
 export async function cancelScheduledEmail(
-  scheduleId: string
+  scheduleId: string,
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = getSupabase();
 
@@ -68,7 +68,7 @@ export async function cancelScheduledEmail(
  */
 export async function cancelEmailsByType(
   licenseKey: string,
-  emailType: EmailType
+  emailType: EmailType,
 ): Promise<{ success: boolean; cancelled: number; error?: string }> {
   const supabase = getSupabase();
 
@@ -96,7 +96,7 @@ export async function scheduleOnboardingEmails(
   licenseKey: string,
   email: string,
   tier: string,
-  trialEndsAt: Date
+  trialEndsAt: Date,
 ): Promise<void> {
   const now = new Date();
 
@@ -148,7 +148,7 @@ export async function rescheduleTrialEmails(
   licenseKey: string,
   email: string,
   tier: string,
-  newTrialEndsAt: Date
+  newTrialEndsAt: Date,
 ): Promise<void> {
   // Cancel existing trial warning emails
   await cancelEmailsByType(licenseKey, "trial_warning_4day");

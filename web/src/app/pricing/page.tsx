@@ -13,7 +13,13 @@ export const metadata: Metadata = {
 
 function CheckIcon() {
   return (
-    <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg
+      className="mt-0.5 h-5 w-5 flex-shrink-0 text-cyan-400"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
     </svg>
   );
@@ -35,7 +41,10 @@ export default async function PricingPage() {
 
   return (
     <main className="min-h-screen bg-[#0a0e1a]">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
+      />
       <LandingNav />
 
       {/* HERO */}
@@ -45,12 +54,15 @@ export default async function PricingPage() {
         </div>
         <h1 className="mx-auto max-w-2xl text-4xl font-bold tracking-tight text-white sm:text-5xl">
           Less than the cost of{" "}
-          <span className="font-serif font-medium italic text-cyan-300">one hour of bookkeeping.</span>
+          <span className="font-serif font-medium italic text-cyan-300">
+            one hour of bookkeeping.
+          </span>
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-[16px] leading-relaxed text-gray-400">
-          Every plan includes all 131 tools and US &amp; Canadian tax prep, and works with
-          Claude, the downloadable desktop app, or our hosted connector. Start with a
-          14-day free trial — no credit card required, cancel anytime.
+          Every plan includes all 131 tools and US &amp; Canadian tax prep, and
+          works with Claude, the downloadable desktop app, or our hosted
+          connector. Start with a 14-day free trial — no credit card required,
+          cancel anytime.
         </p>
       </section>
 
@@ -74,11 +86,19 @@ export default async function PricingPage() {
               <h2 className="text-lg font-semibold text-white">{t.name}</h2>
               <p className="mt-1 text-sm text-gray-500">{t.description}</p>
               <div className="mt-6 flex items-baseline gap-1">
-                <span className="text-5xl font-bold text-white">{isCA ? t.priceCad : t.price}</span>
+                <span className="text-5xl font-bold text-white">
+                  {isCA ? t.priceCad : t.price}
+                </span>
                 <span className="text-gray-500">{t.period}</span>
               </div>
-              {isCA && <p className="mt-1 text-xs text-gray-500">Billed in CAD</p>}
-              {t.savings && <p className="mt-2 text-xs font-medium text-cyan-400/80">{t.savings}</p>}
+              {isCA && (
+                <p className="mt-1 text-xs text-gray-500">Billed in CAD</p>
+              )}
+              {t.savings && (
+                <p className="mt-2 text-xs font-medium text-cyan-400/80">
+                  {t.savings}
+                </p>
+              )}
               <a
                 href={isCA ? `${t.href}&currency=cad` : t.href}
                 className={`mt-8 block w-full rounded-xl py-3 text-center text-sm font-semibold transition ${
@@ -91,7 +111,10 @@ export default async function PricingPage() {
               </a>
               <ul className="mt-8 space-y-3">
                 {t.features.map((f) => (
-                  <li key={f} className="flex items-start gap-3 text-sm text-gray-400">
+                  <li
+                    key={f}
+                    className="flex items-start gap-3 text-sm text-gray-400"
+                  >
                     <CheckIcon />
                     {f}
                   </li>
@@ -101,7 +124,8 @@ export default async function PricingPage() {
           ))}
         </div>
         <p className="mt-8 text-center text-sm text-gray-500">
-          All plans include a 14-day free trial with full access. No credit card required.
+          All plans include a 14-day free trial with full access. No credit card
+          required.
         </p>
       </section>
 
@@ -114,9 +138,14 @@ export default async function PricingPage() {
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="bg-[#0c1120]">
-                <th className="px-4 py-4 text-left font-medium text-gray-400">Feature</th>
+                <th className="px-4 py-4 text-left font-medium text-gray-400">
+                  Feature
+                </th>
                 {tiers.map((t) => (
-                  <th key={t.name} className={`px-4 py-4 text-center font-semibold ${t.highlight ? "text-cyan-300" : "text-white"}`}>
+                  <th
+                    key={t.name}
+                    className={`px-4 py-4 text-center font-semibold ${t.highlight ? "text-cyan-300" : "text-white"}`}
+                  >
                     {t.name}
                   </th>
                 ))}
@@ -125,13 +154,25 @@ export default async function PricingPage() {
             <tbody>
               {comparisonRows.map((row, i) => (
                 <tr key={row.label} className={i % 2 ? "bg-white/[0.015]" : ""}>
-                  <td className="px-4 py-3 text-left text-gray-300">{row.label}</td>
+                  <td className="px-4 py-3 text-left text-gray-300">
+                    {row.label}
+                  </td>
                   {row.values.map((v, j) => (
                     <td key={j} className="px-4 py-3 text-center text-gray-300">
                       {v === "✓" ? (
-                        <span className="inline-block text-cyan-400" aria-label="Included">✓</span>
+                        <span
+                          className="inline-block text-cyan-400"
+                          aria-label="Included"
+                        >
+                          ✓
+                        </span>
                       ) : v === "—" ? (
-                        <span className="inline-block text-gray-600" aria-label="Not included">—</span>
+                        <span
+                          className="inline-block text-gray-600"
+                          aria-label="Not included"
+                        >
+                          —
+                        </span>
                       ) : (
                         v
                       )}
@@ -143,8 +184,8 @@ export default async function PricingPage() {
           </table>
         </div>
         <p className="mt-4 text-center text-xs text-gray-600">
-          Not a tax-filing service and not for QuickBooks Desktop yet — these are workpapers
-          you or your CPA file from.
+          Not a tax-filing service and not for QuickBooks Desktop yet — these
+          are workpapers you or your CPA file from.
         </p>
       </section>
 
@@ -155,9 +196,14 @@ export default async function PricingPage() {
         </h2>
         <div className="mt-8 space-y-4">
           {pricingFaqs.map((f) => (
-            <div key={f.q} className="rounded-xl border border-white/[0.08] bg-[#131a2e] p-5">
+            <div
+              key={f.q}
+              className="rounded-xl border border-white/[0.08] bg-[#131a2e] p-5"
+            >
               <h3 className="text-[15px] font-semibold text-white">{f.q}</h3>
-              <p className="mt-2 text-[14px] leading-relaxed text-gray-400">{f.a}</p>
+              <p className="mt-2 text-[14px] leading-relaxed text-gray-400">
+                {f.a}
+              </p>
             </div>
           ))}
         </div>

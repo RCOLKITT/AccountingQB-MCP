@@ -7,19 +7,38 @@ const TOOL_CATEGORIES = [
   {
     name: "Company & Entities",
     icon: "🏢",
-    description: "Manage your QuickBooks company data, accounts, vendors, and customers",
+    description:
+      "Manage your QuickBooks company data, accounts, vendors, and customers",
     tools: [
-      { name: "qb_company_info", desc: "Company name, EIN, address, fiscal year" },
-      { name: "qb_list_accounts", desc: "Full chart of accounts with balances" },
+      {
+        name: "qb_company_info",
+        desc: "Company name, EIN, address, fiscal year",
+      },
+      {
+        name: "qb_list_accounts",
+        desc: "Full chart of accounts with balances",
+      },
       { name: "qb_list_vendors", desc: "Search vendors/suppliers" },
       { name: "qb_list_customers", desc: "Search customers" },
       { name: "qb_list_items", desc: "Products and services" },
       { name: "qb_create_vendor", desc: "Create a new vendor" },
       { name: "qb_create_customer", desc: "Create a new customer" },
-      { name: "qb_update_vendor", desc: "Update vendor details (email, phone, address)" },
-      { name: "qb_update_customer", desc: "Update customer details (email, phone, address)" },
-      { name: "qb_create_account", desc: "Add an account to chart of accounts" },
-      { name: "qb_create_sub_account", desc: "Create a sub-account under a parent" },
+      {
+        name: "qb_update_vendor",
+        desc: "Update vendor details (email, phone, address)",
+      },
+      {
+        name: "qb_update_customer",
+        desc: "Update customer details (email, phone, address)",
+      },
+      {
+        name: "qb_create_account",
+        desc: "Add an account to chart of accounts",
+      },
+      {
+        name: "qb_create_sub_account",
+        desc: "Create a sub-account under a parent",
+      },
       { name: "qb_inactivate_account", desc: "Hide unused accounts" },
     ],
   },
@@ -31,8 +50,14 @@ const TOOL_CATEGORIES = [
       { name: "qb_list_transactions", desc: "Purchases/expenses with filters" },
       { name: "qb_list_deposits", desc: "Income and owner investments" },
       { name: "qb_list_transfers", desc: "Account-to-account transfers" },
-      { name: "qb_list_journal_entries", desc: "Adjustments and reclassifications" },
-      { name: "qb_list_journal_entries_by_memo", desc: "Search JEs by memo text" },
+      {
+        name: "qb_list_journal_entries",
+        desc: "Adjustments and reclassifications",
+      },
+      {
+        name: "qb_list_journal_entries_by_memo",
+        desc: "Search JEs by memo text",
+      },
       { name: "qb_list_bills", desc: "Accounts payable" },
       { name: "qb_list_bill_payments", desc: "Bill payments" },
       { name: "qb_list_sales_receipts", desc: "Direct sales" },
@@ -40,11 +65,26 @@ const TOOL_CATEGORIES = [
       { name: "qb_list_invoices", desc: "Invoices with status filter" },
       { name: "qb_list_credit_memos", desc: "Customer credit memos/refunds" },
       { name: "qb_list_vendor_credits", desc: "Vendor credits received" },
-      { name: "qb_list_estimates", desc: "Estimates/quotes with status filter" },
-      { name: "qb_search_transactions", desc: "Search across ALL transaction types" },
-      { name: "qb_list_recurring_transactions", desc: "Recurring templates and schedules" },
-      { name: "qb_transaction_detail", desc: "Full detail for any single transaction" },
-      { name: "qb_account_transactions", desc: "All transactions hitting a specific account" },
+      {
+        name: "qb_list_estimates",
+        desc: "Estimates/quotes with status filter",
+      },
+      {
+        name: "qb_search_transactions",
+        desc: "Search across ALL transaction types",
+      },
+      {
+        name: "qb_list_recurring_transactions",
+        desc: "Recurring templates and schedules",
+      },
+      {
+        name: "qb_transaction_detail",
+        desc: "Full detail for any single transaction",
+      },
+      {
+        name: "qb_account_transactions",
+        desc: "All transactions hitting a specific account",
+      },
     ],
   },
   {
@@ -61,16 +101,37 @@ const TOOL_CATEGORIES = [
       { name: "qb_create_transfer", desc: "Transfer between accounts" },
       { name: "qb_create_credit_memo", desc: "Issue a customer credit memo" },
       { name: "qb_create_vendor_credit", desc: "Record a vendor credit" },
-      { name: "qb_convert_estimate_to_invoice", desc: "Convert estimate into invoice" },
-      { name: "qb_record_bill_payment", desc: "Record payment on a vendor bill" },
-      { name: "qb_record_invoice_payment", desc: "Record customer payment on invoice" },
+      {
+        name: "qb_convert_estimate_to_invoice",
+        desc: "Convert estimate into invoice",
+      },
+      {
+        name: "qb_record_bill_payment",
+        desc: "Record payment on a vendor bill",
+      },
+      {
+        name: "qb_record_invoice_payment",
+        desc: "Record customer payment on invoice",
+      },
       { name: "qb_update_transaction", desc: "Update any transaction" },
       { name: "qb_void_transaction", desc: "Void a transaction" },
-      { name: "qb_delete_transaction", desc: "Delete a transaction permanently" },
+      {
+        name: "qb_delete_transaction",
+        desc: "Delete a transaction permanently",
+      },
       { name: "qb_delete_journal_entry", desc: "Permanently delete a JE" },
-      { name: "qb_reclassify_transaction", desc: "Move transaction to different account" },
-      { name: "qb_bulk_update_vendor", desc: "Bulk-assign vendor to multiple transactions" },
-      { name: "qb_bulk_update_vendors_multi", desc: "Bulk-assign multiple vendors in one call" },
+      {
+        name: "qb_reclassify_transaction",
+        desc: "Move transaction to different account",
+      },
+      {
+        name: "qb_bulk_update_vendor",
+        desc: "Bulk-assign vendor to multiple transactions",
+      },
+      {
+        name: "qb_bulk_update_vendors_multi",
+        desc: "Bulk-assign multiple vendors in one call",
+      },
       { name: "qb_batch_create_expenses", desc: "Bulk expense import" },
       { name: "qb_batch_create_bills", desc: "Bulk bill import" },
       { name: "qb_batch_create_journal_entries", desc: "Bulk JE import" },
@@ -79,46 +140,87 @@ const TOOL_CATEGORIES = [
   {
     name: "Reports & Analysis",
     icon: "📈",
-    description: "Generate financial reports and analyze your business performance",
+    description:
+      "Generate financial reports and analyze your business performance",
     tools: [
       { name: "qb_profit_loss", desc: "P&L by total, month, quarter, or year" },
       { name: "qb_profit_loss_by_class", desc: "P&L by department/class" },
       { name: "qb_balance_sheet", desc: "Balance sheet as of any date" },
       { name: "qb_cash_flow", desc: "Statement of cash flows" },
-      { name: "qb_cash_flow_forecast", desc: "Multi-period cash flow projections" },
+      {
+        name: "qb_cash_flow_forecast",
+        desc: "Multi-period cash flow projections",
+      },
       { name: "qb_general_ledger", desc: "All transactions by account" },
       { name: "qb_trial_balance", desc: "Verify books are balanced" },
       { name: "qb_ar_aging", desc: "What customers owe you" },
       { name: "qb_ap_aging", desc: "What you owe vendors" },
       { name: "qb_expense_summary", desc: "Expenses by category" },
       { name: "qb_income_summary", desc: "Income by source" },
-      { name: "qb_sales_tax_summary", desc: "Sales tax collected by jurisdiction" },
+      {
+        name: "qb_sales_tax_summary",
+        desc: "Sales tax collected by jurisdiction",
+      },
       { name: "qb_compare_periods", desc: "Side-by-side period comparison" },
       { name: "qb_vendor_summary", desc: "Top vendors by spend" },
-      { name: "qb_profit_margin_analysis", desc: "Profit margins by customer or item" },
-      { name: "qb_budget_vs_actual", desc: "Compare budget to actual spending" },
-      { name: "qb_anomaly_detection", desc: "Statistical anomaly and fraud detection" },
+      {
+        name: "qb_profit_margin_analysis",
+        desc: "Profit margins by customer or item",
+      },
+      {
+        name: "qb_budget_vs_actual",
+        desc: "Compare budget to actual spending",
+      },
+      {
+        name: "qb_anomaly_detection",
+        desc: "Statistical anomaly and fraud detection",
+      },
     ],
   },
   {
     name: "Tax Preparation",
     icon: "📋",
-    description: "Prepare for tax season in the US and Canada — Schedule C, T2125, GST/HST, 1099 & T4A reporting",
+    description:
+      "Prepare for tax season in the US and Canada — Schedule C, T2125, GST/HST, 1099 & T4A reporting",
     tools: [
       { name: "qb_tax_summary", desc: "Expenses mapped to Schedule C lines" },
       { name: "qb_schedule_c", desc: "Full IRS Schedule C line-by-line" },
-      { name: "qb_schedule_c_detailed", desc: "Granular Schedule C with QB account detail" },
-      { name: "qb_estimate_quarterly_tax", desc: "Federal + state estimated taxes" },
+      {
+        name: "qb_schedule_c_detailed",
+        desc: "Granular Schedule C with QB account detail",
+      },
+      {
+        name: "qb_estimate_quarterly_tax",
+        desc: "Federal + state estimated taxes",
+      },
       { name: "qb_deduction_finder", desc: "Find commonly missed deductions" },
-      { name: "qb_depreciation_schedule", desc: "Section 179 and MACRS schedules" },
-      { name: "qb_1099_contractor_report", desc: "1099-NEC contractor reporting" },
-      { name: "qb_home_office_calculator", desc: "Form 8829 home office deduction" },
-      { name: "qb_vehicle_depreciation_calculator", desc: "Vehicle depreciation with business use %" },
+      {
+        name: "qb_depreciation_schedule",
+        desc: "Section 179 and MACRS schedules",
+      },
+      {
+        name: "qb_1099_contractor_report",
+        desc: "1099-NEC contractor reporting",
+      },
+      {
+        name: "qb_home_office_calculator",
+        desc: "Form 8829 home office deduction",
+      },
+      {
+        name: "qb_vehicle_depreciation_calculator",
+        desc: "Vehicle depreciation with business use %",
+      },
       { name: "qb_gst_hst_return", desc: "GST/HST return workpaper (Canada)" },
       { name: "qb_t2125_summary", desc: "CRA T2125 mapping (Canada)" },
       { name: "qb_cca_schedule", desc: "CCA depreciation schedule (Canada)" },
-      { name: "qb_t4a_contractor_report", desc: "T4A/T5018 contractor report (Canada)" },
-      { name: "qb_estimate_instalments", desc: "CRA instalments + CPP estimator (Canada)" },
+      {
+        name: "qb_t4a_contractor_report",
+        desc: "T4A/T5018 contractor report (Canada)",
+      },
+      {
+        name: "qb_estimate_instalments",
+        desc: "CRA instalments + CPP estimator (Canada)",
+      },
       { name: "qb_list_tax_codes", desc: "List sales tax codes (GST/HST/PST)" },
       { name: "qb_list_tax_rates", desc: "List sales tax rates" },
     ],
@@ -126,17 +228,36 @@ const TOOL_CATEGORIES = [
   {
     name: "Smart Features",
     icon: "🧠",
-    description: "AI-powered insights, duplicate detection, and automated suggestions",
+    description:
+      "AI-powered insights, duplicate detection, and automated suggestions",
     tools: [
-      { name: "qb_uncategorized_transactions", desc: "Find uncategorized transactions" },
+      {
+        name: "qb_uncategorized_transactions",
+        desc: "Find uncategorized transactions",
+      },
       { name: "qb_find_duplicates", desc: "Detect potential duplicates" },
-      { name: "qb_auto_categorize_suggestions", desc: "AI-suggested categories" },
+      {
+        name: "qb_auto_categorize_suggestions",
+        desc: "AI-suggested categories",
+      },
       { name: "qb_monthly_burn_rate", desc: "Monthly expense trends" },
       { name: "qb_runway_calculator", desc: "Months of cash runway" },
-      { name: "qb_fiscal_year_close_checklist", desc: "Year-end close readiness check" },
-      { name: "qb_books_health_audit", desc: "Comprehensive books health audit" },
-      { name: "qb_month_end_close", desc: "Month-end close checklist with status checks" },
-      { name: "qb_unknown_vendor_report", desc: "Find transactions with missing vendor names" },
+      {
+        name: "qb_fiscal_year_close_checklist",
+        desc: "Year-end close readiness check",
+      },
+      {
+        name: "qb_books_health_audit",
+        desc: "Comprehensive books health audit",
+      },
+      {
+        name: "qb_month_end_close",
+        desc: "Month-end close checklist with status checks",
+      },
+      {
+        name: "qb_unknown_vendor_report",
+        desc: "Find transactions with missing vendor names",
+      },
     ],
   },
   {
@@ -144,8 +265,14 @@ const TOOL_CATEGORIES = [
     icon: "🔗",
     description: "Match invoices, attach receipts, and reconcile accounts",
     tools: [
-      { name: "qb_reconcile_invoices", desc: "Match invoices against transactions" },
-      { name: "qb_match_invoices_to_transactions", desc: "Fuzzy-match with tolerance" },
+      {
+        name: "qb_reconcile_invoices",
+        desc: "Match invoices against transactions",
+      },
+      {
+        name: "qb_match_invoices_to_transactions",
+        desc: "Fuzzy-match with tolerance",
+      },
       { name: "qb_upload_receipt", desc: "Attach receipts to transactions" },
       { name: "qb_list_attachments", desc: "List attached documents" },
       { name: "qb_account_balance", desc: "Check any account balance" },
@@ -156,9 +283,15 @@ const TOOL_CATEGORIES = [
     icon: "🔄",
     description: "Manage multiple QuickBooks companies and connections",
     tools: [
-      { name: "qb_list_companies", desc: "List connected QuickBooks companies" },
+      {
+        name: "qb_list_companies",
+        desc: "List connected QuickBooks companies",
+      },
       { name: "qb_switch_company", desc: "Switch to a different company" },
-      { name: "qb_refresh_connection", desc: "Refresh connection to AccountingQB" },
+      {
+        name: "qb_refresh_connection",
+        desc: "Refresh connection to AccountingQB",
+      },
     ],
   },
 ];
@@ -170,7 +303,10 @@ export default function FeaturesPage() {
     redirect("/sign-in");
   }
 
-  const totalTools = TOOL_CATEGORIES.reduce((acc, cat) => acc + cat.tools.length, 0);
+  const totalTools = TOOL_CATEGORIES.reduce(
+    (acc, cat) => acc + cat.tools.length,
+    0,
+  );
 
   return (
     <main className="min-h-screen bg-[#0a0e1a] text-white">
@@ -178,11 +314,17 @@ export default function FeaturesPage() {
       <header className="border-b border-white/10 bg-[#0a0e1a]/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <a href="/dashboard" className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+            <a
+              href="/dashboard"
+              className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent"
+            >
               AccountingQB
             </a>
             <nav className="flex items-center gap-4">
-              <a href="/dashboard" className="text-sm text-gray-400 hover:text-white transition">
+              <a
+                href="/dashboard"
+                className="text-sm text-gray-400 hover:text-white transition"
+              >
                 Dashboard
               </a>
               <span className="text-sm text-white font-medium">Features</span>
@@ -194,12 +336,11 @@ export default function FeaturesPage() {
       <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Page Title */}
         <div className="mb-12">
-          <h1 className="text-4xl font-bold mb-4">
-            All {totalTools} Tools
-          </h1>
+          <h1 className="text-4xl font-bold mb-4">All {totalTools} Tools</h1>
           <p className="text-xl text-gray-400 max-w-3xl">
-            Everything AccountingQB can do for your QuickBooks books. Just ask Claude naturally
-            — &quot;What&apos;s my P&L for last month?&quot; or &quot;Find missing deductions.&quot;
+            Everything AccountingQB can do for your QuickBooks books. Just ask
+            Claude naturally — &quot;What&apos;s my P&L for last month?&quot; or
+            &quot;Find missing deductions.&quot;
           </p>
         </div>
 
@@ -247,7 +388,9 @@ export default function FeaturesPage() {
                         <code className="text-cyan-400 font-mono text-sm">
                           {tool.name}
                         </code>
-                        <p className="text-gray-400 text-sm mt-1">{tool.desc}</p>
+                        <p className="text-gray-400 text-sm mt-1">
+                          {tool.desc}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -261,7 +404,8 @@ export default function FeaturesPage() {
         <section className="mt-16 rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 p-8">
           <h2 className="text-2xl font-bold mb-6">How to Use These Tools</h2>
           <p className="text-gray-300 mb-6">
-            You don&apos;t need to remember tool names. Just ask Claude naturally:
+            You don&apos;t need to remember tool names. Just ask Claude
+            naturally:
           </p>
           <div className="grid md:grid-cols-2 gap-4">
             {[

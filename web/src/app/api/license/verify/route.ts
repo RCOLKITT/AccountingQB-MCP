@@ -14,7 +14,7 @@ async function logVerification(
   action: string,
   success: boolean,
   ip: string,
-  tier?: string
+  tier?: string,
 ) {
   try {
     await supabase.from("event_logs").insert({
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   if (!license_key) {
     return NextResponse.json(
       { valid: false, error: "License key required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -66,16 +66,23 @@ export async function POST(req: NextRequest) {
     logVerification(supabase, license_key, "not_found", false, ip);
     return NextResponse.json(
       { valid: false, error: "License key not found" },
-      { status: 404 }
+      { status: 404 },
     );
   }
 
   // Check if license is active or trialing
   if (license.status === "expired" || license.status === "canceled") {
-    logVerification(supabase, license_key, license.status, false, ip, license.tier);
+    logVerification(
+      supabase,
+      license_key,
+      license.status,
+      false,
+      ip,
+      license.tier,
+    );
     return NextResponse.json(
       { valid: false, error: `License is ${license.status}` },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -83,10 +90,17 @@ export async function POST(req: NextRequest) {
   if (license.status === "trialing" && license.trial_ends_at) {
     const trialEnd = new Date(license.trial_ends_at);
     if (trialEnd < new Date()) {
-      logVerification(supabase, license_key, "trial_expired", false, ip, license.tier);
+      logVerification(
+        supabase,
+        license_key,
+        "trial_expired",
+        false,
+        ip,
+        license.tier,
+      );
       return NextResponse.json(
         { valid: false, error: "Trial has expired" },
-        { status: 401 }
+        { status: 401 },
       );
     }
   }

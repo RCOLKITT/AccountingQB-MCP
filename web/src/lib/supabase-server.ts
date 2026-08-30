@@ -32,6 +32,6 @@ export async function createServerComponentClient() {
           }
         },
       },
-    }
+    },
   );
 }

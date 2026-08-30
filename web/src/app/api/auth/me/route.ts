@@ -23,10 +23,7 @@ export async function GET() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     const serviceSupabase = getSupabase();
@@ -46,7 +43,7 @@ export async function GET() {
           trial_ends_at,
           created_at
         )
-      `
+      `,
       )
       .eq("user_id", user.id);
 
@@ -73,7 +70,7 @@ export async function GET() {
     console.error("Auth me error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -22,7 +22,10 @@ export default function Testimonials() {
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {testimonials.map((t) => (
-            <figure key={`${t.name}-${t.role}`} className="flex flex-col rounded-2xl border border-white/[0.08] bg-[#131a2e] p-6">
+            <figure
+              key={`${t.name}-${t.role}`}
+              className="flex flex-col rounded-2xl border border-white/[0.08] bg-[#131a2e] p-6"
+            >
               {t.outcome && (
                 <figcaption className="mb-3 inline-flex w-fit rounded-md bg-cyan-500/[0.1] px-2.5 py-1 text-[12px] font-semibold text-cyan-300">
                   {t.outcome}
@@ -34,7 +37,13 @@ export default function Testimonials() {
               <div className="mt-5 flex items-center gap-3">
                 {t.photoUrl ? (
                   <div className="relative h-10 w-10 overflow-hidden rounded-full ring-1 ring-white/10">
-                    <Image src={t.photoUrl} alt={t.name} fill sizes="40px" className="object-cover" />
+                    <Image
+                      src={t.photoUrl}
+                      alt={t.name}
+                      fill
+                      sizes="40px"
+                      className="object-cover"
+                    />
                   </div>
                 ) : (
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.06] text-sm font-semibold text-gray-300">
@@ -42,7 +51,9 @@ export default function Testimonials() {
                   </div>
                 )}
                 <div>
-                  <div className="text-sm font-semibold text-white">{t.name}</div>
+                  <div className="text-sm font-semibold text-white">
+                    {t.name}
+                  </div>
                   <div className="text-[13px] text-gray-500">{t.role}</div>
                 </div>
               </div>

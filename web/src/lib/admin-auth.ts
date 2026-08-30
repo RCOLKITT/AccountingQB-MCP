@@ -24,7 +24,9 @@ export interface AdminClaims {
 }
 
 /** Role straight from the session token (no API call), or undefined if absent. */
-export function roleFromClaims(claims: AdminClaims | null | undefined): string | undefined {
+export function roleFromClaims(
+  claims: AdminClaims | null | undefined,
+): string | undefined {
   return claims?.metadata?.role;
 }
 
@@ -37,7 +39,7 @@ export function roleFromClaims(claims: AdminClaims | null | undefined): string |
 export async function resolveAdmin(
   userId: string,
   claims: AdminClaims | null | undefined,
-  needEmail = false
+  needEmail = false,
 ): Promise<{ role?: string; email?: string }> {
   let role = roleFromClaims(claims);
   let email = claims?.email;

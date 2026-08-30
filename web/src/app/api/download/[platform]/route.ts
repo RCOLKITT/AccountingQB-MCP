@@ -16,14 +16,17 @@ import {
  * if tracking fails — a download must never be blocked by analytics.
  */
 const ASSETS: Record<string, string> = {
-  macos: "https://github.com/RCOLKITT/AccountingQB-MCP/releases/latest/download/AccountingQB-macOS-AppleSilicon.dmg",
-  windows: "https://github.com/RCOLKITT/AccountingQB-MCP/releases/latest/download/AccountingQB-Windows-Setup.exe",
+  macos:
+    "https://github.com/RCOLKITT/AccountingQB-MCP/releases/latest/download/AccountingQB-macOS-AppleSilicon.dmg",
+  windows:
+    "https://github.com/RCOLKITT/AccountingQB-MCP/releases/latest/download/AccountingQB-Windows-Setup.exe",
 };
-const RELEASES_PAGE = "https://github.com/RCOLKITT/AccountingQB-MCP/releases/latest";
+const RELEASES_PAGE =
+  "https://github.com/RCOLKITT/AccountingQB-MCP/releases/latest";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ platform: string }> }
+  { params }: { params: Promise<{ platform: string }> },
 ) {
   const { platform } = await params;
   const dest = ASSETS[platform];
@@ -45,14 +48,16 @@ export async function GET(
     const salt = process.env.IP_HASH_SALT || "";
     const sha = (s: string) => createHash("sha256").update(s).digest("hex");
     const key = req.nextUrl.searchParams.get("key");
-    await getSupabase().from("app_downloads").insert({
-      platform,
-      version: req.nextUrl.searchParams.get("v") || null,
-      license_key: key && key.startsWith("LK-") ? key : null,
-      ip_hash: ip ? sha(ip + salt) : null,
-      user_agent_hash: ua ? sha(ua) : null,
-      referrer: (req.headers.get("referer") || "").slice(0, 300) || null,
-    });
+    await getSupabase()
+      .from("app_downloads")
+      .insert({
+        platform,
+        version: req.nextUrl.searchParams.get("v") || null,
+        license_key: key && key.startsWith("LK-") ? key : null,
+        ip_hash: ip ? sha(ip + salt) : null,
+        user_agent_hash: ua ? sha(ua) : null,
+        referrer: (req.headers.get("referer") || "").slice(0, 300) || null,
+      });
   } catch (err) {
     console.error("download tracking failed:", err);
   }

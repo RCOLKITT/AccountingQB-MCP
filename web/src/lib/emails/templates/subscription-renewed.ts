@@ -1,9 +1,5 @@
 import { emailWrapper, heading, paragraph, primaryButton } from "./base";
-import {
-  formatDate,
-  formatCurrency,
-  getTierDisplayName,
-} from "../send-email";
+import { formatDate, formatCurrency, getTierDisplayName } from "../send-email";
 
 interface SubscriptionRenewedEmailParams {
   email: string;
@@ -17,7 +13,7 @@ interface SubscriptionRenewedEmailParams {
 }
 
 export function subscriptionRenewedEmail(
-  params: SubscriptionRenewedEmailParams
+  params: SubscriptionRenewedEmailParams,
 ): {
   subject: string;
   html: string;
@@ -95,7 +91,7 @@ export function subscriptionRenewedEmail(
     subject: `Receipt: AccountingQB ${tierName} — ${amount}`,
     html: emailWrapper(
       content,
-      `Your AccountingQB subscription has been renewed for ${amount}`
+      `Your AccountingQB subscription has been renewed for ${amount}`,
     ),
   };
 }

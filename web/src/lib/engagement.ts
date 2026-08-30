@@ -78,9 +78,14 @@ export async function getEngagement(): Promise<Engagement> {
     if (!lic || lic.is_test) continue;
     const t = new Date(r.invoked_at).getTime();
     const ageDays = (now - t) / DAY;
-    const a =
-      acc.get(r.license_key) ||
-      { d1: false, d7: false, d30: false, recent7: 0, prior: 0, lastActive: 0 };
+    const a = acc.get(r.license_key) || {
+      d1: false,
+      d7: false,
+      d30: false,
+      recent7: 0,
+      prior: 0,
+      lastActive: 0,
+    };
     if (ageDays <= 1) a.d1 = true;
     if (ageDays <= 7) {
       a.d7 = true;

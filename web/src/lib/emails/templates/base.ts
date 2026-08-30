@@ -5,7 +5,7 @@
 export function emailWrapper(
   content: string,
   preheader?: string,
-  opts?: { unsubscribeUrl?: string }
+  opts?: { unsubscribeUrl?: string },
 ): string {
   // Marketing emails must carry a one-click unsubscribe + physical mailing
   // address (CAN-SPAM / CASL). Transactional emails omit both.
@@ -127,7 +127,10 @@ export function secondaryButton(text: string, href: string): string {
 /**
  * Info box for important notices
  */
-export function infoBox(content: string, type: "info" | "warning" | "success" = "info"): string {
+export function infoBox(
+  content: string,
+  type: "info" | "warning" | "success" = "info",
+): string {
   const colors = {
     info: { bg: "rgba(34,211,238,0.1)", border: "#22d3ee", text: "#22d3ee" },
     warning: { bg: "rgba(251,191,36,0.1)", border: "#fbbf24", text: "#fbbf24" },
@@ -173,7 +176,7 @@ export function bulletList(items: string[]): string {
   const listItems = items
     .map(
       (item) =>
-        `<li style="margin-bottom: 8px; color: #d1d5db; font-size: 14px; line-height: 1.5;">${item}</li>`
+        `<li style="margin-bottom: 8px; color: #d1d5db; font-size: 14px; line-height: 1.5;">${item}</li>`,
     )
     .join("");
 

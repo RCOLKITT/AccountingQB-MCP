@@ -11,7 +11,8 @@ async function createPortalUrl(licenseKey: string): Promise<string | null> {
 
   if (error || !license?.stripe_customer_id) return null;
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";
   const portalSession = await getStripe().billingPortal.sessions.create({
     customer: license.stripe_customer_id,
     return_url: `${baseUrl}/dashboard?key=${encodeURIComponent(licenseKey)}`,
@@ -28,13 +29,16 @@ export async function POST(req: NextRequest) {
   try {
     const { licenseKey } = await req.json();
     if (!licenseKey) {
-      return NextResponse.json({ error: "License key is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "License key is required" },
+        { status: 400 },
+      );
     }
     const url = await createPortalUrl(licenseKey);
     if (!url) {
       return NextResponse.json(
         { error: "License not found or no associated Stripe customer" },
-        { status: 404 }
+        { status: 404 },
       );
     }
     return NextResponse.json({ url });
@@ -42,7 +46,7 @@ export async function POST(req: NextRequest) {
     console.error("Portal session error:", err);
     return NextResponse.json(
       { error: "Failed to create portal session" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -65,6 +69,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(url || `${baseUrl}/pricing`, 303);
   } catch (err) {
     console.error("Portal GET error:", err);
-    return NextResponse.redirect(`${baseUrl}/dashboard?key=${encodeURIComponent(licenseKey)}`, 303);
+    return NextResponse.redirect(
+      `${baseUrl}/dashboard?key=${encodeURIComponent(licenseKey)}`,
+      303,
+    );
   }
 }

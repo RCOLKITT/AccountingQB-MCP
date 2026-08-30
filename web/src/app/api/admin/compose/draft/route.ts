@@ -8,10 +8,13 @@ import type { CampaignContent } from "@/lib/emails/templates/campaign";
 // Model: claude-opus-4-8 (override via COMPOSE_MODEL).
 
 const COHORT_HINTS: Record<string, string> = {
-  active: "current paying customers — announce and get them to adopt the new capability",
+  active:
+    "current paying customers — announce and get them to adopt the new capability",
   trialing: "people mid-trial — nudge them to activate and convert",
-  stuck: "signed up but never connected QuickBooks — a gentle re-activation nudge",
-  canceled: "former customers who churned — a win-back; lead with what's new since they left",
+  stuck:
+    "signed up but never connected QuickBooks — a gentle re-activation nudge",
+  canceled:
+    "former customers who churned — a win-back; lead with what's new since they left",
   all: "a mixed audience of current, trial, and former users — keep it broadly relevant",
 };
 
@@ -32,7 +35,8 @@ Keep it tight. Do not invent features that don't exist. Do not include an unsubs
 
 export async function POST(req: NextRequest) {
   const user = await currentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if ((user.publicMetadata as { role?: string })?.role !== "admin")
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -45,7 +49,11 @@ export async function POST(req: NextRequest) {
   const goal = String(body.goal || "").trim();
   const cohort = String(body.cohort || "all");
   const tone = String(body.tone || "").trim();
-  if (!goal) return NextResponse.json({ error: "Describe the campaign goal" }, { status: 400 });
+  if (!goal)
+    return NextResponse.json(
+      { error: "Describe the campaign goal" },
+      { status: 400 },
+    );
 
   const audience = COHORT_HINTS[cohort] || COHORT_HINTS.all;
   const userPrompt = `Draft a marketing email.
@@ -64,7 +72,10 @@ Audience: ${audience}${tone ? `\nTone/notes: ${tone}` : ""}`;
       response.content[0]?.type === "text" ? response.content[0].text : "";
 
     // Robust parse: strip any accidental markdown fences, then JSON.parse.
-    const cleaned = text.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
+    const cleaned = text
+      .replace(/^```(?:json)?/i, "")
+      .replace(/```$/i, "")
+      .trim();
     let draft: CampaignContent;
     try {
       draft = JSON.parse(cleaned) as CampaignContent;

@@ -22,7 +22,11 @@ export default async function AdminLayout({
   if (!userId) {
     redirect("/sign-in");
   }
-  const { role, email } = await resolveAdmin(userId, sessionClaims as AdminClaims, true);
+  const { role, email } = await resolveAdmin(
+    userId,
+    sessionClaims as AdminClaims,
+    true,
+  );
   if (role !== "admin") {
     redirect("/dashboard");
   }

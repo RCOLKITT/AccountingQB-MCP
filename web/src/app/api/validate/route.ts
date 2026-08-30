@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     if (!key) {
       return NextResponse.json(
         { valid: false, tier: "free", reason: "no_key" },
-        { status: 200 }
+        { status: 200 },
       );
     }
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     if (error || !license) {
       return NextResponse.json(
         { valid: false, tier: "free", reason: "invalid_key" },
-        { status: 200 }
+        { status: 200 },
       );
     }
 
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     if (license.status === "canceled" || license.status === "expired") {
       return NextResponse.json(
         { valid: false, tier: "free", reason: "subscription_ended" },
-        { status: 200 }
+        { status: 200 },
       );
     }
 
@@ -54,20 +54,20 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json(
         { valid: false, tier: "free", reason: "trial_expired" },
-        { status: 200 }
+        { status: 200 },
       );
     }
 
     return NextResponse.json(
       { valid: true, tier: license.tier },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (err) {
     console.error("License validation error:", err);
     // On error, allow access (offline resilience)
     return NextResponse.json(
       { valid: true, tier: "grace", reason: "validation_error" },
-      { status: 200 }
+      { status: 200 },
     );
   }
 }

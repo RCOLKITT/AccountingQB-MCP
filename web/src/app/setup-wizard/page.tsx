@@ -41,7 +41,9 @@ function SetupWizardContent() {
   const [step, setStep] = useState<Step>("detect");
   const [copied, setCopied] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
-  const [hasClaudeDesktop, setHasClaudeDesktop] = useState<boolean | null>(null);
+  const [hasClaudeDesktop, setHasClaudeDesktop] = useState<boolean | null>(
+    null,
+  );
   const [connecting, setConnecting] = useState(false);
   const [connected, setConnected] = useState(false);
   const [inputKey, setInputKey] = useState(licenseKey);
@@ -69,8 +71,9 @@ function SetupWizardContent() {
   const effectiveKey = inputKey || licenseKey || "YOUR_LICENSE_KEY";
 
   // Platform-specific config: Windows uses pip-installed python -m, Mac/Linux use uvx
-  const configSnippet = platform === "windows"
-    ? `{
+  const configSnippet =
+    platform === "windows"
+      ? `{
   "mcpServers": {
     "accountingqb": {
       "command": "python",
@@ -81,7 +84,7 @@ function SetupWizardContent() {
     }
   }
 }`
-    : `{
+      : `{
   "mcpServers": {
     "accountingqb": {
       "command": "uvx",
@@ -115,12 +118,14 @@ function SetupWizardContent() {
     window.open(
       `/api/oauth/start?license_key=${encodeURIComponent(effectiveKey)}`,
       "qb-oauth",
-      "width=600,height=700"
+      "width=600,height=700",
     );
     // Listen for OAuth completion
     const checkInterval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/oauth/status?license_key=${encodeURIComponent(effectiveKey)}`);
+        const res = await fetch(
+          `/api/oauth/status?license_key=${encodeURIComponent(effectiveKey)}`,
+        );
         const data = await res.json();
         if (data.connected) {
           clearInterval(checkInterval);
@@ -157,9 +162,14 @@ function SetupWizardContent() {
         <div className="mx-auto flex max-w-3xl items-center justify-between">
           <a href="/" className="text-xl font-bold">
             <span className="text-white">Accounting</span>
-            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">QB</span>
+            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+              QB
+            </span>
           </a>
-          <a href="mailto:support@vasperacapital.com" className="text-sm text-gray-400 hover:text-white transition">
+          <a
+            href="mailto:support@vasperacapital.com"
+            className="text-sm text-gray-400 hover:text-white transition"
+          >
             Need help?
           </a>
         </div>
@@ -168,57 +178,83 @@ function SetupWizardContent() {
       <div className="mx-auto max-w-2xl px-6 py-12">
         {/* Progress (local install flow only) */}
         {step !== "choose" && step !== "connector" && (
-        <div className="flex items-center justify-center gap-3 mb-10">
-          {["Install Claude", "Add Extension", "Connect QB", "Done"].map((label, i) => {
-            const stepIndex = i + 1;
-            const currentIndex = step === "detect" ? 0
-              : step === "install-claude" ? 1
-              : step === "install-extension" ? 2
-              : step === "connect-qb" ? 3
-              : 4;
-            const isActive = stepIndex === currentIndex;
-            const isDone = stepIndex < currentIndex;
-            return (
-              <div key={label} className="flex items-center gap-3">
-                <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
-                  isDone ? "bg-green-500 text-white"
-                  : isActive ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg"
-                  : "border border-white/20 text-gray-500"
-                }`}>
-                  {isDone ? "✓" : stepIndex}
-                </div>
-                {i < 3 && <div className={`w-8 h-px ${isDone ? "bg-green-500" : "bg-white/10"}`} />}
-              </div>
-            );
-          })}
-        </div>
+          <div className="flex items-center justify-center gap-3 mb-10">
+            {["Install Claude", "Add Extension", "Connect QB", "Done"].map(
+              (label, i) => {
+                const stepIndex = i + 1;
+                const currentIndex =
+                  step === "detect"
+                    ? 0
+                    : step === "install-claude"
+                      ? 1
+                      : step === "install-extension"
+                        ? 2
+                        : step === "connect-qb"
+                          ? 3
+                          : 4;
+                const isActive = stepIndex === currentIndex;
+                const isDone = stepIndex < currentIndex;
+                return (
+                  <div key={label} className="flex items-center gap-3">
+                    <div
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                        isDone
+                          ? "bg-green-500 text-white"
+                          : isActive
+                            ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg"
+                            : "border border-white/20 text-gray-500"
+                      }`}
+                    >
+                      {isDone ? "✓" : stepIndex}
+                    </div>
+                    {i < 3 && (
+                      <div
+                        className={`w-8 h-px ${isDone ? "bg-green-500" : "bg-white/10"}`}
+                      />
+                    )}
+                  </div>
+                );
+              },
+            )}
+          </div>
         )}
 
         {/* License Key Input (if not provided; not needed for the connector path) */}
-        {!licenseKey && step !== "done" && step !== "choose" && step !== "connector" && (
-          <div className="mb-8 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-6">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Enter your license key
-            </label>
-            <input
-              type="text"
-              value={inputKey}
-              onChange={(e) => setInputKey(e.target.value)}
-              placeholder="LK-XXXXXXXX..."
-              className="w-full rounded-lg bg-black/40 border border-white/10 px-4 py-3 font-mono text-cyan-400 placeholder-gray-600 focus:border-cyan-400/50 focus:outline-none"
-            />
-            <p className="mt-2 text-xs text-gray-500">
-              Check your email or <a href="/dashboard" className="text-cyan-400 hover:underline">dashboard</a> for your license key
-            </p>
-          </div>
-        )}
+        {!licenseKey &&
+          step !== "done" &&
+          step !== "choose" &&
+          step !== "connector" && (
+            <div className="mb-8 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-6">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Enter your license key
+              </label>
+              <input
+                type="text"
+                value={inputKey}
+                onChange={(e) => setInputKey(e.target.value)}
+                placeholder="LK-XXXXXXXX..."
+                className="w-full rounded-lg bg-black/40 border border-white/10 px-4 py-3 font-mono text-cyan-400 placeholder-gray-600 focus:border-cyan-400/50 focus:outline-none"
+              />
+              <p className="mt-2 text-xs text-gray-500">
+                Check your email or{" "}
+                <a href="/dashboard" className="text-cyan-400 hover:underline">
+                  dashboard
+                </a>{" "}
+                for your license key
+              </p>
+            </div>
+          )}
 
         {/* Step 0: Choose how to connect (only when the remote connector is live) */}
         {step === "choose" && REMOTE_MCP_URL && (
           <div className="space-y-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold">How do you want to connect?</h2>
-              <p className="mt-2 text-gray-400">Both options give you the full AccountingQB toolset.</p>
+              <h2 className="text-2xl font-bold">
+                How do you want to connect?
+              </h2>
+              <p className="mt-2 text-gray-400">
+                Both options give you the full AccountingQB toolset.
+              </p>
             </div>
 
             <button
@@ -228,14 +264,16 @@ function SetupWizardContent() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-lg font-semibold">Connect instantly</span>
+                    <span className="text-lg font-semibold">
+                      Connect instantly
+                    </span>
                     <span className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 px-2 py-0.5 text-xs font-semibold">
                       Recommended
                     </span>
                   </div>
                   <p className="mt-2 text-sm text-gray-400">
-                    Works in Claude web, desktop and mobile — no install. Sign in,
-                    approve access, done.
+                    Works in Claude web, desktop and mobile — no install. Sign
+                    in, approve access, done.
                   </p>
                 </div>
                 <span className="text-2xl">⚡</span>
@@ -249,14 +287,16 @@ function SetupWizardContent() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-lg font-semibold">Install locally</span>
+                    <span className="text-lg font-semibold">
+                      Install locally
+                    </span>
                     <span className="rounded-full border border-white/20 px-2 py-0.5 text-xs text-gray-400">
                       Private
                     </span>
                   </div>
                   <p className="mt-2 text-sm text-gray-400">
-                    Runs inside Claude Desktop on your machine — your books never
-                    touch our servers.
+                    Runs inside Claude Desktop on your machine — your books
+                    never touch our servers.
                   </p>
                 </div>
                 <span className="text-2xl">🔒</span>
@@ -269,10 +309,13 @@ function SetupWizardContent() {
         {step === "connector" && REMOTE_MCP_URL && (
           <div className="space-y-6">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
-              <h2 className="text-2xl font-bold">Add AccountingQB as a connector</h2>
+              <h2 className="text-2xl font-bold">
+                Add AccountingQB as a connector
+              </h2>
               <p className="mt-3 text-gray-400">
-                Add a custom connector in Claude and sign in with your AccountingQB
-                account — it works in Claude web, desktop and mobile.
+                Add a custom connector in Claude and sign in with your
+                AccountingQB account — it works in Claude web, desktop and
+                mobile.
               </p>
 
               <div className="mt-6">
@@ -291,20 +334,34 @@ function SetupWizardContent() {
               </div>
 
               <div className="mt-6 space-y-3 text-sm text-gray-300">
-                <p><strong className="text-white">Instructions:</strong></p>
+                <p>
+                  <strong className="text-white">Instructions:</strong>
+                </p>
                 <ol className="list-decimal list-inside space-y-2 text-gray-400">
-                  <li>In Claude, open <span className="text-white">Settings → Connectors</span></li>
-                  <li>Click <span className="text-white">Add custom connector</span></li>
-                  <li>Paste the URL above and click <span className="text-white">Add</span></li>
-                  <li>Click <span className="text-white">Connect</span> and sign in with your AccountingQB account</li>
+                  <li>
+                    In Claude, open{" "}
+                    <span className="text-white">Settings → Connectors</span>
+                  </li>
+                  <li>
+                    Click{" "}
+                    <span className="text-white">Add custom connector</span>
+                  </li>
+                  <li>
+                    Paste the URL above and click{" "}
+                    <span className="text-white">Add</span>
+                  </li>
+                  <li>
+                    Click <span className="text-white">Connect</span> and sign
+                    in with your AccountingQB account
+                  </li>
                   <li>Approve access for your license — that&apos;s it</li>
                 </ol>
               </div>
 
               <div className="mt-6 rounded-xl border border-blue-400/20 bg-blue-400/5 p-4">
                 <p className="text-sm text-gray-300">
-                  <strong className="text-blue-400">Coming soon:</strong> one-click
-                  install from the Claude connector directory.
+                  <strong className="text-blue-400">Coming soon:</strong>{" "}
+                  one-click install from the Claude connector directory.
                 </p>
               </div>
             </div>
@@ -330,9 +387,12 @@ function SetupWizardContent() {
         {step === "install-claude" && (
           <div className="space-y-6">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
-              <h2 className="text-2xl font-bold">Step 1: Install Claude Desktop</h2>
+              <h2 className="text-2xl font-bold">
+                Step 1: Install Claude Desktop
+              </h2>
               <p className="mt-3 text-gray-400">
-                AccountingQB runs as an extension inside Claude Desktop. If you haven&apos;t installed it yet, download it first.
+                AccountingQB runs as an extension inside Claude Desktop. If you
+                haven&apos;t installed it yet, download it first.
               </p>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -345,7 +405,9 @@ function SetupWizardContent() {
                   <span className="text-2xl">🍎</span>
                   <div>
                     <div className="font-semibold">macOS</div>
-                    <div className="text-sm text-gray-500">Intel & Apple Silicon</div>
+                    <div className="text-sm text-gray-500">
+                      Intel & Apple Silicon
+                    </div>
                   </div>
                 </a>
                 <a
@@ -364,7 +426,10 @@ function SetupWizardContent() {
 
               <div className="mt-6 rounded-xl border border-blue-400/20 bg-blue-400/5 p-4">
                 <p className="text-sm text-gray-300">
-                  <strong className="text-blue-400">Already have Claude Desktop?</strong> Great! Skip to the next step.
+                  <strong className="text-blue-400">
+                    Already have Claude Desktop?
+                  </strong>{" "}
+                  Great! Skip to the next step.
                 </p>
               </div>
             </div>
@@ -384,7 +449,9 @@ function SetupWizardContent() {
         {step === "install-extension" && (
           <div className="space-y-6">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
-              <h2 className="text-2xl font-bold">Step 2: Add AccountingQB Extension</h2>
+              <h2 className="text-2xl font-bold">
+                Step 2: Add AccountingQB Extension
+              </h2>
               <p className="mt-3 text-gray-400">
                 Add this configuration to your Claude Desktop config file.
               </p>
@@ -392,17 +459,25 @@ function SetupWizardContent() {
               {/* Config file location */}
               <div className="mt-6">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-sm text-gray-400">Config file location</span>
+                  <span className="text-sm text-gray-400">
+                    Config file location
+                  </span>
                   <div className="flex gap-1">
                     {(["mac", "windows", "linux"] as Platform[]).map((p) => (
                       <button
                         key={p}
                         onClick={() => setPlatform(p)}
                         className={`px-2 py-1 text-xs rounded ${
-                          platform === p ? "bg-cyan-500 text-white" : "bg-white/10 text-gray-400 hover:bg-white/20"
+                          platform === p
+                            ? "bg-cyan-500 text-white"
+                            : "bg-white/10 text-gray-400 hover:bg-white/20"
                         }`}
                       >
-                        {p === "mac" ? "macOS" : p === "windows" ? "Windows" : "Linux"}
+                        {p === "mac"
+                          ? "macOS"
+                          : p === "windows"
+                            ? "Windows"
+                            : "Linux"}
                       </button>
                     ))}
                   </div>
@@ -415,7 +490,9 @@ function SetupWizardContent() {
               {/* Config snippet */}
               <div className="mt-6">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm text-gray-400">Add this to your config</span>
+                  <span className="text-sm text-gray-400">
+                    Add this to your config
+                  </span>
                   <button
                     onClick={copyConfig}
                     className="px-3 py-1 text-xs rounded border border-white/10 hover:bg-white/10 transition"
@@ -430,11 +507,22 @@ function SetupWizardContent() {
 
               {/* Instructions */}
               <div className="mt-6 space-y-3 text-sm text-gray-300">
-                <p><strong className="text-white">Instructions:</strong></p>
+                <p>
+                  <strong className="text-white">Instructions:</strong>
+                </p>
                 <ol className="list-decimal list-inside space-y-2 text-gray-400">
                   <li>Open the config file in a text editor</li>
                   <li>If the file is empty, paste the entire config above</li>
-                  <li>If you have existing servers, add the <code className="text-cyan-400">&quot;accountingqb&quot;</code> entry inside <code className="text-cyan-400">&quot;mcpServers&quot;</code></li>
+                  <li>
+                    If you have existing servers, add the{" "}
+                    <code className="text-cyan-400">
+                      &quot;accountingqb&quot;
+                    </code>{" "}
+                    entry inside{" "}
+                    <code className="text-cyan-400">
+                      &quot;mcpServers&quot;
+                    </code>
+                  </li>
                   <li>Save the file and restart Claude Desktop</li>
                 </ol>
               </div>
@@ -444,19 +532,36 @@ function SetupWizardContent() {
                 {platform === "windows" ? (
                   <>
                     <p className="text-sm text-gray-300">
-                      <strong className="text-yellow-400">Windows Setup:</strong> First install AccountingQB via pip:
+                      <strong className="text-yellow-400">
+                        Windows Setup:
+                      </strong>{" "}
+                      First install AccountingQB via pip:
                     </p>
                     <code className="mt-2 block rounded bg-black/40 px-3 py-2 text-sm text-cyan-400">
                       pip install accountingqb
                     </code>
                     <p className="mt-2 text-xs text-gray-500">
-                      Don&apos;t have Python? Run <code className="text-cyan-400">winget install Python.Python.3.12</code> first, then restart PowerShell.
+                      Don&apos;t have Python? Run{" "}
+                      <code className="text-cyan-400">
+                        winget install Python.Python.3.12
+                      </code>{" "}
+                      first, then restart PowerShell.
                     </p>
                   </>
                 ) : (
                   <>
                     <p className="text-sm text-gray-300">
-                      <strong className="text-yellow-400">First time?</strong> You&apos;ll need <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline">uv</a> installed. Run:
+                      <strong className="text-yellow-400">First time?</strong>{" "}
+                      You&apos;ll need{" "}
+                      <a
+                        href="https://docs.astral.sh/uv/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-cyan-400 underline"
+                      >
+                        uv
+                      </a>{" "}
+                      installed. Run:
                     </p>
                     <code className="mt-2 block rounded bg-black/40 px-3 py-2 text-sm text-cyan-400">
                       curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -475,37 +580,87 @@ function SetupWizardContent() {
                 </summary>
                 <div className="px-5 pb-5 space-y-4 text-sm">
                   <div>
-                    <p className="font-medium text-white">Config file doesn&apos;t exist</p>
-                    <p className="text-gray-400">Create it! Just paste the config above into a new file at the path shown.</p>
+                    <p className="font-medium text-white">
+                      Config file doesn&apos;t exist
+                    </p>
+                    <p className="text-gray-400">
+                      Create it! Just paste the config above into a new file at
+                      the path shown.
+                    </p>
                   </div>
                   <div>
-                    <p className="font-medium text-white">Claude doesn&apos;t show AccountingQB tools</p>
-                    <p className="text-gray-400">Make sure you saved the config and completely restarted Claude Desktop (not just closed the window). On Windows, right-click the tray icon → Quit.</p>
+                    <p className="font-medium text-white">
+                      Claude doesn&apos;t show AccountingQB tools
+                    </p>
+                    <p className="text-gray-400">
+                      Make sure you saved the config and completely restarted
+                      Claude Desktop (not just closed the window). On Windows,
+                      right-click the tray icon → Quit.
+                    </p>
                   </div>
                   {platform === "windows" ? (
                     <>
                       <div>
-                        <p className="font-medium text-white">&quot;python not found&quot; error</p>
-                        <p className="text-gray-400">Install Python: <code className="text-cyan-400">winget install Python.Python.3.12</code> then restart PowerShell.</p>
+                        <p className="font-medium text-white">
+                          &quot;python not found&quot; error
+                        </p>
+                        <p className="text-gray-400">
+                          Install Python:{" "}
+                          <code className="text-cyan-400">
+                            winget install Python.Python.3.12
+                          </code>{" "}
+                          then restart PowerShell.
+                        </p>
                       </div>
                       <div>
-                        <p className="font-medium text-white">&quot;No module named accountingqb&quot; error</p>
-                        <p className="text-gray-400">Run <code className="text-cyan-400">pip install accountingqb</code> in PowerShell, then restart Claude Desktop.</p>
+                        <p className="font-medium text-white">
+                          &quot;No module named accountingqb&quot; error
+                        </p>
+                        <p className="text-gray-400">
+                          Run{" "}
+                          <code className="text-cyan-400">
+                            pip install accountingqb
+                          </code>{" "}
+                          in PowerShell, then restart Claude Desktop.
+                        </p>
                       </div>
                     </>
                   ) : (
                     <div>
-                      <p className="font-medium text-white">&quot;uvx not found&quot; error</p>
-                      <p className="text-gray-400">Install uv using the command above, then restart your terminal and Claude Desktop.</p>
+                      <p className="font-medium text-white">
+                        &quot;uvx not found&quot; error
+                      </p>
+                      <p className="text-gray-400">
+                        Install uv using the command above, then restart your
+                        terminal and Claude Desktop.
+                      </p>
                     </div>
                   )}
                   <div>
                     <p className="font-medium text-white">JSON syntax error</p>
-                    <p className="text-gray-400">Make sure you have proper commas between entries. Use a JSON validator like <a href="https://jsonlint.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">jsonlint.com</a>.</p>
+                    <p className="text-gray-400">
+                      Make sure you have proper commas between entries. Use a
+                      JSON validator like{" "}
+                      <a
+                        href="https://jsonlint.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-cyan-400 hover:underline"
+                      >
+                        jsonlint.com
+                      </a>
+                      .
+                    </p>
                   </div>
                   <div>
-                    <p className="font-medium text-white">Claude asks if I want to &quot;Allow&quot; AccountingQB</p>
-                    <p className="text-gray-400">This is normal! Click <span className="text-green-400">Allow</span> to let Claude use the AccountingQB tools.</p>
+                    <p className="font-medium text-white">
+                      Claude asks if I want to &quot;Allow&quot; AccountingQB
+                    </p>
+                    <p className="text-gray-400">
+                      This is normal! Click{" "}
+                      <span className="text-green-400">Allow</span> to let
+                      Claude use the AccountingQB tools.
+                    </p>
                   </div>
                 </div>
               </details>
@@ -534,15 +689,22 @@ function SetupWizardContent() {
             <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
               <h2 className="text-2xl font-bold">Step 3: Connect QuickBooks</h2>
               <p className="mt-3 text-gray-400">
-                Authorize AccountingQB to access your QuickBooks Online company. You can connect multiple companies.
+                Authorize AccountingQB to access your QuickBooks Online company.
+                You can connect multiple companies.
               </p>
 
               <div className="mt-6 rounded-xl border border-green-400/20 bg-green-400/5 p-5">
                 <div className="flex items-start gap-3">
                   <span className="text-green-400 text-lg">🔒</span>
                   <div className="text-sm text-gray-300">
-                    <p className="font-medium text-green-400">Your data stays secure</p>
-                    <p className="mt-1">OAuth tokens are stored securely. Your financial data flows directly between Claude and QuickBooks — never through our servers.</p>
+                    <p className="font-medium text-green-400">
+                      Your data stays secure
+                    </p>
+                    <p className="mt-1">
+                      OAuth tokens are stored securely. Your financial data
+                      flows directly between Claude and QuickBooks — never
+                      through our servers.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -550,14 +712,19 @@ function SetupWizardContent() {
               {connected ? (
                 <div className="mt-6 rounded-xl bg-green-500/10 border border-green-500/20 p-6 text-center">
                   <div className="text-4xl mb-2">✓</div>
-                  <p className="text-green-400 font-semibold">QuickBooks Connected!</p>
+                  <p className="text-green-400 font-semibold">
+                    QuickBooks Connected!
+                  </p>
                 </div>
               ) : oauthTimeout ? (
                 <div className="mt-6 space-y-4">
                   <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-5">
-                    <p className="font-medium text-yellow-400">Taking longer than expected?</p>
+                    <p className="font-medium text-yellow-400">
+                      Taking longer than expected?
+                    </p>
                     <p className="mt-2 text-sm text-gray-300">
-                      If the OAuth window closed without completing, try again or check if a popup blocker is active.
+                      If the OAuth window closed without completing, try again
+                      or check if a popup blocker is active.
                     </p>
                   </div>
                   <div className="flex gap-3">
@@ -581,7 +748,9 @@ function SetupWizardContent() {
                   disabled={connecting}
                   className="mt-6 w-full rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-4 text-lg font-semibold shadow-lg shadow-green-500/20 hover:shadow-green-500/40 transition disabled:opacity-50"
                 >
-                  {connecting ? "Waiting for authorization..." : "Connect QuickBooks"}
+                  {connecting
+                    ? "Waiting for authorization..."
+                    : "Connect QuickBooks"}
                 </button>
               )}
 
@@ -589,7 +758,9 @@ function SetupWizardContent() {
               {showTroubleshooting && (
                 <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-5">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-white">Troubleshooting</h3>
+                    <h3 className="font-semibold text-white">
+                      Troubleshooting
+                    </h3>
                     <button
                       onClick={() => setShowTroubleshooting(false)}
                       className="text-gray-500 hover:text-white"
@@ -600,7 +771,9 @@ function SetupWizardContent() {
                   <ul className="space-y-3 text-sm text-gray-300">
                     <li className="flex gap-2">
                       <span className="text-cyan-400">•</span>
-                      <span>Make sure popup blockers are disabled for this site</span>
+                      <span>
+                        Make sure popup blockers are disabled for this site
+                      </span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-cyan-400">•</span>
@@ -608,17 +781,25 @@ function SetupWizardContent() {
                     </li>
                     <li className="flex gap-2">
                       <span className="text-cyan-400">•</span>
-                      <span>Check that you&apos;re using the correct QuickBooks account</span>
+                      <span>
+                        Check that you&apos;re using the correct QuickBooks
+                        account
+                      </span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-cyan-400">•</span>
-                      <span>Ensure your QuickBooks company allows third-party apps</span>
+                      <span>
+                        Ensure your QuickBooks company allows third-party apps
+                      </span>
                     </li>
                   </ul>
                   <div className="mt-4 pt-4 border-t border-white/10">
                     <p className="text-sm text-gray-400">
                       Still stuck? Email{" "}
-                      <a href="mailto:support@vasperacapital.com" className="text-cyan-400 hover:underline">
+                      <a
+                        href="mailto:support@vasperacapital.com"
+                        className="text-cyan-400 hover:underline"
+                      >
                         support@vasperacapital.com
                       </a>{" "}
                       with your license key and we&apos;ll help within 24 hours.
@@ -628,7 +809,8 @@ function SetupWizardContent() {
               )}
 
               <p className="mt-4 text-center text-sm text-gray-500">
-                You can also connect later from Claude Desktop by asking Claude to connect.
+                You can also connect later from Claude Desktop by asking Claude
+                to connect.
               </p>
             </div>
 
@@ -699,7 +881,14 @@ function SetupWizardContent() {
 
             {!connected && (
               <p className="text-center text-sm text-gray-500">
-                Don&apos;t forget to <button onClick={() => setStep("connect-qb")} className="text-cyan-400 hover:underline">connect QuickBooks</button> when you&apos;re ready.
+                Don&apos;t forget to{" "}
+                <button
+                  onClick={() => setStep("connect-qb")}
+                  className="text-cyan-400 hover:underline"
+                >
+                  connect QuickBooks
+                </button>{" "}
+                when you&apos;re ready.
               </p>
             )}
           </div>
@@ -708,7 +897,14 @@ function SetupWizardContent() {
         {/* Help footer */}
         <div className="mt-12 border-t border-white/5 pt-8 text-center text-sm text-gray-500">
           <p>
-            Stuck? Email <a href="mailto:support@vasperacapital.com" className="text-cyan-400 hover:underline">support@vasperacapital.com</a> and we&apos;ll help you get connected.
+            Stuck? Email{" "}
+            <a
+              href="mailto:support@vasperacapital.com"
+              className="text-cyan-400 hover:underline"
+            >
+              support@vasperacapital.com
+            </a>{" "}
+            and we&apos;ll help you get connected.
           </p>
         </div>
       </div>
@@ -718,11 +914,13 @@ function SetupWizardContent() {
 
 export default function SetupWizardPage() {
   return (
-    <Suspense fallback={
-      <main className="min-h-screen bg-[#0a0e1a] text-white flex items-center justify-center">
-        <p className="text-gray-400">Loading...</p>
-      </main>
-    }>
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#0a0e1a] text-white flex items-center justify-center">
+          <p className="text-gray-400">Loading...</p>
+        </main>
+      }
+    >
       <SetupWizardContent />
     </Suspense>
   );

@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     if (!licenseKey) {
       return NextResponse.json(
         { error: "License key required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -33,14 +33,14 @@ export async function POST(req: NextRequest) {
     if (license.status === "canceled") {
       return NextResponse.json(
         { error: "Subscription already canceled" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!license.stripe_subscription_id) {
       return NextResponse.json(
         { error: "No active subscription found" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     console.error("Cancel subscription error:", err);
     return NextResponse.json(
       { error: "Failed to cancel subscription" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

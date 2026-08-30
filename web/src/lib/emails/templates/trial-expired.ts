@@ -42,7 +42,7 @@ export function trialExpiredEmail(params: TrialExpiredEmailParams): {
     subject: `Your AccountingQB trial has ended`,
     html: emailWrapper(
       content,
-      `Your trial has ended — you're on the free plan; pick a plan anytime to unlock all 131 tools`
+      `Your trial has ended — you're on the free plan; pick a plan anytime to unlock all 131 tools`,
     ),
   };
 }

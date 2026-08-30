@@ -40,12 +40,14 @@ export async function getNrr(): Promise<NrrResult> {
     .select("month, license_key, mrr_cents")
     .order("month", { ascending: false })
     .limit(100000);
-  const rows = (data as { month: string; license_key: string; mrr_cents: number }[]) || [];
+  const rows =
+    (data as { month: string; license_key: string; mrr_cents: number }[]) || [];
   if (rows.length === 0) return EMPTY;
 
   // Total MRR by month (for the trend), oldest→newest.
   const byMonth = new Map<string, number>();
-  for (const r of rows) byMonth.set(r.month, (byMonth.get(r.month) || 0) + r.mrr_cents);
+  for (const r of rows)
+    byMonth.set(r.month, (byMonth.get(r.month) || 0) + r.mrr_cents);
   const trend = [...byMonth.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([month, cents]) => ({ month, mrr: cents / 100 }));
@@ -87,7 +89,9 @@ export async function getNrr(): Promise<NrrResult> {
     contraction: c(contraction),
     churned: c(churned),
     nrr: startMrr ? (endMrr / startMrr) * 100 : null,
-    grr: startMrr ? ((startMrr - contraction - churned) / startMrr) * 100 : null,
+    grr: startMrr
+      ? ((startMrr - contraction - churned) / startMrr) * 100
+      : null,
     trend,
   };
 }

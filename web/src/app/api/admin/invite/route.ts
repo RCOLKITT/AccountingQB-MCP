@@ -37,13 +37,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const email = String(body.email || "").trim().toLowerCase();
+  const email = String(body.email || "")
+    .trim()
+    .toLowerCase();
   const tier = String(body.tier || "solopreneur");
   const trialDays = Number(body.trialDays ?? 14);
   const dryRun = Boolean(body.dryRun);
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "A valid email is required" },
+      { status: 400 },
+    );
   }
   if (!TIERS.includes(tier)) {
     return NextResponse.json({ error: "Invalid tier" }, { status: 400 });
@@ -51,7 +56,7 @@ export async function POST(req: NextRequest) {
   if (!Number.isFinite(trialDays) || trialDays < 1 || trialDays > 60) {
     return NextResponse.json(
       { error: "trialDays must be between 1 and 60" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -89,7 +94,7 @@ export async function POST(req: NextRequest) {
 
   const licenseKey = `LK-${crypto.randomBytes(16).toString("hex").toUpperCase()}`;
   const trialEndsAt = new Date(
-    Date.now() + trialDays * 24 * 60 * 60 * 1000
+    Date.now() + trialDays * 24 * 60 * 60 * 1000,
   ).toISOString();
 
   if (dryRun) {
@@ -113,7 +118,7 @@ export async function POST(req: NextRequest) {
     console.error("Failed to create invite license:", insertError);
     return NextResponse.json(
       { error: "Failed to create invite license" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -127,7 +132,12 @@ export async function POST(req: NextRequest) {
   // Same nurture sequence paying trials get — includes the trial-ending
   // reminders that nudge the tester to subscribe.
   try {
-    await scheduleOnboardingEmails(licenseKey, email, tier, new Date(trialEndsAt));
+    await scheduleOnboardingEmails(
+      licenseKey,
+      email,
+      tier,
+      new Date(trialEndsAt),
+    );
   } catch (e) {
     console.error("Failed to schedule onboarding emails for invite:", e);
   }
@@ -148,7 +158,7 @@ export async function POST(req: NextRequest) {
   }
 
   console.log(
-    `Invite trial ${licenseKey} (${tier}, ${trialDays}d) issued to ${email} by ${adminEmail}`
+    `Invite trial ${licenseKey} (${tier}, ${trialDays}d) issued to ${email} by ${adminEmail}`,
   );
 
   return NextResponse.json({

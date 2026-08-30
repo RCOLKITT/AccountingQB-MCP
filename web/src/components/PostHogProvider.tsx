@@ -13,7 +13,11 @@ import { Suspense, useEffect } from "react";
 const KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
 
-if (typeof window !== "undefined" && KEY && !(posthog as { __loaded?: boolean }).__loaded) {
+if (
+  typeof window !== "undefined" &&
+  KEY &&
+  !(posthog as { __loaded?: boolean }).__loaded
+) {
   posthog.init(KEY, {
     api_host: HOST,
     capture_pageview: false, // captured manually below for the App Router

@@ -83,7 +83,7 @@ function AuthorizeContent() {
       .then(async (res) => (res.ok ? res.json() : { licenses: [] }))
       .then((data) => {
         const usable = (data.licenses || []).filter(
-          (l: LicenseInfo) => l.status !== "canceled" && l.status !== "expired"
+          (l: LicenseInfo) => l.status !== "canceled" && l.status !== "expired",
         );
         setLicenses(usable);
         if (usable.length === 1) setSelectedLicense(usable[0].key);
@@ -124,12 +124,16 @@ function AuthorizeContent() {
       });
       const data = await res.json();
       if (!res.ok || !data.redirect) {
-        throw new Error(data.error_description || data.error || "Authorization failed");
+        throw new Error(
+          data.error_description || data.error || "Authorization failed",
+        );
       }
       window.location.href = data.redirect;
     } catch (err) {
       setSubmitting(false);
-      setSubmitError(err instanceof Error ? err.message : "Authorization failed");
+      setSubmitError(
+        err instanceof Error ? err.message : "Authorization failed",
+      );
     }
   };
 
@@ -165,12 +169,14 @@ function AuthorizeContent() {
           ) : (
             <>
               <p className="mt-3 text-gray-400">
-                <span className="font-semibold text-white">{appName}</span> wants to
-                access your QuickBooks data through AccountingQB.
+                <span className="font-semibold text-white">{appName}</span>{" "}
+                wants to access your QuickBooks data through AccountingQB.
               </p>
 
               <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-gray-300">
-                <p className="font-medium text-white mb-2">This will allow it to:</p>
+                <p className="font-medium text-white mb-2">
+                  This will allow it to:
+                </p>
                 <ul className="space-y-1 text-gray-400">
                   <li>• Read and manage your QuickBooks company data</li>
                   <li>• Run reports, invoices, expenses and more via Claude</li>
@@ -187,11 +193,17 @@ function AuthorizeContent() {
                 ) : licenses.length === 0 ? (
                   <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4 text-sm text-gray-300">
                     No active license found for your account.{" "}
-                    <a href="/pricing" className="text-cyan-400 hover:underline">
+                    <a
+                      href="/pricing"
+                      className="text-cyan-400 hover:underline"
+                    >
                       Get a license
                     </a>{" "}
                     or{" "}
-                    <a href="/dashboard" className="text-cyan-400 hover:underline">
+                    <a
+                      href="/dashboard"
+                      className="text-cyan-400 hover:underline"
+                    >
                       link one in your dashboard
                     </a>
                     , then retry from Claude.
@@ -215,7 +227,9 @@ function AuthorizeContent() {
                           onChange={() => setSelectedLicense(l.key)}
                           className="accent-cyan-400"
                         />
-                        <span className="font-mono text-sm text-cyan-400">{l.key}</span>
+                        <span className="font-mono text-sm text-cyan-400">
+                          {l.key}
+                        </span>
                         <span className="ml-auto text-xs uppercase tracking-wide text-gray-500">
                           {l.tier}
                         </span>

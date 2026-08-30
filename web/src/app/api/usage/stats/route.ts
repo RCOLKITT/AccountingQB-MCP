@@ -101,7 +101,7 @@ export async function GET() {
     console.error("Usage stats error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

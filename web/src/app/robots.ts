@@ -5,7 +5,8 @@ import type { MetadataRoute } from "next";
 // explicitly permits GPTBot/ClaudeBot/PerplexityBot/etc. on public content so
 // AccountingQB is citable by ChatGPT, Claude, Perplexity, and Google AI.
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";
 
   const disallow = [
     "/api/",

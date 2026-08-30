@@ -17,7 +17,7 @@ const faqs: { q: string; a: string }[] = [
   },
   {
     q: "How does AccountingQB work?",
-    a: "You connect your QuickBooks Online company to Claude once. Then you ask Claude in plain English — \"What's my P&L for Q2?\", \"Find uncategorized transactions\", \"Run my Schedule C\" — and it uses AccountingQB's tools to read and update your books. It runs locally as a downloadable desktop app or a Claude Desktop extension, or through a zero-retention hosted connector you add to Claude as a custom connector.",
+    a: 'You connect your QuickBooks Online company to Claude once. Then you ask Claude in plain English — "What\'s my P&L for Q2?", "Find uncategorized transactions", "Run my Schedule C" — and it uses AccountingQB\'s tools to read and update your books. It runs locally as a downloadable desktop app or a Claude Desktop extension, or through a zero-retention hosted connector you add to Claude as a custom connector.',
   },
   {
     q: "Is my financial data safe?",
@@ -78,8 +78,8 @@ export default function FaqPage() {
           Frequently asked questions
         </h1>
         <p className="mt-2 text-gray-400">
-          What AccountingQB is, how it connects Claude to QuickBooks Online, and how
-          it handles your data and taxes.
+          What AccountingQB is, how it connects Claude to QuickBooks Online, and
+          how it handles your data and taxes.
         </p>
 
         <div className="mt-10 space-y-8">
@@ -94,7 +94,10 @@ export default function FaqPage() {
         <div className="mt-12 rounded-xl border border-cyan-500/20 bg-cyan-500/[0.06] p-6">
           <p className="text-gray-200">
             Ready to try it?{" "}
-            <Link href="/#pricing" className="font-semibold text-cyan-300 hover:text-cyan-200">
+            <Link
+              href="/#pricing"
+              className="font-semibold text-cyan-300 hover:text-cyan-200"
+            >
               Start a 14-day free trial →
             </Link>
           </p>

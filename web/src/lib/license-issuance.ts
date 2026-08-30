@@ -26,7 +26,7 @@ export interface EnsureLicenseResult {
 export async function ensureLicenseForSession(
   stripe: Stripe,
   supabase: ReturnType<typeof getSupabase>,
-  session: Stripe.Checkout.Session
+  session: Stripe.Checkout.Session,
 ): Promise<EnsureLicenseResult | null> {
   const subscriptionId =
     typeof session.subscription === "string"
@@ -41,7 +41,11 @@ export async function ensureLicenseForSession(
   // Stripe always collects an email for subscription-mode Checkout, so this is
   // effectively always present; trim + the empty-case log below make a missing
   // one visible instead of a silent "customer paid but got no key" failure.
-  const email = (session.customer_email || session.customer_details?.email || "").trim();
+  const email = (
+    session.customer_email ||
+    session.customer_details?.email ||
+    ""
+  ).trim();
 
   // Check if license already exists (idempotent — safe for replayed webhook
   // events and concurrent reconciliation)
@@ -62,7 +66,7 @@ export async function ensureLicenseForSession(
 
   const licenseKey = `LK-${crypto.randomBytes(16).toString("hex").toUpperCase()}`;
   const trialEndsAt = new Date(
-    Date.now() + 14 * 24 * 60 * 60 * 1000
+    Date.now() + 14 * 24 * 60 * 60 * 1000,
   ).toISOString();
 
   const { error: insertError } = await supabase.from("licenses").insert({
@@ -106,7 +110,12 @@ export async function ensureLicenseForSession(
 
   // Schedule onboarding email sequence
   try {
-    await scheduleOnboardingEmails(licenseKey, email, tier, new Date(trialEndsAt));
+    await scheduleOnboardingEmails(
+      licenseKey,
+      email,
+      tier,
+      new Date(trialEndsAt),
+    );
     console.log(`Onboarding emails scheduled for ${email}`);
   } catch (emailErr) {
     console.error("Failed to schedule onboarding emails:", emailErr);
@@ -130,7 +139,7 @@ export async function ensureLicenseForSession(
     // paying customer without a key email is caught, not silently lost.
     console.error(
       `⚠️ License ${licenseKey} issued with NO email (session ${session.id}) — ` +
-        `key email not sent; customer must retrieve it from the success page or dashboard.`
+        `key email not sent; customer must retrieve it from the success page or dashboard.`,
     );
   }
 

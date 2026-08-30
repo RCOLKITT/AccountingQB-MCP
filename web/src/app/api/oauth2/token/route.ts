@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   try {
     if (contentType.includes("application/json")) {
       params = new URLSearchParams(
-        Object.entries((await req.json()) as Record<string, string>)
+        Object.entries((await req.json()) as Record<string, string>),
       );
     } else {
       params = new URLSearchParams(await req.text());
@@ -69,14 +69,17 @@ export async function POST(req: NextRequest) {
   if (grantType === "refresh_token") {
     return handleRefreshToken(params);
   }
-  return oauthError("unsupported_grant_type", `Unsupported grant_type: ${grantType}`);
+  return oauthError(
+    "unsupported_grant_type",
+    `Unsupported grant_type: ${grantType}`,
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Client authentication (public clients: "none"; confidential: secret_post)
 // ---------------------------------------------------------------------------
 async function loadAndAuthenticateClient(
-  params: URLSearchParams
+  params: URLSearchParams,
 ): Promise<McpOAuthClient | NextResponse> {
   const clientId = params.get("client_id");
   if (!clientId) {
@@ -86,7 +89,9 @@ async function loadAndAuthenticateClient(
   const supabase = getSupabase();
   const { data: client } = await supabase
     .from("mcp_oauth_clients")
-    .select("client_id, client_secret_hash, client_name, redirect_uris, created_at")
+    .select(
+      "client_id, client_secret_hash, client_name, redirect_uris, created_at",
+    )
     .eq("client_id", clientId)
     .maybeSingle<McpOAuthClient>();
 
@@ -123,7 +128,7 @@ async function issueTokenPair(
   licenseKey: string,
   userClerkId: string | null,
   scope: string | null,
-  rotatedFrom: string | null
+  rotatedFrom: string | null,
 ): Promise<NextResponse> {
   const supabase = getSupabase();
 
@@ -152,14 +157,16 @@ async function issueTokenPair(
       refresh_token: refreshToken,
       ...(scope ? { scope } : {}),
     },
-    { headers: { "Cache-Control": "no-store", Pragma: "no-cache" } }
+    { headers: { "Cache-Control": "no-store", Pragma: "no-cache" } },
   );
 }
 
 // ---------------------------------------------------------------------------
 // grant_type=authorization_code
 // ---------------------------------------------------------------------------
-async function handleAuthorizationCode(params: URLSearchParams): Promise<NextResponse> {
+async function handleAuthorizationCode(
+  params: URLSearchParams,
+): Promise<NextResponse> {
   const clientOrError = await loadAndAuthenticateClient(params);
   if (clientOrError instanceof NextResponse) return clientOrError;
   const client = clientOrError;
@@ -170,7 +177,7 @@ async function handleAuthorizationCode(params: URLSearchParams): Promise<NextRes
   if (!code || !codeVerifier || !redirectUri) {
     return oauthError(
       "invalid_request",
-      "code, code_verifier and redirect_uri are required"
+      "code, code_verifier and redirect_uri are required",
     );
   }
 
@@ -183,7 +190,10 @@ async function handleAuthorizationCode(params: URLSearchParams): Promise<NextRes
     .maybeSingle();
 
   if (!row) {
-    return oauthError("invalid_grant", "Unknown or already-used authorization code");
+    return oauthError(
+      "invalid_grant",
+      "Unknown or already-used authorization code",
+    );
   }
 
   // Single-use: delete immediately so a replay can never succeed, even if
@@ -209,7 +219,7 @@ async function handleAuthorizationCode(params: URLSearchParams): Promise<NextRes
     row.license_key,
     row.user_clerk_id ?? null,
     row.scope ?? null,
-    null
+    null,
   );
 }
 
@@ -261,7 +271,9 @@ async function revokeChain(startHash: string): Promise<void> {
   }
 }
 
-async function handleRefreshToken(params: URLSearchParams): Promise<NextResponse> {
+async function handleRefreshToken(
+  params: URLSearchParams,
+): Promise<NextResponse> {
   const clientOrError = await loadAndAuthenticateClient(params);
   if (clientOrError instanceof NextResponse) return clientOrError;
   const client = clientOrError;
@@ -294,7 +306,10 @@ async function handleRefreshToken(params: URLSearchParams): Promise<NextResponse
   }
 
   if (row.client_id && row.client_id !== client.client_id) {
-    return oauthError("invalid_grant", "Token was issued to a different client");
+    return oauthError(
+      "invalid_grant",
+      "Token was issued to a different client",
+    );
   }
 
   if (new Date(row.expires_at).getTime() < Date.now()) {
@@ -312,6 +327,6 @@ async function handleRefreshToken(params: URLSearchParams): Promise<NextResponse
     row.license_key,
     row.user_clerk_id,
     null,
-    tokenHash
+    tokenHash,
   );
 }

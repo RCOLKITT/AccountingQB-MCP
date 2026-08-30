@@ -62,7 +62,7 @@ export function trialWarningEmail(params: TrialWarningEmailParams): {
         • Your ${cardInfo} will be charged <strong>${price}/month</strong><br>
         • The charge will appear as "ACCOUNTINGQB" on your statement<br>
         • You can cancel anytime before ${trialEndDate} to avoid charges`,
-        isUrgent ? "warning" : "info"
+        isUrgent ? "warning" : "info",
       )}
 
       ${paragraph("Want to continue? Great — no action needed. Your subscription will start automatically.")}
@@ -98,7 +98,7 @@ export function trialWarningEmail(params: TrialWarningEmailParams): {
       ${infoBox(
         `<strong>To keep your ${tierName} plan (${price}/month):</strong> add a card before ${trialEndDate}.<br><br>
         <strong>Prefer not to?</strong> Do nothing. Your trial simply ends, you move to our free read-only plan, and you're never charged — there's nothing to cancel.`,
-        isUrgent ? "warning" : "info"
+        isUrgent ? "warning" : "info",
       )}
 
       ${primaryButton("Add a card to keep your plan", addCardUrl)}
@@ -128,13 +128,13 @@ export function trialWarningEmail(params: TrialWarningEmailParams): {
 }
 
 export function trialWarning4DayEmail(
-  params: Omit<TrialWarningEmailParams, "daysRemaining">
+  params: Omit<TrialWarningEmailParams, "daysRemaining">,
 ): { subject: string; html: string } {
   return trialWarningEmail({ ...params, daysRemaining: 4 });
 }
 
 export function trialWarning1DayEmail(
-  params: Omit<TrialWarningEmailParams, "daysRemaining">
+  params: Omit<TrialWarningEmailParams, "daysRemaining">,
 ): { subject: string; html: string } {
   return trialWarningEmail({ ...params, daysRemaining: 1 });
 }
