@@ -423,6 +423,24 @@ def test_index_serves_import_ui(client):
     assert "buildImportSections" in html and "function parseCsv" in html
 
 
+def test_whatsnew_returns_release_notes(client):
+    # The in-app "What's new" panel reads CHANGELOG.md via /api/whatsnew.
+    r = client.get("/api/whatsnew", params={"v": "0.2.0"})
+    assert r.status_code == 200
+    j = r.json()
+    assert j["version"] == "0.2.0" and j["notes"].strip()
+    # An unknown version falls back to the newest entry (never an error / empty panel).
+    top = client.get("/api/whatsnew", params={"v": "99.0.0"}).json()
+    assert top["version"] and top["notes"].strip()
+
+
+def test_index_serves_whatsnew_ui(client):
+    # Auto-update + What's-new wiring must stay in the shipped artifact (regression guard).
+    html = client.get("/").text
+    assert 'id="whatsnew-modal"' in html and "openWhatsNew" in html
+    assert "aqb-seen-version" in html and "const APP_VERSION" in html
+
+
 def test_templates_roundtrip(client, monkeypatch, tmp_path):
     monkeypatch.setattr(serve, "TEMPLATES_DIR", tmp_path / "templates")
     cfg = {"client": "Acme LLC", "period": "ytd", "compare": "prior_year",

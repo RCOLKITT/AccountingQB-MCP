@@ -1,6 +1,6 @@
 [package]
 name = "accountingqb"
-version = "0.1.0"
+version = "0.2.0"
 description = "AccountingQB — talk to your QuickBooks locally; your books stay on your machine"
 edition = "2021"
 
@@ -9,6 +9,10 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+# Auto-update: on launch, check GitHub Releases for a newer signed build and apply it (main.rs).
+tauri-plugin-updater = "2"
+# Required by generate_context! once tauri.conf.json carries a `plugins` block (updater config).
+serde_json = "1"
 
 [profile.release]
 strip = true

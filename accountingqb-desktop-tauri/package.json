@@ -1,6 +1,6 @@
 {
   "name": "accountingqb-desktop-tauri",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Tauri v2 desktop shell for AccountingQB: spawns the bundled PyInstaller server sidecar (accountingqb-local + connector, one binary, no Python required), waits for /healthz, and opens the window on http://127.0.0.1:<port> so the artifact runs unmodified with zero CORS.",
   "scripts": {
