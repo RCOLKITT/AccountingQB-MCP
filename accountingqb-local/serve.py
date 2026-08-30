@@ -873,6 +873,8 @@ async def oauth_callback(req: Request) -> HTMLResponse:
 
 _ARTIFACT_PATH = _RES / "artifact.html"
 _VENDOR_DIR = _RES / "vendor"   # bundled JS (pdfmake) shipped next to the artifact
+# CHANGELOG.md (repo root; bundled into the sidecar) powers the in-app "What's new" panel.
+_CHANGELOG_PATH = (_RES / "CHANGELOG.md") if _BUNDLE_DIR else (_REPO_ROOT / "CHANGELOG.md")
 
 
 async def vendor(req: Request) -> Response:
@@ -1069,6 +1071,44 @@ async def template_get_or_delete(req: Request) -> JSONResponse:
         return JSONResponse({"error": "corrupt template"}, status_code=500)
 
 
+def _parse_changelog(text: str) -> "list[dict]":
+    """Split CHANGELOG.md into [{version, date, notes}] by `## <version> — <date>` headings.
+    Order preserved (newest first, as written). The version token is the first word after `##`,
+    with surrounding brackets stripped so both `## 0.2.0` and `## [0.2.0]` parse."""
+    entries: list[dict] = []
+    cur: dict | None = None
+    for line in text.splitlines():
+        if line.startswith("## "):
+            head = line[3:].strip()
+            tok = head.split()[0].strip("[]") if head.split() else ""
+            date = ""
+            if "—" in head:
+                date = head.split("—", 1)[1].strip()
+            elif " - " in head:
+                date = head.split(" - ", 1)[1].strip()
+            cur = {"version": tok, "date": date, "notes": ""}
+            entries.append(cur)
+        elif cur is not None:
+            cur["notes"] += line + "\n"
+    for e in entries:
+        e["notes"] = e["notes"].strip()
+    return entries
+
+
+async def api_whatsnew(req: Request) -> JSONResponse:
+    """The release-notes entry for a version (defaults to the running app version), for the
+    in-app "What's new" panel. Read-only, localhost-only. Returns {} if there's no changelog."""
+    try:
+        entries = _parse_changelog(_CHANGELOG_PATH.read_text())
+    except Exception:
+        return JSONResponse({})
+    if not entries:
+        return JSONResponse({})
+    want = req.query_params.get("v") or os.environ.get("ACCOUNTINGQB_APP_VERSION", "")
+    match = next((e for e in entries if e["version"] == want), None) or entries[0]
+    return JSONResponse(match)
+
+
 async def index(_req: Request) -> HTMLResponse:
     # Phase 2b: the tabbed Chat + Dashboard artifact. Loaded from disk in dev; the
     # Tauri build (2c) will embed it. Falls back to the Phase-2a status shell.
@@ -1102,6 +1142,7 @@ routes = [
     Route("/templates/{name}", template_get_or_delete, methods=["GET", "DELETE"]),
     Route("/healthz", healthz),
     Route("/api/status", api_status),
+    Route("/api/whatsnew", api_whatsnew),
     Route("/api/tools", api_tools),
     Route("/api/config", api_config, methods=["POST"]),
     Route("/whoami", whoami),

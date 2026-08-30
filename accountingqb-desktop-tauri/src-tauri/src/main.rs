@@ -12,6 +12,9 @@ use std::process::{Child, Command};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_updater::UpdaterExt;
+
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 struct Sidecar(Mutex<Option<Child>>);
 
@@ -74,19 +77,43 @@ fn main() {
         .env("ACCOUNTINGQB_PORT", port.to_string())
         .env("ACCOUNTINGQB_NO_OPEN", "1")
         .env("ACCOUNTINGQB_DATA_DIR", &data_dir)
+        .env("ACCOUNTINGQB_APP_VERSION", APP_VERSION) // sidecar serves "What's new" for this version
         .spawn()
         .expect("failed to start the AccountingQB server sidecar");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Sidecar(Mutex::new(Some(child))))
         .setup(move |app| {
             wait_healthy(port); // window opens regardless; the server may finish booting
-            let url = format!("http://127.0.0.1:{}/?in_app=1", port);
+            // Pass the running version to the UI so it can show a one-time "What's new" panel.
+            let url = format!("http://127.0.0.1:{}/?in_app=1&v={}", port, APP_VERSION);
             WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url.parse().unwrap()))
                 .title("AccountingQB")
                 .inner_size(1360.0, 900.0)
                 .min_inner_size(900.0, 600.0)
                 .build()?;
+            // Auto-update: check GitHub for a newer signed build; if found, download, install,
+            // and relaunch into it. Silent + non-blocking — the window is already up. The
+            // signature is verified against the pinned pubkey (tauri.conf.json) before install.
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let updater = match handle.updater() {
+                    Ok(u) => u,
+                    Err(e) => { eprintln!("[updater] unavailable: {e}"); return; }
+                };
+                match updater.check().await {
+                    Ok(Some(update)) => {
+                        eprintln!("[updater] {} available (have {APP_VERSION}); downloading…", update.version);
+                        match update.download_and_install(|_, _| {}, || {}).await {
+                            Ok(_) => { eprintln!("[updater] installed; relaunching"); handle.restart(); }
+                            Err(e) => eprintln!("[updater] install failed: {e}"),
+                        }
+                    }
+                    Ok(None) => eprintln!("[updater] up to date ({APP_VERSION})"),
+                    Err(e) => eprintln!("[updater] check failed: {e}"),
+                }
+            });
             Ok(())
         })
         .build(tauri::generate_context!())

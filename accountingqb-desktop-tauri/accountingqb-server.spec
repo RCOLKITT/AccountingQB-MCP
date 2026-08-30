@@ -19,6 +19,8 @@ SRC = os.path.join(REPO, "mcpb", "src")
 datas = [
     (os.path.join(REPO, "mcpb", "manifest.json"), "."),
     (os.path.join(REPO, "accountingqb-local", "artifact.html"), "."),
+    # Release notes for the in-app "What's new" panel (/api/whatsnew reads _RES / CHANGELOG.md).
+    (os.path.join(REPO, "CHANGELOG.md"), "."),
     # Vendored front-end libs (pdfmake) served by the shim's /vendor route for branded PDF reports.
     (os.path.join(REPO, "accountingqb-local", "vendor"), "vendor"),
     # Loaded by the connector via Path(__file__).parent / "tax_ledger.jsonl".

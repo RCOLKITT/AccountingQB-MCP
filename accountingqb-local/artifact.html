@@ -479,6 +479,7 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
         <div id="coffer-actions"></div>
         <span id="coffermsg" class="conn-sub" style="display:inline"></span>
       </div>
+      <p class="conn-sub" style="text-align:center;margin-top:14px">AccountingQB <span id="app-version">—</span> · <a href="#" id="open-whatsnew">What’s new</a> · updates automatically</p>
     </div>
   </div>
 </div>
@@ -523,6 +524,17 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
       <div class="sheet-row"><span>Open a report line’s transactions</span><span><span class="kbd">Enter</span> on a row</span></div>
       <div class="sheet-row"><span>Manage connections</span><span>the <span class="kbd">⚙</span> gear</span></div>
       <div class="sheet-row"><span>Show this help</span><span class="kbd">?</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="whatsnew-modal" role="dialog" aria-modal="true" aria-labelledby="wn-title" hidden>
+  <div class="modal" style="max-width:520px">
+    <div class="modal-h"><h2 id="wn-title">What’s new</h2><button class="modal-x" id="wn-close" aria-label="Close">&#10005;</button></div>
+    <div class="modal-body">
+      <p class="conn-sub" id="wn-ver" style="margin-top:0"></p>
+      <div id="wn-body" class="md-content"></div>
+      <div style="text-align:right;margin-top:12px"><button class="btn2" id="wn-ok">Got it</button></div>
     </div>
   </div>
 </div>
@@ -1576,6 +1588,8 @@ document.addEventListener('keydown', (e) => {
   if((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'){ e.preventDefault(); toggleChat(); return; }
   if(e.key === '?' && !typing){ e.preventDefault(); openShortcuts(); return; }
   if(e.key === 'Escape'){
+    const wn = document.getElementById('whatsnew-modal');
+    if(!wn.hidden){ closeWhatsNew(); return; }
     const sc = document.getElementById('shortcuts-modal');
     if(!sc.hidden){ closeShortcuts(); return; }
     const rep = document.getElementById('report-modal');
@@ -2081,6 +2095,32 @@ document.getElementById('imp-file').addEventListener('change', e => {
 });
 document.getElementById('imp-pdf').addEventListener('click', () => importGenerate('pdf'));
 document.getElementById('imp-xlsx').addEventListener('click', () => importGenerate('xlsx'));
+
+// ============ Version + "What's new" ============
+const APP_VERSION = (new URLSearchParams(location.search).get('v') || '').trim();
+async function openWhatsNew(force){
+  try{
+    const r = await fetch('/api/whatsnew' + (APP_VERSION ? '?v=' + encodeURIComponent(APP_VERSION) : ''));
+    const e = await r.json();
+    if(!e || !e.notes){ if(force) document.getElementById('wn-body').innerHTML = '<p class="conn-sub">No release notes available.</p>'; else return; }
+    else document.getElementById('wn-body').innerHTML = md2html(e.notes);
+    document.getElementById('wn-ver').textContent = e && e.version ? ('Version ' + e.version + (e.date ? ' · ' + e.date : '')) : '';
+    document.getElementById('whatsnew-modal').hidden = false;
+    setTimeout(() => document.getElementById('wn-ok').focus(), 40);
+  }catch(_){ if(force) document.getElementById('wn-body').innerHTML = '<p class="conn-sub">Could not load release notes.</p>'; }
+}
+function closeWhatsNew(){ document.getElementById('whatsnew-modal').hidden = true; }
+document.getElementById('wn-close').addEventListener('click', closeWhatsNew);
+document.getElementById('wn-ok').addEventListener('click', closeWhatsNew);
+document.getElementById('whatsnew-modal').addEventListener('click', e => { if(e.target.id === 'whatsnew-modal') closeWhatsNew(); });
+document.getElementById('open-whatsnew').addEventListener('click', e => { e.preventDefault(); openWhatsNew(true); });
+if(APP_VERSION){
+  const av = document.getElementById('app-version'); if(av) av.textContent = 'v' + APP_VERSION;
+  if(localStorage.getItem('aqb-seen-version') !== APP_VERSION){   // first launch on a new version → show once
+    openWhatsNew(false);
+    localStorage.setItem('aqb-seen-version', APP_VERSION);
+  }
+}
 
 // ============ Boot ============
 if(/[?&]in_app=1/.test(location.search)) document.body.classList.add('in-app');   // packaged desktop shell
