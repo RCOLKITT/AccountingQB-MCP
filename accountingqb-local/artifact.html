@@ -211,6 +211,12 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 .le-row{display:flex;gap:8px;align-items:center;margin:2px 0}
 .le-rename{flex:1;padding:4px 8px;border:1px solid var(--rule);border-radius:5px;font-size:12px;font-family:inherit;color:var(--ink);background:#fff;min-width:0}
 .le-hide{font-size:11px;color:var(--ink-soft);white-space:nowrap;display:flex;align-items:center;gap:4px}
+/* ---- Client-data import (Slice A) ---- */
+.imp-row{display:flex;align-items:center;gap:8px;margin:5px 0}
+.imp-row label{font-size:11px;font-weight:600;color:var(--ink-soft);width:160px;flex-shrink:0}
+.imp-row select{flex:1;margin:0}
+#imp-preview table th{font-size:10px;color:var(--ink-soft);padding:3px 6px;border-bottom:1px solid var(--rule);text-align:left}
+#imp-preview table td{padding:3px 6px;border-bottom:1px solid var(--rule);color:var(--ink);font-size:11px}
 /* ---- Onboarding: welcome + coach-mark tour ---- */
 .welcome-hero{font-size:13px;color:var(--ink-soft);margin:2px 0 12px;line-height:1.55}
 .tour-card{position:fixed;right:18px;bottom:18px;z-index:55;background:var(--card);border-radius:10px;box-shadow:0 10px 26px rgba(10,14,26,.22);padding:14px 16px;max-width:300px}
@@ -265,6 +271,7 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 <div class="quickbar">
 <span class="qlabel">Quick actions</span>
 <button class="qbtn" id="report-open" title="Build a branded client report package">&#128196; Client Package</button>
+<button class="qbtn" id="import-open" title="Import a client's trial balance / GL and turn it into a workpaper">&#128228; Import client data</button>
 <button class="qbtn" data-write="invoice"><span class="plus">+</span> Invoice</button>
 <button class="qbtn" data-write="expense"><span class="plus">+</span> Expense</button>
 <button class="qbtn" data-action="Run qb_find_duplicates and show me any duplicate transactions">⧉ Find duplicates</button>
@@ -573,6 +580,26 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
         <button class="btn2" id="rep-pdf">Download PDF</button>
         <button class="btn2 ghost" id="rep-xlsx">Download Excel</button>
         <span id="rep-msg" class="conn-sub" style="display:inline;align-self:center"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="import-modal" role="dialog" aria-modal="true" aria-labelledby="imp-title" hidden>
+  <div class="modal" style="max-width:640px">
+    <div class="modal-h"><h2 id="imp-title">Import client data</h2><button class="modal-x" id="imp-close" aria-label="Close">&#10005;</button></div>
+    <div class="modal-body">
+      <p class="conn-sub" style="margin-top:0">Load a trial balance or general ledger your client gave you (CSV). Map the columns and AccountingQB arranges it into a branded workpaper — every figure is theirs, nothing is invented.</p>
+      <label class="field-l" for="imp-file">Client file (CSV)</label>
+      <input class="field" id="imp-file" type="file" accept=".csv,text/csv,text/plain" style="padding:7px">
+      <label class="field-l" for="imp-client">Client / company name</label>
+      <input class="field" id="imp-client" placeholder="Acme LLC">
+      <div id="imp-map"></div>
+      <div id="imp-preview" style="max-height:190px;overflow:auto;margin-top:8px"></div>
+      <div style="display:flex;gap:8px;margin-top:14px;border-top:1px solid var(--rule);padding-top:14px">
+        <button class="btn2" id="imp-pdf">Download PDF</button>
+        <button class="btn2 ghost" id="imp-xlsx">Download Excel</button>
+        <span id="imp-msg" class="conn-sub" style="display:inline;align-self:center"></span>
       </div>
     </div>
   </div>
@@ -1553,6 +1580,8 @@ document.addEventListener('keydown', (e) => {
     if(!sc.hidden){ closeShortcuts(); return; }
     const rep = document.getElementById('report-modal');
     if(!rep.hidden){ closeReport(); return; }
+    const imp = document.getElementById('import-modal');
+    if(!imp.hidden){ closeImport(); return; }
     const modal = document.getElementById('connections-modal');
     if(!modal.hidden){ closeConnections(); return; }
     if(!document.querySelector('.body').classList.contains('chat-collapsed')){ setChatOpen(false); }
@@ -1735,20 +1764,27 @@ async function gatherReport(){
 }
 function _reportMeta(){ return { client: (document.getElementById('rep-client').value || '').trim(), logo: _reportLogo, narrative: document.getElementById('rep-narrative').value || '' }; }
 function buildReportDoc(data, meta){
+  const pd = data.period || {};
+  const periodLine = (pd.label || '') + (pd.start && pd.end ? '  ·  ' + pd.start + ' to ' + pd.end : '');
   const content = [
     { text: meta.client || COMPANY || 'Financial Package', style: 'title' },
-    { text: 'Financial Package', style: 'subtitle' },
-    { text: data.period.label + '  ·  ' + data.period.start + ' to ' + data.period.end, style: 'period', margin: [0, 2, 0, 14] },
+    { text: meta.subtitle || 'Financial Package', style: 'subtitle' },
+    { text: periodLine, style: 'period', margin: [0, 2, 0, meta.sourceNote ? 2 : 14] },
   ];
-  data.sections.forEach(s => { content.push({ text: s.title, style: 'h2' }); content.push(sectionToPdfTable(s.parsed)); });
-  if(meta.narrative.trim()){ content.push({ text: 'Management commentary', style: 'h2', margin: [0, 14, 0, 4] }); content.push({ text: meta.narrative.trim(), style: 'body' }); }
+  if(meta.sourceNote) content.push({ text: meta.sourceNote, style: 'period', italics: true, margin: [0, 0, 0, 14] });
+  data.sections.forEach(s => {
+    content.push({ text: s.title, style: 'h2' });
+    if(s.sourceNote) content.push({ text: s.sourceNote, style: 'period', italics: true, margin: [0, 0, 0, 4] });
+    content.push(sectionToPdfTable(s.parsed));
+  });
+  if((meta.narrative || '').trim()){ content.push({ text: 'Management commentary', style: 'h2', margin: [0, 14, 0, 4] }); content.push({ text: meta.narrative.trim(), style: 'body' }); }
   return {
     pageSize: 'LETTER', pageMargins: [46, meta.logo ? 84 : 50, 46, 52],
     header: () => ({ margin: [46, 20, 46, 0], columns: [
       meta.logo ? { image: meta.logo, fit: [130, 38] } : { text: '', width: '*' },
       { text: meta.client || COMPANY || '', alignment: 'right', color: '#8a95a1', fontSize: 9, margin: [0, 6, 0, 0] } ] }),
     footer: (cur, tot) => ({ margin: [46, 0, 46, 0], columns: [
-      { text: 'Generated by AccountingQB · figures pulled live from QuickBooks', fontSize: 7, color: '#b5bcc4' },
+      { text: meta.footerNote || 'Generated by AccountingQB · figures pulled live from QuickBooks', fontSize: 7, color: '#b5bcc4' },
       { text: 'Page ' + cur + ' of ' + tot, alignment: 'right', fontSize: 7, color: '#b5bcc4' } ] }),
     content,
     styles: { title: { fontSize: 20, bold: true, color: '#1c2b3a' }, subtitle: { fontSize: 12, color: '#51606f', margin: [0, 1, 0, 0] },
@@ -1892,6 +1928,159 @@ document.getElementById('rep-tmpl-del').addEventListener('click', async () => {
   if(!name) return;
   try{ await fetch('/templates/' + encodeURIComponent(name), { method: 'DELETE' }); await refreshTemplates(); msg.textContent = 'Deleted “' + name + '”'; }catch(e){}
 });
+
+// ============ Slice A — client-data intake (import a client's trial balance / GL) ============
+let _impData = null;   // { headers, rows, filename }
+function _parseNum(s){
+  s = String(s == null ? '' : s).trim().replace(/[$£€,\s]/g, '');
+  if(!s) return 0;
+  let neg = false;
+  if(/^\(.*\)$/.test(s)){ neg = true; s = s.slice(1, -1); }
+  if(s[0] === '-' || s[0] === '–'){ neg = true; s = s.slice(1); }
+  const n = parseFloat(s.replace(/[^\d.]/g, ''));
+  return isNaN(n) ? 0 : (neg ? -n : n);
+}
+function _fmtCur(n){
+  const a = Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n < 0 ? '($' + a + ')' : '$' + a;
+}
+function parseCsv(text){
+  text = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const rows = []; let row = [], cur = '', q = false;
+  for(let i = 0; i < text.length; i++){
+    const c = text[i];
+    if(q){
+      if(c === '"'){ if(text[i + 1] === '"'){ cur += '"'; i++; } else q = false; }
+      else cur += c;
+    } else if(c === '"'){ q = true; }
+    else if(c === ','){ row.push(cur); cur = ''; }
+    else if(c === '\n'){ row.push(cur); rows.push(row); row = []; cur = ''; }
+    else cur += c;
+  }
+  if(cur !== '' || row.length){ row.push(cur); rows.push(row); }
+  const ne = rows.filter(r => r.some(c => (c || '').trim() !== ''));
+  if(!ne.length) return { headers: [], rows: [] };
+  return { headers: ne[0].map(h => (h || '').trim()), rows: ne.slice(1) };
+}
+function _guessCol(headers, pats){
+  for(let i = 0; i < headers.length; i++){ const h = headers[i].toLowerCase(); if(pats.some(p => h.includes(p))) return i; }
+  return -1;
+}
+function _impMapping(){
+  const g = id => parseInt(document.getElementById(id).value, 10);
+  return { acct: g('imp-acct'), amt: g('imp-amt'), deb: g('imp-deb'), cred: g('imp-cred'), type: g('imp-type') };
+}
+function _impRowAmount(r, m){
+  if(m.deb >= 0 || m.cred >= 0) return (m.deb >= 0 ? _parseNum(r[m.deb]) : 0) - (m.cred >= 0 ? _parseNum(r[m.cred]) : 0);
+  return m.amt >= 0 ? _parseNum(r[m.amt]) : 0;
+}
+function renderImportMapping(){
+  const H = _impData.headers;
+  const opt = sel => '<option value="-1">— none —</option>' + H.map((h, i) => '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + escapeHtml(h || ('Column ' + (i + 1))) + '</option>').join('');
+  const gAcct = _guessCol(H, ['account', 'name', 'description']);
+  const gDeb = _guessCol(H, ['debit']);
+  const gCred = _guessCol(H, ['credit']);
+  const gAmt = (gDeb >= 0 || gCred >= 0) ? -1 : _guessCol(H, ['amount', 'balance', 'net', 'total']);
+  const gType = _guessCol(H, ['type', 'category', 'group', 'class', 'section']);
+  document.getElementById('imp-map').innerHTML =
+    '<label class="field-l" style="margin-top:12px">Map your columns</label>' +
+    '<div class="imp-row"><label>Account</label><select id="imp-acct" class="field">' + opt(gAcct) + '</select></div>' +
+    '<div class="imp-row"><label>Amount</label><select id="imp-amt" class="field">' + opt(gAmt) + '</select></div>' +
+    '<div class="imp-row"><label>Debit (optional)</label><select id="imp-deb" class="field">' + opt(gDeb) + '</select></div>' +
+    '<div class="imp-row"><label>Credit (optional)</label><select id="imp-cred" class="field">' + opt(gCred) + '</select></div>' +
+    '<div class="imp-row"><label>Group / type (optional)</label><select id="imp-type" class="field">' + opt(gType) + '</select></div>' +
+    '<p class="conn-sub" style="margin:4px 0 0">Map <b>Amount</b>, or a <b>Debit</b> + <b>Credit</b> pair. A <b>Group</b> column groups accounts with subtotals.</p>';
+  ['imp-acct', 'imp-amt', 'imp-deb', 'imp-cred', 'imp-type'].forEach(id => document.getElementById(id).addEventListener('change', renderImportPreview));
+  renderImportPreview();
+}
+function renderImportPreview(){
+  const m = _impMapping(); const rows = _impData.rows.slice(0, 6);
+  document.getElementById('imp-preview').innerHTML =
+    '<table style="width:100%;border-collapse:collapse"><tr><th>Account</th><th style="text-align:right">Amount</th>' + (m.type >= 0 ? '<th>Group</th>' : '') + '</tr>' +
+    rows.map(r => '<tr><td>' + escapeHtml(m.acct >= 0 ? (r[m.acct] || '') : '?') + '</td><td style="text-align:right">' + _fmtCur(_impRowAmount(r, m)) + '</td>' + (m.type >= 0 ? '<td>' + escapeHtml(r[m.type] || '') + '</td>' : '') + '</tr>').join('') +
+    '</table>';
+}
+function buildImportSections(){
+  const m = _impMapping();
+  if(m.acct < 0 || (m.amt < 0 && m.deb < 0 && m.cred < 0)) return null;
+  const parsed = []; let total = 0;
+  _impData.rows.forEach(r => {
+    const account = (r[m.acct] || '').trim(); if(!account) return;
+    const amt = _impRowAmount(r, m); total += amt;
+    parsed.push({ account, amt, group: m.type >= 0 ? ((r[m.type] || 'Ungrouped').trim() || 'Ungrouped') : '' });
+  });
+  if(!parsed.length) return null;
+  const title = (_impData.filename || 'Trial Balance').replace(/\.[^.]+$/, '');
+  let section;
+  if(m.type >= 0){
+    const groups = {}, order = [];
+    parsed.forEach(x => { if(!groups[x.group]){ groups[x.group] = []; order.push(x.group); } groups[x.group].push(x); });
+    const items = [];
+    order.forEach(g => {
+      items.push({ sub: g }); let gt = 0;
+      groups[g].forEach(x => { items.push({ label: x.account, val: _fmtCur(x.amt) }); gt += x.amt; });
+      items.push({ label: 'Total ' + g, val: _fmtCur(gt), total: true });
+    });
+    items.push({ label: 'Net total', val: _fmtCur(total), total: true });
+    section = { title, parsed: { kind: 'statement', items } };
+  } else {
+    const body = parsed.map(x => [x.account, _fmtCur(x.amt)]);
+    body.push(['Total', _fmtCur(total)]);
+    section = { title, parsed: { kind: 'table', header: ['Account', 'Amount'], rows: body } };
+  }
+  const balanced = Math.abs(total) < 0.005;
+  section.sourceNote = 'Source: ' + (_impData.filename || 'imported file') + ' · ' + parsed.length + ' accounts · ' +
+    (balanced ? 'balanced (nets to $0.00)' : 'net ' + _fmtCur(total) + ' — verify the source balances');
+  return { sections: [section], total, balanced, count: parsed.length };
+}
+async function importGenerate(kind){
+  const msg = document.getElementById('imp-msg');
+  if(!_impData){ msg.textContent = 'Choose a CSV file first.'; return; }
+  const built = buildImportSections();
+  if(!built){ msg.textContent = 'Map at least Account and (Amount, or Debit + Credit).'; return; }
+  const client = (document.getElementById('imp-client').value || '').trim() || COMPANY || 'Client';
+  const data = { sections: built.sections, period: { label: 'Imported workpaper' } };
+  const sourceNote = built.balanced
+    ? 'From ' + _impData.filename + ' — ' + built.count + ' accounts, balanced.'
+    : 'From ' + _impData.filename + ' — ' + built.count + ' accounts, net ' + _fmtCur(built.total) + ' (verify it balances).';
+  const meta = { client, subtitle: 'Imported workpaper', narrative: '', sourceNote,
+    footerNote: 'Built by AccountingQB from a client-provided file · figures are the client’s, arranged not invented' };
+  const base = client.replace(/[^\w-]+/g, '_') + '_Workpaper';
+  try{
+    if(kind === 'pdf'){
+      msg.textContent = 'Building PDF…'; await ensurePdfmake();
+      pdfMake.createPdf(buildReportDoc(data, meta)).download(base + '.pdf');
+    } else {
+      msg.textContent = 'Building Excel…';
+      const r = await fetch('/export/xlsx', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ client, period: data.period, narrative: sourceNote, sections: built.sections }) });
+      if(!r.ok){ msg.textContent = 'Excel failed (' + r.status + ')'; return; }
+      const blob = await r.blob(), url = URL.createObjectURL(blob), a = document.createElement('a');
+      a.href = url; a.download = base + '.xlsx'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+    msg.textContent = 'Downloaded ✓'; logAction('Imported workpaper · ' + client);
+  }catch(e){ msg.textContent = 'Failed: ' + e; }
+}
+function openImport(){ document.getElementById('import-modal').hidden = false; setTimeout(() => document.getElementById('imp-close').focus(), 40); }
+function closeImport(){ document.getElementById('import-modal').hidden = true; }
+document.getElementById('import-open').addEventListener('click', openImport);
+document.getElementById('imp-close').addEventListener('click', closeImport);
+document.getElementById('import-modal').addEventListener('click', e => { if(e.target.id === 'import-modal') closeImport(); });
+document.getElementById('imp-file').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    _impData = Object.assign(parseCsv(rd.result), { filename: f.name });
+    const msg = document.getElementById('imp-msg');
+    if(!_impData.headers.length){ msg.textContent = 'Could not read any rows from that file.'; return; }
+    const cl = document.getElementById('imp-client'); if(!cl.value) cl.value = COMPANY || '';
+    renderImportMapping();
+    msg.textContent = _impData.rows.length + ' rows loaded — check the column mapping, then download.';
+  };
+  rd.readAsText(f);
+});
+document.getElementById('imp-pdf').addEventListener('click', () => importGenerate('pdf'));
+document.getElementById('imp-xlsx').addEventListener('click', () => importGenerate('xlsx'));
 
 // ============ Boot ============
 if(/[?&]in_app=1/.test(location.search)) document.body.classList.add('in-app');   // packaged desktop shell

@@ -389,6 +389,40 @@ def test_export_xlsx_comparison_column(client):
     assert sales[1] == 195 and sales[2] == 180                     # both columns typed as numbers
 
 
+def test_export_xlsx_import_workpaper(client):
+    # Slice A: an imported client trial balance flows through the SAME /export/xlsx path —
+    # a grouped statement section, no date range (label only), provenance in the narrative.
+    import io
+    from openpyxl import load_workbook
+
+    payload = {
+        "client": "Bramble Co",
+        "period": {"label": "Imported workpaper"},          # no start/end
+        "narrative": "From tb.csv — 3 accounts, balanced.",
+        "sections": [{"title": "tb", "parsed": {"kind": "statement", "items": [
+            {"sub": "Asset"}, {"label": "Checking", "val": "$1,000.00"},
+            {"label": "Total Asset", "val": "$1,000.00", "total": True},
+            {"sub": "Equity"}, {"label": "Owner Equity", "val": "($1,000.00)"},
+            {"label": "Total Equity", "val": "($1,000.00)", "total": True},
+            {"label": "Net total", "val": "$0.00", "total": True}]}}],
+    }
+    r = client.post("/export/xlsx", json=payload)
+    assert r.status_code == 200
+    wb = load_workbook(io.BytesIO(r.content))
+    assert "tb" in wb.sheetnames
+    vals = [c.value for row in wb["tb"].iter_rows() for c in row]
+    assert 1000 in vals and -1000 in vals            # money typed to real numbers, credit negative
+    cover = "\n".join(str(c.value) for row in wb["Cover"].iter_rows() for c in row if c.value)
+    assert "From tb.csv" in cover                     # provenance survives to the workbook
+
+
+def test_index_serves_import_ui(client):
+    # Slice A wiring must stay in the shipped artifact (regression guard).
+    html = client.get("/").text
+    assert 'id="import-open"' in html and 'id="import-modal"' in html
+    assert "buildImportSections" in html and "function parseCsv" in html
+
+
 def test_templates_roundtrip(client, monkeypatch, tmp_path):
     monkeypatch.setattr(serve, "TEMPLATES_DIR", tmp_path / "templates")
     cfg = {"client": "Acme LLC", "period": "ytd", "compare": "prior_year",
