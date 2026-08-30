@@ -103,12 +103,23 @@ def test_version_endpoint_public(client):
 def test_tax_data_endpoint_public():
     # Public tax-data provenance — no auth, cacheable, statutory facts only.
     app = BearerAuthMiddleware(
-        echo_ctx_app, jwt_secret=SECRET, resource_url=RESOURCE, auth_server_url=AS_URL,
+        echo_ctx_app,
+        jwt_secret=SECRET,
+        resource_url=RESOURCE,
+        auth_server_url=AS_URL,
         realm_resolver=stub_realm_resolver,
-        tax_data={"version": "2026.6", "verified": "2026-08-03",
-                  "highlights": [{"label": "Business meals — 50% deductible",
-                                  "source": "IRC §274(n)", "jurisdiction": "US"}],
-                  "ledger": {"chain_ok": True}},
+        tax_data={
+            "version": "2026.6",
+            "verified": "2026-08-03",
+            "highlights": [
+                {
+                    "label": "Business meals — 50% deductible",
+                    "source": "IRC §274(n)",
+                    "jurisdiction": "US",
+                }
+            ],
+            "ledger": {"chain_ok": True},
+        },
     )
     resp = TestClient(app).get("/tax-data")
     assert resp.status_code == 200
@@ -240,15 +251,23 @@ async def tools_list_app(scope, receive, send):
     body = json.dumps(
         {"jsonrpc": "2.0", "id": 1, "result": {"tools": [{"name": "qb_profit_loss"}]}}
     ).encode()
-    await send({"type": "http.response.start", "status": 200,
-                "headers": [(b"content-type", b"application/json")]})
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [(b"content-type", b"application/json")],
+        }
+    )
     await send({"type": "http.response.body", "body": body})
 
 
 def _authed_app(downstream):
     return BearerAuthMiddleware(
-        downstream, jwt_secret=SECRET, resource_url=RESOURCE,
-        auth_server_url=AS_URL, realm_resolver=stub_realm_resolver,
+        downstream,
+        jwt_secret=SECRET,
+        resource_url=RESOURCE,
+        auth_server_url=AS_URL,
+        realm_resolver=stub_realm_resolver,
     )
 
 
@@ -258,7 +277,7 @@ def test_capabilities_endpoint_advertises_2026_spec():
     assert r.status_code == 200
     data = r.json()
     assert "2026-07-28" in data["protocolVersions"]
-    assert data["deprecatedFeaturesUsed"] == []          # our selling point
+    assert data["deprecatedFeaturesUsed"] == []  # our selling point
     assert data["transport"]["stateless"] is True
     assert data["cacheable"]["tools/list"]["cacheScope"] == "public"
 
@@ -272,7 +291,7 @@ def test_tools_list_response_gets_cache_hints_and_version_header():
     result = r.json()["result"]
     assert result["ttlMs"] == TOOLS_LIST_TTL_MS
     assert result["cacheScope"] == "public"
-    assert result["tools"][0]["name"] == "qb_profit_loss"   # original preserved
+    assert result["tools"][0]["name"] == "qb_profit_loss"  # original preserved
 
 
 def test_non_tools_response_untouched_but_versioned():

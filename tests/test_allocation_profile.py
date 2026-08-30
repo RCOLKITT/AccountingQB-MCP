@@ -14,6 +14,7 @@ def _tool(fn):
 
 # ---- profile round-trip + validation (mocked in-memory store) ---------------
 
+
 def _store_patches(monkeypatch, store):
     async def fake_get(year):
         return store.get(int(year), {})
@@ -34,17 +35,28 @@ def test_profile_set_derives_and_get(monkeypatch):
     store = {}
     _store_patches(monkeypatch, store)
     fn = _tool(s.qb_allocation_profile)
-    out = asyncio.run(fn(
-        2025, home_office_sqft=300, home_sqft=2400,
-        vehicle_method="actual", business_miles=6500, total_miles=10000,
-        account_allocations_json='{"Internet & TV": 0.6}', source="CPA Form 8829 TY2025"))
+    out = asyncio.run(
+        fn(
+            2025,
+            home_office_sqft=300,
+            home_sqft=2400,
+            vehicle_method="actual",
+            business_miles=6500,
+            total_miles=10000,
+            account_allocations_json='{"Internet & TV": 0.6}',
+            source="CPA Form 8829 TY2025",
+        )
+    )
     assert "saved" in out.lower()
     p = store[2025]
-    assert p["home_office"]["percentage"] == 0.125          # 300/2400 derived
-    assert p["vehicle"]["percentage"] == 0.65               # 6500/10000 derived
+    assert p["home_office"]["percentage"] == 0.125  # 300/2400 derived
+    assert p["vehicle"]["percentage"] == 0.65  # 6500/10000 derived
     assert p["vehicle"]["method"] == "actual"
     assert p["account_allocations"]["Internet & TV"]["percentage"] == 0.6
-    assert p["provenance"]["source"] == "CPA Form 8829 TY2025" and p["provenance"]["set_at"]
+    assert (
+        p["provenance"]["source"] == "CPA Form 8829 TY2025"
+        and p["provenance"]["set_at"]
+    )
     # GET renders it back
     got = asyncio.run(fn(2025))
     assert "Home office" in got and "12.50%" in got and "65.0%" in got
@@ -60,7 +72,7 @@ def test_profile_home_office_method(monkeypatch):
     # switch to simplified without re-entering sqft (preserved)
     asyncio.run(fn(2025, home_office_method="simplified"))
     assert store[2025]["home_office"]["method"] == "simplified"
-    assert store[2025]["home_office"]["office_sqft"] == 250     # preserved
+    assert store[2025]["home_office"]["office_sqft"] == 250  # preserved
     # invalid method rejected
     bad = asyncio.run(fn(2025, home_office_method="regular"))
     assert "must be 'actual' or 'simplified'" in bad
@@ -69,11 +81,15 @@ def test_profile_home_office_method(monkeypatch):
 def test_profile_validation(monkeypatch):
     _store_patches(monkeypatch, {})
     fn = _tool(s.qb_allocation_profile)
-    assert "cannot exceed" in asyncio.run(fn(2025, home_office_sqft=3000, home_sqft=2400))
+    assert "cannot exceed" in asyncio.run(
+        fn(2025, home_office_sqft=3000, home_sqft=2400)
+    )
     assert "standard_mileage" in asyncio.run(
-        fn(2025, vehicle_method="bogus", business_miles=1, total_miles=2))
+        fn(2025, vehicle_method="bogus", business_miles=1, total_miles=2)
+    )
     assert "between 0 and 1" in asyncio.run(
-        fn(2025, account_allocations_json='{"Internet & TV": 1.5}'))
+        fn(2025, account_allocations_json='{"Internet & TV": 1.5}')
+    )
 
 
 def test_empty_profile_message(monkeypatch):
@@ -84,12 +100,19 @@ def test_empty_profile_message(monkeypatch):
 
 # ---- allocation resolution + Form 8829 unit ---------------------------------
 
+
 def test_account_alloc_treatments():
-    prof = {"vehicle": {"method": "standard_mileage"},
-            "account_allocations": {"Net": {"percentage": 0.4}}}
+    prof = {
+        "vehicle": {"method": "standard_mileage"},
+        "account_allocations": {"Net": {"percentage": 0.4}},
+    }
     assert s._account_alloc("Auto", "9", [], prof)[0] == "mileage_excluded"
-    assert s._account_alloc("Auto", "9", [], {"vehicle": {"method": "actual", "percentage": 0.7}})[:2] == ("line", 0.7)
-    assert s._account_alloc("Home Office", "18", ["home_8829"], prof)[0] == "home_indirect"
+    assert s._account_alloc(
+        "Auto", "9", [], {"vehicle": {"method": "actual", "percentage": 0.7}}
+    )[:2] == ("line", 0.7)
+    assert (
+        s._account_alloc("Home Office", "18", ["home_8829"], prof)[0] == "home_indirect"
+    )
     assert s._account_alloc("Net", "25", [], prof)[:2] == ("line", 0.4)
     assert s._account_alloc("Other", "25", [], prof)[:2] == ("line", 1.0)
 
@@ -101,7 +124,7 @@ def test_home_indirect_detected_by_fqn_parent_chain():
     fqn = {"Property taxes": "Home office:Property taxes", "Advertising": "Advertising"}
     res = s._map_expenses_to_schedule_c(expenses, {}, {}, fqn)
     home = {n for n, _ in res["home_indirect"]}
-    assert "Property taxes" in home          # routed to 8829 by parent chain
+    assert "Property taxes" in home  # routed to 8829 by parent chain
     assert not any("23" in b["line"] for b in res["lines"].values())  # not on Line 23
 
 
@@ -115,26 +138,64 @@ def test_home_indirect_designated_by_profile():
 
 
 def test_form8829_income_limit_and_carryforward():
-    assert s._form8829(4000, 0.125, 16950) == (500.0, 0.0, 500.0)     # within profit
-    allowed, carry, tentative = s._form8829(4000, 0.50, 1200)          # exceeds profit
+    assert s._form8829(4000, 0.125, 16950) == (500.0, 0.0, 500.0)  # within profit
+    allowed, carry, tentative = s._form8829(4000, 0.50, 1200)  # exceeds profit
     assert allowed == 1200.0 and carry == 800.0 and tentative == 2000.0
-    allowed, carry, _ = s._form8829(4000, 0.50, -500)                  # a loss: none allowed
+    allowed, carry, _ = s._form8829(4000, 0.50, -500)  # a loss: none allowed
     assert allowed == 0.0 and carry == 2000.0
 
 
 # ---- vehicle standard mileage end-to-end ------------------------------------
 
+
 def test_standard_mileage_replaces_actual():
-    pl = {"Rows": {"Row": [
-        {"Header": {"ColData": [{"value": "Income"}]},
-         "Rows": {"Row": [{"ColData": [{"value": "Sales"}, {"value": "40000.00"}]}]},
-         "Summary": {"ColData": [{"value": "Total Income"}, {"value": "40000.00"}]}},
-        {"Header": {"ColData": [{"value": "Expenses"}]},
-         "Rows": {"Row": [{"ColData": [{"value": "Auto expenses"}, {"value": "3000.00"}]}]},
-         "Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "3000.00"}]}},
-    ]}}
-    accts = [{"Name": "Auto expenses", "AccountSubType": "Auto", "FullyQualifiedName": "Auto expenses"}]
-    prof = {"vehicle": {"method": "standard_mileage", "business_miles": 8000, "total_miles": 10000}}
+    pl = {
+        "Rows": {
+            "Row": [
+                {
+                    "Header": {"ColData": [{"value": "Income"}]},
+                    "Rows": {
+                        "Row": [
+                            {"ColData": [{"value": "Sales"}, {"value": "40000.00"}]}
+                        ]
+                    },
+                    "Summary": {
+                        "ColData": [{"value": "Total Income"}, {"value": "40000.00"}]
+                    },
+                },
+                {
+                    "Header": {"ColData": [{"value": "Expenses"}]},
+                    "Rows": {
+                        "Row": [
+                            {
+                                "ColData": [
+                                    {"value": "Auto expenses"},
+                                    {"value": "3000.00"},
+                                ]
+                            }
+                        ]
+                    },
+                    "Summary": {
+                        "ColData": [{"value": "Total Expenses"}, {"value": "3000.00"}]
+                    },
+                },
+            ]
+        }
+    }
+    accts = [
+        {
+            "Name": "Auto expenses",
+            "AccountSubType": "Auto",
+            "FullyQualifiedName": "Auto expenses",
+        }
+    ]
+    prof = {
+        "vehicle": {
+            "method": "standard_mileage",
+            "business_miles": 8000,
+            "total_miles": 10000,
+        }
+    }
 
     async def req(m, p, params=None, **k):
         return pl
@@ -148,8 +209,12 @@ def test_standard_mileage_replaces_actual():
     async def getprof(y):
         return prof
 
-    with patch.object(s, "qb_request", req), patch.object(s, "qb_query_all", qall), \
-            patch.object(s, "qb_query", qy), patch.object(s, "_get_allocation_profile", getprof):
+    with (
+        patch.object(s, "qb_request", req),
+        patch.object(s, "qb_query_all", qall),
+        patch.object(s, "qb_query", qy),
+        patch.object(s, "_get_allocation_profile", getprof),
+    ):
         out = asyncio.run(_tool(s.qb_schedule_c)("2025"))
     assert "standard mileage" in out
     assert "8,000 business miles × $0.700/mi = $5,600.00" in out

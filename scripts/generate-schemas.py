@@ -50,7 +50,9 @@ def extract_tools_from_ast(source_code: str) -> list[dict]:
                             if kw.arg == "annotations":
                                 if isinstance(kw.value, ast.Dict):
                                     for k, v in zip(kw.value.keys, kw.value.values):
-                                        if isinstance(k, ast.Constant) and isinstance(v, ast.Constant):
+                                        if isinstance(k, ast.Constant) and isinstance(
+                                            v, ast.Constant
+                                        ):
                                             annotations[k.value] = v.value
             elif isinstance(decorator, ast.Attribute):
                 if decorator.attr == "tool":
@@ -99,12 +101,14 @@ def extract_tools_from_ast(source_code: str) -> list[dict]:
 
             params.append(param)
 
-        tools.append({
-            "name": func_name,
-            "docstring": docstring,
-            "params": params,
-            "annotations": annotations,
-        })
+        tools.append(
+            {
+                "name": func_name,
+                "docstring": docstring,
+                "params": params,
+                "annotations": annotations,
+            }
+        )
 
     return tools
 
@@ -115,11 +119,7 @@ def generate_input_schema(tool: dict) -> dict | None:
 
     if not params:
         # No parameters - return empty schema
-        return {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
+        return {"type": "object", "properties": {}, "required": []}
 
     properties = {}
     required = []
@@ -229,6 +229,7 @@ def update_manifest(tools: list[dict], strip_schemas: bool = False) -> None:
 
 def main():
     import sys
+
     strip_mode = "--strip" in sys.argv
 
     print("Reading server.py...")
@@ -239,7 +240,9 @@ def main():
     print(f"Found {len(tools)} tools")
 
     if strip_mode:
-        print("Stripping inputSchema/annotations from manifest.json (mcpb compatibility)...")
+        print(
+            "Stripping inputSchema/annotations from manifest.json (mcpb compatibility)..."
+        )
         update_manifest(tools, strip_schemas=True)
     else:
         print("Updating manifest.json with inputSchema...")

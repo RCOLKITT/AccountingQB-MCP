@@ -8,8 +8,13 @@ import accountingqb.server as s
 
 def _vendors():
     return [
-        {"Id": "1", "DisplayName": "Contractor Jane", "Vendor1099": True,
-         "TaxIdentifier": "12-3456789", "BillAddr": {"Line1": "1 St", "City": "X"}},
+        {
+            "Id": "1",
+            "DisplayName": "Contractor Jane",
+            "Vendor1099": True,
+            "TaxIdentifier": "12-3456789",
+            "BillAddr": {"Line1": "1 St", "City": "X"},
+        },
         {"Id": "2", "DisplayName": "JPMorgan Chase", "Vendor1099": False},
         {"Id": "3", "DisplayName": "Ryan Colkitt (Owner)", "Vendor1099": False},
         {"Id": "4", "DisplayName": "Anthropic", "Vendor1099": False},
@@ -18,10 +23,10 @@ def _vendors():
 
 def _purchases():
     return [
-        {"EntityRef": {"value": "1"}, "TotalAmt": 5000.0},   # flagged contractor
+        {"EntityRef": {"value": "1"}, "TotalAmt": 5000.0},  # flagged contractor
         {"EntityRef": {"value": "2"}, "TotalAmt": 8269.76},  # bank
         {"EntityRef": {"value": "3"}, "TotalAmt": 20350.0},  # owner
-        {"EntityRef": {"value": "4"}, "TotalAmt": 3000.0},   # SaaS corp
+        {"EntityRef": {"value": "4"}, "TotalAmt": 3000.0},  # SaaS corp
     ]
 
 
@@ -34,8 +39,12 @@ def _patch(monkeypatch):
         return {"QueryResponse": {}}  # BillPayment, Bill
 
     async def fake_region():
-        return {"region": "US", "subdivision": "", "home_currency": "USD",
-                "multicurrency": False}
+        return {
+            "region": "US",
+            "subdivision": "",
+            "home_currency": "USD",
+            "multicurrency": False,
+        }
 
     monkeypatch.setattr(s, "qb_query", fake_query)
     monkeypatch.setattr(s, "_get_region", fake_region)
@@ -61,16 +70,32 @@ def test_only_flagged_vendors_are_reportable(monkeypatch):
 def test_empty_state_when_nothing_flagged(monkeypatch):
     async def fake_query(q, **kw):
         if "FROM Vendor" in q:
-            return {"QueryResponse": {"Vendor": [
-                {"Id": "2", "DisplayName": "JPMorgan Chase", "Vendor1099": False}]}}
+            return {
+                "QueryResponse": {
+                    "Vendor": [
+                        {
+                            "Id": "2",
+                            "DisplayName": "JPMorgan Chase",
+                            "Vendor1099": False,
+                        }
+                    ]
+                }
+            }
         if "FROM Purchase" in q:
-            return {"QueryResponse": {"Purchase": [
-                {"EntityRef": {"value": "2"}, "TotalAmt": 8000.0}]}}
+            return {
+                "QueryResponse": {
+                    "Purchase": [{"EntityRef": {"value": "2"}, "TotalAmt": 8000.0}]
+                }
+            }
         return {"QueryResponse": {}}
 
     async def fake_region():
-        return {"region": "US", "subdivision": "", "home_currency": "USD",
-                "multicurrency": False}
+        return {
+            "region": "US",
+            "subdivision": "",
+            "home_currency": "USD",
+            "multicurrency": False,
+        }
 
     monkeypatch.setattr(s, "qb_query", fake_query)
     monkeypatch.setattr(s, "_get_region", fake_region)

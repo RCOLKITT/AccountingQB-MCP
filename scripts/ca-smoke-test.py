@@ -12,6 +12,7 @@ Usage (Development keys; refresh token + realm from the OAuth playground):
 
 QB_CLIENT_ID / QB_CLIENT_SECRET come from the Doppler dev config.
 """
+
 import asyncio
 import os
 import sys
@@ -19,11 +20,16 @@ from datetime import date
 
 os.environ.setdefault("QB_ENVIRONMENT", "sandbox")
 
-MISSING = [v for v in ("QB_CLIENT_ID", "QB_CLIENT_SECRET", "QB_REALM_ID",
-                       "QB_REFRESH_TOKEN") if not os.environ.get(v)]
+MISSING = [
+    v
+    for v in ("QB_CLIENT_ID", "QB_CLIENT_SECRET", "QB_REALM_ID", "QB_REFRESH_TOKEN")
+    if not os.environ.get(v)
+]
 if MISSING:
-    sys.exit(f"Missing env: {', '.join(MISSING)} — see the usage note at the "
-             f"top of this script.")
+    sys.exit(
+        f"Missing env: {', '.join(MISSING)} — see the usage note at the "
+        f"top of this script."
+    )
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "mcpb", "src"))
 import accountingqb.server as qb  # noqa: E402
@@ -54,28 +60,37 @@ async def check(name, coro, expect=None):
 
 
 async def main():
-    print(f"== CA sandbox smoke test — realm {os.environ['QB_REALM_ID']}, "
-          f"{qb.QB_ENVIRONMENT} API ==\n")
+    print(
+        f"== CA sandbox smoke test — realm {os.environ['QB_REALM_ID']}, "
+        f"{qb.QB_ENVIRONMENT} API ==\n"
+    )
 
     print("-- Region & tax codes --")
     info = await check("qb_company_info", qb.qb_company_info())
     if info:
         print("        " + "\n        ".join(info.splitlines()[:6]))
     region = await qb._get_region()
-    print(f"        detected: region={region['region']} "
-          f"province={region.get('subdivision') or '(none)'} "
-          f"currency={region['home_currency']}")
+    print(
+        f"        detected: region={region['region']} "
+        f"province={region.get('subdivision') or '(none)'} "
+        f"currency={region['home_currency']}"
+    )
     if region["region"] != "CA":
         print("  WARN  company is not detected as CA — is this the right realm?")
     await check("qb_list_tax_codes", qb.qb_list_tax_codes())
     await check("qb_list_tax_rates", qb.qb_list_tax_rates())
 
     print("\n-- Canadian tax suite --")
-    await check("qb_gst_hst_return", qb.qb_gst_hst_return(Q_START, TODAY),
-                expect=["Line 109", "workpaper, not a filing"])
+    await check(
+        "qb_gst_hst_return",
+        qb.qb_gst_hst_return(Q_START, TODAY),
+        expect=["Line 109", "workpaper, not a filing"],
+    )
     await check("qb_t2125_summary", qb.qb_t2125_summary(YEAR))
-    await check("qb_cca_schedule",
-                qb.qb_cca_schedule('[{"name": "Laptop", "cost": 3000, "class": "50"}]', YEAR))
+    await check(
+        "qb_cca_schedule",
+        qb.qb_cca_schedule('[{"name": "Laptop", "cost": 3000, "class": "50"}]', YEAR),
+    )
     await check("qb_t4a_contractor_report", qb.qb_t4a_contractor_report(YEAR))
     await check("qb_estimate_instalments", qb.qb_estimate_instalments(YEAR))
 

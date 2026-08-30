@@ -53,11 +53,21 @@ def test_mcp_unknown_tool_is_404_not_500(client):
 
 # --- write safety: no silent mutations (Constitution) ---
 
+
 def test_write_tool_requires_confirmation(client):
     # A book-mutating tool via /mcp is refused (and does nothing) unless confirmed.
-    r = client.post("/mcp", json={"tool": "qb_create_expense",
-                                  "args": {"vendor_name": "X", "amount": 1,
-                                           "account_name": "Office", "date": "2026-01-01"}})
+    r = client.post(
+        "/mcp",
+        json={
+            "tool": "qb_create_expense",
+            "args": {
+                "vendor_name": "X",
+                "amount": 1,
+                "account_name": "Office",
+                "date": "2026-01-01",
+            },
+        },
+    )
     d = r.json()
     assert d.get("needsConfirm") is True and not d.get("ok")
 
@@ -71,9 +81,19 @@ def test_write_tool_confirmed_passes_and_strips_flag(client, monkeypatch):
         return "booked"
 
     monkeypatch.setattr(serve, "call_tool", fake_call)
-    r = client.post("/mcp", json={"tool": "qb_create_expense",
-                                  "args": {"vendor_name": "X", "amount": 1, "account_name": "Office",
-                                           "date": "2026-01-01", "confirmed": True}})
+    r = client.post(
+        "/mcp",
+        json={
+            "tool": "qb_create_expense",
+            "args": {
+                "vendor_name": "X",
+                "amount": 1,
+                "account_name": "Office",
+                "date": "2026-01-01",
+                "confirmed": True,
+            },
+        },
+    )
     d = r.json()
     assert d.get("ok") is True and d.get("result") == "booked"
     assert captured["name"] == "qb_create_expense"
@@ -81,18 +101,28 @@ def test_write_tool_confirmed_passes_and_strips_flag(client, monkeypatch):
 
 
 def test_read_tool_not_gated(client):
-    assert client.post("/mcp", json={"tool": "qb_server_info", "args": {}}).json().get("ok") is True
+    assert (
+        client.post("/mcp", json={"tool": "qb_server_info", "args": {}})
+        .json()
+        .get("ok")
+        is True
+    )
 
 
 # --- Client Package reports: vendored pdfmake + openpyxl xlsx export ---
+
 
 def test_vendor_serves_js_and_guards(client, monkeypatch, tmp_path):
     (tmp_path / "lib.js").write_text("console.log(1)")
     monkeypatch.setattr(serve, "_VENDOR_DIR", tmp_path)
     r = client.get("/vendor/lib.js")
-    assert r.status_code == 200 and r.headers["content-type"].startswith("application/javascript")
-    assert client.get("/vendor/nope.js").status_code == 404          # missing
-    assert client.get("/vendor/foo$bar").status_code == 400          # illegal name (no traversal)
+    assert r.status_code == 200 and r.headers["content-type"].startswith(
+        "application/javascript"
+    )
+    assert client.get("/vendor/nope.js").status_code == 404  # missing
+    assert (
+        client.get("/vendor/foo$bar").status_code == 400
+    )  # illegal name (no traversal)
 
 
 def test_export_xlsx_builds_real_workbook(client):
@@ -104,11 +134,25 @@ def test_export_xlsx_builds_real_workbook(client):
         "period": {"start": "2026-01-01", "end": "2026-08-28", "label": "YTD"},
         "narrative": "Solid quarter.",
         "sections": [
-            {"title": "Profit & Loss", "parsed": {"kind": "statement", "items": [
-                {"sub": "Income"}, {"label": "Sales", "val": "$195.00"},
-                {"label": "Total Income", "val": "$156.00", "total": True}]}},
-            {"title": "A/R Aging", "parsed": {"kind": "table", "header": ["Customer", "Total"],
-                                              "rows": [["Acme", "$100.00"], ["Total", "$100.00"]]}},
+            {
+                "title": "Profit & Loss",
+                "parsed": {
+                    "kind": "statement",
+                    "items": [
+                        {"sub": "Income"},
+                        {"label": "Sales", "val": "$195.00"},
+                        {"label": "Total Income", "val": "$156.00", "total": True},
+                    ],
+                },
+            },
+            {
+                "title": "A/R Aging",
+                "parsed": {
+                    "kind": "table",
+                    "header": ["Customer", "Total"],
+                    "rows": [["Acme", "$100.00"], ["Total", "$100.00"]],
+                },
+            },
         ],
     }
     r = client.post("/export/xlsx", json=payload)
@@ -125,7 +169,10 @@ def test_export_xlsx_builds_real_workbook(client):
 def test_sample_without_key_reports_needskey(client, monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setattr(serve, "_anthropic_key", lambda: "")
-    r = client.post("/sample", json={"system": "hi", "messages": [{"role": "user", "content": "hi"}]})
+    r = client.post(
+        "/sample",
+        json={"system": "hi", "messages": [{"role": "user", "content": "hi"}]},
+    )
     assert r.json()["needsKey"] is True
 
 
@@ -134,7 +181,10 @@ def test_forbidden_host_and_origin():
     assert c.get("/healthz", headers={"Host": "evil.com"}).status_code == 403
     assert c.get("/healthz", headers={"Origin": "https://evil.com"}).status_code == 403
     # An allowed cross-origin (localhost) is fine.
-    assert c.get("/healthz", headers={"Origin": "http://localhost:8788"}).status_code == 200
+    assert (
+        c.get("/healthz", headers={"Origin": "http://localhost:8788"}).status_code
+        == 200
+    )
 
 
 def test_oauth_start_without_intuit_creds_redirects_to_broker(client, monkeypatch):
@@ -147,14 +197,20 @@ def test_oauth_start_without_intuit_creds_redirects_to_broker(client, monkeypatc
 
 # --- Phase 2b: chat tool exposure + agentic loop ---------------------------------
 
+
 def test_chat_tools_are_readonly_and_real():
     defs = serve._anthropic_tools()
     assert len(defs) >= 10  # curated set is meaningfully populated
     registry = serve._tool_registry()
-    manifest_ro = {t["name"]: t.get("readOnlyHint", False) for t in serve._manifest().get("tools", [])}
+    manifest_ro = {
+        t["name"]: t.get("readOnlyHint", False)
+        for t in serve._manifest().get("tools", [])
+    }
     for d in defs:
-        assert d["name"] in registry           # real, callable tool
-        assert manifest_ro.get(d["name"]) is True  # NEVER expose a write tool to the auto-loop
+        assert d["name"] in registry  # real, callable tool
+        assert (
+            manifest_ro.get(d["name"]) is True
+        )  # NEVER expose a write tool to the auto-loop
         assert "input_schema" in d
 
 
@@ -187,14 +243,25 @@ def test_chat_agentic_loop_runs_a_real_tool(client, monkeypatch):
             return self._p
 
     turns = [
-        FakeResp({
-            "stop_reason": "tool_use",
-            "content": [{"type": "tool_use", "id": "t1", "name": "qb_tax_data_info", "input": {}}],
-        }),
-        FakeResp({
-            "stop_reason": "end_turn",
-            "content": [{"type": "text", "text": "Here's what I found."}],
-        }),
+        FakeResp(
+            {
+                "stop_reason": "tool_use",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "t1",
+                        "name": "qb_tax_data_info",
+                        "input": {},
+                    }
+                ],
+            }
+        ),
+        FakeResp(
+            {
+                "stop_reason": "end_turn",
+                "content": [{"type": "text", "text": "Here's what I found."}],
+            }
+        ),
     ]
     state = {"i": 0}
 
@@ -215,10 +282,15 @@ def test_chat_agentic_loop_runs_a_real_tool(client, monkeypatch):
 
     monkeypatch.setattr(serve.httpx, "AsyncClient", FakeClient)
 
-    r = client.post("/chat", json={"messages": [{"role": "user", "content": "what tax data do you use?"}]})
+    r = client.post(
+        "/chat",
+        json={"messages": [{"role": "user", "content": "what tax data do you use?"}]},
+    )
     body = r.json()
     assert body["reply"] == "Here's what I found."
-    assert any(t["tool"] == "qb_tax_data_info" for t in body["trace"])  # tool really ran
+    assert any(
+        t["tool"] == "qb_tax_data_info" for t in body["trace"]
+    )  # tool really ran
 
 
 # --- Coffer/Hearth integration dialect (/mcp structured JSON) --------------------
@@ -244,16 +316,22 @@ def _fake_call_tool(canned):
     async def _call(name, args):
         val = canned.get(name)
         return val(args) if callable(val) else val
+
     return _call
 
 
 @pytest.fixture
 def paired(monkeypatch):
     """Simulate an established, identity-verified pairing on the shim."""
-    monkeypatch.setattr(serve, "_load_pairing", lambda: {"pairing_secret": "testsecret", "peer_product": "coffer"})
+    monkeypatch.setattr(
+        serve,
+        "_load_pairing",
+        lambda: {"pairing_secret": "testsecret", "peer_product": "coffer"},
+    )
 
 
 # --- pairing gate (cross-user contamination guard) ---
+
 
 def test_integration_inert_until_paired(client, monkeypatch):
     monkeypatch.setattr(serve, "_load_pairing", lambda: {})
@@ -262,8 +340,11 @@ def test_integration_inert_until_paired(client, monkeypatch):
 
 
 def test_integration_rejects_wrong_secret(client, paired):
-    r = client.post("/mcp", json={"tool": "qb_owner_draws", "args": {"year": 2026}},
-                    headers={"X-AQB-Pairing": "wrong"})
+    r = client.post(
+        "/mcp",
+        json={"tool": "qb_owner_draws", "args": {"year": 2026}},
+        headers={"X-AQB-Pairing": "wrong"},
+    )
     assert r.status_code == 403
 
 
@@ -276,31 +357,53 @@ def test_pair_and_unpair(client, monkeypatch, tmp_path):
     # Isolate the pairing file — /pair and /unpair write to disk, and without this the test
     # would clobber a developer's real ~/.accountingqb/pairing.json (their live Coffer link).
     monkeypatch.setattr(serve, "PAIRING_FILE", tmp_path / "pairing.json")
-    assert client.post("/pair", json={"pairingSecret": "s1", "peerProduct": "coffer"}).json()["paired"] is True
+    assert (
+        client.post(
+            "/pair", json={"pairingSecret": "s1", "peerProduct": "coffer"}
+        ).json()["paired"]
+        is True
+    )
     assert client.get("/whoami").json()["paired"] is True
     assert client.post("/unpair", json={}).json()["paired"] is False
 
 
 # --- integration dialect (pairing-gated) ---
 
+
 def test_owner_draws_structured(client, paired, monkeypatch):
-    monkeypatch.setattr(serve, "call_tool", _fake_call_tool({"qb_owner_draws": _OWNER_DRAWS_MD}))
-    d = client.post("/mcp", json={"tool": "qb_owner_draws", "args": {"year": 2026}}, headers=_PAIR_HDR).json()
+    monkeypatch.setattr(
+        serve, "call_tool", _fake_call_tool({"qb_owner_draws": _OWNER_DRAWS_MD})
+    )
+    d = client.post(
+        "/mcp",
+        json={"tool": "qb_owner_draws", "args": {"year": 2026}},
+        headers=_PAIR_HDR,
+    ).json()
     assert d["net"] == -12345.0
     assert d["ytd"] == 12345.0  # money drawn out = household income
 
 
 def test_estimate_requires_filing_status(client, paired):
-    d = client.post("/mcp", json={"tool": "qb_estimate_quarterly_tax", "args": {"tax_year": 2026}},
-                    headers=_PAIR_HDR).json()
+    d = client.post(
+        "/mcp",
+        json={"tool": "qb_estimate_quarterly_tax", "args": {"tax_year": 2026}},
+        headers=_PAIR_HDR,
+    ).json()
     assert d.get("needs") == ["filing_status"]  # never guesses a status
 
 
 def test_estimate_structured(client, paired, monkeypatch):
-    monkeypatch.setattr(serve, "call_tool", _fake_call_tool({"qb_estimate_quarterly_tax": _ESTIMATE_MD}))
-    d = client.post("/mcp", json={"tool": "qb_estimate_quarterly_tax",
-                                  "args": {"tax_year": 2026, "filing_status": "single"}},
-                    headers=_PAIR_HDR).json()
+    monkeypatch.setattr(
+        serve, "call_tool", _fake_call_tool({"qb_estimate_quarterly_tax": _ESTIMATE_MD})
+    )
+    d = client.post(
+        "/mcp",
+        json={
+            "tool": "qb_estimate_quarterly_tax",
+            "args": {"tax_year": 2026, "filing_status": "single"},
+        },
+        headers=_PAIR_HDR,
+    ).json()
     assert d["amount"] == 2500.0 and d["annual"] == 10000.0
     assert d["period"] == "Q3 2026" and d["due"] == "Sep 15"
 
@@ -312,33 +415,67 @@ _ACCTS_PRESENT_MD = (
 )
 
 
-def test_owner_paid_expense_confirm_gate_and_idempotency(client, paired, monkeypatch, tmp_path):
+def test_owner_paid_expense_confirm_gate_and_idempotency(
+    client, paired, monkeypatch, tmp_path
+):
     monkeypatch.setattr(serve, "BOOKED_FILE", tmp_path / "booked.json")
-    monkeypatch.setattr(serve, "call_tool", _fake_call_tool(
-        {"qb_list_accounts": _ACCTS_PRESENT_MD,
-         "qb_create_journal_entry": "Journal entry created!\nId: 42\n"}))
-    txn = {"key": "id:999", "date": "2026-08-14", "amount": -184.32, "merchant": "Staples",
-           "note": "printer", "receipt": {"orderId": "9483-2211"}}
+    monkeypatch.setattr(
+        serve,
+        "call_tool",
+        _fake_call_tool(
+            {
+                "qb_list_accounts": _ACCTS_PRESENT_MD,
+                "qb_create_journal_entry": "Journal entry created!\nId: 42\n",
+            }
+        ),
+    )
+    txn = {
+        "key": "id:999",
+        "date": "2026-08-14",
+        "amount": -184.32,
+        "merchant": "Staples",
+        "note": "printer",
+        "receipt": {"orderId": "9483-2211"},
+    }
 
     # No confirmation → refused, nothing booked.
-    r0 = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense", "args": txn}, headers=_PAIR_HDR).json()
+    r0 = client.post(
+        "/mcp",
+        json={"tool": "qb_record_owner_paid_expense", "args": txn},
+        headers=_PAIR_HDR,
+    ).json()
     assert r0["ok"] is False and "confirmation" in r0["error"]
 
     # Confirmed → booked as a journal entry to the review account.
-    r1 = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense", "args": {**txn, "confirmed": True}},
-                     headers=_PAIR_HDR).json()
+    r1 = client.post(
+        "/mcp",
+        json={
+            "tool": "qb_record_owner_paid_expense",
+            "args": {**txn, "confirmed": True},
+        },
+        headers=_PAIR_HDR,
+    ).json()
     assert r1["ok"] is True and r1["booked"] is True and r1["amount"] == 184.32
     assert "review" in r1["treatment"].lower()
 
     # Same key again → idempotent success, NOT a duplicate booking.
-    r2 = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense", "args": {**txn, "confirmed": True}},
-                     headers=_PAIR_HDR).json()
+    r2 = client.post(
+        "/mcp",
+        json={
+            "tool": "qb_record_owner_paid_expense",
+            "args": {**txn, "confirmed": True},
+        },
+        headers=_PAIR_HDR,
+    ).json()
     assert r2["ok"] is True and r2.get("alreadyBooked") is True
 
 
-def test_owner_paid_expense_bootstraps_missing_accounts(client, paired, monkeypatch, tmp_path):
+def test_owner_paid_expense_bootstraps_missing_accounts(
+    client, paired, monkeypatch, tmp_path
+):
     """Fresh QuickBooks company: the review clearing account is missing → create it; an existing
-    owner-equity account is reused, not duplicated. This is attempt-4's real-world blocker."""
+    owner-equity account is reused, not duplicated. This is attempt-4's real-world blocker.
+    """
     monkeypatch.setattr(serve, "BOOKED_FILE", tmp_path / "booked.json")
     calls = []
     accounts_md = (  # no 'Owner-Paid Expenses (review)'; has 'Owner investments' equity (like NutriFitAI)
@@ -357,14 +494,29 @@ def test_owner_paid_expense_bootstraps_missing_accounts(client, paired, monkeypa
         return ""
 
     monkeypatch.setattr(serve, "call_tool", fake)
-    txn = {"key": "k-boot", "date": "2026-08-14", "amount": -71.75, "merchant": "GitHub", "confirmed": True}
-    d = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense", "args": txn}, headers=_PAIR_HDR).json()
+    txn = {
+        "key": "k-boot",
+        "date": "2026-08-14",
+        "amount": -71.75,
+        "merchant": "GitHub",
+        "confirmed": True,
+    }
+    d = client.post(
+        "/mcp",
+        json={"tool": "qb_record_owner_paid_expense", "args": txn},
+        headers=_PAIR_HDR,
+    ).json()
     assert d["ok"] is True and d["booked"] is True
     created = [c for c in calls if c[0] == "qb_create_account"]
     # Exactly the missing clearing account is created (Expense); equity is REUSED, not created.
     assert len(created) == 1
-    assert created[0][1]["name"] == "Owner-Paid Expenses (review)" and created[0][1]["account_type"] == "Expense"
-    assert "Owner investments" in d["treatment"]  # existing equity reused for the credit
+    assert (
+        created[0][1]["name"] == "Owner-Paid Expenses (review)"
+        and created[0][1]["account_type"] == "Expense"
+    )
+    assert (
+        "Owner investments" in d["treatment"]
+    )  # existing equity reused for the credit
 
 
 def test_export_xlsx_comparison_column(client):
@@ -374,19 +526,33 @@ def test_export_xlsx_comparison_column(client):
     payload = {
         "client": "Acme",
         "period": {"start": "2026-01-01", "end": "2026-08-29", "label": "YTD"},
-        "sections": [{"title": "Profit & Loss", "parsed": {"kind": "statement",
-            "compareLabel": "Prior yr (2025)", "items": [
-                {"sub": "Income"},
-                {"label": "Sales", "val": "$195.00", "val2": "$180.00"},
-                {"label": "Total Income", "val": "$156.00", "val2": "$140.00", "total": True}]}}],
+        "sections": [
+            {
+                "title": "Profit & Loss",
+                "parsed": {
+                    "kind": "statement",
+                    "compareLabel": "Prior yr (2025)",
+                    "items": [
+                        {"sub": "Income"},
+                        {"label": "Sales", "val": "$195.00", "val2": "$180.00"},
+                        {
+                            "label": "Total Income",
+                            "val": "$156.00",
+                            "val2": "$140.00",
+                            "total": True,
+                        },
+                    ],
+                },
+            }
+        ],
     }
     r = client.post("/export/xlsx", json=payload)
     assert r.status_code == 200
     wb = load_workbook(io.BytesIO(r.content))
     rows = [[c.value for c in row] for row in wb["Profit & Loss"].iter_rows()]
-    assert rows[0] == [None, "Current", "Prior yr (2025)"]        # comparison header
+    assert rows[0] == [None, "Current", "Prior yr (2025)"]  # comparison header
     sales = next(r for r in rows if r and r[0] == "Sales")
-    assert sales[1] == 195 and sales[2] == 180                     # both columns typed as numbers
+    assert sales[1] == 195 and sales[2] == 180  # both columns typed as numbers
 
 
 def test_export_xlsx_import_workpaper(client):
@@ -397,23 +563,38 @@ def test_export_xlsx_import_workpaper(client):
 
     payload = {
         "client": "Bramble Co",
-        "period": {"label": "Imported workpaper"},          # no start/end
+        "period": {"label": "Imported workpaper"},  # no start/end
         "narrative": "From tb.csv — 3 accounts, balanced.",
-        "sections": [{"title": "tb", "parsed": {"kind": "statement", "items": [
-            {"sub": "Asset"}, {"label": "Checking", "val": "$1,000.00"},
-            {"label": "Total Asset", "val": "$1,000.00", "total": True},
-            {"sub": "Equity"}, {"label": "Owner Equity", "val": "($1,000.00)"},
-            {"label": "Total Equity", "val": "($1,000.00)", "total": True},
-            {"label": "Net total", "val": "$0.00", "total": True}]}}],
+        "sections": [
+            {
+                "title": "tb",
+                "parsed": {
+                    "kind": "statement",
+                    "items": [
+                        {"sub": "Asset"},
+                        {"label": "Checking", "val": "$1,000.00"},
+                        {"label": "Total Asset", "val": "$1,000.00", "total": True},
+                        {"sub": "Equity"},
+                        {"label": "Owner Equity", "val": "($1,000.00)"},
+                        {"label": "Total Equity", "val": "($1,000.00)", "total": True},
+                        {"label": "Net total", "val": "$0.00", "total": True},
+                    ],
+                },
+            }
+        ],
     }
     r = client.post("/export/xlsx", json=payload)
     assert r.status_code == 200
     wb = load_workbook(io.BytesIO(r.content))
     assert "tb" in wb.sheetnames
     vals = [c.value for row in wb["tb"].iter_rows() for c in row]
-    assert 1000 in vals and -1000 in vals            # money typed to real numbers, credit negative
-    cover = "\n".join(str(c.value) for row in wb["Cover"].iter_rows() for c in row if c.value)
-    assert "From tb.csv" in cover                     # provenance survives to the workbook
+    assert (
+        1000 in vals and -1000 in vals
+    )  # money typed to real numbers, credit negative
+    cover = "\n".join(
+        str(c.value) for row in wb["Cover"].iter_rows() for c in row if c.value
+    )
+    assert "From tb.csv" in cover  # provenance survives to the workbook
 
 
 def test_index_serves_import_ui(client):
@@ -443,9 +624,17 @@ def test_index_serves_whatsnew_ui(client):
 
 def test_templates_roundtrip(client, monkeypatch, tmp_path):
     monkeypatch.setattr(serve, "TEMPLATES_DIR", tmp_path / "templates")
-    cfg = {"client": "Acme LLC", "period": "ytd", "compare": "prior_year",
-           "sections": ["pl", "bs"], "edits": {"hidden": {"communications": True}}}
-    assert client.post("/templates", json={"name": "Acme LLC", "config": cfg}).json()["ok"] is True
+    cfg = {
+        "client": "Acme LLC",
+        "period": "ytd",
+        "compare": "prior_year",
+        "sections": ["pl", "bs"],
+        "edits": {"hidden": {"communications": True}},
+    }
+    assert (
+        client.post("/templates", json={"name": "Acme LLC", "config": cfg}).json()["ok"]
+        is True
+    )
     assert "Acme LLC" in client.get("/templates").json()["templates"]
     got = client.get("/templates/Acme LLC").json()
     assert got["config"]["compare"] == "prior_year"
@@ -457,11 +646,14 @@ def test_templates_roundtrip(client, monkeypatch, tmp_path):
 
 def test_call_tool_drops_unknown_kwargs(client):
     # Additive-fields rule: an unknown kwarg (e.g. Coffer's `type`) must be dropped, not TypeError.
-    r = client.post("/mcp", json={"tool": "qb_server_info", "args": {"type": "Expense", "bogus": 1}})
+    r = client.post(
+        "/mcp", json={"tool": "qb_server_info", "args": {"type": "Expense", "bogus": 1}}
+    )
     assert r.json().get("ok") is True
 
 
 # --- OAuth-style linking (redirect + PKCE) ---
+
 
 def test_link_connect_redirects_to_peer_authorize(client, monkeypatch, tmp_path):
     monkeypatch.setattr(serve, "COFFER_API_URL", "https://coffermoney.com")
@@ -493,13 +685,20 @@ def test_link_callback_stores_secret_on_success(client, monkeypatch, tmp_path):
 
     class FakeResp:
         status_code = 200
+
         def json(self):
             return {"ok": True, "pairingSecret": "SECRET123", "peerProduct": "coffer"}
 
     class FakeClient:
-        def __init__(self, *a, **k): pass
-        async def __aenter__(self): return self
-        async def __aexit__(self, *a): return False
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
         async def post(self, url, json=None):
             assert url.endswith("/api/link/redeem")
             assert json["code"] == "code-xyz" and json["codeVerifier"] == "the-verifier"
@@ -520,13 +719,20 @@ def test_bootstrap_pairing_restores_from_web(monkeypatch, tmp_path):
 
     class FakeResp:
         status_code = 200
+
         def json(self):
             return {"paired": True, "pairingSecret": "SEKRET", "peerProduct": "coffer"}
 
     class FakeClient:
-        def __init__(self, *a, **k): pass
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
         def get(self, url, params=None):
             assert url.endswith("/api/link/status") and params.get("key") == "LK-TEST"
             return FakeResp()
@@ -553,10 +759,21 @@ def test_link_refresh_requires_license(client, monkeypatch):
 
 def test_owner_paid_expense_expected_realm_guard(client, paired, monkeypatch, tmp_path):
     import types
+
     monkeypatch.setattr(serve, "BOOKED_FILE", tmp_path / "booked.json")
     monkeypatch.setattr(serve, "get_ctx", lambda: types.SimpleNamespace(realm_id="R1"))
-    r = client.post("/mcp", json={"tool": "qb_record_owner_paid_expense",
-                                  "args": {"key": "k1", "amount": -10, "date": "2026-01-01",
-                                           "confirmed": True, "expected_realm_id": "R2"}},
-                    headers=_PAIR_HDR).json()
+    r = client.post(
+        "/mcp",
+        json={
+            "tool": "qb_record_owner_paid_expense",
+            "args": {
+                "key": "k1",
+                "amount": -10,
+                "date": "2026-01-01",
+                "confirmed": True,
+                "expected_realm_id": "R2",
+            },
+        },
+        headers=_PAIR_HDR,
+    ).json()
     assert r["ok"] is False and "expected_realm_id" in r["error"]

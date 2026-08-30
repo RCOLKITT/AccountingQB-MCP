@@ -14,19 +14,19 @@ found against the NutriFitAI book that conservation passed straight through:
 
 import accountingqb.server as s
 from accountingqb.tax_tables import (
-    is_home_office_subtype, _SYSTEM_EQUITY_SUBTYPES,
+    is_home_office_subtype,
+    _SYSTEM_EQUITY_SUBTYPES,
 )
-
 
 # A realistic expense set with the structures synthetic fixtures miss: two
 # accounts sharing a leaf name (one home, one not), the QB home-office subtype
 # family, a generic-subtype home account caught only by its FQN, and a vehicle.
 _EXPENSES = {
     "Advertising": 500.0,
-    "Repairs & maintenance": 2316.68,                       # standalone → Line 21
-    "Home office:Repairs & maintenance": 2116.19,           # home subtype → 8829
-    "Home office:Property taxes": 1115.84,                  # home subtype → 8829
-    "Home office:Mortgage interest (deleted)": 3613.41,     # generic subtype, FQN → 8829
+    "Repairs & maintenance": 2316.68,  # standalone → Line 21
+    "Home office:Repairs & maintenance": 2116.19,  # home subtype → 8829
+    "Home office:Property taxes": 1115.84,  # home subtype → 8829
+    "Home office:Mortgage interest (deleted)": 3613.41,  # generic subtype, FQN → 8829
     "Auto expenses": 3000.0,
 }
 _SUBTYPE = {
@@ -34,14 +34,16 @@ _SUBTYPE = {
     "Repairs & maintenance": "RepairMaintenance",
     "Home office:Repairs & maintenance": "RepairsAndMaintainceHomeOffice",
     "Home office:Property taxes": "PropertyTaxHomeOffice",
-    "Home office:Mortgage interest (deleted)": "InterestPaid",   # generic on purpose
+    "Home office:Mortgage interest (deleted)": "InterestPaid",  # generic on purpose
     "Auto expenses": "Auto",
 }
-_FQN = {k: k for k in _EXPENSES}   # extractor keys are already FQN-qualified
+_FQN = {k: k for k in _EXPENSES}  # extractor keys are already FQN-qualified
 
 
 def _run(juris="US"):
-    return s._map_expenses_to_schedule_c(_EXPENSES, _SUBTYPE, {}, _FQN, jurisdiction=juris)
+    return s._map_expenses_to_schedule_c(
+        _EXPENSES, _SUBTYPE, {}, _FQN, jurisdiction=juris
+    )
 
 
 def _line_accounts(res):
@@ -66,9 +68,11 @@ def test_every_home_indirect_member_is_actually_home():
         res = _run(juris)
         for name, _amt in res["home_indirect"]:
             st = _SUBTYPE.get(name, "")
-            ok = (is_home_office_subtype(st)
-                  or "home office" in name.lower()
-                  or "homeowner" in name.lower())
+            ok = (
+                is_home_office_subtype(st)
+                or "home office" in name.lower()
+                or "homeowner" in name.lower()
+            )
             assert ok, f"{juris}: {name!r} routed to home but isn't a home cost"
 
 
@@ -80,7 +84,9 @@ def test_every_home_subtype_account_routes_to_home():
         home = {n for n, _ in res["home_indirect"]}
         for name, st in _SUBTYPE.items():
             if is_home_office_subtype(st):
-                assert name in home, f"{juris}: home-subtype {name!r} not routed to home"
+                assert (
+                    name in home
+                ), f"{juris}: home-subtype {name!r} not routed to home"
 
 
 def test_no_home_subtype_account_on_operating_line():
@@ -88,8 +94,9 @@ def test_no_home_subtype_account_on_operating_line():
     for juris in ("US", "CA"):
         res = _run(juris)
         for name in _line_accounts(res):
-            assert not is_home_office_subtype(_SUBTYPE.get(name, "")), \
-                f"{juris}: home-subtype {name!r} appears on an operating line"
+            assert not is_home_office_subtype(
+                _SUBTYPE.get(name, "")
+            ), f"{juris}: home-subtype {name!r} appears on an operating line"
 
 
 def test_standalone_repairs_stays_on_its_operating_line():

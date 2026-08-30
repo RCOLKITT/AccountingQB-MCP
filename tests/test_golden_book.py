@@ -47,7 +47,7 @@ def test_inactive_home_account_routes():
     """(3) The INACTIVE 'Mortgage interest (deleted)' ($2,000) is inside the home
     base, not deducted at 100% on an interest line."""
     out = _sched_c()
-    assert "Line 16" not in out                    # not on the interest line
+    assert "Line 16" not in out  # not on the interest line
     # 2,000 is folded into the 4,000 home base (asserted above), not a standalone line
     assert "home expenses $4,000.00" in out
 
@@ -62,7 +62,7 @@ def test_home_personal_share_reconciles():
 
 def test_meals_50_percent():
     out = _sched_c()
-    assert "× 50% (IRC §274(n)) = $500.00" in out   # 1,000 meals at 50%
+    assert "× 50% (IRC §274(n)) = $500.00" in out  # 1,000 meals at 50%
 
 
 def test_allocation_candidate_flagged_when_no_profile():
@@ -99,14 +99,18 @@ def test_golden_book_has_the_seven_structural_properties():
     subs = [a["AccountSubType"] for a in GOLDEN_ACCOUNTS]
     fqns = [a["FullyQualifiedName"] for a in GOLDEN_ACCOUNTS]
     names = [a["Name"] for a in GOLDEN_ACCOUNTS]
-    assert any(":" in f for f in fqns)                              # sub-accounts
-    assert names.count("Repairs & maintenance") == 2               # duplicate leaf
-    assert any(not a["Active"] for a in GOLDEN_ACCOUNTS)           # inactive
-    assert any(st.endswith("HomeOffice") for st in subs)          # home subtype family
-    assert "OpeningBalanceEquity" in subs and "RetainedEarnings" in subs   # system equity
+    assert any(":" in f for f in fqns)  # sub-accounts
+    assert names.count("Repairs & maintenance") == 2  # duplicate leaf
+    assert any(not a["Active"] for a in GOLDEN_ACCOUNTS)  # inactive
+    assert any(st.endswith("HomeOffice") for st in subs)  # home subtype family
+    assert (
+        "OpeningBalanceEquity" in subs and "RetainedEarnings" in subs
+    )  # system equity
     # name↔subtype disagreement: Cell phone typed Travel
-    assert any(a["Name"] == "Cell phone" and a["AccountSubType"] == "Travel"
-               for a in GOLDEN_ACCOUNTS)
+    assert any(
+        a["Name"] == "Cell phone" and a["AccountSubType"] == "Travel"
+        for a in GOLDEN_ACCOUNTS
+    )
 
 
 def test_tax_summary_agrees_with_schedule_c_on_meals():
@@ -143,15 +147,21 @@ def test_tax_summary_respects_tax_year_param():
         return {"QueryResponse": {"Account": GOLDEN_ACCOUNTS}}
 
     async def fake_query(q):
-        return {"QueryResponse": {"CompanyInfo": [{"CompanyName": "Golden Co", "Country": "US"}]}}
+        return {
+            "QueryResponse": {
+                "CompanyInfo": [{"CompanyName": "Golden Co", "Country": "US"}]
+            }
+        }
 
     async def fake_profile(y):
         return {}
 
-    with patch.object(s, "qb_request", fake_req), \
-            patch.object(s, "qb_query_all", fake_all), \
-            patch.object(s, "qb_query", fake_query), \
-            patch.object(s, "_get_allocation_profile", fake_profile):
+    with (
+        patch.object(s, "qb_request", fake_req),
+        patch.object(s, "qb_query_all", fake_all),
+        patch.object(s, "qb_query", fake_query),
+        patch.object(s, "_get_allocation_profile", fake_profile),
+    ):
         out = asyncio.run(_unwrap(s.qb_tax_summary)(2023))
     assert captured["params"]["start_date"] == "2023-01-01"
     assert captured["params"]["end_date"] == "2023-12-31"
@@ -160,6 +170,7 @@ def test_tax_summary_respects_tax_year_param():
 
 def _net_from(text, label):
     import re
+
     m = re.search(re.escape(label) + r"[^$]*(\$[\-()0-9,.]+)", text)
     return m.group(1) if m else None
 
@@ -178,8 +189,10 @@ def test_deduction_finder_net_matches_schedule_c():
     assert sc_net and df_net, (sc_net, df_net)
     assert sc_net == df_net, f"deduction_finder {df_net} != schedule_c {sc_net}"
     # charitable ($300) is NOT in the deductible-expenses figure
-    assert "Charitable" not in df.split("Net (Schedule C Line 31)")[0].split(
-        "Deductible expenses")[-1]
+    assert (
+        "Charitable"
+        not in df.split("Net (Schedule C Line 31)")[0].split("Deductible expenses")[-1]
+    )
 
 
 def test_golden_book_has_a_nondeductible_item():
@@ -187,13 +200,25 @@ def test_golden_book_has_a_nondeductible_item():
     'nondeductible leaks into totals' class of bug is invisible to CI (which is
     why qb_deduction_finder's over-count shipped)."""
     from accountingqb.tax_tables import classify_account
-    nondeduct = [a for a in GOLDEN_ACCOUNTS
-                 if classify_account(a["Name"], a["AccountSubType"], "US")[0].startswith("NONDED")]
+
+    nondeduct = [
+        a
+        for a in GOLDEN_ACCOUNTS
+        if classify_account(a["Name"], a["AccountSubType"], "US")[0].startswith(
+            "NONDED"
+        )
+    ]
     assert nondeduct, "golden book needs a charitable/entertainment/etc. account"
 
 
-SIMPLIFIED = {"home_office": {"method": "simplified", "office_sqft": 250,
-                              "home_sqft": 2500, "percentage": 0.10}}
+SIMPLIFIED = {
+    "home_office": {
+        "method": "simplified",
+        "office_sqft": 250,
+        "home_sqft": 2500,
+        "percentage": 0.10,
+    }
+}
 
 
 def test_home_office_simplified_method():
@@ -201,7 +226,7 @@ def test_home_office_simplified_method():
     costs stay OFF Schedule C, and nothing carries forward. Conservation holds."""
     with patch_book(profile=SIMPLIFIED):
         out = asyncio.run(_unwrap(s.qb_schedule_c)("2025"))
-    assert "simplified: $1,250.00" in out                 # 250 × $5
+    assert "simplified: $1,250.00" in out  # 250 × $5
     assert "250 sq ft × $5/sq ft" in out
     assert "$4,000.00 of recorded home costs are NOT on Schedule C" in out
     assert "carries forward" not in out.split("method — simplified")[0][-400:]
@@ -226,21 +251,67 @@ def test_home_office_actual_carryforward_beats_simplified_at_a_loss():
     """The loss-year nuance: both cap to $0, but actual's tentative carries forward
     while simplified's is lost — so the comparison recommends actual at a loss."""
     # Force a loss: tiny income, so income-before-home is negative.
-    loss_pl = {"Rows": {"Row": [
-        {"Header": {"ColData": [{"value": "Income"}]},
-         "Rows": {"Row": [{"ColData": [{"value": "Sales"}, {"value": "1000.00"}]}]},
-         "Summary": {"ColData": [{"value": "Total Income"}, {"value": "1000.00"}]}},
-        {"Header": {"ColData": [{"value": "Expenses"}]},
-         "Rows": {"Row": [
-             {"ColData": [{"value": "Advertising"}, {"value": "9000.00"}]},
-             {"Header": {"ColData": [{"value": "Home office"}]},
-              "Rows": {"Row": [{"ColData": [{"value": "Property taxes"}, {"value": "8000.00"}]}]},
-              "Summary": {"ColData": [{"value": "Total Home office"}, {"value": "8000.00"}]}}]},
-         "Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "17000.00"}]}},
-    ]}}
+    loss_pl = {
+        "Rows": {
+            "Row": [
+                {
+                    "Header": {"ColData": [{"value": "Income"}]},
+                    "Rows": {
+                        "Row": [{"ColData": [{"value": "Sales"}, {"value": "1000.00"}]}]
+                    },
+                    "Summary": {
+                        "ColData": [{"value": "Total Income"}, {"value": "1000.00"}]
+                    },
+                },
+                {
+                    "Header": {"ColData": [{"value": "Expenses"}]},
+                    "Rows": {
+                        "Row": [
+                            {
+                                "ColData": [
+                                    {"value": "Advertising"},
+                                    {"value": "9000.00"},
+                                ]
+                            },
+                            {
+                                "Header": {"ColData": [{"value": "Home office"}]},
+                                "Rows": {
+                                    "Row": [
+                                        {
+                                            "ColData": [
+                                                {"value": "Property taxes"},
+                                                {"value": "8000.00"},
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "Summary": {
+                                    "ColData": [
+                                        {"value": "Total Home office"},
+                                        {"value": "8000.00"},
+                                    ]
+                                },
+                            },
+                        ]
+                    },
+                    "Summary": {
+                        "ColData": [{"value": "Total Expenses"}, {"value": "17000.00"}]
+                    },
+                },
+            ]
+        }
+    }
     accts = [
-        {"Name": "Advertising", "AccountSubType": "AdvertisingPromotional", "FullyQualifiedName": "Advertising"},
-        {"Name": "Property taxes", "AccountSubType": "PropertyTaxHomeOffice", "FullyQualifiedName": "Home office:Property taxes"},
+        {
+            "Name": "Advertising",
+            "AccountSubType": "AdvertisingPromotional",
+            "FullyQualifiedName": "Advertising",
+        },
+        {
+            "Name": "Property taxes",
+            "AccountSubType": "PropertyTaxHomeOffice",
+            "FullyQualifiedName": "Home office:Property taxes",
+        },
     ]
 
     async def fake_req(m, p, params=None, **k):
@@ -250,16 +321,26 @@ def test_home_office_actual_carryforward_beats_simplified_at_a_loss():
         return {"QueryResponse": {"Account": accts}}
 
     async def fake_query(q):
-        return {"QueryResponse": {"CompanyInfo": [{"CompanyName": "D", "Country": "US"}]}}
+        return {
+            "QueryResponse": {"CompanyInfo": [{"CompanyName": "D", "Country": "US"}]}
+        }
 
     async def fake_profile(y):
-        return {"home_office": {"method": "actual", "office_sqft": 250,
-                                "home_sqft": 2500, "percentage": 0.10}}
+        return {
+            "home_office": {
+                "method": "actual",
+                "office_sqft": 250,
+                "home_sqft": 2500,
+                "percentage": 0.10,
+            }
+        }
 
-    with patch.object(s, "qb_request", fake_req), \
-            patch.object(s, "qb_query_all", fake_all), \
-            patch.object(s, "qb_query", fake_query), \
-            patch.object(s, "_get_allocation_profile", fake_profile):
+    with (
+        patch.object(s, "qb_request", fake_req),
+        patch.object(s, "qb_query_all", fake_all),
+        patch.object(s, "qb_query", fake_query),
+        patch.object(s, "_get_allocation_profile", fake_profile),
+    ):
         out = asyncio.run(_unwrap(s.qb_schedule_c)("2025"))
     assert "At a loss, both cap to $0" in out
     assert "carries forward" in out and "Prefer the actual method in a loss year" in out

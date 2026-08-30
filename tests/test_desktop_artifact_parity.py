@@ -9,7 +9,14 @@ import re
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 DESKTOP = _ROOT / "accountingqb-local" / "artifact.html"
-PLUGIN = _ROOT / "cowork-plugin" / "skills" / "accountingqb-dashboard" / "references" / "artifact-template.html"
+PLUGIN = (
+    _ROOT
+    / "cowork-plugin"
+    / "skills"
+    / "accountingqb-dashboard"
+    / "references"
+    / "artifact-template.html"
+)
 
 
 def _tabs(html: str) -> set:
