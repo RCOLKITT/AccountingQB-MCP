@@ -8,7 +8,12 @@ import {
   LINK_CODE_TTL_MS,
   isAllowedRedirectUri,
 } from "@/lib/link";
-import { getLinkLimiter, getClientIP, rateLimitResponse, isRateLimitingEnabled } from "@/lib/ratelimit";
+import {
+  getLinkLimiter,
+  getClientIP,
+  rateLimitResponse,
+  isRateLimitingEnabled,
+} from "@/lib/ratelimit";
 
 /**
  * POST /api/link/authorize  — the "grant" step of the OAuth-style "Connect AccountingQB" flow.
@@ -37,10 +42,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "unsupported peer" }, { status: 400 });
   }
   if (!isAllowedRedirectUri(redirectUri)) {
-    return NextResponse.json({ error: "redirect_uri not allowed" }, { status: 400 });
+    return NextResponse.json(
+      { error: "redirect_uri not allowed" },
+      { status: 400 },
+    );
   }
   if (!codeChallenge || codeChallenge.length < 43) {
-    return NextResponse.json({ error: "code_challenge required (S256)" }, { status: 400 });
+    return NextResponse.json(
+      { error: "code_challenge required (S256)" },
+      { status: 400 },
+    );
   }
 
   const user = await currentUser();
@@ -58,8 +69,11 @@ export async function POST(req: NextRequest) {
     .limit(1);
   if (!lics || lics.length === 0) {
     return NextResponse.json(
-      { error: "no active AccountingQB plan for this account", needsPlan: true },
-      { status: 403 }
+      {
+        error: "no active AccountingQB plan for this account",
+        needsPlan: true,
+      },
+      { status: 403 },
     );
   }
 
@@ -76,7 +90,10 @@ export async function POST(req: NextRequest) {
     redirect_uri: redirectUri,
   });
   if (error) {
-    return NextResponse.json({ error: "could not create link code" }, { status: 500 });
+    return NextResponse.json(
+      { error: "could not create link code" },
+      { status: 500 },
+    );
   }
 
   const dest = new URL(redirectUri);

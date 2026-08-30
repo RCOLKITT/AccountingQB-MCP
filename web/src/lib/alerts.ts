@@ -23,7 +23,7 @@ export async function sendAlert(title: string, lines: string[]): Promise<void> {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: `*${title}*\n${body}` }),
-      }).catch(() => {})
+      }).catch(() => {}),
     );
   }
 
@@ -35,7 +35,7 @@ export async function sendAlert(title: string, lines: string[]): Promise<void> {
         subject: title,
         text: `${title}\n\n${body}`,
       })
-      .catch(() => {})
+      .catch(() => {}),
   );
 
   await Promise.allSettled(tasks);

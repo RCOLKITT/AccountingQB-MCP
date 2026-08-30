@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { verifyPkceS256 } from "@/lib/link";
-import { getLinkLimiter, getClientIP, rateLimitResponse, isRateLimitingEnabled } from "@/lib/ratelimit";
+import {
+  getLinkLimiter,
+  getClientIP,
+  rateLimitResponse,
+  isRateLimitingEnabled,
+} from "@/lib/ratelimit";
 
 /**
  * POST /api/link/redeem  — the peer product (Coffer) redeems a link code. Two paths:
@@ -32,7 +37,11 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = getSupabase();
-  const { data: row } = await supabase.from("link_codes").select("*").eq("code", code).single();
+  const { data: row } = await supabase
+    .from("link_codes")
+    .select("*")
+    .eq("code", code)
+    .single();
   if (!row) {
     return NextResponse.json({ error: "invalid code" }, { status: 404 });
   }
@@ -46,23 +55,35 @@ export async function POST(req: NextRequest) {
   if (row.code_challenge) {
     // OAuth-style: prove possession of the verifier for the challenge minted at authorize.
     if (!codeVerifier || !verifyPkceS256(codeVerifier, row.code_challenge)) {
-      return NextResponse.json({ error: "invalid code_verifier" }, { status: 403 });
+      return NextResponse.json(
+        { error: "invalid code_verifier" },
+        { status: 403 },
+      );
     }
   } else {
     // Legacy paste-code: the same verified account email must own both apps.
     if (!presented) {
-      return NextResponse.json({ error: "code and identityHash required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "code and identityHash required" },
+        { status: 400 },
+      );
     }
     if (row.identity_hash !== presented) {
       return NextResponse.json(
-        { error: "identity mismatch — the same account email must own both AccountingQB and Coffer" },
-        { status: 403 }
+        {
+          error:
+            "identity mismatch — the same account email must own both AccountingQB and Coffer",
+        },
+        { status: 403 },
       );
     }
   }
 
   // Consume the code and establish (or refresh) the pairing.
-  await supabase.from("link_codes").update({ redeemed_at: new Date().toISOString() }).eq("code", code);
+  await supabase
+    .from("link_codes")
+    .update({ redeemed_at: new Date().toISOString() })
+    .eq("code", code);
   const { error } = await supabase.from("account_links").upsert(
     {
       license_key: row.license_key,
@@ -72,10 +93,13 @@ export async function POST(req: NextRequest) {
       pairing_secret: row.pairing_secret,
       revoked_at: null,
     },
-    { onConflict: "license_key,peer_product" }
+    { onConflict: "license_key,peer_product" },
   );
   if (error) {
-    return NextResponse.json({ error: "could not establish pairing" }, { status: 500 });
+    return NextResponse.json(
+      { error: "could not establish pairing" },
+      { status: 500 },
+    );
   }
   return NextResponse.json({
     ok: true,

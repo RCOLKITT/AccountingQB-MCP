@@ -35,7 +35,7 @@ export function encryptToken(plain: string): string {
     if (isProduction()) {
       throw new Error(
         "TOKEN_ENCRYPTION_KEY is missing or not a 32-byte base64 key — " +
-          "refusing to store an OAuth token in plaintext in production."
+          "refusing to store an OAuth token in plaintext in production.",
       );
     }
     return plain; // dev/preview only
@@ -45,10 +45,7 @@ export function encryptToken(plain: string): string {
   const cipher = crypto.createCipheriv("aes-256-gcm", k, iv);
   const ct = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
-  return (
-    PREFIX +
-    [iv, tag, ct].map((b) => b.toString("base64")).join(":")
-  );
+  return PREFIX + [iv, tag, ct].map((b) => b.toString("base64")).join(":");
 }
 
 /** Decrypt a stored token. Plaintext (legacy) values are returned unchanged. */
@@ -63,7 +60,9 @@ export function decryptToken(stored: string): string {
     const ct = Buffer.from(ctB, "base64");
     const decipher = crypto.createDecipheriv("aes-256-gcm", k, iv);
     decipher.setAuthTag(tag);
-    return Buffer.concat([decipher.update(ct), decipher.final()]).toString("utf8");
+    return Buffer.concat([decipher.update(ct), decipher.final()]).toString(
+      "utf8",
+    );
   } catch {
     return stored;
   }

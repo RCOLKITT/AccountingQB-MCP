@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     if (!licenseKey || !toolName) {
       return NextResponse.json(
         { error: "licenseKey and toolName are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -48,16 +48,13 @@ export async function POST(req: NextRequest) {
     if (typeof licenseKey !== "string" || !licenseKey.startsWith("LK-")) {
       return NextResponse.json(
         { error: "Invalid license key format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Validate tool name
     if (typeof toolName !== "string" || toolName.length > 100) {
-      return NextResponse.json(
-        { error: "Invalid tool name" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid tool name" }, { status: 400 });
     }
 
     const timeSaved = getTimeSaved(toolName);
@@ -78,7 +75,7 @@ export async function POST(req: NextRequest) {
       if (error.code === "23503") {
         return NextResponse.json(
           { error: "License not found" },
-          { status: 404 }
+          { status: 404 },
         );
       }
     }
@@ -91,7 +88,7 @@ export async function POST(req: NextRequest) {
     console.error("Usage tracking error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

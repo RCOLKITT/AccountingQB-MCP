@@ -15,13 +15,37 @@ interface UserDetail {
   card_brand: string | null;
   next_billing_date: string | null;
   billing_amount_cents: number | null;
-  milestones: { milestone: string; completed_at: string; metadata: Record<string, unknown> }[];
-  qb_connections: { realm_id: string; company_name: string | null; created_at: string }[];
-  emails: { id: string; email_type: string; scheduled_for: string; sent_at: string | null; cancelled: boolean }[];
-  trial_extensions: { extension_days: number; extended_by: string; created_at: string; reason: string | null }[];
+  milestones: {
+    milestone: string;
+    completed_at: string;
+    metadata: Record<string, unknown>;
+  }[];
+  qb_connections: {
+    realm_id: string;
+    company_name: string | null;
+    created_at: string;
+  }[];
+  emails: {
+    id: string;
+    email_type: string;
+    scheduled_for: string;
+    sent_at: string | null;
+    cancelled: boolean;
+  }[];
+  trial_extensions: {
+    extension_days: number;
+    extended_by: string;
+    created_at: string;
+    reason: string | null;
+  }[];
   tool_usage: { tool: string; calls: number; minutes: number; last: string }[];
   usage_totals: { calls: number; hours: number };
-  activity: { event_type: string; success: boolean; created_at: string; realm_id: string | null }[];
+  activity: {
+    event_type: string;
+    success: boolean;
+    created_at: string;
+    realm_id: string | null;
+  }[];
 }
 
 export default function AdminUserDetailPage({
@@ -156,7 +180,9 @@ export default function AdminUserDetailPage({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Account Info */}
         <div className="bg-[#131a2e] rounded-xl border border-white/10 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Account Info</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">
+            Account Info
+          </h3>
           <dl className="space-y-3">
             <div className="flex justify-between">
               <dt className="text-gray-400">Tier</dt>
@@ -183,7 +209,9 @@ export default function AdminUserDetailPage({
 
         {/* Billing Info */}
         <div className="bg-[#131a2e] rounded-xl border border-white/10 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Billing Info</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">
+            Billing Info
+          </h3>
           <dl className="space-y-3">
             <div className="flex justify-between">
               <dt className="text-gray-400">Card</dt>
@@ -253,7 +281,9 @@ export default function AdminUserDetailPage({
               >
                 <div>
                   <p className="text-white">{c.company_name || c.realm_id}</p>
-                  <p className="text-gray-400 text-sm font-mono">{c.realm_id}</p>
+                  <p className="text-gray-400 text-sm font-mono">
+                    {c.realm_id}
+                  </p>
                 </div>
                 <p className="text-gray-400 text-sm">
                   {formatDate(c.created_at)}
@@ -270,14 +300,21 @@ export default function AdminUserDetailPage({
           <h3 className="text-lg font-semibold text-white">Tool Usage</h3>
           {user.usage_totals.calls > 0 && (
             <span className="text-sm text-gray-400">
-              <span className="text-cyan-400 font-semibold">{user.usage_totals.calls}</span> calls ·{" "}
-              <span className="text-cyan-400 font-semibold">{user.usage_totals.hours}</span> hrs saved
+              <span className="text-cyan-400 font-semibold">
+                {user.usage_totals.calls}
+              </span>{" "}
+              calls ·{" "}
+              <span className="text-cyan-400 font-semibold">
+                {user.usage_totals.hours}
+              </span>{" "}
+              hrs saved
             </span>
           )}
         </div>
         {user.tool_usage.length === 0 ? (
           <p className="text-gray-400">
-            No tool usage recorded yet. Connection activity (below) still shows engagement.
+            No tool usage recorded yet. Connection activity (below) still shows
+            engagement.
           </p>
         ) : (
           <div className="space-y-2">
@@ -286,7 +323,9 @@ export default function AdminUserDetailPage({
                 key={t.tool}
                 className="flex items-center justify-between py-2 border-b border-white/5 last:border-0"
               >
-                <span className="font-mono text-sm text-gray-200">{t.tool}</span>
+                <span className="font-mono text-sm text-gray-200">
+                  {t.tool}
+                </span>
                 <span className="text-sm text-gray-400">
                   {t.calls} {t.calls === 1 ? "call" : "calls"} ·{" "}
                   {Math.round(t.minutes / 6) / 10}h · last {formatDate(t.last)}
@@ -318,9 +357,13 @@ export default function AdminUserDetailPage({
                   <span className="text-sm text-gray-200">
                     {a.event_type.replace(/_/g, " ")}
                   </span>
-                  {!a.success && <span className="text-xs text-red-400">failed</span>}
+                  {!a.success && (
+                    <span className="text-xs text-red-400">failed</span>
+                  )}
                 </div>
-                <span className="text-sm text-gray-500">{formatDateTime(a.created_at)}</span>
+                <span className="text-sm text-gray-500">
+                  {formatDateTime(a.created_at)}
+                </span>
               </div>
             ))}
           </div>
@@ -558,7 +601,9 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`px-2 py-1 rounded text-xs font-medium ${colors[status] || colors.trialing}`}>
+    <span
+      className={`px-2 py-1 rounded text-xs font-medium ${colors[status] || colors.trialing}`}
+    >
       {status}
     </span>
   );

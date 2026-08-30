@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 const getUsage = unstable_cache(
   (days: number) => Promise.all([getUsageAnalytics(days), getEngagement()]),
   ["admin-usage"],
-  { revalidate: 60 }
+  { revalidate: 60 },
 );
 
 const RANGES = [
@@ -44,15 +44,24 @@ function fmtDate(iso: string | null): string {
   });
 }
 
-function Dashboard({ u, eng, days }: { u: UsageAnalytics; eng: Engagement; days: number }) {
+function Dashboard({
+  u,
+  eng,
+  days,
+}: {
+  u: UsageAnalytics;
+  eng: Engagement;
+  days: number;
+}) {
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">Product Usage</h1>
           <p className="text-gray-400 mt-1 text-sm">
-            Which MCP tools real customers actually run (test &amp; demo licenses
-            filtered out). Populated by the connector after each tool call.
+            Which MCP tools real customers actually run (test &amp; demo
+            licenses filtered out). Populated by the connector after each tool
+            call.
           </p>
         </div>
         <div className="flex gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
@@ -75,20 +84,27 @@ function Dashboard({ u, eng, days }: { u: UsageAnalytics; eng: Engagement; days:
       {/* Engagement health — fixed 1/7/30-day windows, independent of the range above */}
       <div className="bg-[#131a2e] rounded-xl border border-white/10 p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white">Engagement health</h2>
+          <h2 className="text-sm font-semibold text-white">
+            Engagement health
+          </h2>
           <span className="text-xs text-gray-500">active = ran a tool</span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <BigMetric label="DAU" value={eng.dau} accent sub="active today" />
           <BigMetric label="WAU" value={eng.wau} sub="last 7 days" />
           <BigMetric label="MAU" value={eng.mau} sub="last 30 days" />
-          <BigMetric label="Stickiness" value={`${Math.round(eng.stickiness)}%`} sub="DAU / MAU" />
+          <BigMetric
+            label="Stickiness"
+            value={`${Math.round(eng.stickiness)}%`}
+            sub="DAU / MAU"
+          />
         </div>
         {eng.atRiskCount > 0 && (
           <div className="mt-6">
             <div className="mb-2 flex items-center gap-2 text-sm">
               <span className="font-semibold text-amber-300">
-                ⚠️ {eng.atRiskCount} at-risk account{eng.atRiskCount === 1 ? "" : "s"}
+                ⚠️ {eng.atRiskCount} at-risk account
+                {eng.atRiskCount === 1 ? "" : "s"}
               </span>
               <span className="text-gray-500">
                 — active in the prior 30d, silent the last 7 days (churn risk)
@@ -116,10 +132,18 @@ function Dashboard({ u, eng, days }: { u: UsageAnalytics; eng: Engagement; days:
                           {a.email}
                         </Link>
                       </td>
-                      <td className="px-4 py-2 capitalize text-gray-300">{a.tier}</td>
-                      <td className="px-4 py-2 capitalize text-gray-400">{a.status}</td>
-                      <td className="px-4 py-2 text-gray-300">{a.priorCalls}</td>
-                      <td className="px-4 py-2 text-gray-400">{fmtDate(a.lastActive)}</td>
+                      <td className="px-4 py-2 capitalize text-gray-300">
+                        {a.tier}
+                      </td>
+                      <td className="px-4 py-2 capitalize text-gray-400">
+                        {a.status}
+                      </td>
+                      <td className="px-4 py-2 text-gray-300">
+                        {a.priorCalls}
+                      </td>
+                      <td className="px-4 py-2 text-gray-400">
+                        {fmtDate(a.lastActive)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -134,13 +158,20 @@ function Dashboard({ u, eng, days }: { u: UsageAnalytics; eng: Engagement; days:
           No tool usage recorded in the last {days} days for real customers yet.
           Once a customer runs a tool through the connector, per-tool activity
           appears here. (Connection/refresh activity is on each{" "}
-          <Link href="/admin/users" className="underline">user&rsquo;s page</Link>.)
+          <Link href="/admin/users" className="underline">
+            user&rsquo;s page
+          </Link>
+          .)
         </div>
       ) : (
         <>
           {/* Headline metrics */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <BigMetric label={`Tool calls · ${days}d`} value={u.totalCalls} accent />
+            <BigMetric
+              label={`Tool calls · ${days}d`}
+              value={u.totalCalls}
+              accent
+            />
             <BigMetric label="Active accounts" value={u.activeAccounts} />
             <BigMetric label="Hours saved" value={u.hoursSaved} />
             <BigMetric label="Calls / account" value={u.avgCallsPerAccount} />
@@ -160,11 +191,17 @@ function Dashboard({ u, eng, days }: { u: UsageAnalytics; eng: Engagement; days:
               ) : (
                 <div className="space-y-3">
                   {u.byTier.map((t) => (
-                    <div key={t.tier} className="flex items-center justify-between text-sm">
+                    <div
+                      key={t.tier}
+                      className="flex items-center justify-between text-sm"
+                    >
                       <span className="text-gray-300 capitalize">{t.tier}</span>
                       <span className="text-gray-400">
-                        <span className="text-cyan-400 font-semibold">{t.calls}</span> calls ·{" "}
-                        {t.activeAccounts} {t.activeAccounts === 1 ? "account" : "accounts"}
+                        <span className="text-cyan-400 font-semibold">
+                          {t.calls}
+                        </span>{" "}
+                        calls · {t.activeAccounts}{" "}
+                        {t.activeAccounts === 1 ? "account" : "accounts"}
                       </span>
                     </div>
                   ))}
@@ -195,7 +232,10 @@ function Dashboard({ u, eng, days }: { u: UsageAnalytics; eng: Engagement; days:
                 </thead>
                 <tbody>
                   {u.accounts.map((a) => (
-                    <tr key={a.licenseKey} className="border-b border-white/5 last:border-0">
+                    <tr
+                      key={a.licenseKey}
+                      className="border-b border-white/5 last:border-0"
+                    >
                       <td className="px-6 py-3">
                         <Link
                           href={`/admin/users/${a.licenseKey}`}
@@ -204,14 +244,24 @@ function Dashboard({ u, eng, days }: { u: UsageAnalytics; eng: Engagement; days:
                           {a.email}
                         </Link>
                       </td>
-                      <td className="px-6 py-3 text-gray-300">{a.company || "—"}</td>
-                      <td className="px-6 py-3 text-gray-400 capitalize">{a.tier}</td>
-                      <td className="px-6 py-3 text-white font-semibold">{a.calls}</td>
-                      <td className="px-6 py-3 text-gray-400">{a.distinctTools}</td>
+                      <td className="px-6 py-3 text-gray-300">
+                        {a.company || "—"}
+                      </td>
+                      <td className="px-6 py-3 text-gray-400 capitalize">
+                        {a.tier}
+                      </td>
+                      <td className="px-6 py-3 text-white font-semibold">
+                        {a.calls}
+                      </td>
+                      <td className="px-6 py-3 text-gray-400">
+                        {a.distinctTools}
+                      </td>
                       <td className="px-6 py-3 text-gray-400">
                         {Math.round(a.minutesSaved / 6) / 10}
                       </td>
-                      <td className="px-6 py-3 text-gray-400">{fmtDate(a.lastActive)}</td>
+                      <td className="px-6 py-3 text-gray-400">
+                        {fmtDate(a.lastActive)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -238,11 +288,15 @@ function BigMetric({
   return (
     <div
       className={`rounded-xl border p-5 ${
-        accent ? "border-cyan-500/30 bg-cyan-500/5" : "border-white/10 bg-[#131a2e]"
+        accent
+          ? "border-cyan-500/30 bg-cyan-500/5"
+          : "border-white/10 bg-[#131a2e]"
       }`}
     >
       <p className="text-xs text-gray-400">{label}</p>
-      <p className={`mt-1 text-2xl font-bold ${accent ? "text-cyan-300" : "text-white"}`}>
+      <p
+        className={`mt-1 text-2xl font-bold ${accent ? "text-cyan-300" : "text-white"}`}
+      >
         {typeof value === "number" ? value.toLocaleString() : value}
       </p>
       {sub && <p className="mt-0.5 text-xs text-gray-500">{sub}</p>}

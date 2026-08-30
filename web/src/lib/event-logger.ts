@@ -1,10 +1,7 @@
 import { getSupabase } from "./supabase";
 
 export type EventType =
-  | "stripe_webhook"
-  | "oauth_connect"
-  | "oauth_disconnect"
-  | "oauth_refresh";
+  "stripe_webhook" | "oauth_connect" | "oauth_disconnect" | "oauth_refresh";
 
 export interface LogEventParams {
   eventType: EventType;
@@ -22,7 +19,7 @@ export interface LogEventParams {
  * Sanitizes payload by removing sensitive fields before logging.
  */
 function sanitizePayload(
-  payload: Record<string, unknown> | undefined
+  payload: Record<string, unknown> | undefined,
 ): Record<string, unknown> | null {
   if (!payload) return null;
 
@@ -45,7 +42,11 @@ function sanitizePayload(
       const lowerKey = key.toLowerCase();
       if (sensitivePatterns.some((pattern) => lowerKey.includes(pattern))) {
         obj[key] = "[REDACTED]";
-      } else if (typeof obj[key] === "object" && obj[key] !== null && !Array.isArray(obj[key])) {
+      } else if (
+        typeof obj[key] === "object" &&
+        obj[key] !== null &&
+        !Array.isArray(obj[key])
+      ) {
         redactSensitive(obj[key] as Record<string, unknown>);
       }
     }
@@ -91,7 +92,7 @@ export async function logEvent(params: LogEventParams): Promise<void> {
 export function createStripeEventLogger(
   eventId: string,
   eventType: string,
-  subscriptionId?: string
+  subscriptionId?: string,
 ) {
   return {
     success: (licenseKey?: string, payload?: Record<string, unknown>) => {
@@ -126,7 +127,7 @@ export async function logOAuthConnect(
   licenseKey: string,
   realmId: string,
   companyName: string | null,
-  isReconnection: boolean = false
+  isReconnection: boolean = false,
 ): Promise<void> {
   return logEvent({
     eventType: "oauth_connect",
@@ -148,7 +149,7 @@ export async function logOAuthDisconnect(
   licenseKey: string,
   realmId: string,
   success: boolean = true,
-  errorMessage?: string
+  errorMessage?: string,
 ): Promise<void> {
   return logEvent({
     eventType: "oauth_disconnect",
@@ -167,7 +168,7 @@ export async function logOAuthRefresh(
   licenseKey: string,
   realmId: string,
   success: boolean = true,
-  errorMessage?: string
+  errorMessage?: string,
 ): Promise<void> {
   return logEvent({
     eventType: "oauth_refresh",

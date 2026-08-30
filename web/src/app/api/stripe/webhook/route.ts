@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     event = getStripe().webhooks.constructEvent(
       body,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
+      process.env.STRIPE_WEBHOOK_SECRET!,
     );
   } catch (err) {
     console.error("Webhook signature verification failed:", err);
@@ -34,16 +34,25 @@ export async function POST(req: NextRequest) {
   const supabase = getSupabase();
 
   // Create event logger for this webhook
-  const subscriptionId = (event.data.object as { subscription?: string; id?: string }).subscription
-    || (event.data.object as { id?: string }).id;
-  const eventLogger = createStripeEventLogger(event.id, event.type, subscriptionId);
+  const subscriptionId =
+    (event.data.object as { subscription?: string; id?: string })
+      .subscription || (event.data.object as { id?: string }).id;
+  const eventLogger = createStripeEventLogger(
+    event.id,
+    event.type,
+    subscriptionId,
+  );
 
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
 
       // Idempotent license issuance (keyed on stripe_subscription_id)
-      const result = await ensureLicenseForSession(getStripe(), supabase, session);
+      const result = await ensureLicenseForSession(
+        getStripe(),
+        supabase,
+        session,
+      );
 
       if (!result) {
         await eventLogger.failure("License issuance failed");
@@ -87,9 +96,14 @@ export async function POST(req: NextRequest) {
       // 'unpaid' means retries are EXHAUSTED (dead), so it falls through to
       // 'expired' along with incomplete/incomplete_expired. Stripe fires
       // subscription.deleted once it finally cancels, which we map to 'canceled'.
-      const status = sub.status === "active" || sub.status === "past_due" ? "active" :
-                     sub.status === "trialing" ? "trialing" :
-                     sub.status === "canceled" ? "canceled" : "expired";
+      const status =
+        sub.status === "active" || sub.status === "past_due"
+          ? "active"
+          : sub.status === "trialing"
+            ? "trialing"
+            : sub.status === "canceled"
+              ? "canceled"
+              : "expired";
 
       const { data: license } = await supabase
         .from("licenses")
@@ -105,7 +119,9 @@ export async function POST(req: NextRequest) {
 
       // Capture next billing date
       if (sub.current_period_end) {
-        updateData.next_billing_date = new Date(sub.current_period_end * 1000).toISOString();
+        updateData.next_billing_date = new Date(
+          sub.current_period_end * 1000,
+        ).toISOString();
       }
 
       // Capture billing amount
@@ -114,9 +130,14 @@ export async function POST(req: NextRequest) {
       }
 
       // Get card info from default payment method
-      if (sub.default_payment_method && typeof sub.default_payment_method === "string") {
+      if (
+        sub.default_payment_method &&
+        typeof sub.default_payment_method === "string"
+      ) {
         try {
-          const pm = await getStripe().paymentMethods.retrieve(sub.default_payment_method);
+          const pm = await getStripe().paymentMethods.retrieve(
+            sub.default_payment_method,
+          );
           if (pm.card) {
             updateData.card_last_four = pm.card.last4;
             updateData.card_brand = pm.card.brand;
@@ -194,7 +215,7 @@ export async function POST(req: NextRequest) {
               milestone: "trial_converted",
               metadata: { amountCents: invoice.amount_paid },
             },
-            { onConflict: "license_key,milestone", ignoreDuplicates: true }
+            { onConflict: "license_key,milestone", ignoreDuplicates: true },
           );
 
           // Cancel any pending trial warning emails
@@ -202,7 +223,11 @@ export async function POST(req: NextRequest) {
             .from("email_schedules")
             .update({ cancelled: true })
             .eq("license_key", license.key)
-            .in("email_type", ["trial_warning_4day", "trial_warning_1day", "trial_expired"])
+            .in("email_type", [
+              "trial_warning_4day",
+              "trial_warning_1day",
+              "trial_expired",
+            ])
             .is("sent_at", null);
         }
 
@@ -226,16 +251,18 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        await eventLogger.success(license?.key, { note: wasTrialing ? "Trial converted to paid" : "Subscription renewed" });
+        await eventLogger.success(license?.key, {
+          note: wasTrialing
+            ? "Trial converted to paid"
+            : "Subscription renewed",
+        });
       }
       break;
     }
 
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice;
-      console.warn(
-        `Payment failed for subscription ${invoice.subscription}`
-      );
+      console.warn(`Payment failed for subscription ${invoice.subscription}`);
 
       // Get the license for this subscription
       const { data: license } = await supabase

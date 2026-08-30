@@ -8,7 +8,7 @@ import { currentUser } from "@clerk/nextjs/server";
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   // Verify admin via Clerk
   const user = await currentUser();
@@ -34,7 +34,7 @@ export async function POST(
     console.error("Failed to cancel email:", error);
     return NextResponse.json(
       { error: "Failed to cancel email" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 

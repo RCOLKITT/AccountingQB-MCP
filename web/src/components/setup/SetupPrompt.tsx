@@ -48,8 +48,9 @@ export function SetupPrompt({
   }[platform];
 
   // Claude prompt - platform specific
-  const claudePrompt = platform === "windows"
-    ? `I want to set up AccountingQB, an MCP server that connects QuickBooks to Claude Desktop.
+  const claudePrompt =
+    platform === "windows"
+      ? `I want to set up AccountingQB, an MCP server that connects QuickBooks to Claude Desktop.
 
 I'm on Windows. Please help me configure it:
 
@@ -68,7 +69,7 @@ I'm on Windows. Please help me configure it:
 4. Write the file back as valid JSON (pretty-printed, 2-space indent)
 5. Tell me to fully quit Claude Desktop by right-clicking the Claude icon in the system tray and clicking "Quit". Just closing the window is NOT enough.
 6. After I restart Claude, remind me to click "Allow" when Claude asks about the accountingqb server.`
-    : `I want to set up AccountingQB, an MCP server that connects QuickBooks to Claude Desktop.
+      : `I want to set up AccountingQB, an MCP server that connects QuickBooks to Claude Desktop.
 
 I'm on ${platform === "mac" ? "macOS" : "Linux"}. Please help me configure it:
 
@@ -89,37 +90,41 @@ I'm on ${platform === "mac" ? "macOS" : "Linux"}. Please help me configure it:
 6. After I restart Claude, remind me to click "Allow" when Claude asks about the accountingqb server.`;
 
   // Terminal commands - platform specific
-  const terminalSteps = platform === "windows" ? {
-    prereq: {
-      title: "Install Python (if not installed)",
-      command: "winget install Python.Python.3.12",
-      note: "Or download from python.org",
-    },
-    install: {
-      title: "Install AccountingQB",
-      command: "pip install accountingqb",
-    },
-    config: {
-      title: "Config file location",
-      command: "%APPDATA%\\Claude\\claude_desktop_config.json",
-      note: "Create this file if it doesn't exist",
-    },
-  } : {
-    prereq: {
-      title: "Install uv (if not installed)",
-      command: "curl -LsSf https://astral.sh/uv/install.sh | sh",
-      note: "Then restart your terminal",
-    },
-    install: null, // uvx handles this automatically
-    config: {
-      title: "Config file location",
-      command: configPath,
-      note: "Create this file if it doesn't exist",
-    },
-  };
+  const terminalSteps =
+    platform === "windows"
+      ? {
+          prereq: {
+            title: "Install Python (if not installed)",
+            command: "winget install Python.Python.3.12",
+            note: "Or download from python.org",
+          },
+          install: {
+            title: "Install AccountingQB",
+            command: "pip install accountingqb",
+          },
+          config: {
+            title: "Config file location",
+            command: "%APPDATA%\\Claude\\claude_desktop_config.json",
+            note: "Create this file if it doesn't exist",
+          },
+        }
+      : {
+          prereq: {
+            title: "Install uv (if not installed)",
+            command: "curl -LsSf https://astral.sh/uv/install.sh | sh",
+            note: "Then restart your terminal",
+          },
+          install: null, // uvx handles this automatically
+          config: {
+            title: "Config file location",
+            command: configPath,
+            note: "Create this file if it doesn't exist",
+          },
+        };
 
-  const configSnippet = platform === "windows"
-    ? `{
+  const configSnippet =
+    platform === "windows"
+      ? `{
   "mcpServers": {
     "accountingqb": {
       "command": "python",
@@ -130,7 +135,7 @@ I'm on ${platform === "mac" ? "macOS" : "Linux"}. Please help me configure it:
     }
   }
 }`
-    : `{
+      : `{
   "mcpServers": {
     "accountingqb": {
       "command": "uvx",
@@ -155,14 +160,25 @@ I'm on ${platform === "mac" ? "macOS" : "Linux"}. Please help me configure it:
       <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-6">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/20">
-            <svg className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <svg
+              className="h-5 w-5 text-green-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           </div>
           <div>
             <h3 className="font-semibold text-white">Setup Complete</h3>
             <p className="text-sm text-gray-400">
-              You&apos;re all set! Open Claude Desktop and start asking questions about your books.
+              You&apos;re all set! Open Claude Desktop and start asking
+              questions about your books.
             </p>
           </div>
         </div>
@@ -175,7 +191,9 @@ I'm on ${platform === "mac" ? "macOS" : "Linux"}. Please help me configure it:
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-white">Set Up AccountingQB</h3>
+          <h3 className="text-lg font-semibold text-white">
+            Set Up AccountingQB
+          </h3>
           <div className="mt-1 flex items-center gap-2">
             <span className="text-sm text-gray-400">Detected:</span>
             <div className="flex gap-1">
@@ -189,17 +207,25 @@ I'm on ${platform === "mac" ? "macOS" : "Linux"}. Please help me configure it:
                       : "bg-white/10 text-gray-400 hover:bg-white/20"
                   }`}
                 >
-                  {p === "mac" ? "macOS" : p === "windows" ? "Windows" : "Linux"}
+                  {p === "mac"
+                    ? "macOS"
+                    : p === "windows"
+                      ? "Windows"
+                      : "Linux"}
                 </button>
               ))}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2 text-sm">
-          <span className={`flex items-center gap-1 ${hasClaudeConfigured ? "text-green-400" : "text-gray-500"}`}>
+          <span
+            className={`flex items-center gap-1 ${hasClaudeConfigured ? "text-green-400" : "text-gray-500"}`}
+          >
             {hasClaudeConfigured ? "✓" : "○"} Claude
           </span>
-          <span className={`flex items-center gap-1 ${hasQBConnected ? "text-green-400" : "text-gray-500"}`}>
+          <span
+            className={`flex items-center gap-1 ${hasQBConnected ? "text-green-400" : "text-gray-500"}`}
+          >
             {hasQBConnected ? "✓" : "○"} QuickBooks
           </span>
         </div>
@@ -234,7 +260,9 @@ I'm on ${platform === "mac" ? "macOS" : "Linux"}. Please help me configure it:
         <div className="mt-6 space-y-4">
           {platform === "windows" && (
             <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4">
-              <p className="text-sm text-yellow-400 font-medium">Windows Prerequisite</p>
+              <p className="text-sm text-yellow-400 font-medium">
+                Windows Prerequisite
+              </p>
               <p className="mt-1 text-sm text-gray-400">
                 First, install AccountingQB by opening PowerShell and running:
               </p>
@@ -250,14 +278,20 @@ I'm on ${platform === "mac" ? "macOS" : "Linux"}. Please help me configure it:
                 </button>
               </div>
               <p className="mt-2 text-xs text-gray-500">
-                Don&apos;t have Python? Run <code className="text-cyan-400">winget install Python.Python.3.12</code> first.
+                Don&apos;t have Python? Run{" "}
+                <code className="text-cyan-400">
+                  winget install Python.Python.3.12
+                </code>{" "}
+                first.
               </p>
             </div>
           )}
 
           <div className="rounded-xl bg-white/[0.03] p-4">
             <h4 className="text-sm font-medium text-white mb-3">
-              {platform === "windows" ? "Then paste this in Claude Desktop:" : "Paste this prompt in Claude Desktop:"}
+              {platform === "windows"
+                ? "Then paste this in Claude Desktop:"
+                : "Paste this prompt in Claude Desktop:"}
             </h4>
             <button
               onClick={() => copy(claudePrompt, "prompt")}
@@ -287,23 +321,40 @@ I'm on ${platform === "mac" ? "macOS" : "Linux"}. Please help me configure it:
           </div>
 
           <div className="rounded-xl bg-white/[0.03] p-4">
-            <h4 className="text-sm font-medium text-white mb-2">What happens next:</h4>
+            <h4 className="text-sm font-medium text-white mb-2">
+              What happens next:
+            </h4>
             <ol className="space-y-2 text-sm text-gray-400">
               <li className="flex items-start gap-2">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs text-cyan-400">1</span>
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs text-cyan-400">
+                  1
+                </span>
                 <span>Claude edits your config file automatically</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs text-cyan-400">2</span>
-                <span>Quit Claude Desktop completely: <span className="text-white">{quitInstructions}</span></span>
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs text-cyan-400">
+                  2
+                </span>
+                <span>
+                  Quit Claude Desktop completely:{" "}
+                  <span className="text-white">{quitInstructions}</span>
+                </span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs text-cyan-400">3</span>
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs text-cyan-400">
+                  3
+                </span>
                 <span>Reopen Claude Desktop</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs text-cyan-400">4</span>
-                <span>Click <span className="text-green-400">&quot;Allow&quot;</span> when Claude asks about AccountingQB</span>
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs text-cyan-400">
+                  4
+                </span>
+                <span>
+                  Click{" "}
+                  <span className="text-green-400">&quot;Allow&quot;</span> when
+                  Claude asks about AccountingQB
+                </span>
               </li>
             </ol>
           </div>
@@ -330,7 +381,9 @@ I'm on ${platform === "mac" ? "macOS" : "Linux"}. Please help me configure it:
               </button>
             </div>
             {terminalSteps.prereq.note && (
-              <p className="mt-2 text-xs text-gray-500">{terminalSteps.prereq.note}</p>
+              <p className="mt-2 text-xs text-gray-500">
+                {terminalSteps.prereq.note}
+              </p>
             )}
           </div>
 
@@ -345,7 +398,9 @@ I'm on ${platform === "mac" ? "macOS" : "Linux"}. Please help me configure it:
                   {terminalSteps.install.command}
                 </code>
                 <button
-                  onClick={() => copy(terminalSteps.install!.command, "install")}
+                  onClick={() =>
+                    copy(terminalSteps.install!.command, "install")
+                  }
                   className="shrink-0 rounded border border-white/10 px-3 py-2 text-xs text-gray-400 hover:bg-white/5"
                 >
                   {copied === "install" ? "Copied!" : "Copy"}
@@ -393,9 +448,16 @@ I'm on ${platform === "mac" ? "macOS" : "Linux"}. Please help me configure it:
               Step {terminalSteps.install ? "4" : "3"}: Restart Claude Desktop
             </h4>
             <ol className="space-y-1 text-sm text-gray-400">
-              <li>1. Fully quit Claude Desktop: <span className="text-white">{quitInstructions}</span></li>
+              <li>
+                1. Fully quit Claude Desktop:{" "}
+                <span className="text-white">{quitInstructions}</span>
+              </li>
               <li>2. Reopen Claude Desktop</li>
-              <li>3. Click <span className="text-green-400">&quot;Allow&quot;</span> when asked about AccountingQB</li>
+              <li>
+                3. Click{" "}
+                <span className="text-green-400">&quot;Allow&quot;</span> when
+                asked about AccountingQB
+              </li>
             </ol>
           </div>
         </div>
@@ -405,8 +467,12 @@ I'm on ${platform === "mac" ? "macOS" : "Linux"}. Please help me configure it:
       <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-gray-500 uppercase tracking-wider">Your License Key</p>
-            <code className="mt-1 block text-sm text-cyan-400 font-mono">{licenseKey}</code>
+            <p className="text-xs text-gray-500 uppercase tracking-wider">
+              Your License Key
+            </p>
+            <code className="mt-1 block text-sm text-cyan-400 font-mono">
+              {licenseKey}
+            </code>
           </div>
           <button
             onClick={() => copy(licenseKey, "key")}

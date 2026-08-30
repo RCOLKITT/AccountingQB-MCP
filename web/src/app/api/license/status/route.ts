@@ -14,7 +14,7 @@ async function logStatusCheck(
   action: string,
   success: boolean,
   ip: string,
-  tier?: string
+  tier?: string,
 ) {
   try {
     await supabase.from("event_logs").insert({
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   if (!licenseKey) {
     return NextResponse.json(
       { error: "License key required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
     logStatusCheck(supabase, licenseKey, "not_found", false, ip);
     return NextResponse.json(
       { error: "License key not found" },
-      { status: 404 }
+      { status: 404 },
     );
   }
 
@@ -83,7 +83,14 @@ export async function GET(req: NextRequest) {
     .select("milestone, completed_at")
     .eq("license_key", licenseKey);
 
-  logStatusCheck(supabase, licenseKey, "status_retrieved", true, ip, license.tier);
+  logStatusCheck(
+    supabase,
+    licenseKey,
+    "status_retrieved",
+    true,
+    ip,
+    license.tier,
+  );
   return NextResponse.json({
     license: {
       tier: license.tier,

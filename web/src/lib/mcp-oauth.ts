@@ -12,12 +12,16 @@ import { NextResponse } from "next/server";
 
 /** Issuer / base URL of the authorization server. */
 export function issuerUrl(): string {
-  return (process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com").replace(/\/$/, "");
+  return (
+    process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com"
+  ).replace(/\/$/, "");
 }
 
 /** Audience for minted access tokens = the remote MCP resource URL. */
 export function resourceUrl(): string {
-  return (process.env.MCP_RESOURCE_URL || "https://mcp.accountingqb.com").replace(/\/$/, "");
+  return (
+    process.env.MCP_RESOURCE_URL || "https://mcp.accountingqb.com"
+  ).replace(/\/$/, "");
 }
 
 /** sha256 hex digest — used to store codes / refresh tokens at rest. */
@@ -60,14 +64,14 @@ export function isValidRedirectUri(uri: string): boolean {
 export function oauthError(
   error: string,
   description?: string,
-  status = 400
+  status = 400,
 ): NextResponse {
   return NextResponse.json(
     { error, ...(description ? { error_description: description } : {}) },
     {
       status,
       headers: { "Cache-Control": "no-store", Pragma: "no-cache" },
-    }
+    },
   );
 }
 

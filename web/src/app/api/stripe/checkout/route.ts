@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     if (existing?.key) {
       return NextResponse.redirect(
         `${baseUrl}/dashboard?key=${encodeURIComponent(existing.key)}`,
-        303
+        303,
       );
     }
   }
@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
     console.error("Stripe checkout error:", message);
     return NextResponse.json(
       { error: "Failed to create checkout session" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

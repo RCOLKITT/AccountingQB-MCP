@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { sendEmail, EmailType } from "@/lib/emails/send-email";
 import { isSuppressed } from "@/lib/emails/unsubscribe";
-import { campaignEmail, type CampaignContent } from "@/lib/emails/templates/campaign";
+import {
+  campaignEmail,
+  type CampaignContent,
+} from "@/lib/emails/templates/campaign";
 import {
   welcomeEmail,
   qbConnectedEmail,
@@ -61,7 +64,7 @@ export async function GET(req: NextRequest) {
     console.error("Failed to fetch pending emails:", fetchError);
     return NextResponse.json(
       { error: "Failed to fetch emails" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -134,7 +137,10 @@ export async function GET(req: NextRequest) {
       ) {
         await supabase
           .from("email_schedules")
-          .update({ cancelled: true, error_message: "Suppressed (unsubscribed)" })
+          .update({
+            cancelled: true,
+            error_message: "Suppressed (unsubscribed)",
+          })
           .eq("id", schedule.id);
         results.push({
           id: schedule.id,
@@ -149,7 +155,7 @@ export async function GET(req: NextRequest) {
         schedule.email_type,
         license as License,
         schedule.license_key,
-        schedule.metadata
+        schedule.metadata,
       );
 
       if (!emailContent) {
@@ -213,7 +219,9 @@ export async function GET(req: NextRequest) {
   const successful = results.filter((r) => r.success).length;
   const failed = results.filter((r) => !r.success).length;
 
-  console.log(`Processed ${results.length} emails: ${successful} sent, ${failed} failed`);
+  console.log(
+    `Processed ${results.length} emails: ${successful} sent, ${failed} failed`,
+  );
 
   return NextResponse.json({
     processed: results.length,
@@ -227,7 +235,7 @@ function generateEmailContent(
   emailType: EmailType,
   license: License,
   licenseKey: string,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
 ): { subject: string; html: string } | null {
   const baseParams = {
     email: license.email,
@@ -300,7 +308,7 @@ function generateEmailContent(
       // AI-composed / hand-written marketing email; copy lives in metadata.
       return campaignEmail(
         metadata as unknown as CampaignContent,
-        license.email
+        license.email,
       );
 
     default:

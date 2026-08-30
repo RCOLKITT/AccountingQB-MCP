@@ -22,7 +22,7 @@ export interface StripeRevenue {
 export function toMonthly(
   amountMinor: number,
   interval: string | undefined,
-  count = 1
+  count = 1,
 ): number {
   const base = amountMinor * (count || 1);
   switch (interval) {
@@ -49,11 +49,11 @@ export function subscriptionsMrr(subs: Stripe.Subscription[]): number {
           toMonthly(
             price.unit_amount || 0,
             price.recurring?.interval,
-            it.quantity ?? 1
+            it.quantity ?? 1,
           )
         );
       }, 0),
-    0
+    0,
   );
   return cents / 100;
 }
@@ -82,8 +82,9 @@ export async function getStripeRevenue(): Promise<StripeRevenue | null> {
 
     const dunning = [...pastDue, ...unpaid];
 
-    const sumBalance = (arr: Stripe.Balance.Available[] | Stripe.Balance.Pending[]) =>
-      arr.reduce((s, b) => s + b.amount, 0) / 100;
+    const sumBalance = (
+      arr: Stripe.Balance.Available[] | Stripe.Balance.Pending[],
+    ) => arr.reduce((s, b) => s + b.amount, 0) / 100;
 
     return {
       mrr: subscriptionsMrr(active),

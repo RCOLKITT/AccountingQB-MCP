@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   if (!sessionId) {
     return NextResponse.json(
       { error: "Session ID is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     if (!session.subscription) {
       return NextResponse.json(
         { error: "No subscription found for this session" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -65,8 +65,12 @@ export async function GET(req: NextRequest) {
     if (!license) {
       // License may not be created yet (webhook still processing)
       return NextResponse.json(
-        { licenseKey: null, email: session.customer_email, tier: session.metadata?.tier },
-        { status: 200 }
+        {
+          licenseKey: null,
+          email: session.customer_email,
+          tier: session.metadata?.tier,
+        },
+        { status: 200 },
       );
     }
 
@@ -79,7 +83,7 @@ export async function GET(req: NextRequest) {
     console.error("Session lookup error:", err);
     return NextResponse.json(
       { error: "Failed to look up session" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -52,10 +52,7 @@ const isPublicRoute = createRouteMatcher([
   "/dashboard(.*)",
 ]);
 
-const isAdminRoute = createRouteMatcher([
-  "/admin(.*)",
-  "/api/admin(.*)",
-]);
+const isAdminRoute = createRouteMatcher(["/admin(.*)", "/api/admin(.*)"]);
 
 // The "Connect AccountingQB" consent page. Must exist for signed-out visitors —
 // send them through sign-in/sign-up and back to the SAME authorize URL (query
@@ -75,7 +72,11 @@ export default clerkMiddleware(async (auth, req) => {
     // resolveAdmin(); falls back to one getUser() only if the token isn't
     // configured with the metadata claim yet. needEmail=false: the gate never
     // fetches on /api/admin routes once the token is configured.
-    const { role } = await resolveAdmin(userId, sessionClaims as AdminClaims, false);
+    const { role } = await resolveAdmin(
+      userId,
+      sessionClaims as AdminClaims,
+      false,
+    );
 
     if (role !== "admin") {
       return NextResponse.redirect(new URL("/dashboard", req.url));

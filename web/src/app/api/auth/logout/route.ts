@@ -13,9 +13,6 @@ export async function POST() {
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Logout error:", err);
-    return NextResponse.json(
-      { error: "Failed to sign out" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to sign out" }, { status: 500 });
   }
 }

@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
 
   // Handle OAuth errors
   if (errorParam) {
-    const errorDesc = req.nextUrl.searchParams.get("error_description") || "Unknown error";
+    const errorDesc =
+      req.nextUrl.searchParams.get("error_description") || "Unknown error";
     return redirectWithError(`QuickBooks authorization failed: ${errorDesc}`);
   }
 
@@ -40,14 +41,16 @@ export async function GET(req: NextRequest) {
 
   if (!statePayload) {
     return redirectWithError(
-      "Invalid or expired authorization request. Please start the connection again."
+      "Invalid or expired authorization request. Please start the connection again.",
     );
   }
 
   const licenseKey = statePayload.licenseKey;
 
   if (!licenseKey) {
-    return redirectWithError("No license key provided. Please start the connection from your account dashboard.");
+    return redirectWithError(
+      "No license key provided. Please start the connection from your account dashboard.",
+    );
   }
 
   // Validate license key exists and is active
@@ -59,11 +62,15 @@ export async function GET(req: NextRequest) {
     .single();
 
   if (licenseError || !license) {
-    return redirectWithError("Invalid license key. Please check your license and try again.");
+    return redirectWithError(
+      "Invalid license key. Please check your license and try again.",
+    );
   }
 
   if (license.status === "canceled" || license.status === "expired") {
-    return redirectWithError("Your license is no longer active. Please renew your subscription.");
+    return redirectWithError(
+      "Your license is no longer active. Please renew your subscription.",
+    );
   }
 
   // Exchange code for tokens
@@ -71,28 +78,35 @@ export async function GET(req: NextRequest) {
   const clientSecret = process.env.QB_CLIENT_SECRET!;
   const redirectUri = process.env.QB_REDIRECT_URI!;
 
-  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString(
+    "base64",
+  );
 
   let tokenData;
   try {
-    const tokenRes = await fetch("https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": `Basic ${basicAuth}`,
-        "Accept": "application/json",
+    const tokenRes = await fetch(
+      "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Basic ${basicAuth}`,
+          Accept: "application/json",
+        },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          code,
+          redirect_uri: redirectUri,
+        }),
       },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        code,
-        redirect_uri: redirectUri,
-      }),
-    });
+    );
 
     if (!tokenRes.ok) {
       // Status only — do not log the Intuit response body.
       console.error("Token exchange failed:", tokenRes.status);
-      return redirectWithError("Failed to exchange authorization code for tokens.");
+      return redirectWithError(
+        "Failed to exchange authorization code for tokens.",
+      );
     }
 
     tokenData = await tokenRes.json();
@@ -108,10 +122,10 @@ export async function GET(req: NextRequest) {
       `https://quickbooks.api.intuit.com/v3/company/${realmId}/companyinfo/${realmId}?minorversion=75`,
       {
         headers: {
-          "Authorization": `Bearer ${tokenData.access_token}`,
-          "Accept": "application/json",
+          Authorization: `Bearer ${tokenData.access_token}`,
+          Accept: "application/json",
         },
-      }
+      },
     );
     if (companyRes.ok) {
       const companyData = await companyRes.json();
@@ -122,22 +136,22 @@ export async function GET(req: NextRequest) {
   }
 
   // Calculate token expiration (access tokens expire in 1 hour)
-  const tokenExpiresAt = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000).toISOString();
+  const tokenExpiresAt = new Date(
+    Date.now() + (tokenData.expires_in || 3600) * 1000,
+  ).toISOString();
 
   // Store tokens in Supabase (upsert to handle reconnections)
-  const { error: upsertError } = await supabase
-    .from("oauth_tokens")
-    .upsert(
-      {
-        license_key: licenseKey,
-        realm_id: realmId,
-        company_name: companyName,
-        access_token: encryptToken(tokenData.access_token),
-        refresh_token: encryptToken(tokenData.refresh_token),
-        token_expires_at: tokenExpiresAt,
-      },
-      { onConflict: "license_key,realm_id" }
-    );
+  const { error: upsertError } = await supabase.from("oauth_tokens").upsert(
+    {
+      license_key: licenseKey,
+      realm_id: realmId,
+      company_name: companyName,
+      access_token: encryptToken(tokenData.access_token),
+      refresh_token: encryptToken(tokenData.refresh_token),
+      token_expires_at: tokenExpiresAt,
+    },
+    { onConflict: "license_key,realm_id" },
+  );
 
   if (upsertError) {
     console.error("Failed to store OAuth tokens:", upsertError);
@@ -188,7 +202,8 @@ export async function GET(req: NextRequest) {
   }
 
   // Redirect to success page and clear the CSRF cookie
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";
   const successUrl = new URL("/oauth/success", baseUrl);
   successUrl.searchParams.set("company", companyName || realmId);
 
@@ -198,7 +213,8 @@ export async function GET(req: NextRequest) {
 }
 
 function redirectWithError(message: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL || "https://accountingqb.com";
   const errorUrl = new URL("/oauth/error", baseUrl);
   errorUrl.searchParams.set("message", message);
   return NextResponse.redirect(errorUrl.toString(), 303);

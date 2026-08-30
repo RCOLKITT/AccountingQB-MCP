@@ -61,7 +61,7 @@ function SettingsContent() {
       if (res.ok) {
         setShowCancelModal(false);
         alert(
-          "Your subscription has been cancelled. You'll retain access until the end of your billing period."
+          "Your subscription has been cancelled. You'll retain access until the end of your billing period.",
         );
         fetchProfile();
       } else {
@@ -81,7 +81,10 @@ function SettingsContent() {
       const res = await fetch("/api/license/rotate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ license_key: licenseKey, reason: "user_requested" }),
+        body: JSON.stringify({
+          license_key: licenseKey,
+          reason: "user_requested",
+        }),
       });
 
       const data = await res.json();
@@ -165,7 +168,10 @@ function SettingsContent() {
       <header className="border-b border-white/10 bg-[#131a2e]">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
-            <Link href={`/dashboard?key=${licenseKey}`} className="text-gray-400 hover:text-white">
+            <Link
+              href={`/dashboard?key=${licenseKey}`}
+              className="text-gray-400 hover:text-white"
+            >
               ← Back to Dashboard
             </Link>
           </div>
@@ -314,16 +320,18 @@ function SettingsContent() {
 
           {/* Security */}
           <div className="bg-[#131a2e] rounded-xl border border-white/10 p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">
-              Security
-            </h3>
+            <h3 className="text-lg font-semibold text-white mb-4">Security</h3>
             <p className="text-gray-400 mb-4">
-              If you believe your license key has been compromised, you can rotate it to generate a new one. Your old key will be immediately invalidated.
+              If you believe your license key has been compromised, you can
+              rotate it to generate a new one. Your old key will be immediately
+              invalidated.
             </p>
             <div className="flex items-center justify-between py-3 border-t border-white/5">
               <div>
                 <div className="text-white font-medium">Rotate License Key</div>
-                <div className="text-gray-500 text-sm">Generate a new key and invalidate the current one</div>
+                <div className="text-gray-500 text-sm">
+                  Generate a new key and invalidate the current one
+                </div>
               </div>
               <button
                 onClick={() => setShowRotateModal(true)}
@@ -391,14 +399,27 @@ function SettingsContent() {
               <>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="w-5 h-5 text-green-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-white">Key Rotated Successfully</h3>
+                  <h3 className="text-lg font-semibold text-white">
+                    Key Rotated Successfully
+                  </h3>
                 </div>
                 <p className="text-gray-400 mb-4">
-                  Your new license key is below. Copy it and update your local config:
+                  Your new license key is below. Copy it and update your local
+                  config:
                 </p>
                 <div className="bg-black/30 rounded-lg p-4 mb-4">
                   <code className="text-cyan-400 font-mono text-sm break-all select-all">
@@ -406,7 +427,11 @@ function SettingsContent() {
                   </code>
                 </div>
                 <p className="text-yellow-400 text-sm mb-6">
-                  Run <code className="bg-yellow-500/10 px-1 rounded">accountingqb setup</code> to update your local configuration with the new key.
+                  Run{" "}
+                  <code className="bg-yellow-500/10 px-1 rounded">
+                    accountingqb setup
+                  </code>{" "}
+                  to update your local configuration with the new key.
                 </p>
                 <button
                   onClick={() => {
@@ -422,14 +447,28 @@ function SettingsContent() {
               <>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    <svg
+                      className="w-5 h-5 text-yellow-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-white">Rotate License Key?</h3>
+                  <h3 className="text-lg font-semibold text-white">
+                    Rotate License Key?
+                  </h3>
                 </div>
                 <p className="text-gray-400 mb-6">
-                  This will generate a new license key and immediately invalidate your current one. You'll need to update your local configuration with the new key.
+                  This will generate a new license key and immediately
+                  invalidate your current one. You'll need to update your local
+                  configuration with the new key.
                 </p>
                 <div className="flex gap-3">
                   <button

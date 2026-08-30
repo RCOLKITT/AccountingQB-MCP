@@ -56,7 +56,8 @@ export const metadata: Metadata = {
   ...(() => {
     const google = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
     const bing = process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION;
-    const verification: { google?: string; other?: Record<string, string> } = {};
+    const verification: { google?: string; other?: Record<string, string> } =
+      {};
     if (google) verification.google = google;
     if (bing) verification.other = { "msvalidate.01": bing };
     return Object.keys(verification).length ? { verification } : {};
@@ -152,7 +153,10 @@ export default function RootLayout({
       </head>
       <body className="bg-[#0a0e1a] font-sans text-gray-100 antialiased">
         <PostHogProvider>
-          <ClerkProvider afterSignInUrl="/dashboard" afterSignUpUrl="/dashboard">
+          <ClerkProvider
+            afterSignInUrl="/dashboard"
+            afterSignUpUrl="/dashboard"
+          >
             {children}
             <Analytics />
             <SupportWidget />

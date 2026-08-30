@@ -8,7 +8,7 @@ import { auth } from "@clerk/nextjs/server";
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { userId } = await auth();
   if (!userId) {
@@ -37,7 +37,7 @@ export async function GET(
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { userId } = await auth();
   if (!userId) {
@@ -70,7 +70,10 @@ export async function PATCH(
 
   if (error) {
     console.error("Failed to update artifact:", error);
-    return NextResponse.json({ error: "Failed to update artifact" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update artifact" },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ artifact });
@@ -82,7 +85,7 @@ export async function PATCH(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { userId } = await auth();
   if (!userId) {
@@ -96,7 +99,10 @@ export async function DELETE(
 
   if (error) {
     console.error("Failed to delete artifact:", error);
-    return NextResponse.json({ error: "Failed to delete artifact" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete artifact" },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ success: true });

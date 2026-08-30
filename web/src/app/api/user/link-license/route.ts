@@ -13,7 +13,7 @@ async function logLink(
   licenseKey: string | null,
   clerkId: string,
   success: boolean,
-  reason?: string
+  reason?: string,
 ) {
   try {
     await supabase.from("event_logs").insert({
@@ -44,7 +44,9 @@ export async function POST(req: NextRequest) {
   // Rate limit license lookups (same limiter as license verification)
   if (isRateLimitingEnabled()) {
     const ip = getClientIP(req);
-    const { success, reset } = await getLicenseVerifyLimiter().limit(`link:${ip}`);
+    const { success, reset } = await getLicenseVerifyLimiter().limit(
+      `link:${ip}`,
+    );
     if (!success) {
       return rateLimitResponse(reset);
     }
@@ -57,10 +59,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const licenseKey = typeof body.licenseKey === "string" ? body.licenseKey.trim() : "";
+  const licenseKey =
+    typeof body.licenseKey === "string" ? body.licenseKey.trim() : "";
 
   if (!licenseKey) {
-    return NextResponse.json({ error: "License key is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "License key is required" },
+      { status: 400 },
+    );
   }
 
   const supabase = getSupabase();
@@ -74,7 +80,10 @@ export async function POST(req: NextRequest) {
 
   if (licenseError || !license) {
     await logLink(supabase, null, user.id, false, "not_found");
-    return NextResponse.json({ error: "License key not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "License key not found" },
+      { status: 404 },
+    );
   }
 
   const clerkEmail = user.emailAddresses[0]?.emailAddress?.toLowerCase() || "";
@@ -87,15 +96,24 @@ export async function POST(req: NextRequest) {
         clerk_id: user.id,
         email: clerkEmail,
       },
-      { onConflict: "clerk_id" }
+      { onConflict: "clerk_id" },
     )
     .select("id")
     .single();
 
   if (profileError || !profile) {
     console.error("Failed to upsert user profile:", profileError);
-    await logLink(supabase, license.key, user.id, false, "profile_upsert_failed");
-    return NextResponse.json({ error: "Failed to link license" }, { status: 500 });
+    await logLink(
+      supabase,
+      license.key,
+      user.id,
+      false,
+      "profile_upsert_failed",
+    );
+    return NextResponse.json(
+      { error: "Failed to link license" },
+      { status: 500 },
+    );
   }
 
   // Link the license (user_licenses.user_id stores user_profiles.id as text)
@@ -105,13 +123,16 @@ export async function POST(req: NextRequest) {
       license_key: license.key,
       role: "owner",
     },
-    { onConflict: "user_id,license_key" }
+    { onConflict: "user_id,license_key" },
   );
 
   if (linkError) {
     console.error("Failed to link license:", linkError);
     await logLink(supabase, license.key, user.id, false, "link_upsert_failed");
-    return NextResponse.json({ error: "Failed to link license" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to link license" },
+      { status: 500 },
+    );
   }
 
   await logLink(supabase, license.key, user.id, true);

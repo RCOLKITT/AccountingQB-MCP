@@ -15,7 +15,8 @@ import { getSupabase } from "@/lib/supabase";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://accountingqb.com";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL || "https://accountingqb.com";
 
   if (!code) {
     return NextResponse.redirect(`${baseUrl}/login?error=missing_code`);
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
           email: user.email!,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "id" }
+        { onConflict: "id" },
       );
 
     if (profileError) {
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
         .eq("user_id", user.id);
 
       const existingLinkKeys = new Set(
-        existingLinks?.map((l) => l.license_key) || []
+        existingLinks?.map((l) => l.license_key) || [],
       );
 
       // Only insert links that don't already exist
@@ -89,7 +90,7 @@ export async function GET(req: NextRequest) {
           console.error("Failed to link licenses:", linkError);
         } else {
           console.log(
-            `Auto-linked ${newLinks.length} licenses for ${user.email}`
+            `Auto-linked ${newLinks.length} licenses for ${user.email}`,
           );
         }
       }

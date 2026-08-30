@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   if (!licenseKey) {
     return NextResponse.json(
       { error: "License key required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   const { data: license, error } = await supabase
     .from("licenses")
     .select(
-      "key, email, tier, status, trial_ends_at, card_last_four, card_brand, next_billing_date, billing_amount_cents"
+      "key, email, tier, status, trial_ends_at, card_last_four, card_brand, next_billing_date, billing_amount_cents",
     )
     .eq("key", licenseKey)
     .single();

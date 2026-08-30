@@ -43,7 +43,8 @@ export const RELEASES: Release[] = [
   {
     version: "3.17.6",
     date: "2026-08-04",
-    title: "Deduction finder no longer counts non-deductible items in the total",
+    title:
+      "Deduction finder no longer counts non-deductible items in the total",
     tag: "Tax",
     summary:
       "The deduction finder was including non-deductible items (charitable contributions, entertainment) inside 'deductible expenses' and the net loss, so its numbers disagreed with Schedule C by exactly those amounts. It now shares the same totals helper as Schedule C, so the two can't diverge.",
@@ -56,7 +57,8 @@ export const RELEASES: Release[] = [
   {
     version: "3.17.5",
     date: "2026-08-04",
-    title: "Deploy smoke test — the live build is now verified after every release",
+    title:
+      "Deploy smoke test — the live build is now verified after every release",
     tag: "Platform",
     summary:
       "Infrastructure to close the gap that let the deployment-mode mislabel recur: a public /version endpoint and a smoke test that confirms the LIVE connector matches the released version and self-identifies as the hosted connector — including through the authenticated MCP path a client actually uses.",
@@ -69,7 +71,8 @@ export const RELEASES: Release[] = [
   {
     version: "3.17.4",
     date: "2026-08-04",
-    title: "Two tax tools brought onto the shared engine; deductions now respect the loss",
+    title:
+      "Two tax tools brought onto the shared engine; deductions now respect the loss",
     tag: "Tax",
     summary:
       "A full end-to-end sweep found two tools that bypassed the canonical taxonomy and produced tax numbers that disagreed with qb_schedule_c. Both are now on the shared engine, so they can't disagree. And the deduction finder no longer promises savings a loss disallows.",
@@ -84,7 +87,8 @@ export const RELEASES: Release[] = [
   {
     version: "3.17.3",
     date: "2026-08-04",
-    title: "Allocation-key regression fixed; deployment mode & card-payment detection corrected",
+    title:
+      "Allocation-key regression fixed; deployment mode & card-payment detection corrected",
     tag: "Tax",
     summary:
       "A follow-up audit caught a regression the previous fix introduced: because account keys became fully-qualified, allocation percentages stored under leaf names stopped matching and were silently dropped (over-claiming). That's fixed, and now a configured percentage that matches no account is surfaced loudly instead of hidden. Plus the real root cause of the deployment-mode flip, and a corrected credit-card-payment check.",
@@ -111,7 +115,8 @@ export const RELEASES: Release[] = [
   {
     version: "3.17.1",
     date: "2026-08-04",
-    title: "Two correctness fixes from a real-book audit — owner equity & home routing",
+    title:
+      "Two correctness fixes from a real-book audit — owner equity & home routing",
     tag: "Tax",
     summary:
       "An end-to-end test against a real chart of accounts surfaced two directional errors that the conservation check couldn't catch (a misrouted dollar still balances). Owner's Draws no longer counts QuickBooks' system equity accounts as owner activity, and home-office routing now distinguishes accounts that merely share a name — and includes inactive (deleted) accounts.",
@@ -199,7 +204,8 @@ export const RELEASES: Release[] = [
   {
     version: "3.14.2",
     date: "2026-08-03",
-    title: "Taxonomy precision — parent accounts, charitable, and a trustworthy reconciliation",
+    title:
+      "Taxonomy precision — parent accounts, charitable, and a trustworthy reconciliation",
     tag: "Tax",
     summary:
       "Testing against a real chart of accounts surfaced deductions that were being dropped when amounts are booked directly to a parent category. Fixed, plus a reconciliation check that no longer cries wolf.",
@@ -244,7 +250,8 @@ export const RELEASES: Release[] = [
   {
     version: "3.13.1",
     date: "2026-08-03",
-    title: "Precision pass: Other Income, duplicate counts, and a server-version tool",
+    title:
+      "Precision pass: Other Income, duplicate counts, and a server-version tool",
     tag: "Tax",
     summary:
       "A second end-to-end review confirmed 16 of 17 fixes held and surfaced a few small precision issues. This patch closes them — most importantly a $0.76-scale Other Income double-count that reached the Schedule C bottom line.",
@@ -260,7 +267,8 @@ export const RELEASES: Release[] = [
   {
     version: "3.13",
     date: "2026-08-02",
-    title: "Correct tax returns, a real Trial Balance, and cleaner reconciliations",
+    title:
+      "Correct tax returns, a real Trial Balance, and cleaner reconciliations",
     tag: "Tax",
     summary:
       "A full end-to-end review against a live company surfaced reporting-layer bugs that produced confident-but-wrong numbers. This release fixes all of them — most importantly, business revenue now lands on the right tax-return lines.",

@@ -15,10 +15,31 @@ type Tone =
   | "text-white";
 
 export type DemoCard =
-  | { kind: "metrics"; title?: string; note?: string; items: { label: string; value: string; tone: Tone }[] }
-  | { kind: "lines"; title?: string; note?: string; rows: { label: string; value: string; sub?: string; strong?: boolean }[] }
-  | { kind: "list"; title?: string; note?: string; items: { title: string; detail: string; badge?: string }[] }
-  | { kind: "score"; title: string; score: number; note?: string; findings: string[] };
+  | {
+      kind: "metrics";
+      title?: string;
+      note?: string;
+      items: { label: string; value: string; tone: Tone }[];
+    }
+  | {
+      kind: "lines";
+      title?: string;
+      note?: string;
+      rows: { label: string; value: string; sub?: string; strong?: boolean }[];
+    }
+  | {
+      kind: "list";
+      title?: string;
+      note?: string;
+      items: { title: string; detail: string; badge?: string }[];
+    }
+  | {
+      kind: "score";
+      title: string;
+      score: number;
+      note?: string;
+      findings: string[];
+    };
 
 export interface DemoResponse {
   intro: string;
@@ -66,25 +87,56 @@ const INTENTS: Intent[] = [
   {
     keywords: ["deduction", "write off", "write-off", "missing", "save on tax"],
     response: {
-      intro: "I scanned 1,204 transactions and found 6 likely deductions that aren't fully categorized — about $8,410 in deductible expenses:",
+      intro:
+        "I scanned 1,204 transactions and found 6 likely deductions that aren't fully categorized — about $8,410 in deductible expenses:",
       cards: [
         {
           kind: "list",
           items: [
-            { title: "Home office — $3,120", detail: "12.5% of rent/utilities (Form 8829). Currently booked as personal.", badge: "Schedule C L30" },
-            { title: "Software subscriptions — $2,280", detail: "Figma, Linear, Vercel miscategorized as 'Office supplies'.", badge: "Schedule C L27a" },
-            { title: "Business mileage — $1,190", detail: "1,700 mi × 70¢ (2025 IRS rate) not yet recorded.", badge: "Schedule C L9" },
-            { title: "Business meals — $1,020", detail: "50% deductible under IRC §274(n); flagged for the limit.", badge: "Schedule C L24b" },
+            {
+              title: "Home office — $3,120",
+              detail:
+                "12.5% of rent/utilities (Form 8829). Currently booked as personal.",
+              badge: "Schedule C L30",
+            },
+            {
+              title: "Software subscriptions — $2,280",
+              detail:
+                "Figma, Linear, Vercel miscategorized as 'Office supplies'.",
+              badge: "Schedule C L27a",
+            },
+            {
+              title: "Business mileage — $1,190",
+              detail: "1,700 mi × 70¢ (2025 IRS rate) not yet recorded.",
+              badge: "Schedule C L9",
+            },
+            {
+              title: "Business meals — $1,020",
+              detail:
+                "50% deductible under IRC §274(n); flagged for the limit.",
+              badge: "Schedule C L24b",
+            },
           ],
           note: "Estimated tax impact: ~$1,850 at a 22% marginal rate. Every figure is sourced and dated — ask to see the citations.",
         },
       ],
-      tools: ["qb_find_deductions", "qb_classify_account", "qb_home_office_calculator"],
+      tools: [
+        "qb_find_deductions",
+        "qb_classify_account",
+        "qb_home_office_calculator",
+      ],
       followups: ["Generate my Schedule C", "Show the citations"],
     },
   },
   {
-    keywords: ["schedule c", "schedule-c", "tax prep", "taxes", "t2125", "prep for tax"],
+    keywords: [
+      "schedule c",
+      "schedule-c",
+      "tax prep",
+      "taxes",
+      "t2125",
+      "prep for tax",
+    ],
     response: {
       intro: `Here's a draft Schedule C for ${DEMO_COMPANY} (tax year 2025). Every rate is sourced and audit-logged:`,
       cards: [
@@ -94,28 +146,61 @@ const INTENTS: Intent[] = [
           rows: [
             { label: "Line 1 — Gross receipts", value: "$487,320" },
             { label: "Line 28 — Total expenses", value: "$304,170" },
-            { label: "Line 24b — Meals (50% of $2,040)", value: "$1,020", sub: "IRC §274(n) · verified 2026-08-03" },
-            { label: "Line 30 — Home office (Form 8829)", value: "$3,120", sub: "12.5% business use" },
+            {
+              label: "Line 24b — Meals (50% of $2,040)",
+              value: "$1,020",
+              sub: "IRC §274(n) · verified 2026-08-03",
+            },
+            {
+              label: "Line 30 — Home office (Form 8829)",
+              value: "$3,120",
+              sub: "12.5% business use",
+            },
             { label: "Line 31 — Net profit", value: "$174,740", strong: true },
           ],
           note: "Reconciliation ties out: deductible + limited + non-deductible = total book expenses. Nothing dropped.",
         },
       ],
       tools: ["qb_schedule_c", "qb_tax_summary", "qb_tax_data_info"],
-      followups: ["Find deductions I might be missing", "How healthy are my books?"],
+      followups: [
+        "Find deductions I might be missing",
+        "How healthy are my books?",
+      ],
     },
   },
   {
-    keywords: ["anomal", "duplicate", "fraud", "unusual", "suspicious", "weird"],
+    keywords: [
+      "anomal",
+      "duplicate",
+      "fraud",
+      "unusual",
+      "suspicious",
+      "weird",
+    ],
     response: {
-      intro: "I ran an anomaly + duplicate scan across the last 12 months. 3 things worth a look:",
+      intro:
+        "I ran an anomaly + duplicate scan across the last 12 months. 3 things worth a look:",
       cards: [
         {
           kind: "list",
           items: [
-            { title: "Possible duplicate — $1,450", detail: "AWS charged twice on Mar 12 & Mar 13, same amount.", badge: "review" },
-            { title: "Unusual amount — $9,800", detail: "'Contractor — Dev' is 4.1× the vendor's 6-month average.", badge: "verify" },
-            { title: "Weekend transaction — $620", detail: "Office supplies posted Sunday 2:14 AM; atypical for this account.", badge: "low risk" },
+            {
+              title: "Possible duplicate — $1,450",
+              detail: "AWS charged twice on Mar 12 & Mar 13, same amount.",
+              badge: "review",
+            },
+            {
+              title: "Unusual amount — $9,800",
+              detail:
+                "'Contractor — Dev' is 4.1× the vendor's 6-month average.",
+              badge: "verify",
+            },
+            {
+              title: "Weekend transaction — $620",
+              detail:
+                "Office supplies posted Sunday 2:14 AM; atypical for this account.",
+              badge: "low risk",
+            },
           ],
           note: "No changes made — these are flags for you to confirm. AccountingQB never edits your books without asking.",
         },
@@ -143,11 +228,22 @@ const INTENTS: Intent[] = [
         },
       ],
       tools: ["qb_books_health_audit", "qb_find_uncategorized"],
-      followups: ["Find deductions I might be missing", "Any anomalies or duplicates?"],
+      followups: [
+        "Find deductions I might be missing",
+        "Any anomalies or duplicates?",
+      ],
     },
   },
   {
-    keywords: ["p&l", "p and l", "profit", "loss", "income statement", "revenue", "how much did i make"],
+    keywords: [
+      "p&l",
+      "p and l",
+      "profit",
+      "loss",
+      "income statement",
+      "revenue",
+      "how much did i make",
+    ],
     response: {
       intro: `Profit & Loss for ${DEMO_COMPANY} (YTD 2025):`,
       cards: [
@@ -191,14 +287,27 @@ const INTENTS: Intent[] = [
   {
     keywords: ["1099", "contractor", "t4a"],
     response: {
-      intro: "Here are the contractors who cross the $600 1099-NEC threshold this year:",
+      intro:
+        "Here are the contractors who cross the $600 1099-NEC threshold this year:",
       cards: [
         {
           kind: "list",
           items: [
-            { title: "Dana R. — $28,400", detail: "Development. W-9 on file.", badge: "1099-NEC" },
-            { title: "Priya S. — $12,150", detail: "Design. W-9 on file.", badge: "1099-NEC" },
-            { title: "Marcos L. — $740", detail: "Copywriting. W-9 missing — request before filing.", badge: "needs W-9" },
+            {
+              title: "Dana R. — $28,400",
+              detail: "Development. W-9 on file.",
+              badge: "1099-NEC",
+            },
+            {
+              title: "Priya S. — $12,150",
+              detail: "Design. W-9 on file.",
+              badge: "1099-NEC",
+            },
+            {
+              title: "Marcos L. — $740",
+              detail: "Copywriting. W-9 missing — request before filing.",
+              badge: "needs W-9",
+            },
           ],
           note: "3 of 3 contractors identified from vendor payments. I can draft the filing summary next.",
         },

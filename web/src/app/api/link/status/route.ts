@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
-import { getLinkLimiter, getClientIP, rateLimitResponse, isRateLimitingEnabled } from "@/lib/ratelimit";
+import {
+  getLinkLimiter,
+  getClientIP,
+  rateLimitResponse,
+  isRateLimitingEnabled,
+} from "@/lib/ratelimit";
 
 /**
  * GET /api/link/status?key=<license>  — the AccountingQB desktop app fetches its account's
@@ -15,12 +20,22 @@ export async function GET(req: NextRequest) {
   }
   const key = String(req.nextUrl.searchParams.get("key") || "").trim();
   if (!key) {
-    return NextResponse.json({ error: "license key required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "license key required" },
+      { status: 400 },
+    );
   }
   const supabase = getSupabase();
-  const { data: lic } = await supabase.from("licenses").select("key, status").eq("key", key).single();
+  const { data: lic } = await supabase
+    .from("licenses")
+    .select("key, status")
+    .eq("key", key)
+    .single();
   if (!lic || lic.status === "canceled" || lic.status === "expired") {
-    return NextResponse.json({ error: "invalid or inactive license" }, { status: 401 });
+    return NextResponse.json(
+      { error: "invalid or inactive license" },
+      { status: 401 },
+    );
   }
   const { data: link } = await supabase
     .from("account_links")

@@ -11,7 +11,9 @@ function getRedis(): Redis {
     const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
     if (!url || !token) {
-      throw new Error("Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN");
+      throw new Error(
+        "Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN",
+      );
     }
 
     _redis = new Redis({ url, token });
@@ -157,7 +159,7 @@ export function rateLimitResponse(reset: number): NextResponse {
         "Retry-After": String(retryAfter),
         "X-RateLimit-Reset": String(reset),
       },
-    }
+    },
   );
 }
 
@@ -166,5 +168,7 @@ export function rateLimitResponse(reset: number): NextResponse {
  * Returns false if Upstash is not configured, allowing graceful degradation.
  */
 export function isRateLimitingEnabled(): boolean {
-  return !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+  return !!(
+    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+  );
 }

@@ -68,17 +68,23 @@ export default async function AuthorizePage({
     return (
       <Shell>
         <h1 style={{ fontSize: 20, margin: 0 }}>Unsupported app</h1>
-        <p style={{ color: "#94a3b8", fontSize: 14 }}>AccountingQB can’t link “{peer}”.</p>
+        <p style={{ color: "#94a3b8", fontSize: 14 }}>
+          AccountingQB can’t link “{peer}”.
+        </p>
       </Shell>
     );
   }
-  if (!isAllowedRedirectUri(redirectUri) || !codeChallenge || method !== "S256") {
+  if (
+    !isAllowedRedirectUri(redirectUri) ||
+    !codeChallenge ||
+    method !== "S256"
+  ) {
     return (
       <Shell>
         <h1 style={{ fontSize: 20, margin: 0 }}>Invalid link request</h1>
         <p style={{ color: "#94a3b8", fontSize: 14 }}>
-          This connection link is malformed or came from an untrusted source. Start the connection
-          again from inside {label}.
+          This connection link is malformed or came from an untrusted source.
+          Start the connection again from inside {label}.
         </p>
       </Shell>
     );
@@ -101,13 +107,24 @@ export default async function AuthorizePage({
   if (!email || !lics || lics.length === 0) {
     return (
       <Shell>
-        <div style={{ fontSize: 13, letterSpacing: 1, color: "#22d3ee", fontWeight: 700 }}>
+        <div
+          style={{
+            fontSize: 13,
+            letterSpacing: 1,
+            color: "#22d3ee",
+            fontWeight: 700,
+          }}
+        >
           ACCOUNTINGQB
         </div>
-        <h1 style={{ fontSize: 21, margin: "8px 0 6px" }}>An AccountingQB plan is required</h1>
+        <h1 style={{ fontSize: 21, margin: "8px 0 6px" }}>
+          An AccountingQB plan is required
+        </h1>
         <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.5 }}>
-          You’re signed in as <strong style={{ color: "#e5e7eb" }}>{email || "an account"}</strong>,
-          but it has no active AccountingQB plan. Start a free trial, then connect {label}.
+          You’re signed in as{" "}
+          <strong style={{ color: "#e5e7eb" }}>{email || "an account"}</strong>,
+          but it has no active AccountingQB plan. Start a free trial, then
+          connect {label}.
         </p>
         <Link
           href="/pricing"
@@ -130,17 +147,31 @@ export default async function AuthorizePage({
 
   return (
     <Shell>
-      <div style={{ fontSize: 13, letterSpacing: 1, color: "#22d3ee", fontWeight: 700 }}>
+      <div
+        style={{
+          fontSize: 13,
+          letterSpacing: 1,
+          color: "#22d3ee",
+          fontWeight: 700,
+        }}
+      >
         ACCOUNTINGQB
       </div>
       <h1 style={{ fontSize: 21, margin: "8px 0 6px" }}>Connect {label}</h1>
       <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.55 }}>
-        <strong style={{ color: "#e5e7eb" }}>{label}</strong> wants to link to your AccountingQB
-        account <strong style={{ color: "#e5e7eb" }}>{email}</strong>. Once linked, {label} can
-        request your business figures (owner draws, tax set-aside) and send flagged expenses here to
-        book — always with your confirmation. Nothing about your books is stored on our servers.
+        <strong style={{ color: "#e5e7eb" }}>{label}</strong> wants to link to
+        your AccountingQB account{" "}
+        <strong style={{ color: "#e5e7eb" }}>{email}</strong>. Once linked,{" "}
+        {label} can request your business figures (owner draws, tax set-aside)
+        and send flagged expenses here to book — always with your confirmation.
+        Nothing about your books is stored on our servers.
       </p>
-      <Consent peer={peer} redirectUri={redirectUri} state={state} codeChallenge={codeChallenge} />
+      <Consent
+        peer={peer}
+        redirectUri={redirectUri}
+        state={state}
+        codeChallenge={codeChallenge}
+      />
       <p style={{ color: "#64748b", fontSize: 12, marginTop: 18 }}>
         You can disconnect any time from Settings. Returns to{" "}
         <span style={{ color: "#94a3b8" }}>{new URL(redirectUri).host}</span>.

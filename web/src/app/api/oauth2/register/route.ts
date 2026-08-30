@@ -44,28 +44,36 @@ export async function POST(req: NextRequest) {
     return oauthError("invalid_redirect_uri", "redirect_uris is required");
   }
   if (redirectUris.length > 10) {
-    return oauthError("invalid_redirect_uri", "Too many redirect_uris (max 10)");
+    return oauthError(
+      "invalid_redirect_uri",
+      "Too many redirect_uris (max 10)",
+    );
   }
   for (const uri of redirectUris) {
     if (typeof uri !== "string" || !isValidRedirectUri(uri)) {
       return oauthError(
         "invalid_redirect_uri",
-        `redirect_uris must be https (or http://localhost for development): ${String(uri)}`
+        `redirect_uris must be https (or http://localhost for development): ${String(uri)}`,
       );
     }
   }
 
   const clientName =
-    typeof body.client_name === "string" ? body.client_name.slice(0, 200) : null;
+    typeof body.client_name === "string"
+      ? body.client_name.slice(0, 200)
+      : null;
 
   const requestedAuthMethod =
     typeof body.token_endpoint_auth_method === "string"
       ? body.token_endpoint_auth_method
       : "none";
-  if (requestedAuthMethod !== "none" && requestedAuthMethod !== "client_secret_post") {
+  if (
+    requestedAuthMethod !== "none" &&
+    requestedAuthMethod !== "client_secret_post"
+  ) {
     return oauthError(
       "invalid_client_metadata",
-      "token_endpoint_auth_method must be 'none' or 'client_secret_post'"
+      "token_endpoint_auth_method must be 'none' or 'client_secret_post'",
     );
   }
 
@@ -100,6 +108,6 @@ export async function POST(req: NextRequest) {
       response_types: ["code"],
       ...(clientSecret ? { client_secret: clientSecret } : {}),
     },
-    { status: 201, headers: { "Cache-Control": "no-store" } }
+    { status: 201, headers: { "Cache-Control": "no-store" } },
   );
 }

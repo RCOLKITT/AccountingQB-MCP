@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     if (!message?.trim()) {
       return NextResponse.json(
         { error: "Message is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
     const shouldEscalate = escalateKeywords.some(
       (kw) =>
         message.toLowerCase().includes(kw) ||
-        reply.toLowerCase().includes("contact support@vasperacapital.com")
+        reply.toLowerCase().includes("contact support@vasperacapital.com"),
     );
 
     // Track analytics
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
     console.error("Support chat error:", err);
     return NextResponse.json(
       { error: "Failed to process message" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

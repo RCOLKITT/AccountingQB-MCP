@@ -22,7 +22,9 @@ import {
 
 async function rateLimit(req: NextRequest): Promise<NextResponse | null> {
   if (!isRateLimitingEnabled()) return null;
-  const { success, reset } = await getDefaultRealmLimiter().limit(getClientIP(req));
+  const { success, reset } = await getDefaultRealmLimiter().limit(
+    getClientIP(req),
+  );
   return success ? null : rateLimitResponse(reset);
 }
 
@@ -32,7 +34,10 @@ export async function GET(req: NextRequest) {
 
   const licenseKey = req.nextUrl.searchParams.get("license_key");
   if (!licenseKey) {
-    return NextResponse.json({ error: "license_key is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "license_key is required" },
+      { status: 400 },
+    );
   }
 
   const supabase = getSupabase();
@@ -48,7 +53,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(
     { realmId: license.default_realm_id || null },
-    { headers: { "Cache-Control": "no-store" } }
+    { headers: { "Cache-Control": "no-store" } },
   );
 }
 
@@ -65,10 +70,16 @@ export async function POST(req: NextRequest) {
 
   const { license_key: licenseKey, realmId } = body;
   if (!licenseKey) {
-    return NextResponse.json({ error: "license_key is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "license_key is required" },
+      { status: 400 },
+    );
   }
   if (realmId != null && typeof realmId !== "string") {
-    return NextResponse.json({ error: "realmId must be a string or null" }, { status: 400 });
+    return NextResponse.json(
+      { error: "realmId must be a string or null" },
+      { status: 400 },
+    );
   }
 
   const supabase = getSupabase();
@@ -93,7 +104,7 @@ export async function POST(req: NextRequest) {
     if (!tokenRow) {
       return NextResponse.json(
         { error: "realmId is not a connected company for this license" },
-        { status: 400 }
+        { status: 400 },
       );
     }
   }

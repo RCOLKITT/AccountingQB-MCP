@@ -65,21 +65,25 @@ export async function GET(req: NextRequest) {
       throw licenseError;
     }
 
-    const uniqueLicenses = new Set(activeLicenseData?.map((r) => r.license_key));
+    const uniqueLicenses = new Set(
+      activeLicenseData?.map((r) => r.license_key),
+    );
     const activeLicenses = uniqueLicenses.size;
 
     // Upsert cache record
-    const { error: upsertError } = await supabase.from("usage_stats_cache").upsert(
-      {
-        id: "global",
-        total_tool_calls: totalToolCalls,
-        total_hours_saved: totalHoursSaved,
-        calls_this_week: callsThisWeek,
-        active_licenses: activeLicenses,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "id" }
-    );
+    const { error: upsertError } = await supabase
+      .from("usage_stats_cache")
+      .upsert(
+        {
+          id: "global",
+          total_tool_calls: totalToolCalls,
+          total_hours_saved: totalHoursSaved,
+          calls_this_week: callsThisWeek,
+          active_licenses: activeLicenses,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      );
 
     if (upsertError) {
       console.error("Failed to upsert stats cache:", upsertError);
@@ -99,7 +103,7 @@ export async function GET(req: NextRequest) {
     console.error("Cron update-stats error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

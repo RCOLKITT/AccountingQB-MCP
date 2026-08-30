@@ -21,7 +21,10 @@ export async function GET(req: NextRequest) {
   const starred = searchParams.get("starred");
 
   if (!licenseKey) {
-    return NextResponse.json({ error: "License key required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "License key required" },
+      { status: 400 },
+    );
   }
 
   const supabase = getSupabase();
@@ -48,7 +51,10 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     console.error("Failed to fetch artifacts:", error);
-    return NextResponse.json({ error: "Failed to fetch artifacts" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch artifacts" },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ artifacts: artifacts || [] });
@@ -65,12 +71,13 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { licenseKey, realmId, type, name, description, data, format, tags } = body;
+  const { licenseKey, realmId, type, name, description, data, format, tags } =
+    body;
 
   if (!licenseKey || !type || !name || !data) {
     return NextResponse.json(
       { error: "Missing required fields: licenseKey, type, name, data" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -78,7 +85,7 @@ export async function POST(req: NextRequest) {
   if (!validTypes.includes(type)) {
     return NextResponse.json(
       { error: `Invalid type. Must be one of: ${validTypes.join(", ")}` },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -102,7 +109,10 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     console.error("Failed to create artifact:", error);
-    return NextResponse.json({ error: "Failed to create artifact" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create artifact" },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ artifact }, { status: 201 });

@@ -28,13 +28,19 @@ export async function POST(req: NextRequest) {
   const svixSignature = req.headers.get("svix-signature");
 
   if (!svixId || !svixTimestamp || !svixSignature) {
-    return NextResponse.json({ error: "Missing svix headers" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing svix headers" },
+      { status: 400 },
+    );
   }
 
   const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
   if (!webhookSecret) {
     console.error("CLERK_WEBHOOK_SECRET not configured");
-    return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Webhook not configured" },
+      { status: 500 },
+    );
   }
 
   let event: ClerkWebhookEvent;
@@ -53,18 +59,28 @@ export async function POST(req: NextRequest) {
   const supabase = getSupabase();
 
   if (event.type === "user.created") {
-    const { id: clerkId, email_addresses, primary_email_address_id, first_name, last_name } = event.data;
+    const {
+      id: clerkId,
+      email_addresses,
+      primary_email_address_id,
+      first_name,
+      last_name,
+    } = event.data;
 
     // Get primary email
-    const primaryEmail = email_addresses?.find(e => e.id === primary_email_address_id);
-    const email = primaryEmail?.email_address || email_addresses?.[0]?.email_address;
+    const primaryEmail = email_addresses?.find(
+      (e) => e.id === primary_email_address_id,
+    );
+    const email =
+      primaryEmail?.email_address || email_addresses?.[0]?.email_address;
 
     if (!email) {
       console.error("No email found for Clerk user:", clerkId);
       return NextResponse.json({ error: "No email" }, { status: 400 });
     }
 
-    const displayName = [first_name, last_name].filter(Boolean).join(" ") || null;
+    const displayName =
+      [first_name, last_name].filter(Boolean).join(" ") || null;
 
     // Create the user profile if missing (idempotent — never set id explicitly,
     // the DB default gen_random_uuid() assigns it)
@@ -76,7 +92,7 @@ export async function POST(req: NextRequest) {
           email,
           display_name: displayName,
         },
-        { onConflict: "clerk_id" }
+        { onConflict: "clerk_id" },
       )
       .select("id")
       .single();
@@ -104,22 +120,32 @@ export async function POST(req: NextRequest) {
           license_key: license.key,
           role: "owner",
         })),
-        { onConflict: "user_id,license_key" }
+        { onConflict: "user_id,license_key" },
       );
 
       // Count only — never log the email (PII) or the license keys (bearer creds).
       console.log(
-        `Auto-linked clerk_id ${clerkId} to ${licenses.length} license(s)`
+        `Auto-linked clerk_id ${clerkId} to ${licenses.length} license(s)`,
       );
     }
   }
 
   if (event.type === "user.updated") {
-    const { id: clerkId, email_addresses, primary_email_address_id, first_name, last_name } = event.data;
+    const {
+      id: clerkId,
+      email_addresses,
+      primary_email_address_id,
+      first_name,
+      last_name,
+    } = event.data;
 
-    const primaryEmail = email_addresses?.find(e => e.id === primary_email_address_id);
-    const email = primaryEmail?.email_address || email_addresses?.[0]?.email_address;
-    const displayName = [first_name, last_name].filter(Boolean).join(" ") || null;
+    const primaryEmail = email_addresses?.find(
+      (e) => e.id === primary_email_address_id,
+    );
+    const email =
+      primaryEmail?.email_address || email_addresses?.[0]?.email_address;
+    const displayName =
+      [first_name, last_name].filter(Boolean).join(" ") || null;
 
     if (email) {
       await supabase
@@ -133,10 +159,7 @@ export async function POST(req: NextRequest) {
     const { id: clerkId } = event.data;
 
     // Delete profile (cascades to user_licenses)
-    await supabase
-      .from("user_profiles")
-      .delete()
-      .eq("clerk_id", clerkId);
+    await supabase.from("user_profiles").delete().eq("clerk_id", clerkId);
 
     console.log(`Deleted user profile for clerk_id: ${clerkId}`);
   }

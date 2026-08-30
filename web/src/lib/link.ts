@@ -49,6 +49,7 @@ export function isAllowedRedirectUri(uri: string): boolean {
   // Loopback desktop callbacks — only the real local app can receive these.
   const loopback = u.hostname === "127.0.0.1" || u.hostname === "localhost";
   const port = Number(u.port || 0);
-  if (loopback && u.protocol === "http:" && port >= 4317 && port <= 4320) return true;
+  if (loopback && u.protocol === "http:" && port >= 4317 && port <= 4320)
+    return true;
   return false;
 }

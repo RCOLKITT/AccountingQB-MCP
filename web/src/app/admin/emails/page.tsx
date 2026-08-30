@@ -29,7 +29,8 @@ type Tab = "scheduled" | "sent" | "escalations";
 export default function AdminEmailsPage() {
   const searchParams = useSearchParams();
   const initialFilter = searchParams.get("filter");
-  const initialTab: Tab = initialFilter === "escalated" ? "escalations" : "scheduled";
+  const initialTab: Tab =
+    initialFilter === "escalated" ? "escalations" : "scheduled";
 
   const [tab, setTab] = useState<Tab>(initialTab);
   const [emails, setEmails] = useState<EmailSchedule[]>([]);
@@ -88,7 +89,9 @@ export default function AdminEmailsPage() {
       });
 
       if (res.ok) {
-        setEmails(emails.map((e) => (e.id === id ? { ...e, cancelled: true } : e)));
+        setEmails(
+          emails.map((e) => (e.id === id ? { ...e, cancelled: true } : e)),
+        );
       }
     } catch (err) {
       console.error("Failed to cancel email:", err);
@@ -99,7 +102,9 @@ export default function AdminEmailsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Emails</h1>
-        <p className="text-gray-400 mt-1">View scheduled emails and support escalations</p>
+        <p className="text-gray-400 mt-1">
+          View scheduled emails and support escalations
+        </p>
       </div>
 
       {/* Tabs */}
@@ -124,10 +129,7 @@ export default function AdminEmailsPage() {
 
       {/* Content */}
       {tab === "escalations" ? (
-        <EscalationsTable
-          escalations={escalations}
-          loading={loading}
-        />
+        <EscalationsTable escalations={escalations} loading={loading} />
       ) : (
         <EmailsTable
           emails={emails}
@@ -218,7 +220,8 @@ function EmailsTable({
                     <EmailTypeBadge type={email.email_type} />
                   </td>
                   <td className="px-6 py-4 text-sm text-white">
-                    {(email.metadata?.email as string) || email.license_key.substring(0, 12) + "..."}
+                    {(email.metadata?.email as string) ||
+                      email.license_key.substring(0, 12) + "..."}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-400">
                     {formatDateTime(email.scheduled_for)}
@@ -234,8 +237,8 @@ function EmailsTable({
                         email.cancelled
                           ? "cancelled"
                           : email.sent_at
-                          ? "sent"
-                          : "pending"
+                            ? "sent"
+                            : "pending"
                       }
                     />
                   </td>
@@ -306,7 +309,9 @@ function EscalationsTable({
                     {esc.user_email || "Anonymous"}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-400 font-mono text-xs">
-                    {esc.license_key ? esc.license_key.substring(0, 12) + "..." : "—"}
+                    {esc.license_key
+                      ? esc.license_key.substring(0, 12) + "..."
+                      : "—"}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-400">
                     {esc.message_count}
@@ -362,7 +367,9 @@ function EmailTypeBadge({ type }: { type: string }) {
   };
 
   return (
-    <span className={`px-2 py-1 rounded text-xs font-medium ${colors[type] || "bg-gray-500/10 text-gray-400"}`}>
+    <span
+      className={`px-2 py-1 rounded text-xs font-medium ${colors[type] || "bg-gray-500/10 text-gray-400"}`}
+    >
       {labels[type] || type}
     </span>
   );
@@ -376,7 +383,9 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`px-2 py-1 rounded text-xs font-medium ${colors[status] || colors.pending}`}>
+    <span
+      className={`px-2 py-1 rounded text-xs font-medium ${colors[status] || colors.pending}`}
+    >
       {status}
     </span>
   );
@@ -390,7 +399,9 @@ function EscalationStatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`px-2 py-1 rounded text-xs font-medium ${colors[status] || "bg-gray-500/10 text-gray-400"}`}>
+    <span
+      className={`px-2 py-1 rounded text-xs font-medium ${colors[status] || "bg-gray-500/10 text-gray-400"}`}
+    >
       {status}
     </span>
   );

@@ -22,7 +22,7 @@ const VALID_EMAIL_TYPES: EmailType[] = [
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ key: string }> }
+  { params }: { params: Promise<{ key: string }> },
 ) {
   // Verify admin via Clerk
   const user = await currentUser();
@@ -74,13 +74,11 @@ export async function POST(
   if (!result.success) {
     return NextResponse.json(
       { error: result.error || "Failed to schedule email" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
-  console.log(
-    `Email ${emailType} scheduled for ${key} by ${adminEmail}`
-  );
+  console.log(`Email ${emailType} scheduled for ${key} by ${adminEmail}`);
 
   return NextResponse.json({ success: true, scheduleId: result.scheduleId });
 }

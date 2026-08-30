@@ -57,7 +57,9 @@ export default function Consent({
   return (
     <div style={{ marginTop: 24 }}>
       {err ? (
-        <p style={{ color: "#f87171", fontSize: 14, marginBottom: 12 }}>{err}</p>
+        <p style={{ color: "#f87171", fontSize: 14, marginBottom: 12 }}>
+          {err}
+        </p>
       ) : null}
       <div style={{ display: "flex", gap: 12 }}>
         <button

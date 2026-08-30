@@ -38,7 +38,7 @@ export function paymentFailedEmail(params: PaymentFailedEmailParams): {
     ${infoBox(
       `<strong>${cardInfo}</strong> was declined.<br>
       This could be due to insufficient funds, an expired card, or your bank blocking the charge.`,
-      "warning"
+      "warning",
     )}
 
     ${paragraph("Please update your payment method to keep your subscription active:")}
@@ -48,7 +48,7 @@ export function paymentFailedEmail(params: PaymentFailedEmailParams): {
     ${paragraph(
       isFirstAttempt
         ? "We'll automatically retry the payment in a few days. To avoid any interruption, please update your card as soon as possible."
-        : "This is a follow-up notice. Your subscription may be paused if we can't process payment soon."
+        : "This is a follow-up notice. Your subscription may be paused if we can't process payment soon.",
     )}
 
     ${paragraph("If you're having trouble or want to cancel, just reply to this email.")}
@@ -60,7 +60,7 @@ export function paymentFailedEmail(params: PaymentFailedEmailParams): {
     subject: `⚠️ Payment failed for AccountingQB`,
     html: emailWrapper(
       content,
-      `We couldn't process your ${price} payment — please update your card`
+      `We couldn't process your ${price} payment — please update your card`,
     ),
   };
 }

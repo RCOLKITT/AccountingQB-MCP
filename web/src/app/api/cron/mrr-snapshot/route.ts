@@ -16,7 +16,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!process.env.STRIPE_SECRET_KEY) {
-    return NextResponse.json({ error: "Stripe not configured" }, { status: 200 });
+    return NextResponse.json(
+      { error: "Stripe not configured" },
+      { status: 200 },
+    );
   }
 
   const stripe = getStripe();
@@ -29,8 +32,13 @@ export async function GET(req: NextRequest) {
     const mrr =
       sub.items.data.reduce(
         (t, it) =>
-          t + toMonthly(it.price.unit_amount || 0, it.price.recurring?.interval, it.quantity ?? 1),
-        0
+          t +
+          toMonthly(
+            it.price.unit_amount || 0,
+            it.price.recurring?.interval,
+            it.quantity ?? 1,
+          ),
+        0,
       ) / 100;
     mrrBySub.set(sub.id, mrr);
   }

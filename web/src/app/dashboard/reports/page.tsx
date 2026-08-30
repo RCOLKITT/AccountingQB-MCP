@@ -93,7 +93,9 @@ export default function ReportsPage() {
 
       if (res.ok) {
         setArtifacts((prev) =>
-          prev.map((a) => (a.id === id ? { ...a, starred: !currentStarred } : a))
+          prev.map((a) =>
+            a.id === id ? { ...a, starred: !currentStarred } : a,
+          ),
         );
       }
     } catch (err) {
@@ -126,7 +128,9 @@ export default function ReportsPage() {
     return (
       <div className="min-h-screen bg-[#0a0f1c] flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Sign in required</h1>
+          <h1 className="text-2xl font-bold text-white mb-4">
+            Sign in required
+          </h1>
           <Link href="/sign-in" className="text-cyan-400 hover:text-cyan-300">
             Sign in to view your reports
           </Link>
@@ -262,7 +266,9 @@ function ArtifactCard({
         <button
           onClick={onToggleStar}
           className={`text-xl transition ${
-            artifact.starred ? "text-yellow-400" : "text-gray-600 hover:text-yellow-400"
+            artifact.starred
+              ? "text-yellow-400"
+              : "text-gray-600 hover:text-yellow-400"
           }`}
         >
           ★
