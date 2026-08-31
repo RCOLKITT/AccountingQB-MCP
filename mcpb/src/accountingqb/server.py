@@ -28,47 +28,123 @@ try:
     from .context import QBContext, get_ctx, set_ctx, reset_ctx, _default_ctx
     from . import tax_tables as _tt
     from .tax_tables import (  # noqa: F401 — the tax-data registry (L2)
-        TAX_DATA_VERSION, TAX_DATA_VERIFIED, TABLES, TaxDataError,
-        tax_value, tax_value_or_latest, tax_data_footer,
-        load_ledger, verify_ledger_chain,
-        _US_STATE_TAX, _FED_BRACKETS, _RATES, _SS_WAGE_BASE,
-        _SE_NET_EARNINGS_FACTOR, _SE_SS_RATE, _SE_MEDICARE_RATE,
-        _TCJA_PHASE_DOWN, _SUV_179_CAP, _280F_LIMITS, _MACRS_5YR,
-        _SEC_179_LIMITS, _SEC_195, _HOME_OFFICE_SIMPLIFIED,
-        _STD_MILEAGE_CENTS, _RETIREMENT_LIMITS, _1099_NEC_THRESHOLD,
-        _GST_QUICK_METHOD_LIMIT, _GST_QUICK_METHOD_CREDIT_BASE,
-        _MEALS_ITC_FACTOR, _GST_WORKPAPER_FOOTER,
-        _CA_SALES_TAX_REGIME, _CA_PROVINCIAL_AGENCY_HINTS,
-        _ca_regime, _ca_regime_describe, _ca_agency_is_provincial,
-        classify_account, line_limitation, _CCA_CLASSES, _CLASS_10_1_CEILING,
-        _CLASS_54_ZEV_CEILING, _AII_START_YEAR, _AII_FIRST_YEAR_FACTOR,
-        _T4A_ADMIN_THRESHOLD, _CPP_PARAMS, _CPP_BASIC_EXEMPTION,
-        _CPP_RATE_SELF, _CPP2_RATE_SELF, _CA_FED_BRACKETS_APPROX,
-        _CA_BPA_APPROX, _CA_PROV_FLAT_APPROX, _CRA_INSTALMENT_DATES,
-        _CRA_INSTALMENT_THRESHOLD, _QUICK_METHOD_REMITTANCE,
+        TAX_DATA_VERSION,
+        TAX_DATA_VERIFIED,
+        TABLES,
+        TaxDataError,
+        tax_value,
+        tax_value_or_latest,
+        tax_data_footer,
+        load_ledger,
+        verify_ledger_chain,
+        _US_STATE_TAX,
+        _FED_BRACKETS,
+        _RATES,
+        _SS_WAGE_BASE,
+        _SE_NET_EARNINGS_FACTOR,
+        _SE_SS_RATE,
+        _SE_MEDICARE_RATE,
+        _TCJA_PHASE_DOWN,
+        _SUV_179_CAP,
+        _280F_LIMITS,
+        _MACRS_5YR,
+        _SEC_179_LIMITS,
+        _SEC_195,
+        _HOME_OFFICE_SIMPLIFIED,
+        _STD_MILEAGE_CENTS,
+        _RETIREMENT_LIMITS,
+        _1099_NEC_THRESHOLD,
+        _GST_QUICK_METHOD_LIMIT,
+        _GST_QUICK_METHOD_CREDIT_BASE,
+        _MEALS_ITC_FACTOR,
+        _GST_WORKPAPER_FOOTER,
+        _CA_SALES_TAX_REGIME,
+        _CA_PROVINCIAL_AGENCY_HINTS,
+        _ca_regime,
+        _ca_regime_describe,
+        _ca_agency_is_provincial,
+        classify_account,
+        line_limitation,
+        is_home_office_account,
+        is_home_office_subtype,
+        _SYSTEM_EQUITY_SUBTYPES,
+        _CCA_CLASSES,
+        _CLASS_10_1_CEILING,
+        _CLASS_54_ZEV_CEILING,
+        _AII_START_YEAR,
+        _AII_FIRST_YEAR_FACTOR,
+        _T4A_ADMIN_THRESHOLD,
+        _CPP_PARAMS,
+        _CPP_BASIC_EXEMPTION,
+        _CPP_RATE_SELF,
+        _CPP2_RATE_SELF,
+        _CA_FED_BRACKETS_APPROX,
+        _CA_BPA_APPROX,
+        _CA_PROV_FLAT_APPROX,
+        _CRA_INSTALMENT_DATES,
+        _CRA_INSTALMENT_THRESHOLD,
+        _QUICK_METHOD_REMITTANCE,
     )
 except ImportError:  # pragma: no cover — direct script execution (no package)
     from context import QBContext, get_ctx, set_ctx, reset_ctx, _default_ctx
     import tax_tables as _tt
     from tax_tables import (  # noqa: F401
-        TAX_DATA_VERSION, TAX_DATA_VERIFIED, TABLES, TaxDataError,
-        tax_value, tax_value_or_latest, tax_data_footer,
-        load_ledger, verify_ledger_chain,
-        _US_STATE_TAX, _FED_BRACKETS, _RATES, _SS_WAGE_BASE,
-        _SE_NET_EARNINGS_FACTOR, _SE_SS_RATE, _SE_MEDICARE_RATE,
-        _TCJA_PHASE_DOWN, _SUV_179_CAP, _280F_LIMITS, _MACRS_5YR,
-        _SEC_179_LIMITS, _SEC_195, _HOME_OFFICE_SIMPLIFIED,
-        _STD_MILEAGE_CENTS, _RETIREMENT_LIMITS, _1099_NEC_THRESHOLD,
-        _GST_QUICK_METHOD_LIMIT, _GST_QUICK_METHOD_CREDIT_BASE,
-        _MEALS_ITC_FACTOR, _GST_WORKPAPER_FOOTER,
-        _CA_SALES_TAX_REGIME, _CA_PROVINCIAL_AGENCY_HINTS,
-        _ca_regime, _ca_regime_describe, _ca_agency_is_provincial,
-        classify_account, line_limitation, _CCA_CLASSES, _CLASS_10_1_CEILING,
-        _CLASS_54_ZEV_CEILING, _AII_START_YEAR, _AII_FIRST_YEAR_FACTOR,
-        _T4A_ADMIN_THRESHOLD, _CPP_PARAMS, _CPP_BASIC_EXEMPTION,
-        _CPP_RATE_SELF, _CPP2_RATE_SELF, _CA_FED_BRACKETS_APPROX,
-        _CA_BPA_APPROX, _CA_PROV_FLAT_APPROX, _CRA_INSTALMENT_DATES,
-        _CRA_INSTALMENT_THRESHOLD, _QUICK_METHOD_REMITTANCE,
+        TAX_DATA_VERSION,
+        TAX_DATA_VERIFIED,
+        TABLES,
+        TaxDataError,
+        tax_value,
+        tax_value_or_latest,
+        tax_data_footer,
+        load_ledger,
+        verify_ledger_chain,
+        _US_STATE_TAX,
+        _FED_BRACKETS,
+        _RATES,
+        _SS_WAGE_BASE,
+        _SE_NET_EARNINGS_FACTOR,
+        _SE_SS_RATE,
+        _SE_MEDICARE_RATE,
+        _TCJA_PHASE_DOWN,
+        _SUV_179_CAP,
+        _280F_LIMITS,
+        _MACRS_5YR,
+        _SEC_179_LIMITS,
+        _SEC_195,
+        _HOME_OFFICE_SIMPLIFIED,
+        _STD_MILEAGE_CENTS,
+        _RETIREMENT_LIMITS,
+        _1099_NEC_THRESHOLD,
+        _GST_QUICK_METHOD_LIMIT,
+        _GST_QUICK_METHOD_CREDIT_BASE,
+        _MEALS_ITC_FACTOR,
+        _GST_WORKPAPER_FOOTER,
+        _CA_SALES_TAX_REGIME,
+        _CA_PROVINCIAL_AGENCY_HINTS,
+        _ca_regime,
+        _ca_regime_describe,
+        _ca_agency_is_provincial,
+        classify_account,
+        line_limitation,
+        is_home_office_account,
+        is_home_office_subtype,
+        _SYSTEM_EQUITY_SUBTYPES,
+        _CCA_CLASSES,
+        _CLASS_10_1_CEILING,
+        _CLASS_54_ZEV_CEILING,
+        _AII_START_YEAR,
+        _AII_FIRST_YEAR_FACTOR,
+        _T4A_ADMIN_THRESHOLD,
+        _CPP_PARAMS,
+        _CPP_BASIC_EXEMPTION,
+        _CPP_RATE_SELF,
+        _CPP2_RATE_SELF,
+        _CA_FED_BRACKETS_APPROX,
+        _CA_BPA_APPROX,
+        _CA_PROV_FLAT_APPROX,
+        _CRA_INSTALMENT_DATES,
+        _CRA_INSTALMENT_THRESHOLD,
+        _QUICK_METHOD_REMITTANCE,
     )
 
 mcp = FastMCP("quickbooks")
@@ -102,11 +178,14 @@ _HOSTED_CONNECTOR = False
 # This prevents tokens from being readable if the file is copied to another
 # machine or leaked.
 
-_DATA_DIR = Path(os.environ.get(
-    "QB_DATA_DIR",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), ".qb_data")
-))
+_DATA_DIR = Path(
+    os.environ.get(
+        "QB_DATA_DIR",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), ".qb_data"),
+    )
+)
 _DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 
 def _get_or_create_key() -> bytes:
     """Get or create a machine-local encryption key (Fernet-compatible)."""
@@ -119,10 +198,12 @@ def _get_or_create_key() -> bytes:
     # Generate a new key from machine identity + random salt
     try:
         from cryptography.fernet import Fernet
+
         key = Fernet.generate_key()
     except ImportError:
         # Fallback: base64-encoded random bytes (still Fernet-compatible)
         import base64, secrets
+
         key = base64.urlsafe_b64encode(secrets.token_bytes(32))
     try:
         key_file.write_bytes(key)
@@ -131,20 +212,24 @@ def _get_or_create_key() -> bytes:
         pass
     return key
 
+
 def _encrypt_token(token: str) -> str:
     """Encrypt a token string for storage at rest."""
     try:
         from cryptography.fernet import Fernet
+
         f = Fernet(_get_or_create_key())
         return f.encrypt(token.encode()).decode()
     except ImportError:
         logger.warning("cryptography not installed — tokens stored in plaintext")
         return token
 
+
 def _decrypt_token(encrypted: str) -> str:
     """Decrypt a stored token. Falls back to plaintext if decryption fails."""
     try:
         from cryptography.fernet import Fernet
+
         f = Fernet(_get_or_create_key())
         return f.decrypt(encrypted.encode()).decode()
     except ImportError:
@@ -152,6 +237,7 @@ def _decrypt_token(encrypted: str) -> str:
     except Exception:
         # Likely a plaintext token from before encryption was enabled
         return encrypted
+
 
 def _save_token(token: str, filename: str = "refresh_token.enc") -> None:
     """Encrypt and persist a token to disk."""
@@ -162,6 +248,7 @@ def _save_token(token: str, filename: str = "refresh_token.enc") -> None:
         os.chmod(str(token_path), 0o600)
     except OSError as e:
         logger.warning(f"Could not save token: {e}")
+
 
 def _load_token(filename: str = "refresh_token.enc") -> Optional[str]:
     """Load and decrypt a persisted token."""
@@ -176,6 +263,7 @@ def _load_token(filename: str = "refresh_token.enc") -> Optional[str]:
         logger.warning(f"Could not load token: {e}")
     return None
 
+
 # ---------------------------------------------------------------------------
 # Rate Limiting
 # ---------------------------------------------------------------------------
@@ -185,6 +273,7 @@ def _load_token(filename: str = "refresh_token.enc") -> Optional[str]:
 _RATE_LIMIT_MAX = int(os.environ.get("QB_RATE_LIMIT", "200"))  # per minute
 _RATE_LIMIT_WINDOW = 60  # seconds
 _request_timestamps: list[float] = []
+
 
 def _check_rate_limit() -> None:
     """Raise an error if we're making too many API calls."""
@@ -199,6 +288,7 @@ def _check_rate_limit() -> None:
             "Please wait before making additional requests."
         )
     _request_timestamps.append(now)
+
 
 # ---------------------------------------------------------------------------
 # License Gating
@@ -252,6 +342,7 @@ FREE_TOOLS = {
     "qb_list_tax_rates",
 }  # ~30 read-only / reporting / management tools
 
+
 def _effective_license_key() -> str:
     """License key for the current connection.
 
@@ -260,6 +351,7 @@ def _effective_license_key() -> str:
     the verified JWT claim, which takes precedence.
     """
     return get_ctx().license_key or LICENSE_KEY
+
 
 async def _validate_license(key: str) -> dict:
     """Validate a license key against the remote API (with 24h cache)."""
@@ -299,10 +391,12 @@ async def _validate_license(key: str) -> dict:
             return cached
         return {"valid": True, "tier": "grace", "reason": "offline"}
 
+
 def require_license(func):
     """Decorator that gates a tool behind license validation.
     Free tools (in FREE_TOOLS set) always pass through.
     When no license system is configured, all tools are unlocked (dev mode)."""
+
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
         tool_name = func.__name__
@@ -322,7 +416,9 @@ def require_license(func):
             f"Upgrade at: https://accountingqb.com/pricing\n\n"
             f"Free tools available: {', '.join(sorted(FREE_TOOLS))}"
         )
+
     return wrapper
+
 
 # ---------------------------------------------------------------------------
 # Usage Tracking
@@ -335,6 +431,7 @@ def require_license(func):
 # reference to tasks created with create_task(), so without this set a
 # fire-and-forget task can be garbage-collected before its POST completes.
 _usage_tasks: set = set()
+
 
 async def _track_usage(tool_name: str, license_key: str, realm_id: str | None) -> None:
     """Report tool usage to AccountingQB API (non-blocking, fire-and-forget).
@@ -361,9 +458,11 @@ async def _track_usage(tool_name: str, license_key: str, realm_id: str | None) -
         # Non-blocking — don't interrupt tool execution for tracking failures
         logger.debug(f"Usage tracking failed for {tool_name}: {e}")
 
+
 def track_usage(func):
     """Decorator that tracks tool usage after successful execution.
     Runs tracking in background task to avoid blocking tool response."""
+
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
         result = await func(*args, **kwargs)
@@ -382,7 +481,9 @@ def track_usage(func):
                 # No running event loop — skip tracking rather than crash.
                 pass
         return result
+
     return wrapper
+
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -462,15 +563,16 @@ def _fetch_hosted_tokens(ctx: Optional["QBContext"] = None) -> bool:
     try:
         with httpx.Client(timeout=15.0) as client:
             resp = client.post(
-                f"{QB_API_URL}/api/oauth/token",
-                json={"licenseKey": license_key}
+                f"{QB_API_URL}/api/oauth/token", json={"licenseKey": license_key}
             )
             if resp.status_code == 200:
                 data = resp.json()
                 companies = data.get("companies", [])
                 if companies:
                     _adopt_hosted_companies(ctx, companies)
-                    logger.info(f"Loaded {len(companies)} company(s) from AccountingQB API (hosted mode)")
+                    logger.info(
+                        f"Loaded {len(companies)} company(s) from AccountingQB API (hosted mode)"
+                    )
                     return True
                 ctx.hosted_loaded = True  # broker reachable; simply no companies
             elif resp.status_code == 404:
@@ -485,6 +587,7 @@ def _fetch_hosted_tokens(ctx: Optional["QBContext"] = None) -> bool:
             return True
     return False
 
+
 def _save_hosted_tokens(companies: list) -> None:
     """Cache hosted tokens locally for offline use."""
     cache_path = _DATA_DIR / "hosted_tokens.json"
@@ -496,6 +599,7 @@ def _save_hosted_tokens(companies: list) -> None:
         os.chmod(str(cache_path), 0o600)
     except Exception as e:
         logger.warning(f"Could not cache hosted tokens: {e}")
+
 
 def _load_hosted_tokens(ctx: Optional["QBContext"] = None) -> bool:
     """Load cached hosted tokens for offline resilience."""
@@ -524,6 +628,7 @@ def _load_hosted_tokens(ctx: Optional["QBContext"] = None) -> bool:
         logger.warning(f"Could not load cached hosted tokens: {e}")
     return False
 
+
 # ---------------------------------------------------------------------------
 # Default context initialization (single-tenant startup)
 # ---------------------------------------------------------------------------
@@ -537,7 +642,15 @@ _default_ctx.refresh_token = QB_REFRESH_TOKEN
 _key_upper = LICENSE_KEY.upper()
 _IS_DEMO_KEY = _key_upper == "DEMO" or _key_upper.startswith("LK-DEMO-")
 
-if LICENSE_KEY and not QB_REFRESH_TOKEN and not _IS_DEMO_KEY:
+# STATIC deployment signal, captured ONCE at import. Hosted-broker mode is a
+# CONFIG property (a license key, no local refresh token), not a session state —
+# so qb_server_info reports it from THIS, never from the mutable
+# ctx.hosted_mode, which _load_hosted_tokens() flips to True when cached tokens
+# load. That mutation is what made the deployment mode "change after a refresh"
+# on the same build (the recurring P3).
+_HOSTED_BROKER_CONFIG = bool(LICENSE_KEY and not QB_REFRESH_TOKEN and not _IS_DEMO_KEY)
+
+if _HOSTED_BROKER_CONFIG:
     # Hosted mode: tokens are brokered by the AccountingQB API (lazily).
     _default_ctx.hosted_mode = True
 else:
@@ -548,7 +661,9 @@ else:
         logger.info("Loaded encrypted refresh token from disk")
     else:
         # Check for legacy plaintext token file and migrate it
-        _legacy_token_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".qb_refresh_token")
+        _legacy_token_file = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), ".qb_refresh_token"
+        )
         if os.path.exists(_legacy_token_file):
             try:
                 with open(_legacy_token_file) as _f:
@@ -571,10 +686,15 @@ QB_ENVIRONMENT = os.environ.get("QB_ENVIRONMENT", "production")
 # Aug 31, 2026. Setting QB_REPORTS_V2_TEST=1 routes report requests
 # through it today (via Intuit's temporary _testing_migration parameter)
 # so parsing drift can be caught before the forced cutover.
-QB_REPORTS_V2_TEST = os.environ.get("QB_REPORTS_V2_TEST", "").lower() in ("1", "true", "yes")
+QB_REPORTS_V2_TEST = os.environ.get("QB_REPORTS_V2_TEST", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
 BASE_URL = (
-    "https://quickbooks.api.intuit.com" if QB_ENVIRONMENT == "production"
+    "https://quickbooks.api.intuit.com"
+    if QB_ENVIRONMENT == "production"
     else "https://sandbox-quickbooks.api.intuit.com"
 )
 AUTH_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
@@ -585,12 +705,14 @@ AUTH_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
 # Demo mode returns mock data for reviewers who don't have QuickBooks access.
 # Activated by license keys starting with "LK-DEMO-" or the exact key "DEMO".
 
+
 def _is_demo_mode() -> bool:
     """Check if we're running in demo mode (for reviewers without QuickBooks)."""
     if not LICENSE_KEY:
         return False
     key_upper = LICENSE_KEY.upper()
     return key_upper == "DEMO" or key_upper.startswith("LK-DEMO-")
+
 
 _DEMO_MODE = _is_demo_mode()
 
@@ -599,11 +721,12 @@ def _demo_active() -> bool:
     """Per-request demo check. Local mode: the QB_LICENSE_KEY env var
     (module-level _DEMO_MODE). Hosted mode: the per-request ctx.license_key
     set by remote.py — a reviewer signing in with an LK-DEMO- license gets
-    mock data through the remote connector too."""
+    demo-mode mock data through the remote connector too."""
     if _DEMO_MODE:
         return True
     key = (getattr(get_ctx(), "license_key", "") or "").upper()
     return key == "DEMO" or key.startswith("LK-DEMO-")
+
 
 # Demo company info
 DEMO_COMPANY = {
@@ -613,134 +736,540 @@ DEMO_COMPANY = {
         "Line1": "123 Main Street",
         "City": "San Francisco",
         "CountrySubDivisionCode": "CA",
-        "PostalCode": "94102"
+        "PostalCode": "94102",
     },
     "Email": {"Address": "hello@acmeconsulting.com"},
     "PrimaryPhone": {"FreeFormNumber": "(415) 555-0123"},
     "FiscalYearStartMonth": "January",
     "Country": "US",
-    "EmployerId": "12-3456789"
+    "EmployerId": "12-3456789",
 }
 
 # Demo vendors
 DEMO_VENDORS = [
-    {"Id": "1", "DisplayName": "Amazon Web Services", "Balance": 2847.50, "Active": True},
+    {
+        "Id": "1",
+        "DisplayName": "Amazon Web Services",
+        "Balance": 2847.50,
+        "Active": True,
+    },
     {"Id": "2", "DisplayName": "Google Workspace", "Balance": 0, "Active": True},
     {"Id": "3", "DisplayName": "WeWork", "Balance": 1500.00, "Active": True},
-    {"Id": "4", "DisplayName": "Zoom Communications", "Balance": 149.90, "Active": True},
+    {
+        "Id": "4",
+        "DisplayName": "Zoom Communications",
+        "Balance": 149.90,
+        "Active": True,
+    },
     {"Id": "5", "DisplayName": "Staples Office Supplies", "Balance": 0, "Active": True},
     {"Id": "6", "DisplayName": "United Airlines", "Balance": 0, "Active": True},
     {"Id": "7", "DisplayName": "Uber for Business", "Balance": 0, "Active": True},
-    {"Id": "8", "DisplayName": "Adobe Creative Cloud", "Balance": 599.88, "Active": True},
+    {
+        "Id": "8",
+        "DisplayName": "Adobe Creative Cloud",
+        "Balance": 599.88,
+        "Active": True,
+    },
 ]
 
 # Demo customers
 DEMO_CUSTOMERS = [
-    {"Id": "1", "DisplayName": "TechStart Inc", "Balance": 15000.00, "Active": True, "PrimaryEmailAddr": {"Address": "ap@techstart.io"}},
-    {"Id": "2", "DisplayName": "Green Valley Farms", "Balance": 7500.00, "Active": True, "PrimaryEmailAddr": {"Address": "billing@greenvalley.com"}},
-    {"Id": "3", "DisplayName": "Metro Legal Services", "Balance": 0, "Active": True, "PrimaryEmailAddr": {"Address": "accounts@metrolegal.com"}},
-    {"Id": "4", "DisplayName": "Sunrise Healthcare", "Balance": 22500.00, "Active": True, "PrimaryEmailAddr": {"Address": "finance@sunrisehc.org"}},
-    {"Id": "5", "DisplayName": "Blue Ocean Media", "Balance": 4200.00, "Active": True, "PrimaryEmailAddr": {"Address": "pay@blueocean.media"}},
+    {
+        "Id": "1",
+        "DisplayName": "TechStart Inc",
+        "Balance": 15000.00,
+        "Active": True,
+        "PrimaryEmailAddr": {"Address": "ap@techstart.io"},
+    },
+    {
+        "Id": "2",
+        "DisplayName": "Green Valley Farms",
+        "Balance": 7500.00,
+        "Active": True,
+        "PrimaryEmailAddr": {"Address": "billing@greenvalley.com"},
+    },
+    {
+        "Id": "3",
+        "DisplayName": "Metro Legal Services",
+        "Balance": 0,
+        "Active": True,
+        "PrimaryEmailAddr": {"Address": "accounts@metrolegal.com"},
+    },
+    {
+        "Id": "4",
+        "DisplayName": "Sunrise Healthcare",
+        "Balance": 22500.00,
+        "Active": True,
+        "PrimaryEmailAddr": {"Address": "finance@sunrisehc.org"},
+    },
+    {
+        "Id": "5",
+        "DisplayName": "Blue Ocean Media",
+        "Balance": 4200.00,
+        "Active": True,
+        "PrimaryEmailAddr": {"Address": "pay@blueocean.media"},
+    },
 ]
 
 # Demo accounts (Chart of Accounts)
 DEMO_ACCOUNTS = [
-    {"Id": "1", "Name": "Checking", "AccountType": "Bank", "AccountSubType": "Checking", "CurrentBalance": 47523.84, "Active": True, "FullyQualifiedName": "Checking"},
-    {"Id": "2", "Name": "Savings", "AccountType": "Bank", "AccountSubType": "Savings", "CurrentBalance": 125000.00, "Active": True, "FullyQualifiedName": "Savings"},
-    {"Id": "3", "Name": "Accounts Receivable", "AccountType": "Accounts Receivable", "AccountSubType": "AccountsReceivable", "CurrentBalance": 49200.00, "Active": True, "FullyQualifiedName": "Accounts Receivable"},
-    {"Id": "4", "Name": "Accounts Payable", "AccountType": "Accounts Payable", "AccountSubType": "AccountsPayable", "CurrentBalance": 5097.28, "Active": True, "FullyQualifiedName": "Accounts Payable"},
-    {"Id": "5", "Name": "Consulting Revenue", "AccountType": "Income", "AccountSubType": "ServiceFeeIncome", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Consulting Revenue"},
-    {"Id": "6", "Name": "Software Revenue", "AccountType": "Income", "AccountSubType": "SalesOfProductIncome", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Software Revenue"},
-    {"Id": "7", "Name": "Office Supplies", "AccountType": "Expense", "AccountSubType": "SuppliesMaterials", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Office Supplies"},
-    {"Id": "8", "Name": "Software & Subscriptions", "AccountType": "Expense", "AccountSubType": "DuesSubscriptions", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Software & Subscriptions"},
-    {"Id": "9", "Name": "Travel", "AccountType": "Expense", "AccountSubType": "Travel", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Travel"},
-    {"Id": "10", "Name": "Rent", "AccountType": "Expense", "AccountSubType": "RentOrLeaseOfBuildings", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Rent"},
-    {"Id": "11", "Name": "Professional Services", "AccountType": "Expense", "AccountSubType": "LegalProfessionalFees", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Professional Services"},
-    {"Id": "12", "Name": "Advertising", "AccountType": "Expense", "AccountSubType": "AdvertisingPromotional", "CurrentBalance": 0, "Active": True, "FullyQualifiedName": "Advertising"},
-    {"Id": "13", "Name": "Owner's Equity", "AccountType": "Equity", "AccountSubType": "OpeningBalanceEquity", "CurrentBalance": 77876.56, "Active": True, "FullyQualifiedName": "Owner's Equity"},
+    {
+        "Id": "1",
+        "Name": "Checking",
+        "AccountType": "Bank",
+        "AccountSubType": "Checking",
+        "CurrentBalance": 47523.84,
+        "Active": True,
+        "FullyQualifiedName": "Checking",
+    },
+    {
+        "Id": "2",
+        "Name": "Savings",
+        "AccountType": "Bank",
+        "AccountSubType": "Savings",
+        "CurrentBalance": 125000.00,
+        "Active": True,
+        "FullyQualifiedName": "Savings",
+    },
+    {
+        "Id": "3",
+        "Name": "Accounts Receivable",
+        "AccountType": "Accounts Receivable",
+        "AccountSubType": "AccountsReceivable",
+        "CurrentBalance": 49200.00,
+        "Active": True,
+        "FullyQualifiedName": "Accounts Receivable",
+    },
+    {
+        "Id": "4",
+        "Name": "Accounts Payable",
+        "AccountType": "Accounts Payable",
+        "AccountSubType": "AccountsPayable",
+        "CurrentBalance": 5097.28,
+        "Active": True,
+        "FullyQualifiedName": "Accounts Payable",
+    },
+    {
+        "Id": "5",
+        "Name": "Consulting Revenue",
+        "AccountType": "Income",
+        "AccountSubType": "ServiceFeeIncome",
+        "CurrentBalance": 0,
+        "Active": True,
+        "FullyQualifiedName": "Consulting Revenue",
+    },
+    {
+        "Id": "6",
+        "Name": "Software Revenue",
+        "AccountType": "Income",
+        "AccountSubType": "SalesOfProductIncome",
+        "CurrentBalance": 0,
+        "Active": True,
+        "FullyQualifiedName": "Software Revenue",
+    },
+    {
+        "Id": "7",
+        "Name": "Office Supplies",
+        "AccountType": "Expense",
+        "AccountSubType": "SuppliesMaterials",
+        "CurrentBalance": 0,
+        "Active": True,
+        "FullyQualifiedName": "Office Supplies",
+    },
+    {
+        "Id": "8",
+        "Name": "Software & Subscriptions",
+        "AccountType": "Expense",
+        "AccountSubType": "DuesSubscriptions",
+        "CurrentBalance": 0,
+        "Active": True,
+        "FullyQualifiedName": "Software & Subscriptions",
+    },
+    {
+        "Id": "9",
+        "Name": "Travel",
+        "AccountType": "Expense",
+        "AccountSubType": "Travel",
+        "CurrentBalance": 0,
+        "Active": True,
+        "FullyQualifiedName": "Travel",
+    },
+    {
+        "Id": "10",
+        "Name": "Rent",
+        "AccountType": "Expense",
+        "AccountSubType": "RentOrLeaseOfBuildings",
+        "CurrentBalance": 0,
+        "Active": True,
+        "FullyQualifiedName": "Rent",
+    },
+    {
+        "Id": "11",
+        "Name": "Professional Services",
+        "AccountType": "Expense",
+        "AccountSubType": "LegalProfessionalFees",
+        "CurrentBalance": 0,
+        "Active": True,
+        "FullyQualifiedName": "Professional Services",
+    },
+    {
+        "Id": "12",
+        "Name": "Advertising",
+        "AccountType": "Expense",
+        "AccountSubType": "AdvertisingPromotional",
+        "CurrentBalance": 0,
+        "Active": True,
+        "FullyQualifiedName": "Advertising",
+    },
+    {
+        "Id": "13",
+        "Name": "Owner's Equity",
+        "AccountType": "Equity",
+        "AccountSubType": "OwnersEquity",
+        "CurrentBalance": 77876.56,
+        "Active": True,
+        "FullyQualifiedName": "Owner's Equity",
+    },
 ]
 
 # Demo transactions (recent expenses)
 DEMO_TRANSACTIONS = [
-    {"Id": "101", "TxnDate": "2026-03-25", "TotalAmt": 149.90, "EntityRef": {"name": "Zoom Communications"}, "AccountRef": {"name": "Software & Subscriptions"}, "PaymentType": "CreditCard", "Line": [{"Description": "Zoom Pro Annual"}]},
-    {"Id": "102", "TxnDate": "2026-03-22", "TotalAmt": 1500.00, "EntityRef": {"name": "WeWork"}, "AccountRef": {"name": "Rent"}, "PaymentType": "Check", "Line": [{"Description": "March coworking space"}]},
-    {"Id": "103", "TxnDate": "2026-03-20", "TotalAmt": 847.50, "EntityRef": {"name": "Amazon Web Services"}, "AccountRef": {"name": "Software & Subscriptions"}, "PaymentType": "CreditCard", "Line": [{"Description": "AWS monthly hosting"}]},
-    {"Id": "104", "TxnDate": "2026-03-18", "TotalAmt": 234.56, "EntityRef": {"name": "Staples Office Supplies"}, "AccountRef": {"name": "Office Supplies"}, "PaymentType": "CreditCard", "Line": [{"Description": "Office supplies"}]},
-    {"Id": "105", "TxnDate": "2026-03-15", "TotalAmt": 425.00, "EntityRef": {"name": "United Airlines"}, "AccountRef": {"name": "Travel"}, "PaymentType": "CreditCard", "Line": [{"Description": "Flight to Chicago client meeting"}]},
-    {"Id": "106", "TxnDate": "2026-03-12", "TotalAmt": 2000.00, "EntityRef": {"name": "Amazon Web Services"}, "AccountRef": {"name": "Software & Subscriptions"}, "PaymentType": "CreditCard", "Line": [{"Description": "AWS reserved instances"}]},
-    {"Id": "107", "TxnDate": "2026-03-10", "TotalAmt": 599.88, "EntityRef": {"name": "Adobe Creative Cloud"}, "AccountRef": {"name": "Software & Subscriptions"}, "PaymentType": "CreditCard", "Line": [{"Description": "Adobe CC annual"}]},
-    {"Id": "109", "TxnDate": "2026-04-15", "TotalAmt": 8500.00, "EntityRef": {"name": "United States Treasury"}, "AccountRef": {"name": "Estimated Tax Payments"}, "PaymentType": "Check", "Line": [{"Description": "Q1 2026 federal estimated tax (Form 1040-ES)"}]},
-    {"Id": "108", "TxnDate": "2026-03-05", "TotalAmt": 87.50, "EntityRef": {"name": "Uber for Business"}, "AccountRef": {"name": "Travel"}, "PaymentType": "CreditCard", "Line": [{"Description": "Client transportation"}]},
+    {
+        "Id": "101",
+        "TxnDate": "2026-03-25",
+        "TotalAmt": 149.90,
+        "EntityRef": {"name": "Zoom Communications"},
+        "AccountRef": {"name": "Software & Subscriptions"},
+        "PaymentType": "CreditCard",
+        "Line": [{"Description": "Zoom Pro Annual"}],
+    },
+    {
+        "Id": "102",
+        "TxnDate": "2026-03-22",
+        "TotalAmt": 1500.00,
+        "EntityRef": {"name": "WeWork"},
+        "AccountRef": {"name": "Rent"},
+        "PaymentType": "Check",
+        "Line": [{"Description": "March coworking space"}],
+    },
+    {
+        "Id": "103",
+        "TxnDate": "2026-03-20",
+        "TotalAmt": 847.50,
+        "EntityRef": {"name": "Amazon Web Services"},
+        "AccountRef": {"name": "Software & Subscriptions"},
+        "PaymentType": "CreditCard",
+        "Line": [{"Description": "AWS monthly hosting"}],
+    },
+    {
+        "Id": "104",
+        "TxnDate": "2026-03-18",
+        "TotalAmt": 234.56,
+        "EntityRef": {"name": "Staples Office Supplies"},
+        "AccountRef": {"name": "Office Supplies"},
+        "PaymentType": "CreditCard",
+        "Line": [{"Description": "Office supplies"}],
+    },
+    {
+        "Id": "105",
+        "TxnDate": "2026-03-15",
+        "TotalAmt": 425.00,
+        "EntityRef": {"name": "United Airlines"},
+        "AccountRef": {"name": "Travel"},
+        "PaymentType": "CreditCard",
+        "Line": [{"Description": "Flight to Chicago client meeting"}],
+    },
+    {
+        "Id": "106",
+        "TxnDate": "2026-03-12",
+        "TotalAmt": 2000.00,
+        "EntityRef": {"name": "Amazon Web Services"},
+        "AccountRef": {"name": "Software & Subscriptions"},
+        "PaymentType": "CreditCard",
+        "Line": [{"Description": "AWS reserved instances"}],
+    },
+    {
+        "Id": "107",
+        "TxnDate": "2026-03-10",
+        "TotalAmt": 599.88,
+        "EntityRef": {"name": "Adobe Creative Cloud"},
+        "AccountRef": {"name": "Software & Subscriptions"},
+        "PaymentType": "CreditCard",
+        "Line": [{"Description": "Adobe CC annual"}],
+    },
+    {
+        "Id": "109",
+        "TxnDate": "2026-04-15",
+        "TotalAmt": 8500.00,
+        "EntityRef": {"name": "United States Treasury"},
+        "AccountRef": {"name": "Estimated Tax Payments"},
+        "PaymentType": "Check",
+        "Line": [{"Description": "Q1 2026 federal estimated tax (Form 1040-ES)"}],
+    },
+    {
+        "Id": "108",
+        "TxnDate": "2026-03-05",
+        "TotalAmt": 87.50,
+        "EntityRef": {"name": "Uber for Business"},
+        "AccountRef": {"name": "Travel"},
+        "PaymentType": "CreditCard",
+        "Line": [{"Description": "Client transportation"}],
+    },
 ]
 
 # Demo invoices
 DEMO_INVOICES = [
-    {"Id": "201", "DocNumber": "1042", "TxnDate": "2026-03-01", "DueDate": "2026-03-31", "CustomerRef": {"name": "TechStart Inc", "value": "1"}, "TotalAmt": 15000.00, "Balance": 15000.00, "Line": [{"Description": "Q1 Consulting Services", "Amount": 15000.00}]},
-    {"Id": "202", "DocNumber": "1043", "TxnDate": "2026-03-05", "DueDate": "2026-04-04", "CustomerRef": {"name": "Sunrise Healthcare", "value": "4"}, "TotalAmt": 22500.00, "Balance": 22500.00, "Line": [{"Description": "Software implementation", "Amount": 22500.00}]},
-    {"Id": "203", "DocNumber": "1044", "TxnDate": "2026-03-10", "DueDate": "2026-04-09", "CustomerRef": {"name": "Green Valley Farms", "value": "2"}, "TotalAmt": 7500.00, "Balance": 7500.00, "Line": [{"Description": "Website redesign", "Amount": 7500.00}]},
-    {"Id": "204", "DocNumber": "1041", "TxnDate": "2026-02-15", "DueDate": "2026-03-15", "CustomerRef": {"name": "Metro Legal Services", "value": "3"}, "TotalAmt": 12000.00, "Balance": 0, "Line": [{"Description": "IT consulting", "Amount": 12000.00}]},
-    {"Id": "205", "DocNumber": "1045", "TxnDate": "2026-03-20", "DueDate": "2026-04-19", "CustomerRef": {"name": "Blue Ocean Media", "value": "5"}, "TotalAmt": 4200.00, "Balance": 4200.00, "Line": [{"Description": "Marketing automation setup", "Amount": 4200.00}]},
+    {
+        "Id": "201",
+        "DocNumber": "1042",
+        "TxnDate": "2026-03-01",
+        "DueDate": "2026-03-31",
+        "CustomerRef": {"name": "TechStart Inc", "value": "1"},
+        "TotalAmt": 15000.00,
+        "Balance": 15000.00,
+        "Line": [{"Description": "Q1 Consulting Services", "Amount": 15000.00}],
+    },
+    {
+        "Id": "202",
+        "DocNumber": "1043",
+        "TxnDate": "2026-03-05",
+        "DueDate": "2026-04-04",
+        "CustomerRef": {"name": "Sunrise Healthcare", "value": "4"},
+        "TotalAmt": 22500.00,
+        "Balance": 22500.00,
+        "Line": [{"Description": "Software implementation", "Amount": 22500.00}],
+    },
+    {
+        "Id": "203",
+        "DocNumber": "1044",
+        "TxnDate": "2026-03-10",
+        "DueDate": "2026-04-09",
+        "CustomerRef": {"name": "Green Valley Farms", "value": "2"},
+        "TotalAmt": 7500.00,
+        "Balance": 7500.00,
+        "Line": [{"Description": "Website redesign", "Amount": 7500.00}],
+    },
+    {
+        "Id": "204",
+        "DocNumber": "1041",
+        "TxnDate": "2026-02-15",
+        "DueDate": "2026-03-15",
+        "CustomerRef": {"name": "Metro Legal Services", "value": "3"},
+        "TotalAmt": 12000.00,
+        "Balance": 0,
+        "Line": [{"Description": "IT consulting", "Amount": 12000.00}],
+    },
+    {
+        "Id": "205",
+        "DocNumber": "1045",
+        "TxnDate": "2026-03-20",
+        "DueDate": "2026-04-19",
+        "CustomerRef": {"name": "Blue Ocean Media", "value": "5"},
+        "TotalAmt": 4200.00,
+        "Balance": 4200.00,
+        "Line": [{"Description": "Marketing automation setup", "Amount": 4200.00}],
+    },
 ]
 
 # Demo P&L data (for reports)
 DEMO_PROFIT_LOSS = {
-    "Header": {"ReportName": "ProfitAndLoss", "StartPeriod": "2026-01-01", "EndPeriod": "2026-03-28", "Currency": "USD"},
+    "Header": {
+        "ReportName": "ProfitAndLoss",
+        "StartPeriod": "2026-01-01",
+        "EndPeriod": "2026-03-28",
+        "Currency": "USD",
+    },
     "Rows": {
         "Row": [
-            {"group": "Income", "Summary": {"ColData": [{"value": "Income"}, {"value": "187500.00"}]}, "Rows": {"Row": [
-                {"ColData": [{"value": "Consulting Revenue"}, {"value": "145000.00"}]},
-                {"ColData": [{"value": "Software Revenue"}, {"value": "42500.00"}]}
-            ]}},
-            {"group": "COGS", "Summary": {"ColData": [{"value": "Cost of Goods Sold"}, {"value": "0.00"}]}},
-            {"group": "GrossProfit", "Summary": {"ColData": [{"value": "Gross Profit"}, {"value": "187500.00"}]}},
-            {"group": "Expenses", "Summary": {"ColData": [{"value": "Expenses"}, {"value": "48750.00"}]}, "Rows": {"Row": [
-                {"ColData": [{"value": "Software & Subscriptions"}, {"value": "12500.00"}]},
-                {"ColData": [{"value": "Rent"}, {"value": "13500.00"}]},
-                {"ColData": [{"value": "Travel"}, {"value": "8750.00"}]},
-                {"ColData": [{"value": "Office Supplies"}, {"value": "2500.00"}]},
-                {"ColData": [{"value": "Professional Services"}, {"value": "7500.00"}]},
-                {"ColData": [{"value": "Advertising"}, {"value": "4000.00"}]}
-            ]}},
-            {"group": "NetIncome", "Summary": {"ColData": [{"value": "Net Income"}, {"value": "138750.00"}]}}
+            {
+                "group": "Income",
+                "Summary": {"ColData": [{"value": "Income"}, {"value": "187500.00"}]},
+                "Rows": {
+                    "Row": [
+                        {
+                            "ColData": [
+                                {"value": "Consulting Revenue"},
+                                {"value": "145000.00"},
+                            ]
+                        },
+                        {
+                            "ColData": [
+                                {"value": "Software Revenue"},
+                                {"value": "42500.00"},
+                            ]
+                        },
+                    ]
+                },
+            },
+            {
+                "group": "COGS",
+                "Summary": {
+                    "ColData": [{"value": "Cost of Goods Sold"}, {"value": "0.00"}]
+                },
+            },
+            {
+                "group": "GrossProfit",
+                "Summary": {
+                    "ColData": [{"value": "Gross Profit"}, {"value": "187500.00"}]
+                },
+            },
+            {
+                "group": "Expenses",
+                "Summary": {"ColData": [{"value": "Expenses"}, {"value": "48750.00"}]},
+                "Rows": {
+                    "Row": [
+                        {
+                            "ColData": [
+                                {"value": "Software & Subscriptions"},
+                                {"value": "12500.00"},
+                            ]
+                        },
+                        {"ColData": [{"value": "Rent"}, {"value": "13500.00"}]},
+                        {"ColData": [{"value": "Travel"}, {"value": "8750.00"}]},
+                        {
+                            "ColData": [
+                                {"value": "Office Supplies"},
+                                {"value": "2500.00"},
+                            ]
+                        },
+                        {
+                            "ColData": [
+                                {"value": "Professional Services"},
+                                {"value": "7500.00"},
+                            ]
+                        },
+                        {"ColData": [{"value": "Advertising"}, {"value": "4000.00"}]},
+                    ]
+                },
+            },
+            {
+                "group": "NetIncome",
+                "Summary": {
+                    "ColData": [{"value": "Net Income"}, {"value": "138750.00"}]
+                },
+            },
         ]
-    }
+    },
 }
 
 # Demo Balance Sheet
 DEMO_BALANCE_SHEET = {
-    "Header": {"ReportName": "BalanceSheet", "StartPeriod": "2026-03-28", "EndPeriod": "2026-03-28", "Currency": "USD"},
+    "Header": {
+        "ReportName": "BalanceSheet",
+        "StartPeriod": "2026-03-28",
+        "EndPeriod": "2026-03-28",
+        "Currency": "USD",
+    },
     "Rows": {
         "Row": [
-            {"group": "Assets", "Summary": {"ColData": [{"value": "ASSETS"}, {"value": "221723.84"}]}, "Rows": {"Row": [
-                {"group": "CurrentAssets", "Summary": {"ColData": [{"value": "Current Assets"}, {"value": "221723.84"}]}, "Rows": {"Row": [
-                    {"ColData": [{"value": "Checking"}, {"value": "47523.84"}]},
-                    {"ColData": [{"value": "Savings"}, {"value": "125000.00"}]},
-                    {"ColData": [{"value": "Accounts Receivable"}, {"value": "49200.00"}]}
-                ]}}
-            ]}},
-            {"group": "Liabilities", "Summary": {"ColData": [{"value": "LIABILITIES"}, {"value": "5097.28"}]}, "Rows": {"Row": [
-                {"ColData": [{"value": "Accounts Payable"}, {"value": "5097.28"}]}
-            ]}},
-            {"group": "Equity", "Summary": {"ColData": [{"value": "EQUITY"}, {"value": "216626.56"}]}, "Rows": {"Row": [
-                {"ColData": [{"value": "Owner's Equity"}, {"value": "77876.56"}]},
-                {"ColData": [{"value": "Net Income"}, {"value": "138750.00"}]}
-            ]}}
+            {
+                "group": "Assets",
+                "Summary": {"ColData": [{"value": "ASSETS"}, {"value": "221723.84"}]},
+                "Rows": {
+                    "Row": [
+                        {
+                            "group": "CurrentAssets",
+                            "Summary": {
+                                "ColData": [
+                                    {"value": "Current Assets"},
+                                    {"value": "221723.84"},
+                                ]
+                            },
+                            "Rows": {
+                                "Row": [
+                                    {
+                                        "ColData": [
+                                            {"value": "Checking"},
+                                            {"value": "47523.84"},
+                                        ]
+                                    },
+                                    {
+                                        "ColData": [
+                                            {"value": "Savings"},
+                                            {"value": "125000.00"},
+                                        ]
+                                    },
+                                    {
+                                        "ColData": [
+                                            {"value": "Accounts Receivable"},
+                                            {"value": "49200.00"},
+                                        ]
+                                    },
+                                ]
+                            },
+                        }
+                    ]
+                },
+            },
+            {
+                "group": "Liabilities",
+                "Summary": {
+                    "ColData": [{"value": "LIABILITIES"}, {"value": "5097.28"}]
+                },
+                "Rows": {
+                    "Row": [
+                        {
+                            "ColData": [
+                                {"value": "Accounts Payable"},
+                                {"value": "5097.28"},
+                            ]
+                        }
+                    ]
+                },
+            },
+            {
+                "group": "Equity",
+                "Summary": {"ColData": [{"value": "EQUITY"}, {"value": "216626.56"}]},
+                "Rows": {
+                    "Row": [
+                        {
+                            "ColData": [
+                                {"value": "Owner's Equity"},
+                                {"value": "77876.56"},
+                            ]
+                        },
+                        {"ColData": [{"value": "Net Income"}, {"value": "138750.00"}]},
+                    ]
+                },
+            },
         ]
-    }
+    },
 }
 
 # Demo bills (A/P side, so aging/vendor tools have data)
 DEMO_BILLS = [
-    {"Id": "301", "TxnDate": "2026-03-01", "DueDate": "2026-03-31",
-     "VendorRef": {"name": "Amazon Web Services", "value": "1"},
-     "TotalAmt": 2847.50, "Balance": 2847.50,
-     "Line": [{"Amount": 2847.50, "DetailType": "AccountBasedExpenseLineDetail",
-               "AccountBasedExpenseLineDetail": {"AccountRef": {"name": "Software & Subscriptions"}}}]},
-    {"Id": "302", "TxnDate": "2026-03-10", "DueDate": "2026-04-09",
-     "VendorRef": {"name": "WeWork", "value": "3"},
-     "TotalAmt": 1500.00, "Balance": 1500.00,
-     "Line": [{"Amount": 1500.00, "DetailType": "AccountBasedExpenseLineDetail",
-               "AccountBasedExpenseLineDetail": {"AccountRef": {"name": "Rent"}}}]},
+    {
+        "Id": "301",
+        "TxnDate": "2026-03-01",
+        "DueDate": "2026-03-31",
+        "VendorRef": {"name": "Amazon Web Services", "value": "1"},
+        "TotalAmt": 2847.50,
+        "Balance": 2847.50,
+        "Line": [
+            {
+                "Amount": 2847.50,
+                "DetailType": "AccountBasedExpenseLineDetail",
+                "AccountBasedExpenseLineDetail": {
+                    "AccountRef": {"name": "Software & Subscriptions"}
+                },
+            }
+        ],
+    },
+    {
+        "Id": "302",
+        "TxnDate": "2026-03-10",
+        "DueDate": "2026-04-09",
+        "VendorRef": {"name": "WeWork", "value": "3"},
+        "TotalAmt": 1500.00,
+        "Balance": 1500.00,
+        "Line": [
+            {
+                "Amount": 1500.00,
+                "DetailType": "AccountBasedExpenseLineDetail",
+                "AccountBasedExpenseLineDetail": {"AccountRef": {"name": "Rent"}},
+            }
+        ],
+    },
 ]
 
 # Entity -> demo rows for the data-layer fallback below
@@ -757,78 +1286,331 @@ _DEMO_QUERY_DATA = {
 # Demo aging reports (QBO AgedReceivables/AgedPayables row shape)
 DEMO_AGED_RECEIVABLES = {
     "Header": {"ReportName": "AgedReceivables"},
-    "Rows": {"Row": [
-        {"Header": {"ColData": [{"value": "Current"}]}, "Rows": {"Row": [
-            {"ColData": [{"value": "Blue Ocean Media (Inv #1045)"}, {"value": "4200.00"}]},
-        ]}, "Summary": {"ColData": [{"value": "Total Current"}, {"value": "4200.00"}]}},
-        {"Header": {"ColData": [{"value": "31 - 60 days overdue"}]}, "Rows": {"Row": [
-            {"ColData": [{"value": "Green Valley Farms (Inv #1044)"}, {"value": "7500.00"}]},
-        ]}, "Summary": {"ColData": [{"value": "Total 31 - 60"}, {"value": "7500.00"}]}},
-        {"Header": {"ColData": [{"value": "61 - 90 days overdue"}]}, "Rows": {"Row": [
-            {"ColData": [{"value": "TechStart Inc (Inv #1042)"}, {"value": "15000.00"}]},
-            {"ColData": [{"value": "Sunrise Healthcare (Inv #1043)"}, {"value": "22500.00"}]},
-        ]}, "Summary": {"ColData": [{"value": "Total 61 - 90"}, {"value": "37500.00"}]}},
-        {"Summary": {"ColData": [{"value": "TOTAL RECEIVABLES"}, {"value": "49200.00"}]}},
-    ]},
+    "Rows": {
+        "Row": [
+            {
+                "Header": {"ColData": [{"value": "Current"}]},
+                "Rows": {
+                    "Row": [
+                        {
+                            "ColData": [
+                                {"value": "Blue Ocean Media (Inv #1045)"},
+                                {"value": "4200.00"},
+                            ]
+                        },
+                    ]
+                },
+                "Summary": {
+                    "ColData": [{"value": "Total Current"}, {"value": "4200.00"}]
+                },
+            },
+            {
+                "Header": {"ColData": [{"value": "31 - 60 days overdue"}]},
+                "Rows": {
+                    "Row": [
+                        {
+                            "ColData": [
+                                {"value": "Green Valley Farms (Inv #1044)"},
+                                {"value": "7500.00"},
+                            ]
+                        },
+                    ]
+                },
+                "Summary": {
+                    "ColData": [{"value": "Total 31 - 60"}, {"value": "7500.00"}]
+                },
+            },
+            {
+                "Header": {"ColData": [{"value": "61 - 90 days overdue"}]},
+                "Rows": {
+                    "Row": [
+                        {
+                            "ColData": [
+                                {"value": "TechStart Inc (Inv #1042)"},
+                                {"value": "15000.00"},
+                            ]
+                        },
+                        {
+                            "ColData": [
+                                {"value": "Sunrise Healthcare (Inv #1043)"},
+                                {"value": "22500.00"},
+                            ]
+                        },
+                    ]
+                },
+                "Summary": {
+                    "ColData": [{"value": "Total 61 - 90"}, {"value": "37500.00"}]
+                },
+            },
+            {
+                "Summary": {
+                    "ColData": [{"value": "TOTAL RECEIVABLES"}, {"value": "49200.00"}]
+                }
+            },
+        ]
+    },
 }
 DEMO_AGED_PAYABLES = {
     "Header": {"ReportName": "AgedPayables"},
-    "Rows": {"Row": [
-        {"Header": {"ColData": [{"value": "Current"}]}, "Rows": {"Row": [
-            {"ColData": [{"value": "Amazon Web Services"}, {"value": "2847.50"}]},
-            {"ColData": [{"value": "Adobe Creative Cloud"}, {"value": "599.88"}]},
-        ]}, "Summary": {"ColData": [{"value": "Total Current"}, {"value": "3447.38"}]}},
-        {"Header": {"ColData": [{"value": "1 - 30 days overdue"}]}, "Rows": {"Row": [
-            {"ColData": [{"value": "WeWork"}, {"value": "1500.00"}]},
-            {"ColData": [{"value": "Zoom Communications"}, {"value": "149.90"}]},
-        ]}, "Summary": {"ColData": [{"value": "Total 1 - 30"}, {"value": "1649.90"}]}},
-        {"Summary": {"ColData": [{"value": "TOTAL PAYABLES"}, {"value": "5097.28"}]}},
-    ]},
+    "Rows": {
+        "Row": [
+            {
+                "Header": {"ColData": [{"value": "Current"}]},
+                "Rows": {
+                    "Row": [
+                        {
+                            "ColData": [
+                                {"value": "Amazon Web Services"},
+                                {"value": "2847.50"},
+                            ]
+                        },
+                        {
+                            "ColData": [
+                                {"value": "Adobe Creative Cloud"},
+                                {"value": "599.88"},
+                            ]
+                        },
+                    ]
+                },
+                "Summary": {
+                    "ColData": [{"value": "Total Current"}, {"value": "3447.38"}]
+                },
+            },
+            {
+                "Header": {"ColData": [{"value": "1 - 30 days overdue"}]},
+                "Rows": {
+                    "Row": [
+                        {"ColData": [{"value": "WeWork"}, {"value": "1500.00"}]},
+                        {
+                            "ColData": [
+                                {"value": "Zoom Communications"},
+                                {"value": "149.90"},
+                            ]
+                        },
+                    ]
+                },
+                "Summary": {
+                    "ColData": [{"value": "Total 1 - 30"}, {"value": "1649.90"}]
+                },
+            },
+            {
+                "Summary": {
+                    "ColData": [{"value": "TOTAL PAYABLES"}, {"value": "5097.28"}]
+                }
+            },
+        ]
+    },
 }
 
 # Demo Trial Balance (balances tie to DEMO_ACCOUNTS / DEMO_PROFIT_LOSS)
 DEMO_TRIAL_BALANCE = {
-    "Header": {"ReportName": "TrialBalance", "StartPeriod": "2026-01-01", "EndPeriod": "2026-06-30"},
-    "Rows": {"Row": [
-        {"ColData": [{"value": "Checking"}, {"value": "47523.84"}, {"value": ""}]},
-        {"ColData": [{"value": "Savings"}, {"value": "125000.00"}, {"value": ""}]},
-        {"ColData": [{"value": "Accounts Receivable"}, {"value": "49200.00"}, {"value": ""}]},
-        {"ColData": [{"value": "Accounts Payable"}, {"value": ""}, {"value": "5097.28"}]},
-        {"ColData": [{"value": "Owner's Equity"}, {"value": ""}, {"value": "77876.56"}]},
-        {"ColData": [{"value": "Consulting Revenue"}, {"value": ""}, {"value": "145000.00"}]},
-        {"ColData": [{"value": "Software Revenue"}, {"value": ""}, {"value": "42500.00"}]},
-        {"ColData": [{"value": "Software & Subscriptions"}, {"value": "12500.00"}, {"value": ""}]},
-        {"ColData": [{"value": "Rent"}, {"value": "13500.00"}, {"value": ""}]},
-        {"ColData": [{"value": "Travel"}, {"value": "8750.00"}, {"value": ""}]},
-        {"ColData": [{"value": "Office Supplies"}, {"value": "2500.00"}, {"value": ""}]},
-        {"ColData": [{"value": "Professional Services"}, {"value": "7500.00"}, {"value": ""}]},
-        {"ColData": [{"value": "Advertising"}, {"value": "4000.00"}, {"value": ""}]},
-        {"Summary": {"ColData": [{"value": "TOTAL"}, {"value": "270473.84"}, {"value": "270473.84"}]}},
-    ]},
+    "Header": {
+        "ReportName": "TrialBalance",
+        "StartPeriod": "2026-01-01",
+        "EndPeriod": "2026-06-30",
+    },
+    "Rows": {
+        "Row": [
+            {"ColData": [{"value": "Checking"}, {"value": "47523.84"}, {"value": ""}]},
+            {"ColData": [{"value": "Savings"}, {"value": "125000.00"}, {"value": ""}]},
+            {
+                "ColData": [
+                    {"value": "Accounts Receivable"},
+                    {"value": "49200.00"},
+                    {"value": ""},
+                ]
+            },
+            {
+                "ColData": [
+                    {"value": "Accounts Payable"},
+                    {"value": ""},
+                    {"value": "5097.28"},
+                ]
+            },
+            {
+                "ColData": [
+                    {"value": "Owner's Equity"},
+                    {"value": ""},
+                    {"value": "77876.56"},
+                ]
+            },
+            {
+                "ColData": [
+                    {"value": "Consulting Revenue"},
+                    {"value": ""},
+                    {"value": "145000.00"},
+                ]
+            },
+            {
+                "ColData": [
+                    {"value": "Software Revenue"},
+                    {"value": ""},
+                    {"value": "42500.00"},
+                ]
+            },
+            {
+                "ColData": [
+                    {"value": "Software & Subscriptions"},
+                    {"value": "12500.00"},
+                    {"value": ""},
+                ]
+            },
+            {"ColData": [{"value": "Rent"}, {"value": "13500.00"}, {"value": ""}]},
+            {"ColData": [{"value": "Travel"}, {"value": "8750.00"}, {"value": ""}]},
+            {
+                "ColData": [
+                    {"value": "Office Supplies"},
+                    {"value": "2500.00"},
+                    {"value": ""},
+                ]
+            },
+            {
+                "ColData": [
+                    {"value": "Professional Services"},
+                    {"value": "7500.00"},
+                    {"value": ""},
+                ]
+            },
+            {
+                "ColData": [
+                    {"value": "Advertising"},
+                    {"value": "4000.00"},
+                    {"value": ""},
+                ]
+            },
+            {
+                "Summary": {
+                    "ColData": [
+                        {"value": "TOTAL"},
+                        {"value": "270473.84"},
+                        {"value": "270473.84"},
+                    ]
+                }
+            },
+        ]
+    },
 }
 
 # Demo General Ledger (entries tie to DEMO_TRANSACTIONS / DEMO_INVOICES)
 DEMO_GENERAL_LEDGER = {
-    "Header": {"ReportName": "GeneralLedger", "StartPeriod": "2026-01-01", "EndPeriod": "2026-06-30"},
-    "Rows": {"Row": [
-        {"Header": {"ColData": [{"value": "Checking"}]}, "Rows": {"Row": [
-            {"ColData": [{"value": "2026-02-15"}, {"value": "Payment — Metro Legal Services #1041"}, {"value": "12000.00"}]},
-            {"ColData": [{"value": "2026-03-22"}, {"value": "Check — WeWork March coworking"}, {"value": "-1500.00"}]},
-        ]}, "Summary": {"ColData": [{"value": "Total Checking"}, {"value": "10500.00"}]}},
-        {"Header": {"ColData": [{"value": "Software & Subscriptions"}]}, "Rows": {"Row": [
-            {"ColData": [{"value": "2026-03-10"}, {"value": "Adobe Creative Cloud annual"}, {"value": "599.88"}]},
-            {"ColData": [{"value": "2026-03-20"}, {"value": "AWS monthly hosting"}, {"value": "847.50"}]},
-            {"ColData": [{"value": "2026-03-25"}, {"value": "Zoom Pro annual"}, {"value": "149.90"}]},
-        ]}, "Summary": {"ColData": [{"value": "Total Software & Subscriptions"}, {"value": "1597.28"}]}},
-        {"Header": {"ColData": [{"value": "Owner's Equity"}]}, "Rows": {"Row": [
-            {"ColData": [{"value": "2026-02-01"}, {"value": "Owner contribution"}, {"value": "10000.00"}]},
-            {"ColData": [{"value": "2026-05-15"}, {"value": "Owner draw"}, {"value": "-6000.00"}]},
-        ]}, "Summary": {"ColData": [{"value": "Total Owner's Equity"}, {"value": "4000.00"}]}},
-        {"Header": {"ColData": [{"value": "Consulting Revenue"}]}, "Rows": {"Row": [
-            {"ColData": [{"value": "2026-03-01"}, {"value": "Invoice #1042 — TechStart Inc"}, {"value": "15000.00"}]},
-            {"ColData": [{"value": "2026-03-05"}, {"value": "Invoice #1043 — Sunrise Healthcare"}, {"value": "22500.00"}]},
-        ]}, "Summary": {"ColData": [{"value": "Total Consulting Revenue"}, {"value": "37500.00"}]}},
-    ]},
+    "Header": {
+        "ReportName": "GeneralLedger",
+        "StartPeriod": "2026-01-01",
+        "EndPeriod": "2026-06-30",
+    },
+    "Rows": {
+        "Row": [
+            {
+                "Header": {"ColData": [{"value": "Checking"}]},
+                "Rows": {
+                    "Row": [
+                        {
+                            "ColData": [
+                                {"value": "2026-02-15"},
+                                {"value": "Payment — Metro Legal Services #1041"},
+                                {"value": "12000.00"},
+                            ]
+                        },
+                        {
+                            "ColData": [
+                                {"value": "2026-03-22"},
+                                {"value": "Check — WeWork March coworking"},
+                                {"value": "-1500.00"},
+                            ]
+                        },
+                    ]
+                },
+                "Summary": {
+                    "ColData": [{"value": "Total Checking"}, {"value": "10500.00"}]
+                },
+            },
+            {
+                "Header": {"ColData": [{"value": "Software & Subscriptions"}]},
+                "Rows": {
+                    "Row": [
+                        {
+                            "ColData": [
+                                {"value": "2026-03-10"},
+                                {"value": "Adobe Creative Cloud annual"},
+                                {"value": "599.88"},
+                            ]
+                        },
+                        {
+                            "ColData": [
+                                {"value": "2026-03-20"},
+                                {"value": "AWS monthly hosting"},
+                                {"value": "847.50"},
+                            ]
+                        },
+                        {
+                            "ColData": [
+                                {"value": "2026-03-25"},
+                                {"value": "Zoom Pro annual"},
+                                {"value": "149.90"},
+                            ]
+                        },
+                    ]
+                },
+                "Summary": {
+                    "ColData": [
+                        {"value": "Total Software & Subscriptions"},
+                        {"value": "1597.28"},
+                    ]
+                },
+            },
+            {
+                "Header": {"ColData": [{"value": "Owner's Equity"}]},
+                "Rows": {
+                    "Row": [
+                        {
+                            "ColData": [
+                                {"value": "2026-02-01"},
+                                {"value": "Owner contribution"},
+                                {"value": "10000.00"},
+                            ]
+                        },
+                        {
+                            "ColData": [
+                                {"value": "2026-05-15"},
+                                {"value": "Owner draw"},
+                                {"value": "-6000.00"},
+                            ]
+                        },
+                    ]
+                },
+                "Summary": {
+                    "ColData": [{"value": "Total Owner's Equity"}, {"value": "4000.00"}]
+                },
+            },
+            {
+                "Header": {"ColData": [{"value": "Consulting Revenue"}]},
+                "Rows": {
+                    "Row": [
+                        {
+                            "ColData": [
+                                {"value": "2026-03-01"},
+                                {"value": "Invoice #1042 — TechStart Inc"},
+                                {"value": "15000.00"},
+                            ]
+                        },
+                        {
+                            "ColData": [
+                                {"value": "2026-03-05"},
+                                {"value": "Invoice #1043 — Sunrise Healthcare"},
+                                {"value": "22500.00"},
+                            ]
+                        },
+                    ]
+                },
+                "Summary": {
+                    "ColData": [
+                        {"value": "Total Consulting Revenue"},
+                        {"value": "37500.00"},
+                    ]
+                },
+            },
+        ]
+    },
 }
 
 _DEMO_REPORTS = {
@@ -841,8 +1623,9 @@ _DEMO_REPORTS = {
 }
 
 
-def _demo_response(method: str, endpoint: str, params: dict = None,
-                   json_body: dict = None) -> dict:
+def _demo_response(
+    method: str, endpoint: str, params: dict = None, json_body: dict = None
+) -> dict:
     """Data-layer demo fallback: serve mock QBO responses so every tool works
     in demo mode, not just the ones with a hand-written demo branch (those
     short-circuit before reaching qb_request). WHERE clauses are ignored —
@@ -853,25 +1636,35 @@ def _demo_response(method: str, endpoint: str, params: dict = None,
     if endpoint == "query":
         m = _re.search(r"FROM (\w+)", (params or {}).get("query", ""))
         entity = m.group(1) if m else ""
-        return {"QueryResponse": {entity: _DEMO_QUERY_DATA[entity]}
-                if entity in _DEMO_QUERY_DATA else {}}
+        return {
+            "QueryResponse": (
+                {entity: _DEMO_QUERY_DATA[entity]} if entity in _DEMO_QUERY_DATA else {}
+            )
+        }
 
     if endpoint == "preferences":
-        return {"Preferences": {
-            "TaxPrefs": {"PartnerTaxEnabled": True},
-            "CurrencyPrefs": {"MultiCurrencyEnabled": False,
-                              "HomeCurrency": {"value": "USD"}},
-        }}
+        return {
+            "Preferences": {
+                "TaxPrefs": {"PartnerTaxEnabled": True},
+                "CurrencyPrefs": {
+                    "MultiCurrencyEnabled": False,
+                    "HomeCurrency": {"value": "USD"},
+                },
+            }
+        }
 
     if endpoint.startswith("reports/"):
         name = endpoint.split("/", 1)[1]
         report = _DEMO_REPORTS.get(name)
         if not report:
-            return {"Header": {"ReportName": name, "Currency": "USD"},
-                    "Rows": {"Row": []}}
+            return {
+                "Header": {"ReportName": name, "Currency": "USD"},
+                "Rows": {"Row": []},
+            }
         # Prior-period requests get deterministically scaled values (x0.85)
         # so comparative tools demo meaningfully instead of showing 0 deltas.
         from datetime import date as _date
+
         req_year = str((params or {}).get("start_date", ""))[:4]
         if req_year.isdigit() and int(req_year) < _date.today().year:
             import copy as _copy
@@ -900,8 +1693,7 @@ def _demo_response(method: str, endpoint: str, params: dict = None,
         return {entity_key: rows[0]}
 
     # Writes: echo the payload back with demo identifiers
-    return {entity_key: {**(json_body or {}), "Id": "9999",
-                         "DocNumber": "DEMO-9999"}}
+    return {entity_key: {**(json_body or {}), "Id": "9999", "DocNumber": "DEMO-9999"}}
 
 
 if _DEMO_MODE:
@@ -915,7 +1707,11 @@ async def get_access_token() -> str:
     ctx = get_ctx()
 
     # Return cached token if still valid
-    if ctx.access_token and ctx.token_expiry and _utcnow() < _as_aware_utc(ctx.token_expiry):
+    if (
+        ctx.access_token
+        and ctx.token_expiry
+        and _utcnow() < _as_aware_utc(ctx.token_expiry)
+    ):
         return ctx.access_token
 
     # Hosted mode: fetch fresh tokens from AccountingQB API (lazily on first
@@ -930,7 +1726,7 @@ async def get_access_token() -> str:
                     json={
                         "licenseKey": ctx.license_key or LICENSE_KEY,
                         "realmId": ctx.realm_id or None,
-                    }
+                    },
                 )
                 if resp.status_code == 200:
                     data = resp.json()
@@ -947,7 +1743,9 @@ async def get_access_token() -> str:
                             if company["realmId"] == ctx.realm_id:
                                 ctx.access_token = company["accessToken"]
                                 ctx.refresh_token = company["refreshToken"]
-                                ctx.token_expiry = _parse_token_expiry(company.get("expiresAt"))
+                                ctx.token_expiry = _parse_token_expiry(
+                                    company.get("expiresAt")
+                                )
                                 return ctx.access_token
                     else:
                         # Broker reachable, license valid, but nothing connected
@@ -980,12 +1778,16 @@ async def get_access_token() -> str:
 
     logger.debug("Refreshing access token directly with Intuit...")
     async with httpx.AsyncClient(timeout=15.0) as client:
-        resp = await client.post(AUTH_URL, data={
-            "grant_type": "refresh_token",
-            "refresh_token": ctx.refresh_token,
-            "client_id": QB_CLIENT_ID,
-            "client_secret": QB_CLIENT_SECRET,
-        }, headers={"Accept": "application/json"})
+        resp = await client.post(
+            AUTH_URL,
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": ctx.refresh_token,
+                "client_id": QB_CLIENT_ID,
+                "client_secret": QB_CLIENT_SECRET,
+            },
+            headers={"Accept": "application/json"},
+        )
         resp.raise_for_status()
         data = resp.json()
 
@@ -1027,7 +1829,9 @@ def _raise_qb_fault(resp: httpx.Response) -> None:
     raise RuntimeError(friendly)
 
 
-async def qb_request(method: str, endpoint: str, params: dict = None, json_body: dict = None) -> dict:
+async def qb_request(
+    method: str, endpoint: str, params: dict = None, json_body: dict = None
+) -> dict:
     if _demo_active():
         return _demo_response(method, endpoint, params, json_body)
     _check_rate_limit()
@@ -1042,13 +1846,17 @@ async def qb_request(method: str, endpoint: str, params: dict = None, json_body:
         "Content-Type": "application/json",
     }
     async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.request(method, url, params=params, json=json_body, headers=headers)
+        resp = await client.request(
+            method, url, params=params, json=json_body, headers=headers
+        )
         if resp.status_code == 401:
             logger.warning("Got 401 — refreshing access token")
             ctx.access_token = None
             token = await get_access_token()
             headers["Authorization"] = f"Bearer {token}"
-            resp = await client.request(method, url, params=params, json=json_body, headers=headers)
+            resp = await client.request(
+                method, url, params=params, json=json_body, headers=headers
+            )
         if resp.status_code == 429:
             logger.warning("QuickBooks API rate limit hit (429)")
             raise RuntimeError(
@@ -1064,8 +1872,9 @@ async def qb_query(query: str) -> dict:
     return await qb_request("GET", "query", params={"query": query})
 
 
-async def qb_query_all(query: str, *, page_size: int = 1000,
-                       max_records: int = 40_000) -> dict:
+async def qb_query_all(
+    query: str, *, page_size: int = 1000, max_records: int = 40_000
+) -> dict:
     """Run a QBO query and page through EVERY matching row.
 
     QuickBooks returns at most 1000 rows per response and paginates with a
@@ -1080,8 +1889,10 @@ async def qb_query_all(query: str, *, page_size: int = 1000,
     lookups, ``ORDERBY ... DESC`` recent-N previews, and user-controlled
     ``max_results`` limits."""
     import re as _re
-    tail = _re.compile(r"\s+(?:STARTPOSITION\s+\d+|MAXRESULTS\s+\d+)\s*$",
-                       _re.IGNORECASE)
+
+    tail = _re.compile(
+        r"\s+(?:STARTPOSITION\s+\d+|MAXRESULTS\s+\d+)\s*$", _re.IGNORECASE
+    )
     base = query.rstrip()
     while True:
         stripped = tail.sub("", base).rstrip()
@@ -1116,11 +1927,13 @@ async def qb_read(entity: str, entity_id: str) -> dict:
 
 def _account_ambiguity_msg(name: str, hits: list) -> str:
     listed = ", ".join(
-        f"{a.get('Name')} (ID:{a.get('Id')}, {a.get('AccountType')})"
-        for a in hits[:10])
+        f"{a.get('Name')} (ID:{a.get('Id')}, {a.get('AccountType')})" for a in hits[:10]
+    )
     more = "" if len(hits) <= 10 else f" (+{len(hits) - 10} more)"
-    return (f"Multiple accounts match '{name}': {listed}{more}. Please be more "
-            "specific — use the exact account name or the account ID.")
+    return (
+        f"Multiple accounts match '{name}': {listed}{more}. Please be more "
+        "specific — use the exact account name or the account ID."
+    )
 
 
 async def _resolve_account(acct_name: str, *, account_type: str = ""):
@@ -1141,7 +1954,9 @@ async def _resolve_account(acct_name: str, *, account_type: str = ""):
     tclause = f" AND AccountType = '{esc(account_type)}'" if account_type else ""
 
     async def _q(where):
-        r = await qb_query(f"SELECT * FROM Account WHERE {where}{tclause} MAXRESULTS 25")
+        r = await qb_query(
+            f"SELECT * FROM Account WHERE {where}{tclause} MAXRESULTS 25"
+        )
         return r.get("QueryResponse", {}).get("Account", [])
 
     # Exact matches are unambiguous intent — take a unique one immediately.
@@ -1156,8 +1971,10 @@ async def _resolve_account(acct_name: str, *, account_type: str = ""):
     leaf = name.rsplit(":", 1)[-1]
     hits = await _q(f"Name LIKE '%{esc(leaf)}%'")
     if not hits:
-        return None, (f"Account '{name}' not found. Use qb_list_accounts to see "
-                      "available accounts, or pass the exact name / account ID.")
+        return None, (
+            f"Account '{name}' not found. Use qb_list_accounts to see "
+            "available accounts, or pass the exact name / account ID."
+        )
     if len(hits) == 1:
         return hits[0], None
     # A single case-insensitive exact leaf match wins over partial matches.
@@ -1212,9 +2029,13 @@ def _parse_report_rows(rows, lines, indent=0):
             cols = summary.get("ColData", [])
             if len(cols) >= 2:
                 try:
-                    lines.append(f"**{cols[0].get('value', '')}: {fmt(float(cols[-1].get('value', '0')))}**")
+                    lines.append(
+                        f"**{cols[0].get('value', '')}: {fmt(float(cols[-1].get('value', '0')))}**"
+                    )
                 except (ValueError, TypeError):
-                    lines.append(f"**{cols[0].get('value', '')}: {cols[-1].get('value', '')}**")
+                    lines.append(
+                        f"**{cols[0].get('value', '')}: {cols[-1].get('value', '')}**"
+                    )
 
 
 def _fmt_report_cells(vals, ncols, bold=False):
@@ -1234,8 +2055,10 @@ def _format_report_table(report, lines, max_rows=400):
     transaction reports (ProfitAndLossDetail, TransactionList, *BalanceDetail)
     whose value is the per-line columns. Group headers and section summaries are
     bolded; leaf rows are capped at max_rows with a truncation note."""
-    cols = [c.get("ColTitle", "") or "—"
-            for c in report.get("Columns", {}).get("Column", [])]
+    cols = [
+        c.get("ColTitle", "") or "—"
+        for c in report.get("Columns", {}).get("Column", [])
+    ]
     n = len(cols)
     if n < 2:  # no column metadata — fall back to the summary parser
         _parse_report_rows(report.get("Rows", {}).get("Row", []), lines)
@@ -1261,12 +2084,16 @@ def _format_report_table(report, lines, max_rows=400):
                 walk(nested)
             summ = sec.get("Summary", {}).get("ColData", [])
             if summ and any(c.get("value", "") for c in summ):
-                lines.append(_fmt_report_cells([c.get("value", "") for c in summ], n, bold=True))
+                lines.append(
+                    _fmt_report_cells([c.get("value", "") for c in summ], n, bold=True)
+                )
 
     walk(report.get("Rows", {}).get("Row", []))
     if state["truncated"]:
-        lines.append(f"\n*Showing the first {max_rows} rows — narrow the date "
-                     "range or add a filter to see the rest.*")
+        lines.append(
+            f"\n*Showing the first {max_rows} rows — narrow the date "
+            "range or add a filter to see the rest.*"
+        )
 
 
 # ===================================================================
@@ -1277,12 +2104,16 @@ def _format_report_table(report, lines, max_rows=400):
 # global-tax companies REQUIRE a TaxCodeRef on every line of sales and
 # purchase documents and accept a GlobalTaxCalculation header.
 
-_US_REGION_INFO = {"region": "US", "home_currency": "USD", "multicurrency": False,
-                   "subdivision": ""}
+_US_REGION_INFO = {
+    "region": "US",
+    "home_currency": "USD",
+    "multicurrency": False,
+    "subdivision": "",
+}
 
 _TAX_CODE_REQUIRED_MSG = (
     "This company requires a sales tax code on every line. "
-    "Run qb_list_tax_codes to see available codes (e.g. \"HST ON\"), "
+    'Run qb_list_tax_codes to see available codes (e.g. "HST ON"), '
     "then pass tax_code=..."
 )
 
@@ -1319,12 +2150,21 @@ async def _get_region() -> dict:
 
     addr = company.get("CompanyAddr") or company.get("LegalAddr") or {}
     subdivision = (
-        (company.get("CountrySubDivisionCode") or addr.get("CountrySubDivisionCode") or "")
-        .strip().upper()
+        (
+            company.get("CountrySubDivisionCode")
+            or addr.get("CountrySubDivisionCode")
+            or ""
+        )
+        .strip()
+        .upper()
     )
 
-    info = {"region": "US", "home_currency": "", "multicurrency": False,
-            "subdivision": subdivision}
+    info = {
+        "region": "US",
+        "home_currency": "",
+        "multicurrency": False,
+        "subdivision": subdivision,
+    }
     partner_tax = None
     try:
         prefs = (await qb_request("GET", "preferences")).get("Preferences", {})
@@ -1359,6 +2199,7 @@ def require_region(region: str, alternative: str):
     every call, and license gating (_apply_license_gating wraps the registered
     tool.fn at import time) still stacks on top.
     """
+
     def decorator(func):
         tool_name = func.__name__
 
@@ -1373,6 +2214,7 @@ def require_region(region: str, alternative: str):
             return await func(*args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
@@ -1409,8 +2251,14 @@ async def _resolve_tax_code(name_or_id: str) -> tuple[str, str]:
     )
 
 
-def _apply_global_tax(body: dict, lines_key: str, detail_key: str,
-                      tax_code_id, tax_inclusive: bool, region: str) -> dict:
+def _apply_global_tax(
+    body: dict,
+    lines_key: str,
+    detail_key: str,
+    tax_code_id,
+    tax_inclusive: bool,
+    region: str,
+) -> dict:
     """Add GlobalTaxCalculation + per-line TaxCodeRef for non-US tax editions.
 
     US companies (Automated Sales Tax) are returned unchanged. Lines that
@@ -1421,7 +2269,9 @@ def _apply_global_tax(body: dict, lines_key: str, detail_key: str,
     body["GlobalTaxCalculation"] = "TaxInclusive" if tax_inclusive else "TaxExcluded"
     if tax_code_id:
         for line in body.get(lines_key, []):
-            if line.get("DetailType") == detail_key and isinstance(line.get(detail_key), dict):
+            if line.get("DetailType") == detail_key and isinstance(
+                line.get(detail_key), dict
+            ):
                 line[detail_key].setdefault("TaxCodeRef", {"value": str(tax_code_id)})
     return body
 
@@ -1478,6 +2328,7 @@ def _txn_currency_tag(txn: dict) -> str:
 # ===================================================================
 # HOSTED MODE — Company Management
 # ===================================================================
+
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_companies() -> str:
@@ -1591,6 +2442,7 @@ async def qb_refresh_connection() -> str:
 # COMPANY INFO
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_company_info() -> str:
     """Get QuickBooks company information including name, address, fiscal year, and subscription status."""
@@ -1607,14 +2459,19 @@ async def qb_company_info() -> str:
     # Canadian companies call their federal tax id a Business Number (BN)
     tax_id_label = (
         "Business Number (BN)"
-        if (info.get("Country") or "").strip().upper() == "CA" else "EIN"
+        if (info.get("Country") or "").strip().upper() == "CA"
+        else "EIN"
     )
-    lines.append(f"- **{tax_id_label}:** {info.get('EmployerId', info.get('EIN', 'N/A'))}")
+    lines.append(
+        f"- **{tax_id_label}:** {info.get('EmployerId', info.get('EIN', 'N/A'))}"
+    )
     lines.append(f"- **Industry:** {info.get('IndustryType', 'Consulting')}")
     lines.append(f"- **Fiscal Year Start:** {info.get('FiscalYearStartMonth', 'N/A')}")
     addr = info.get("CompanyAddr", {})
     if addr:
-        lines.append(f"- **Address:** {addr.get('Line1', '')} {addr.get('City', '')}, {addr.get('CountrySubDivisionCode', '')} {addr.get('PostalCode', '')}")
+        lines.append(
+            f"- **Address:** {addr.get('Line1', '')} {addr.get('City', '')}, {addr.get('CountrySubDivisionCode', '')} {addr.get('PostalCode', '')}"
+        )
     email = info.get("Email", {}).get("Address", "")
     if email:
         lines.append(f"- **Email:** {email}")
@@ -1629,10 +2486,12 @@ def _server_version() -> str:
     the list of files that must be bumped each release)."""
     try:
         from importlib.metadata import version as _v
+
         return _v("accountingqb")
     except Exception:
         try:
             from accountingqb import __version__ as _v
+
             return _v
         except Exception:
             return "unknown"
@@ -1645,20 +2504,32 @@ async def qb_server_info() -> str:
     is remote, so the version actually serving your requests can differ from what
     you expect after an update — call this to confirm which build you're on before
     reporting a bug (e.g. 'am I actually running 3.13.x?')."""
-    lines = ["## AccountingQB MCP — Server Info\n",
-             f"- **Version:** {_server_version()}",
-             f"- **Tools registered:** {len(mcp._tool_manager._tools)}"]
+    lines = [
+        "## AccountingQB MCP — Server Info\n",
+        f"- **Version:** {_server_version()}",
+        f"- **Tools registered:** {len(mcp._tool_manager._tools)}",
+    ]
     try:
         import datetime as _dt
+
         built = _dt.datetime.utcfromtimestamp(os.path.getmtime(__file__))
-        lines.append(f"- **Build timestamp (server module):** {built:%Y-%m-%d %H:%M} UTC")
+        lines.append(
+            f"- **Build timestamp (server module):** {built:%Y-%m-%d %H:%M} UTC"
+        )
     except Exception:
         pass
     # Deployment mode is a STATIC process property — report it unconditionally,
-    # never from the (mutable) QuickBooks session, so it's correct even in the
-    # degraded/expired-token state where someone reaches for this tool.
-    hosted = _HOSTED_CONNECTOR or bool(getattr(_default_ctx, "hosted_mode", False))
-    lines.append(f"- **Deployment:** {'hosted connector (token-brokered)' if hosted else 'self-hosted / local'}")
+    # never from the (mutable) QuickBooks session. MCP_JWT_SECRET is the reliable
+    # signal: the hosted connector ALWAYS has it (it verifies JWTs), a local
+    # .mcpb never does — session/token state can't change it.
+    hosted = (
+        _HOSTED_CONNECTOR
+        or bool(os.environ.get("MCP_JWT_SECRET"))
+        or _HOSTED_BROKER_CONFIG
+    )  # all three are import-time static; never the mutable ctx
+    lines.append(
+        f"- **Deployment:** {'hosted connector (token-brokered)' if hosted else 'self-hosted / local'}"
+    )
 
     if _demo_active():
         lines.append("- **Mode:** demo license (sample data)")
@@ -1670,13 +2541,17 @@ async def qb_server_info() -> str:
         lines.append("- **Region / tax edition:** unknown (not connected)")
     try:
         if _demo_active():
-            lines.append(f"- **QuickBooks:** demo — {DEMO_COMPANY.get('CompanyName', 'Demo Co')}")
+            lines.append(
+                f"- **QuickBooks:** demo — {DEMO_COMPANY.get('CompanyName', 'Demo Co')}"
+            )
         else:
             ci = await qb_query("SELECT * FROM CompanyInfo")
             info = ci.get("QueryResponse", {}).get("CompanyInfo", [{}])[0]
             realm = get_ctx().realm_id or QB_REALM_ID or "?"
-            lines.append(f"- **QuickBooks:** connected — {info.get('CompanyName', '?')} "
-                         f"(realm {realm})")
+            lines.append(
+                f"- **QuickBooks:** connected — {info.get('CompanyName', '?')} "
+                f"(realm {realm})"
+            )
     except Exception:
         lines.append("- **QuickBooks:** not connected (run the setup/OAuth flow)")
     return "\n".join(lines)
@@ -1686,8 +2561,16 @@ async def qb_server_info() -> str:
 # TRANSACTION QUERIES — Purchases / Expenses
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_transactions(start_date: str, end_date: str, vendor_name: str = "", min_amount: float = 0, max_amount: float = 0, max_results: int = 100) -> str:
+async def qb_list_transactions(
+    start_date: str,
+    end_date: str,
+    vendor_name: str = "",
+    min_amount: float = 0,
+    max_amount: float = 0,
+    max_results: int = 100,
+) -> str:
     """List QuickBooks transactions (purchases, expenses) within a date range. Dates in YYYY-MM-DD format. Optionally filter by vendor_name, min_amount, max_amount."""
     # Demo mode: return mock transactions
     if _demo_active():
@@ -1727,7 +2610,11 @@ async def qb_list_transactions(start_date: str, end_date: str, vendor_name: str 
         detail_lines = []
         for line in p.get("Line", []):
             if line.get("DetailType") == "AccountBasedExpenseLineDetail":
-                cat = line.get("AccountBasedExpenseLineDetail", {}).get("AccountRef", {}).get("name", "")
+                cat = (
+                    line.get("AccountBasedExpenseLineDetail", {})
+                    .get("AccountRef", {})
+                    .get("name", "")
+                )
                 detail_lines.append(f"  - {cat}: {fmt(line.get('Amount'))}")
 
         cur = _txn_currency_tag(p) if show_currency else ""
@@ -1747,8 +2634,11 @@ async def qb_list_transactions(start_date: str, end_date: str, vendor_name: str 
 # TRANSACTION QUERIES — Deposits
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_deposits(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+async def qb_list_deposits(
+    start_date: str = "", end_date: str = "", max_results: int = 100
+) -> str:
     """List deposits (income, owner investments, bank deposits) within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Use this to find income or money deposited into business accounts."""
     start_date, end_date = _ytd_range(start_date, end_date)
     query = (
@@ -1778,7 +2668,9 @@ async def qb_list_deposits(start_date: str = "", end_date: str = "", max_results
             line_amt = line.get("Amount", 0)
             desc = line.get("Description", "")
             source = from_name or from_acct or "Unknown source"
-            detail_lines.append(f"  - {source}: {fmt(line_amt)}" + (f" ({desc})" if desc else ""))
+            detail_lines.append(
+                f"  - {source}: {fmt(line_amt)}" + (f" ({desc})" if desc else "")
+            )
 
         lines.append(f"**{date}** | {fmt(amt)} → {acct} | ID: {d.get('Id', '')}")
         if memo:
@@ -1794,8 +2686,11 @@ async def qb_list_deposits(start_date: str = "", end_date: str = "", max_results
 # TRANSACTION QUERIES — Transfers
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_transfers(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+async def qb_list_transfers(
+    start_date: str = "", end_date: str = "", max_results: int = 100
+) -> str:
     """List transfers between accounts within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Use this to see money moved between business bank accounts or credit cards."""
     start_date, end_date = _ytd_range(start_date, end_date)
     query = (
@@ -1818,7 +2713,9 @@ async def qb_list_transfers(start_date: str = "", end_date: str = "", max_result
         memo = t.get("PrivateNote", "")
         total += amt
 
-        lines.append(f"**{date}** | {fmt(amt)} | {from_acct} → {to_acct} | ID: {t.get('Id', '')}")
+        lines.append(
+            f"**{date}** | {fmt(amt)} | {from_acct} → {to_acct} | ID: {t.get('Id', '')}"
+        )
         if memo:
             lines.append(f"  Memo: {memo}")
         lines.append("")
@@ -1831,8 +2728,11 @@ async def qb_list_transfers(start_date: str = "", end_date: str = "", max_result
 # TRANSACTION QUERIES — Journal Entries
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_journal_entries(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+async def qb_list_journal_entries(
+    start_date: str = "", end_date: str = "", max_results: int = 100
+) -> str:
     """List journal entries (adjustments, reclassifications) within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Useful for finding accounting adjustments, corrections, and manual entries."""
     start_date, end_date = _ytd_range(start_date, end_date)
     query = (
@@ -1853,7 +2753,11 @@ async def qb_list_journal_entries(start_date: str = "", end_date: str = "", max_
         doc = je.get("DocNumber", "")
         adj = je.get("Adjustment", False)
 
-        lines.append(f"**{date}** | {fmt(total)} | ID: {je.get('Id', '')}" + (f" | Doc#: {doc}" if doc else "") + (" [ADJUSTMENT]" if adj else ""))
+        lines.append(
+            f"**{date}** | {fmt(total)} | ID: {je.get('Id', '')}"
+            + (f" | Doc#: {doc}" if doc else "")
+            + (" [ADJUSTMENT]" if adj else "")
+        )
         if memo:
             lines.append(f"  Memo: {memo}")
 
@@ -1864,7 +2768,11 @@ async def qb_list_journal_entries(start_date: str = "", end_date: str = "", max_
             amt = line.get("Amount", 0)
             desc = line.get("Description", "")
             entity = detail.get("Entity", {}).get("name", "")
-            lines.append(f"  - {posting} {acct}: {fmt(amt)}" + (f" ({entity})" if entity else "") + (f" — {desc}" if desc else ""))
+            lines.append(
+                f"  - {posting} {acct}: {fmt(amt)}"
+                + (f" ({entity})" if entity else "")
+                + (f" — {desc}" if desc else "")
+            )
         lines.append("")
 
     lines.append(f"**{len(entries)} journal entries found**")
@@ -1875,8 +2783,11 @@ async def qb_list_journal_entries(start_date: str = "", end_date: str = "", max_
 # TRANSACTION QUERIES — Bills (Accounts Payable)
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_bills(start_date: str, end_date: str, vendor_name: str = "", max_results: int = 100) -> str:
+async def qb_list_bills(
+    start_date: str, end_date: str, vendor_name: str = "", max_results: int = 100
+) -> str:
     """List bills (accounts payable) within a date range. Dates in YYYY-MM-DD. Optionally filter by vendor_name. Shows what you owe to vendors."""
     query = f"SELECT * FROM Bill WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
     if vendor_name:
@@ -1905,17 +2816,25 @@ async def qb_list_bills(start_date: str, end_date: str, vendor_name: str = "", m
 
         status = "PAID" if balance == 0 else f"DUE: {fmt(balance)}"
         cur = _txn_currency_tag(b) if show_currency else ""
-        lines.append(f"**{date}** | {vendor} | {fmt(amt)}{cur} | {status} | Due: {due} | ID: {b.get('Id', '')}")
+        lines.append(
+            f"**{date}** | {vendor} | {fmt(amt)}{cur} | {status} | Due: {due} | ID: {b.get('Id', '')}"
+        )
         if memo:
             lines.append(f"  Memo: {memo}")
 
         for line in b.get("Line", []):
             if line.get("DetailType") == "AccountBasedExpenseLineDetail":
-                cat = line.get("AccountBasedExpenseLineDetail", {}).get("AccountRef", {}).get("name", "")
+                cat = (
+                    line.get("AccountBasedExpenseLineDetail", {})
+                    .get("AccountRef", {})
+                    .get("name", "")
+                )
                 lines.append(f"  - {cat}: {fmt(line.get('Amount'))}")
         lines.append("")
 
-    lines.append(f"\n**Total Billed: {fmt(total)} | Outstanding: {fmt(total_balance)} ({len(bills)} bills)**")
+    lines.append(
+        f"\n**Total Billed: {fmt(total)} | Outstanding: {fmt(total_balance)} ({len(bills)} bills)**"
+    )
     return "\n".join(lines)
 
 
@@ -1923,8 +2842,11 @@ async def qb_list_bills(start_date: str, end_date: str, vendor_name: str = "", m
 # TRANSACTION QUERIES — Bill Payments
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_bill_payments(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+async def qb_list_bill_payments(
+    start_date: str = "", end_date: str = "", max_results: int = 100
+) -> str:
     """List bill payments within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Shows payments made against bills (accounts payable)."""
     start_date, end_date = _ytd_range(start_date, end_date)
     query = (
@@ -1948,11 +2870,17 @@ async def qb_list_bill_payments(start_date: str = "", end_date: str = "", max_re
 
         acct_name = ""
         if pay_type == "Check":
-            acct_name = bp.get("CheckPayment", {}).get("BankAccountRef", {}).get("name", "")
+            acct_name = (
+                bp.get("CheckPayment", {}).get("BankAccountRef", {}).get("name", "")
+            )
         elif pay_type == "CreditCard":
-            acct_name = bp.get("CreditCardPayment", {}).get("CCAccountRef", {}).get("name", "")
+            acct_name = (
+                bp.get("CreditCardPayment", {}).get("CCAccountRef", {}).get("name", "")
+            )
 
-        lines.append(f"**{date}** | {vendor} | {fmt(amt)} | {pay_type} via {acct_name} | ID: {bp.get('Id', '')}")
+        lines.append(
+            f"**{date}** | {vendor} | {fmt(amt)} | {pay_type} via {acct_name} | ID: {bp.get('Id', '')}"
+        )
         lines.append("")
 
     lines.append(f"\n**Total Paid: {fmt(total)} ({len(payments)} payments)**")
@@ -1963,8 +2891,11 @@ async def qb_list_bill_payments(start_date: str = "", end_date: str = "", max_re
 # TRANSACTION QUERIES — Sales Receipts
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_sales_receipts(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+async def qb_list_sales_receipts(
+    start_date: str = "", end_date: str = "", max_results: int = 100
+) -> str:
     """List sales receipts (direct sales, not invoiced) within a date range. Dates in YYYY-MM-DD (default: current year-to-date)."""
     start_date, end_date = _ytd_range(start_date, end_date)
     query = (
@@ -1986,7 +2917,10 @@ async def qb_list_sales_receipts(start_date: str = "", end_date: str = "", max_r
         doc = sr.get("DocNumber", "")
         total += amt
 
-        lines.append(f"**{date}** | {customer} | {fmt(amt)} | ID: {sr.get('Id', '')}" + (f" | #{doc}" if doc else ""))
+        lines.append(
+            f"**{date}** | {customer} | {fmt(amt)} | ID: {sr.get('Id', '')}"
+            + (f" | #{doc}" if doc else "")
+        )
         for line in sr.get("Line", []):
             desc = line.get("Description", "")
             line_amt = line.get("Amount", 0)
@@ -2002,8 +2936,11 @@ async def qb_list_sales_receipts(start_date: str = "", end_date: str = "", max_r
 # TRANSACTION QUERIES — Customer Payments
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_payments(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+async def qb_list_payments(
+    start_date: str = "", end_date: str = "", max_results: int = 100
+) -> str:
     """List customer payments received within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Shows payments applied against invoices."""
     start_date, end_date = _ytd_range(start_date, end_date)
     query = (
@@ -2025,7 +2962,9 @@ async def qb_list_payments(start_date: str = "", end_date: str = "", max_results
         deposit_acct = p.get("DepositToAccountRef", {}).get("name", "Undeposited")
         total += amt
 
-        lines.append(f"**{date}** | {customer} | {fmt(amt)} → {deposit_acct} | ID: {p.get('Id', '')}")
+        lines.append(
+            f"**{date}** | {customer} | {fmt(amt)} → {deposit_acct} | ID: {p.get('Id', '')}"
+        )
         lines.append("")
 
     lines.append(f"\n**Total Received: {fmt(total)} ({len(payments)} payments)**")
@@ -2036,8 +2975,15 @@ async def qb_list_payments(start_date: str = "", end_date: str = "", max_results
 # TRANSACTION QUERIES — Invoices
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_invoices(start_date: str, end_date: str, customer_name: str = "", status: str = "", max_results: int = 100) -> str:
+async def qb_list_invoices(
+    start_date: str,
+    end_date: str,
+    customer_name: str = "",
+    status: str = "",
+    max_results: int = 100,
+) -> str:
     """List invoices within a date range. Dates in YYYY-MM-DD. Filter by customer_name and/or status (Paid, Unpaid, Overdue). Shows accounts receivable."""
     # Demo mode: return mock invoices
     if _demo_active():
@@ -2088,10 +3034,14 @@ async def qb_list_invoices(start_date: str, end_date: str, customer_name: str = 
         count += 1
 
         cur = _txn_currency_tag(inv) if show_currency else ""
-        lines.append(f"**{date}** | #{doc} | {customer} | {fmt(amt)}{cur} | {inv_status} | Due: {due} | ID: {inv.get('Id', '')}")
+        lines.append(
+            f"**{date}** | #{doc} | {customer} | {fmt(amt)}{cur} | {inv_status} | Due: {due} | ID: {inv.get('Id', '')}"
+        )
         lines.append("")
 
-    lines.append(f"\n**Total Invoiced: {fmt(total)} | Outstanding: {fmt(total_balance)} ({count} invoices)**")
+    lines.append(
+        f"\n**Total Invoiced: {fmt(total)} | Outstanding: {fmt(total_balance)} ({count} invoices)**"
+    )
     return "\n".join(lines)
 
 
@@ -2099,75 +3049,133 @@ async def qb_list_invoices(start_date: str, end_date: str, customer_name: str = 
 # UNIVERSAL TRANSACTION SEARCH
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_search_transactions(start_date: str, end_date: str, search_term: str = "", max_results: int = 50) -> str:
+async def qb_search_transactions(
+    start_date: str, end_date: str, search_term: str = "", max_results: int = 50
+) -> str:
     """Search across ALL transaction types (purchases, deposits, transfers, journal entries, bills, payments, invoices, sales receipts) in a date range. Optionally filter by search_term (matches vendor, customer, memo, account names). Dates in YYYY-MM-DD."""
     all_txns = []
     term = search_term.lower()
 
     entity_configs = [
-        ("Purchase", "Purchase", lambda p: {
-            "type": "Purchase", "id": p.get("Id"), "date": p.get("TxnDate", ""),
-            "amount": float(p.get("TotalAmt", 0)),
-            "entity": p.get("EntityRef", {}).get("name", ""),
-            "memo": p.get("PrivateNote", ""),
-            "account": p.get("AccountRef", {}).get("name", ""),
-        }),
-        ("Deposit", "Deposit", lambda d: {
-            "type": "Deposit", "id": d.get("Id"), "date": d.get("TxnDate", ""),
-            "amount": float(d.get("TotalAmt", 0)),
-            "entity": ", ".join(
-                line.get("DepositLineDetail", {}).get("Entity", {}).get("name", "")
-                for line in d.get("Line", []) if line.get("DepositLineDetail", {}).get("Entity", {}).get("name")
-            ) or "N/A",
-            "memo": d.get("PrivateNote", ""),
-            "account": d.get("DepositToAccountRef", {}).get("name", ""),
-        }),
-        ("Transfer", "Transfer", lambda t: {
-            "type": "Transfer", "id": t.get("Id"), "date": t.get("TxnDate", ""),
-            "amount": float(t.get("Amount", 0)),
-            "entity": f"{t.get('FromAccountRef', {}).get('name', '')} → {t.get('ToAccountRef', {}).get('name', '')}",
-            "memo": t.get("PrivateNote", ""),
-            "account": "",
-        }),
-        ("JournalEntry", "JournalEntry", lambda j: {
-            "type": "Journal Entry", "id": j.get("Id"), "date": j.get("TxnDate", ""),
-            "amount": float(j.get("TotalAmt", 0)),
-            "entity": ", ".join(
-                line.get("JournalEntryLineDetail", {}).get("AccountRef", {}).get("name", "")
-                for line in j.get("Line", []) if line.get("JournalEntryLineDetail", {}).get("AccountRef", {}).get("name")
-            ),
-            "memo": j.get("PrivateNote", ""),
-            "account": "",
-        }),
-        ("Bill", "Bill", lambda b: {
-            "type": "Bill", "id": b.get("Id"), "date": b.get("TxnDate", ""),
-            "amount": float(b.get("TotalAmt", 0)),
-            "entity": b.get("VendorRef", {}).get("name", ""),
-            "memo": b.get("PrivateNote", ""),
-            "account": "",
-        }),
-        ("Invoice", "Invoice", lambda i: {
-            "type": "Invoice", "id": i.get("Id"), "date": i.get("TxnDate", ""),
-            "amount": float(i.get("TotalAmt", 0)),
-            "entity": i.get("CustomerRef", {}).get("name", ""),
-            "memo": i.get("PrivateNote", ""),
-            "account": "",
-        }),
-        ("Payment", "Payment", lambda p: {
-            "type": "Payment", "id": p.get("Id"), "date": p.get("TxnDate", ""),
-            "amount": float(p.get("TotalAmt", 0)),
-            "entity": p.get("CustomerRef", {}).get("name", ""),
-            "memo": p.get("PrivateNote", ""),
-            "account": p.get("DepositToAccountRef", {}).get("name", ""),
-        }),
-        ("SalesReceipt", "SalesReceipt", lambda s: {
-            "type": "Sales Receipt", "id": s.get("Id"), "date": s.get("TxnDate", ""),
-            "amount": float(s.get("TotalAmt", 0)),
-            "entity": s.get("CustomerRef", {}).get("name", ""),
-            "memo": s.get("PrivateNote", ""),
-            "account": "",
-        }),
+        (
+            "Purchase",
+            "Purchase",
+            lambda p: {
+                "type": "Purchase",
+                "id": p.get("Id"),
+                "date": p.get("TxnDate", ""),
+                "amount": float(p.get("TotalAmt", 0)),
+                "entity": p.get("EntityRef", {}).get("name", ""),
+                "memo": p.get("PrivateNote", ""),
+                "account": p.get("AccountRef", {}).get("name", ""),
+            },
+        ),
+        (
+            "Deposit",
+            "Deposit",
+            lambda d: {
+                "type": "Deposit",
+                "id": d.get("Id"),
+                "date": d.get("TxnDate", ""),
+                "amount": float(d.get("TotalAmt", 0)),
+                "entity": ", ".join(
+                    line.get("DepositLineDetail", {}).get("Entity", {}).get("name", "")
+                    for line in d.get("Line", [])
+                    if line.get("DepositLineDetail", {}).get("Entity", {}).get("name")
+                )
+                or "N/A",
+                "memo": d.get("PrivateNote", ""),
+                "account": d.get("DepositToAccountRef", {}).get("name", ""),
+            },
+        ),
+        (
+            "Transfer",
+            "Transfer",
+            lambda t: {
+                "type": "Transfer",
+                "id": t.get("Id"),
+                "date": t.get("TxnDate", ""),
+                "amount": float(t.get("Amount", 0)),
+                "entity": f"{t.get('FromAccountRef', {}).get('name', '')} → {t.get('ToAccountRef', {}).get('name', '')}",
+                "memo": t.get("PrivateNote", ""),
+                "account": "",
+            },
+        ),
+        (
+            "JournalEntry",
+            "JournalEntry",
+            lambda j: {
+                "type": "Journal Entry",
+                "id": j.get("Id"),
+                "date": j.get("TxnDate", ""),
+                "amount": float(j.get("TotalAmt", 0)),
+                "entity": ", ".join(
+                    line.get("JournalEntryLineDetail", {})
+                    .get("AccountRef", {})
+                    .get("name", "")
+                    for line in j.get("Line", [])
+                    if line.get("JournalEntryLineDetail", {})
+                    .get("AccountRef", {})
+                    .get("name")
+                ),
+                "memo": j.get("PrivateNote", ""),
+                "account": "",
+            },
+        ),
+        (
+            "Bill",
+            "Bill",
+            lambda b: {
+                "type": "Bill",
+                "id": b.get("Id"),
+                "date": b.get("TxnDate", ""),
+                "amount": float(b.get("TotalAmt", 0)),
+                "entity": b.get("VendorRef", {}).get("name", ""),
+                "memo": b.get("PrivateNote", ""),
+                "account": "",
+            },
+        ),
+        (
+            "Invoice",
+            "Invoice",
+            lambda i: {
+                "type": "Invoice",
+                "id": i.get("Id"),
+                "date": i.get("TxnDate", ""),
+                "amount": float(i.get("TotalAmt", 0)),
+                "entity": i.get("CustomerRef", {}).get("name", ""),
+                "memo": i.get("PrivateNote", ""),
+                "account": "",
+            },
+        ),
+        (
+            "Payment",
+            "Payment",
+            lambda p: {
+                "type": "Payment",
+                "id": p.get("Id"),
+                "date": p.get("TxnDate", ""),
+                "amount": float(p.get("TotalAmt", 0)),
+                "entity": p.get("CustomerRef", {}).get("name", ""),
+                "memo": p.get("PrivateNote", ""),
+                "account": p.get("DepositToAccountRef", {}).get("name", ""),
+            },
+        ),
+        (
+            "SalesReceipt",
+            "SalesReceipt",
+            lambda s: {
+                "type": "Sales Receipt",
+                "id": s.get("Id"),
+                "date": s.get("TxnDate", ""),
+                "amount": float(s.get("TotalAmt", 0)),
+                "entity": s.get("CustomerRef", {}).get("name", ""),
+                "memo": s.get("PrivateNote", ""),
+                "account": "",
+            },
+        ),
     ]
 
     for qb_entity, response_key, transform in entity_configs:
@@ -2181,8 +3189,11 @@ async def qb_search_transactions(start_date: str, end_date: str, search_term: st
                 txn = transform(item)
                 # Bank-feed descriptors live on the LINE Description, not
                 # PrivateNote — fold them in so search actually finds them.
-                desc = " ".join(l.get("Description", "") for l in item.get("Line", [])
-                                if l.get("Description"))
+                desc = " ".join(
+                    l.get("Description", "")
+                    for l in item.get("Line", [])
+                    if l.get("Description")
+                )
                 txn["desc"] = desc
                 if not txn.get("memo"):
                     txn["memo"] = desc[:120]
@@ -2206,12 +3217,15 @@ async def qb_search_transactions(start_date: str, end_date: str, search_term: st
 
     total = sum(t["amount"] for t in all_txns)
     for txn in all_txns[:max_results]:
-        lines.append(f"**{txn['date']}** | [{txn['type']}] {txn['entity']} | {fmt(txn['amount'])} | ID: {txn['id']}")
+        lines.append(
+            f"**{txn['date']}** | [{txn['type']}] {txn['entity']} | {fmt(txn['amount'])} | ID: {txn['id']}"
+        )
         if txn.get("memo"):
             lines.append(f"  Memo: {txn['memo']}")
 
-    cap_note = (f" — showing the first {max_results}"
-                if len(all_txns) > max_results else "")
+    cap_note = (
+        f" — showing the first {max_results}" if len(all_txns) > max_results else ""
+    )
     lines.append(f"\n**{len(all_txns)} transactions | Total: {fmt(total)}**{cap_note}")
     return "\n".join(lines)
 
@@ -2219,6 +3233,7 @@ async def qb_search_transactions(start_date: str, end_date: str, search_term: st
 # ===================================================================
 # EXPENSE SUMMARY
 # ===================================================================
+
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_expense_summary(start_date: str = "", end_date: str = "") -> str:
@@ -2239,7 +3254,11 @@ async def qb_expense_summary(start_date: str = "", end_date: str = "") -> str:
         vendor = p.get("EntityRef", {}).get("name", "Unknown")
         for line in p.get("Line", []):
             if line.get("DetailType") == "AccountBasedExpenseLineDetail":
-                acct = line.get("AccountBasedExpenseLineDetail", {}).get("AccountRef", {}).get("name", "Uncategorized")
+                acct = (
+                    line.get("AccountBasedExpenseLineDetail", {})
+                    .get("AccountRef", {})
+                    .get("name", "Uncategorized")
+                )
                 amt = float(line.get("Amount", 0))
                 categories.setdefault(acct, 0.0)
                 categories[acct] += amt
@@ -2264,8 +3283,14 @@ async def qb_expense_summary(start_date: str = "", end_date: str = "") -> str:
 # REPORTS — Profit & Loss
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_profit_loss(start_date: str = "", end_date: str = "", summarize_by: str = "Total", basis: str = "") -> str:
+async def qb_profit_loss(
+    start_date: str = "",
+    end_date: str = "",
+    summarize_by: str = "Total",
+    basis: str = "",
+) -> str:
     """Generate a Profit & Loss (Income Statement) report. Dates in YYYY-MM-DD
     (default: current year-to-date). summarize_by: Total, Month, Quarter, Year.
     basis: '' (QuickBooks default), 'cash', or 'accrual' — CPAs often book on
@@ -2307,7 +3332,9 @@ async def qb_profit_loss(start_date: str = "", end_date: str = "", summarize_by:
 
     header = report.get("Header", {})
     basis_note = f" · {method} basis" if method else ""
-    lines = [f"## Profit & Loss: {header.get('StartPeriod', '')} to {header.get('EndPeriod', '')}{basis_note}\n"]
+    lines = [
+        f"## Profit & Loss: {header.get('StartPeriod', '')} to {header.get('EndPeriod', '')}{basis_note}\n"
+    ]
     rows = report.get("Rows", {}).get("Row", [])
     _parse_report_rows(rows, lines)
     return "\n".join(lines)
@@ -2316,6 +3343,7 @@ async def qb_profit_loss(start_date: str = "", end_date: str = "", summarize_by:
 # ===================================================================
 # REPORTS — Balance Sheet
 # ===================================================================
+
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_balance_sheet(as_of_date: str = "", basis: str = "") -> str:
@@ -2367,17 +3395,24 @@ async def qb_balance_sheet(as_of_date: str = "", basis: str = "") -> str:
 # REPORTS — Cash Flow Statement
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_cash_flow(start_date: str = "", end_date: str = "") -> str:
     """Generate a Statement of Cash Flows report. Dates in YYYY-MM-DD (default: current year-to-date). Shows operating, investing, and financing cash activities."""
     start_date, end_date = _ytd_range(start_date, end_date)
-    report = await qb_request("GET", "reports/CashFlow", params={
-        "start_date": start_date,
-        "end_date": end_date,
-    })
+    report = await qb_request(
+        "GET",
+        "reports/CashFlow",
+        params={
+            "start_date": start_date,
+            "end_date": end_date,
+        },
+    )
 
     header = report.get("Header", {})
-    lines = [f"## Statement of Cash Flows: {header.get('StartPeriod', '')} to {header.get('EndPeriod', '')}\n"]
+    lines = [
+        f"## Statement of Cash Flows: {header.get('StartPeriod', '')} to {header.get('EndPeriod', '')}\n"
+    ]
     rows = report.get("Rows", {}).get("Row", [])
     _parse_report_rows(rows, lines)
     return "\n".join(lines)
@@ -2387,15 +3422,20 @@ async def qb_cash_flow(start_date: str = "", end_date: str = "") -> str:
 # REPORTS — General Ledger
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_general_ledger(start_date: str, end_date: str, account_name: str = "") -> str:
+async def qb_general_ledger(
+    start_date: str, end_date: str, account_name: str = ""
+) -> str:
     """Generate a General Ledger report showing all transactions by account. Dates in YYYY-MM-DD. Optionally filter by account_name."""
     params = {
         "start_date": start_date,
         "end_date": end_date,
     }
     if account_name:
-        accounts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 1")
+        accounts = await qb_query(
+            f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 1"
+        )
         acct_list = accounts.get("QueryResponse", {}).get("Account", [])
         if acct_list:
             params["account"] = acct_list[0]["Id"]
@@ -2403,7 +3443,9 @@ async def qb_general_ledger(start_date: str, end_date: str, account_name: str = 
     report = await qb_request("GET", "reports/GeneralLedger", params=params)
 
     header = report.get("Header", {})
-    lines = [f"## General Ledger: {header.get('StartPeriod', '')} to {header.get('EndPeriod', '')}\n"]
+    lines = [
+        f"## General Ledger: {header.get('StartPeriod', '')} to {header.get('EndPeriod', '')}\n"
+    ]
     if account_name:
         lines.append(f"Filtered: {account_name}\n")
 
@@ -2416,6 +3458,7 @@ async def qb_general_ledger(start_date: str, end_date: str, account_name: str = 
 # REPORTS — Trial Balance
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_trial_balance(as_of_date: str = "") -> str:
     """Generate a Trial Balance — every account's debit OR credit balance in two
@@ -2427,13 +3470,20 @@ async def qb_trial_balance(as_of_date: str = "") -> str:
     # fiscal-YTD activity (Jan 1 → as_of), balance-sheet accounts their balance
     # as of that date — so we anchor the start at Jan 1 of the as-of year.
     start = f"{as_of[:4]}-01-01"
-    report = await qb_request("GET", "reports/TrialBalance", params={
-        "start_date": start, "end_date": as_of,
-    })
+    report = await qb_request(
+        "GET",
+        "reports/TrialBalance",
+        params={
+            "start_date": start,
+            "end_date": as_of,
+        },
+    )
 
     # Locate the Debit / Credit columns by title (don't assume positions).
-    titles = [(c.get("ColTitle", "") or "").strip().lower()
-              for c in report.get("Columns", {}).get("Column", [])]
+    titles = [
+        (c.get("ColTitle", "") or "").strip().lower()
+        for c in report.get("Columns", {}).get("Column", [])
+    ]
     debit_idx = titles.index("debit") if "debit" in titles else 1
     credit_idx = titles.index("credit") if "credit" in titles else 2
 
@@ -2443,7 +3493,7 @@ async def qb_trial_balance(as_of_date: str = "") -> str:
         except (ValueError, TypeError):
             return 0.0
 
-    entries: list = []          # (account, debit, credit)
+    entries: list = []  # (account, debit, credit)
     total_debit = total_credit = 0.0
 
     def walk(rows):
@@ -2499,46 +3549,63 @@ async def qb_trial_balance(as_of_date: str = "") -> str:
 # REPORTS — Tier-1 native reports (sales / detail / open items)
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_sales_by_customer(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+async def qb_sales_by_customer(
+    start_date: str = "", end_date: str = "", basis: str = ""
+) -> str:
     """Total sales (income) by customer for a date range — who your biggest
     customers are. Dates YYYY-MM-DD (default: current year-to-date). basis: ''
     (QuickBooks default), 'cash', or 'accrual'."""
     start_date, end_date = _ytd_range(start_date, end_date)
-    params = {"start_date": start_date, "end_date": end_date,
-              "summarize_column_by": "Total"}
+    params = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "summarize_column_by": "Total",
+    }
     method = _accounting_method(basis)
     if method:
         params["accounting_method"] = method
     report = await qb_request("GET", "reports/SalesByCustomer", params=params)
     h = report.get("Header", {})
     basis_note = f" · {method} basis" if method else ""
-    lines = [f"## Sales by Customer: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"]
+    lines = [
+        f"## Sales by Customer: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"
+    ]
     _parse_report_rows(report.get("Rows", {}).get("Row", []), lines)
     return "\n".join(lines)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_sales_by_product(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+async def qb_sales_by_product(
+    start_date: str = "", end_date: str = "", basis: str = ""
+) -> str:
     """Sales by product/service (item) for a date range — what's actually
     selling, with quantity and amount. Dates YYYY-MM-DD (default: current
     year-to-date). basis: '' (QuickBooks default), 'cash', or 'accrual'."""
     start_date, end_date = _ytd_range(start_date, end_date)
-    params = {"start_date": start_date, "end_date": end_date,
-              "summarize_column_by": "Total"}
+    params = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "summarize_column_by": "Total",
+    }
     method = _accounting_method(basis)
     if method:
         params["accounting_method"] = method
     report = await qb_request("GET", "reports/SalesByProduct", params=params)
     h = report.get("Header", {})
     basis_note = f" · {method} basis" if method else ""
-    lines = [f"## Sales by Product/Service: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"]
+    lines = [
+        f"## Sales by Product/Service: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"
+    ]
     _format_report_table(report, lines)
     return "\n".join(lines)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_profit_loss_detail(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+async def qb_profit_loss_detail(
+    start_date: str = "", end_date: str = "", basis: str = ""
+) -> str:
     """Profit & Loss DETAIL — every transaction behind each P&L line, grouped by
     account. Use this to drill into a number from qb_profit_loss. Dates YYYY-MM-DD
     (default: current year-to-date). basis: '' (QuickBooks default), 'cash',
@@ -2551,7 +3618,9 @@ async def qb_profit_loss_detail(start_date: str = "", end_date: str = "", basis:
     report = await qb_request("GET", "reports/ProfitAndLossDetail", params=params)
     h = report.get("Header", {})
     basis_note = f" · {method} basis" if method else ""
-    lines = [f"## Profit & Loss Detail: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"]
+    lines = [
+        f"## Profit & Loss Detail: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"
+    ]
     _format_report_table(report, lines)
     return "\n".join(lines)
 
@@ -2562,10 +3631,15 @@ async def qb_transaction_list(start_date: str = "", end_date: str = "") -> str:
     account, amount) in a date range, the workhorse for 'show me everything that
     hit the books.' Dates YYYY-MM-DD (default: current year-to-date)."""
     start_date, end_date = _ytd_range(start_date, end_date)
-    report = await qb_request("GET", "reports/TransactionList", params={
-        "start_date": start_date, "end_date": end_date})
+    report = await qb_request(
+        "GET",
+        "reports/TransactionList",
+        params={"start_date": start_date, "end_date": end_date},
+    )
     h = report.get("Header", {})
-    lines = [f"## Transaction List: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}\n"]
+    lines = [
+        f"## Transaction List: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}\n"
+    ]
     _format_report_table(report, lines)
     return "\n".join(lines)
 
@@ -2576,8 +3650,9 @@ async def qb_customer_balance_detail(as_of_date: str = "") -> str:
     amount, open balance) — the drill-down behind qb_ar_aging. as_of_date:
     YYYY-MM-DD (defaults to today)."""
     as_of_date = _as_of_or_today(as_of_date)
-    report = await qb_request("GET", "reports/CustomerBalanceDetail",
-                              params={"report_date": as_of_date})
+    report = await qb_request(
+        "GET", "reports/CustomerBalanceDetail", params={"report_date": as_of_date}
+    )
     lines = [f"## Customer Balance Detail — as of {as_of_date}\n"]
     _format_report_table(report, lines)
     return "\n".join(lines)
@@ -2589,8 +3664,9 @@ async def qb_vendor_balance_detail(as_of_date: str = "") -> str:
     open balance) — the drill-down behind qb_ap_aging. as_of_date: YYYY-MM-DD
     (defaults to today)."""
     as_of_date = _as_of_or_today(as_of_date)
-    report = await qb_request("GET", "reports/VendorBalanceDetail",
-                              params={"report_date": as_of_date})
+    report = await qb_request(
+        "GET", "reports/VendorBalanceDetail", params={"report_date": as_of_date}
+    )
     lines = [f"## Vendor Balance Detail — as of {as_of_date}\n"]
     _format_report_table(report, lines)
     return "\n".join(lines)
@@ -2600,6 +3676,7 @@ async def qb_vendor_balance_detail(as_of_date: str = "") -> str:
 # REPORTS — Tier-2 (class / department dimensions + inventory)
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_classes() -> str:
     """List QuickBooks classes (the segment tags used for class tracking, e.g.
@@ -2607,11 +3684,15 @@ async def qb_list_classes() -> str:
     res = await qb_query_all("SELECT * FROM Class MAXRESULTS 1000")
     classes = res.get("QueryResponse", {}).get("Class", [])
     if not classes:
-        return ("No classes found. Turn on class tracking in QuickBooks "
-                "(Account and Settings → Advanced → Categories) to use "
-                "class-based reports like qb_sales_by_class.")
+        return (
+            "No classes found. Turn on class tracking in QuickBooks "
+            "(Account and Settings → Advanced → Categories) to use "
+            "class-based reports like qb_sales_by_class."
+        )
     lines = [f"## Classes ({len(classes)})\n", "| Class | Status |", "|---|---|"]
-    for c in sorted(classes, key=lambda x: x.get("FullyQualifiedName") or x.get("Name", "")):
+    for c in sorted(
+        classes, key=lambda x: x.get("FullyQualifiedName") or x.get("Name", "")
+    ):
         name = c.get("FullyQualifiedName") or c.get("Name", "?")
         lines.append(f"| {name} | {'Active' if c.get('Active') else 'Inactive'} |")
     return "\n".join(lines)
@@ -2624,18 +3705,28 @@ async def qb_list_departments() -> str:
     res = await qb_query_all("SELECT * FROM Department MAXRESULTS 1000")
     depts = res.get("QueryResponse", {}).get("Department", [])
     if not depts:
-        return ("No departments/locations found. Turn on location tracking in "
-                "QuickBooks (Account and Settings → Advanced → Categories) to use "
-                "location-based reports like qb_sales_by_department.")
-    lines = [f"## Departments / Locations ({len(depts)})\n", "| Department | Status |", "|---|---|"]
-    for d in sorted(depts, key=lambda x: x.get("FullyQualifiedName") or x.get("Name", "")):
+        return (
+            "No departments/locations found. Turn on location tracking in "
+            "QuickBooks (Account and Settings → Advanced → Categories) to use "
+            "location-based reports like qb_sales_by_department."
+        )
+    lines = [
+        f"## Departments / Locations ({len(depts)})\n",
+        "| Department | Status |",
+        "|---|---|",
+    ]
+    for d in sorted(
+        depts, key=lambda x: x.get("FullyQualifiedName") or x.get("Name", "")
+    ):
         name = d.get("FullyQualifiedName") or d.get("Name", "?")
         lines.append(f"| {name} | {'Active' if d.get('Active') else 'Inactive'} |")
     return "\n".join(lines)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_sales_by_class(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+async def qb_sales_by_class(
+    start_date: str = "", end_date: str = "", basis: str = ""
+) -> str:
     """Sales broken out by class for a date range — segment/program performance.
     Dates YYYY-MM-DD (default: current year-to-date). basis: '' (QuickBooks
     default), 'cash', or 'accrual'. Requires class tracking (see qb_list_classes)."""
@@ -2647,16 +3738,22 @@ async def qb_sales_by_class(start_date: str = "", end_date: str = "", basis: str
     report = await qb_request("GET", "reports/SalesByClassSummary", params=params)
     rows = report.get("Rows", {}).get("Row", [])
     if not rows:
-        return ("No class-based sales found for this period. This report needs "
-                "QuickBooks class tracking enabled and classes on your sales.")
+        return (
+            "No class-based sales found for this period. This report needs "
+            "QuickBooks class tracking enabled and classes on your sales."
+        )
     h = report.get("Header", {})
-    lines = [f"## Sales by Class: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}\n"]
+    lines = [
+        f"## Sales by Class: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}\n"
+    ]
     _format_report_table(report, lines)
     return "\n".join(lines)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_sales_by_department(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+async def qb_sales_by_department(
+    start_date: str = "", end_date: str = "", basis: str = ""
+) -> str:
     """Sales broken out by department/location for a date range. Dates YYYY-MM-DD
     (default: current year-to-date). basis: '' (QuickBooks default), 'cash', or
     'accrual'. Requires location tracking (see qb_list_departments)."""
@@ -2668,10 +3765,14 @@ async def qb_sales_by_department(start_date: str = "", end_date: str = "", basis
     report = await qb_request("GET", "reports/SalesByDepartment", params=params)
     rows = report.get("Rows", {}).get("Row", [])
     if not rows:
-        return ("No location-based sales found for this period. This report needs "
-                "QuickBooks location tracking enabled and locations on your sales.")
+        return (
+            "No location-based sales found for this period. This report needs "
+            "QuickBooks location tracking enabled and locations on your sales."
+        )
     h = report.get("Header", {})
-    lines = [f"## Sales by Department/Location: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}\n"]
+    lines = [
+        f"## Sales by Department/Location: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}\n"
+    ]
     _format_report_table(report, lines)
     return "\n".join(lines)
 
@@ -2682,45 +3783,60 @@ async def qb_inventory_valuation(as_of_date: str = "") -> str:
     average cost per inventory item, with the total asset value. as_of_date:
     YYYY-MM-DD (defaults to today). Empty if the company doesn't track inventory."""
     as_of_date = _as_of_or_today(as_of_date)
-    report = await qb_request("GET", "reports/InventoryValuationSummary",
-                              params={"start_date": as_of_date, "end_date": as_of_date})
+    report = await qb_request(
+        "GET",
+        "reports/InventoryValuationSummary",
+        params={"start_date": as_of_date, "end_date": as_of_date},
+    )
     rows = report.get("Rows", {}).get("Row", [])
     if not rows:
-        return ("No inventory found. This report needs inventory-tracked items "
-                "in QuickBooks (items with 'I track quantity on hand' enabled).")
+        return (
+            "No inventory found. This report needs inventory-tracked items "
+            "in QuickBooks (items with 'I track quantity on hand' enabled)."
+        )
     lines = [f"## Inventory Valuation — as of {as_of_date}\n"]
     _format_report_table(report, lines)
     return "\n".join(lines)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_vendor_expenses(start_date: str = "", end_date: str = "", basis: str = "") -> str:
+async def qb_vendor_expenses(
+    start_date: str = "", end_date: str = "", basis: str = ""
+) -> str:
     """Total spend by vendor for a date range (QuickBooks VendorExpenses report).
     Dates YYYY-MM-DD (default: current year-to-date). basis: '' (QuickBooks
     default), 'cash', or 'accrual'."""
     start_date, end_date = _ytd_range(start_date, end_date)
-    params = {"start_date": start_date, "end_date": end_date,
-              "summarize_column_by": "Total"}
+    params = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "summarize_column_by": "Total",
+    }
     method = _accounting_method(basis)
     if method:
         params["accounting_method"] = method
     report = await qb_request("GET", "reports/VendorExpenses", params=params)
     h = report.get("Header", {})
     basis_note = f" · {method} basis" if method else ""
-    lines = [f"## Vendor Expenses: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"]
+    lines = [
+        f"## Vendor Expenses: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}{basis_note}\n"
+    ]
     _parse_report_rows(report.get("Rows", {}).get("Row", []), lines)
     return "\n".join(lines)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_purchase_orders(start_date: str = "", end_date: str = "", status: str = "") -> str:
+async def qb_list_purchase_orders(
+    start_date: str = "", end_date: str = "", status: str = ""
+) -> str:
     """List purchase orders in a date range — date, PO number, vendor, amount, and
     status (Open/Closed). Dates YYYY-MM-DD (default: current year-to-date).
     status: 'Open', 'Closed', or '' for all."""
     start_date, end_date = _ytd_range(start_date, end_date)
     res = await qb_query_all(
         f"SELECT * FROM PurchaseOrder WHERE TxnDate >= '{start_date}' "
-        f"AND TxnDate <= '{end_date}'")
+        f"AND TxnDate <= '{end_date}'"
+    )
     pos = res.get("QueryResponse", {}).get("PurchaseOrder", [])
     if status:
         pos = [p for p in pos if (p.get("POStatus", "").lower() == status.lower())]
@@ -2729,13 +3845,17 @@ async def qb_list_purchase_orders(start_date: str = "", end_date: str = "", stat
         return f"No purchase orders found between {start_date} and {end_date}{suffix}."
     pos.sort(key=lambda p: p.get("TxnDate", ""), reverse=True)
     total = sum(float(p.get("TotalAmt", 0) or 0) for p in pos)
-    lines = [f"## Purchase Orders: {start_date} to {end_date} ({len(pos)})\n",
-             "| Date | PO # | Vendor | Amount | Status |", "|---|---|---|---|---|"]
+    lines = [
+        f"## Purchase Orders: {start_date} to {end_date} ({len(pos)})\n",
+        "| Date | PO # | Vendor | Amount | Status |",
+        "|---|---|---|---|---|",
+    ]
     for p in pos:
         lines.append(
             f"| {p.get('TxnDate', '?')} | {p.get('DocNumber', '—')} | "
             f"{(p.get('VendorRef') or {}).get('name', '—')} | {fmt(p.get('TotalAmt'))} | "
-            f"{p.get('POStatus', '—')} |")
+            f"{p.get('POStatus', '—')} |"
+        )
     lines.append(f"\n**Total: {fmt(total)}**")
     return "\n".join(lines)
 
@@ -2748,19 +3868,37 @@ async def qb_list_purchase_orders(start_date: str = "", end_date: str = "", stat
 # Billing, Radar, ...) rather than per-charge processing fees — the ones most
 # people miss, which is why their clearing account never ties.
 _STRIPE_PLATFORM_FEE_HINTS = (
-    "sigma", "billing", "radar", "connect", "terminal", "invoic", "atlas",
-    "capital", "subscription", "financial report", "app")
+    "sigma",
+    "billing",
+    "radar",
+    "connect",
+    "terminal",
+    "invoic",
+    "atlas",
+    "capital",
+    "subscription",
+    "financial report",
+    "app",
+)
 
 
 def _classify_stripe(txns, scale):
     """Split a list of Stripe balance_transaction objects into GL buckets.
     Returns a dict of dollar totals + the list of unmapped rows (which must
     block the tie-out rather than be swept into revenue)."""
+
     def money(v):
         return round(float(v or 0) / scale, 2)
 
-    b = {"gross": 0.0, "refunds": 0.0, "processing": 0.0, "platform": 0.0,
-         "payouts": 0.0, "net_change": 0.0, "count": 0}
+    b = {
+        "gross": 0.0,
+        "refunds": 0.0,
+        "processing": 0.0,
+        "platform": 0.0,
+        "payouts": 0.0,
+        "net_change": 0.0,
+        "count": 0,
+    }
     unmapped = []
     for t in txns:
         typ = (t.get("type") or "").lower()
@@ -2776,11 +3914,11 @@ def _classify_stripe(txns, scale):
             b["processing"] += fee
         elif typ in ("refund", "payment_refund", "payment_failure_refund"):
             b["refunds"] += abs(amt)
-            b["processing"] += fee            # usually 0; fee refunded if any
+            b["processing"] += fee  # usually 0; fee refunded if any
         elif typ in ("stripe_fee", "billing", "tax_fee", "application_fee"):
-            b["platform"] += abs(net)         # net = fee incl. its own sales tax
+            b["platform"] += abs(net)  # net = fee incl. its own sales tax
         elif typ == "payout":
-            b["payouts"] += abs(amt)          # any payout fee flows via net_change
+            b["payouts"] += abs(amt)  # any payout fee flows via net_change
         elif typ == "adjustment":
             desc = (t.get("description") or "").lower()
             if any(h in desc for h in _STRIPE_PLATFORM_FEE_HINTS):
@@ -2793,8 +3931,9 @@ def _classify_stripe(txns, scale):
     # Net retained in the processor from activity (excludes payouts to bank).
     # By construction this equals net_change + payouts, so the Activity and
     # Tie-out sections can never disagree (they share one net computation).
-    b["activity_net"] = round(b["gross"] - b["refunds"] - b["processing"]
-                              - b["platform"], 2)
+    b["activity_net"] = round(
+        b["gross"] - b["refunds"] - b["processing"] - b["platform"], 2
+    )
     return b, unmapped
 
 
@@ -2803,11 +3942,16 @@ _STRIPE_API = "https://api.stripe.com/v1"
 
 async def _stripe_get(path: str, api_key: str, params: dict = None) -> dict:
     async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.get(f"{_STRIPE_API}/{path}", params=params or {},
-                                headers={"Authorization": f"Bearer {api_key}"})
+        resp = await client.get(
+            f"{_STRIPE_API}/{path}",
+            params=params or {},
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
     if resp.status_code == 401:
-        raise RuntimeError("Stripe rejected the API key (401) — use a valid "
-                           "read-only restricted key.")
+        raise RuntimeError(
+            "Stripe rejected the API key (401) — use a valid "
+            "read-only restricted key."
+        )
     if resp.status_code >= 400:
         try:
             msg = resp.json().get("error", {}).get("message", resp.text[:200])
@@ -2825,8 +3969,11 @@ async def _fetch_stripe_activity(period: str, api_key: str):
         start = datetime(y, m, 1, tzinfo=timezone.utc)
     except (ValueError, TypeError):
         raise RuntimeError(f"period must be 'YYYY-MM' (got '{period}').")
-    end = (datetime(y + 1, 1, 1, tzinfo=timezone.utc) if m == 12
-           else datetime(y, m + 1, 1, tzinfo=timezone.utc))
+    end = (
+        datetime(y + 1, 1, 1, tzinfo=timezone.utc)
+        if m == 12
+        else datetime(y, m + 1, 1, tzinfo=timezone.utc)
+    )
     gte, lt = int(start.timestamp()), int(end.timestamp())
 
     txns, starting_after = [], None
@@ -2842,8 +3989,9 @@ async def _fetch_stripe_activity(period: str, api_key: str):
         starting_after = data[-1].get("id")
 
     bal = await _stripe_get("balance", api_key)
-    cents = (sum(x.get("amount", 0) for x in bal.get("available", []))
-             + sum(x.get("amount", 0) for x in bal.get("pending", [])))
+    cents = sum(x.get("amount", 0) for x in bal.get("available", [])) + sum(
+        x.get("amount", 0) for x in bal.get("pending", [])
+    )
     return txns, round(cents / 100.0, 2)
 
 
@@ -2858,12 +4006,17 @@ async def _clearing_balance_as_of(account_name: str, as_of: str) -> float:
     the period, not the live CurrentBalance (which already reflects later
     activity). Returns 0.0 if the account has no balance / doesn't exist yet."""
     try:
-        report = await qb_request("GET", "reports/TrialBalance", params={
-            "start_date": "2000-01-01", "end_date": as_of})
+        report = await qb_request(
+            "GET",
+            "reports/TrialBalance",
+            params={"start_date": "2000-01-01", "end_date": as_of},
+        )
     except Exception:
         return 0.0
-    titles = [(c.get("ColTitle", "") or "").strip().lower()
-              for c in report.get("Columns", {}).get("Column", [])]
+    titles = [
+        (c.get("ColTitle", "") or "").strip().lower()
+        for c in report.get("Columns", {}).get("Column", [])
+    ]
     di = titles.index("debit") if "debit" in titles else 1
     ci = titles.index("credit") if "credit" in titles else 2
     target = account_name.strip().lower()
@@ -2896,12 +4049,18 @@ async def _clearing_balance_as_of(account_name: str, as_of: str) -> float:
 
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_stripe_reconcile(
-        period: str, report_json: str = "", dry_run: bool = True,
-        income_account: str = "Sales", fee_account: str = "Merchant Fees",
-        platform_fee_account: str = "Software & Apps",
-        refund_account: str = "Refunds", clearing_account: str = "Stripe Clearing",
-        payout_bank_account: str = "", expected_ending_balance: float = 0.0,
-        amounts_in_cents: bool = True) -> str:
+    period: str,
+    report_json: str = "",
+    dry_run: bool = True,
+    income_account: str = "Sales",
+    fee_account: str = "Merchant Fees",
+    platform_fee_account: str = "Software & Apps",
+    refund_account: str = "Refunds",
+    clearing_account: str = "Stripe Clearing",
+    payout_bank_account: str = "",
+    expected_ending_balance: float = 0.0,
+    amounts_in_cents: bool = True,
+) -> str:
     """Reconcile a month of Stripe activity into QuickBooks the right way: net
     revenue against BOTH processing fees AND platform fees (Sigma, Billing,
     Radar, ...), post a monthly journal entry through a Stripe Clearing asset
@@ -2922,9 +4081,11 @@ async def qb_stripe_reconcile(
     if not report_json:
         api_key = os.environ.get("STRIPE_API_KEY", "").strip()
         if not api_key:
-            return ("Provide report_json (a Stripe balance_transaction export), "
-                    "or set STRIPE_API_KEY in the environment to fetch the month "
-                    "live (self-hosted, read-only key).")
+            return (
+                "Provide report_json (a Stripe balance_transaction export), "
+                "or set STRIPE_API_KEY in the environment to fetch the month "
+                "live (self-hosted, read-only key)."
+            )
         try:
             txns_live, live_balance = await _fetch_stripe_activity(period, api_key)
         except Exception as e:
@@ -2939,17 +4100,21 @@ async def qb_stripe_reconcile(
             if not expected_ending_balance:
                 expected_ending_balance = live_balance
         else:
-            live_note = (f"\n*Fetched live. Current Stripe balance {fmt(live_balance)} "
-                         "is not the period-end balance for a past month — pass "
-                         "expected_ending_balance to tie out.*")
+            live_note = (
+                f"\n*Fetched live. Current Stripe balance {fmt(live_balance)} "
+                "is not the period-end balance for a past month — pass "
+                "expected_ending_balance to tie out.*"
+            )
 
     try:
         txns = json.loads(report_json) if isinstance(report_json, str) else report_json
     except (json.JSONDecodeError, TypeError) as e:
         return f"Could not parse report_json as JSON: {e}"
     if not isinstance(txns, list) or not txns:
-        return ("report_json must be a non-empty JSON array of Stripe "
-                "balance_transaction objects.")
+        return (
+            "report_json must be a non-empty JSON array of Stripe "
+            "balance_transaction objects."
+        )
 
     b, unmapped = _classify_stripe(txns, 100.0 if amounts_in_cents else 1.0)
 
@@ -2958,6 +4123,7 @@ async def qb_stripe_reconcile(
     # months' activity — using it made a historical tie-out reconcile against
     # today's balance instead of $0.00 at period start).
     from datetime import date as _date
+
     try:
         period_start = _date(int(period[:4]), int(period[5:7]), 1)
     except (ValueError, IndexError):
@@ -2966,49 +4132,67 @@ async def qb_stripe_reconcile(
     prior_clearing = await _clearing_balance_as_of(clearing_account, prior_end)
     projected_clearing = round(prior_clearing + b["net_change"], 2)
 
-    out = [f"## Stripe Reconciliation — {period}",
-           f"*{b['count']} balance transactions · source: {source}*"
-           + (live_note or "") + "\n",
-           "### Activity",
-           f"- Gross sales: {fmt(b['gross'])}",
-           f"- Refunds: ({fmt(b['refunds'])})",
-           f"- Processing fees: ({fmt(b['processing'])})",
-           f"- **Platform fees (Sigma/Billing/Radar/…): ({fmt(b['platform'])})**",
-           f"- Net retained in Stripe: {fmt(b['activity_net'])}"]
+    out = [
+        f"## Stripe Reconciliation — {period}",
+        f"*{b['count']} balance transactions · source: {source}*"
+        + (live_note or "")
+        + "\n",
+        "### Activity",
+        f"- Gross sales: {fmt(b['gross'])}",
+        f"- Refunds: ({fmt(b['refunds'])})",
+        f"- Processing fees: ({fmt(b['processing'])})",
+        f"- **Platform fees (Sigma/Billing/Radar/…): ({fmt(b['platform'])})**",
+        f"- Net retained in Stripe: {fmt(b['activity_net'])}",
+    ]
     if b["payouts"]:
         out.append(f"- Payouts to bank: ({fmt(b['payouts'])})")
     # The differentiator, made explicit:
     if b["processing"]:
         ratio = b["platform"] / b["processing"]
-        out.append(f"\n*Platform fees are {ratio:.1f}× your processing fees — "
-                   "these are what most reconciliations miss.*")
+        out.append(
+            f"\n*Platform fees are {ratio:.1f}× your processing fees — "
+            "these are what most reconciliations miss.*"
+        )
 
     # Tie-out
     out.append(f"\n### Tie-out")
-    out.append(f"- Projected Stripe Clearing balance: {fmt(projected_clearing)} "
-               f"(prior {fmt(prior_clearing)} as of {prior_end} + net change "
-               f"{fmt(b['net_change'])})")
+    out.append(
+        f"- Projected Stripe Clearing balance: {fmt(projected_clearing)} "
+        f"(prior {fmt(prior_clearing)} as of {prior_end} + net change "
+        f"{fmt(b['net_change'])})"
+    )
     tie_ok = True
     if expected_ending_balance:
         tie_ok = abs(projected_clearing - expected_ending_balance) < 0.01
         mark = "✅ ties" if tie_ok else "🔴 OFF"
-        out.append(f"- Stripe reported balance: {fmt(expected_ending_balance)} — {mark}")
+        out.append(
+            f"- Stripe reported balance: {fmt(expected_ending_balance)} — {mark}"
+        )
         if not tie_ok:
-            out.append(f"- **Unreconciled difference: "
-                       f"{fmt(projected_clearing - expected_ending_balance)}** — "
-                       "likely an unmapped fee type or a pending/available timing "
-                       "difference at the period boundary.")
+            out.append(
+                f"- **Unreconciled difference: "
+                f"{fmt(projected_clearing - expected_ending_balance)}** — "
+                "likely an unmapped fee type or a pending/available timing "
+                "difference at the period boundary."
+            )
     else:
-        out.append("- Pass expected_ending_balance (your Stripe dashboard balance) "
-                   "to confirm the tie-out.")
+        out.append(
+            "- Pass expected_ending_balance (your Stripe dashboard balance) "
+            "to confirm the tie-out."
+        )
     if unmapped:
-        kinds = ", ".join(sorted({(t.get('type') or '?') for t in unmapped}))
-        out.append(f"- ⚠️ {len(unmapped)} unmapped transaction(s) [{kinds}] — "
-                   "not booked; resolve before relying on this.")
+        kinds = ", ".join(sorted({(t.get("type") or "?") for t in unmapped}))
+        out.append(
+            f"- ⚠️ {len(unmapped)} unmapped transaction(s) [{kinds}] — "
+            "not booked; resolve before relying on this."
+        )
 
     # Proposed journal entry (activity)
-    debits = [(refund_account, b["refunds"]), (fee_account, b["processing"]),
-              (platform_fee_account, b["platform"])]
+    debits = [
+        (refund_account, b["refunds"]),
+        (fee_account, b["processing"]),
+        (platform_fee_account, b["platform"]),
+    ]
     credits = [(income_account, b["gross"])]
     if b["activity_net"] >= 0:
         debits.append((clearing_account, b["activity_net"]))
@@ -3021,8 +4205,13 @@ async def qb_stripe_reconcile(
     # account name surfaces here instead of being silently echoed (or failing at
     # post time). Accounts we auto-create on posting are flagged, not errored.
     marker = f"[stripe:{period}]"
-    auto_creatable = {clearing_account, income_account, fee_account,
-                      platform_fee_account, refund_account}
+    auto_creatable = {
+        clearing_account,
+        income_account,
+        fee_account,
+        platform_fee_account,
+        refund_account,
+    }
     resolved_accts: dict = {}
     for n, _a in debits + credits:
         if n not in resolved_accts:
@@ -3032,9 +4221,14 @@ async def qb_stripe_reconcile(
         acct, err = resolved_accts[n]
         if acct:
             qname = acct.get("FullyQualifiedName") or acct.get("Name") or n
-            map_notes.append(f"- {n} → **{qname}**"
-                             + ("" if qname.strip().lower() == n.strip().lower()
-                                else "  ⚠️ (fuzzy match — confirm this is right)"))
+            map_notes.append(
+                f"- {n} → **{qname}**"
+                + (
+                    ""
+                    if qname.strip().lower() == n.strip().lower()
+                    else "  ⚠️ (fuzzy match — confirm this is right)"
+                )
+            )
         elif n in auto_creatable:
             map_notes.append(f"- {n} → _not found; will be created on posting_")
         else:
@@ -3044,9 +4238,14 @@ async def qb_stripe_reconcile(
     # Detect ANY journal entry already in this period that touches the clearing
     # account — not only our own [stripe:PERIOD] tag — so a manually-posted
     # reconciliation isn't silently double-booked.
-    period_end = ((_date(period_start.year + 1, 1, 1) if period_start.month == 12
-                   else _date(period_start.year, period_start.month + 1, 1))
-                  - timedelta(days=1)).isoformat()
+    period_end = (
+        (
+            _date(period_start.year + 1, 1, 1)
+            if period_start.month == 12
+            else _date(period_start.year, period_start.month + 1, 1)
+        )
+        - timedelta(days=1)
+    ).isoformat()
     clr_acct = resolved_accts.get(clearing_account, (None, ""))[0]
     clr_id = clr_acct.get("Id") if clr_acct else None
     our_marker_seen = False
@@ -3054,11 +4253,17 @@ async def qb_stripe_reconcile(
     if clr_id:
         existing = await qb_query(
             f"SELECT * FROM JournalEntry WHERE TxnDate >= '{period_start.isoformat()}' "
-            f"AND TxnDate <= '{period_end}'")
+            f"AND TxnDate <= '{period_end}'"
+        )
         for je in existing.get("QueryResponse", {}).get("JournalEntry", []):
             touches = any(
-                ((l.get("JournalEntryLineDetail", {}) or {}).get("AccountRef", {}) or {})
-                .get("value") == clr_id for l in je.get("Line", []))
+                (
+                    (l.get("JournalEntryLineDetail", {}) or {}).get("AccountRef", {})
+                    or {}
+                ).get("value")
+                == clr_id
+                for l in je.get("Line", [])
+            )
             if not touches:
                 continue
             if marker in (je.get("PrivateNote", "") or ""):
@@ -3078,16 +4283,22 @@ async def qb_stripe_reconcile(
         out.append(f"| {n} | | {fmt(a)} |")
 
     if our_marker_seen:
-        out.append(f"\n⚠️ **Already reconciled:** a journal entry tagged {marker} "
-                   "exists for this period. Posting again would double-book.")
+        out.append(
+            f"\n⚠️ **Already reconciled:** a journal entry tagged {marker} "
+            "exists for this period. Posting again would double-book."
+        )
     if manual_hits:
-        out.append(f"\n⚠️ **{len(manual_hits)} existing journal entr(y/ies) touch "
-                   f"'{clearing_account}' in {period}** (untagged — likely posted "
-                   f"manually): #{', #'.join(str(h) for h in manual_hits)}. "
-                   "Posting would double-book this activity.")
+        out.append(
+            f"\n⚠️ **{len(manual_hits)} existing journal entr(y/ies) touch "
+            f"'{clearing_account}' in {period}** (untagged — likely posted "
+            f"manually): #{', #'.join(str(h) for h in manual_hits)}. "
+            "Posting would double-book this activity."
+        )
     if unresolved:
-        out.append(f"\n🔴 **Unresolved account(s):** {', '.join(unresolved)} — "
-                   "correct the name(s) before posting.")
+        out.append(
+            f"\n🔴 **Unresolved account(s):** {', '.join(unresolved)} — "
+            "correct the name(s) before posting."
+        )
 
     if dry_run:
         blockers = []
@@ -3099,25 +4310,36 @@ async def qb_stripe_reconcile(
             blockers.append("an entry already exists for this period")
         if unresolved:
             blockers.append("unresolved account(s)")
-        tail = (f" — resolve first: {', '.join(blockers)}." if blockers else ".")
-        out.append(f"\n*Dry run — nothing posted. Re-run with dry_run=false to post"
-                   + tail + "*")
+        tail = f" — resolve first: {', '.join(blockers)}." if blockers else "."
+        out.append(
+            f"\n*Dry run — nothing posted. Re-run with dry_run=false to post"
+            + tail
+            + "*"
+        )
         return "\n".join(out)
 
     # ---- posting path ----
     if not tie_ok:
-        return ("\n".join(out) + "\n\n🔴 Not posting: the clearing balance does not "
-                "tie to Stripe. Resolve the difference above first.")
+        return (
+            "\n".join(out) + "\n\n🔴 Not posting: the clearing balance does not "
+            "tie to Stripe. Resolve the difference above first."
+        )
     if unmapped:
-        return ("\n".join(out) + f"\n\n🔴 Not posting: {len(unmapped)} unmapped "
-                "transaction(s). Map or remove them first.")
+        return (
+            "\n".join(out) + f"\n\n🔴 Not posting: {len(unmapped)} unmapped "
+            "transaction(s). Map or remove them first."
+        )
     if unresolved:
-        return ("\n".join(out) + f"\n\n🔴 Not posting: unresolved account(s): "
-                f"{', '.join(unresolved)}.")
+        return (
+            "\n".join(out) + f"\n\n🔴 Not posting: unresolved account(s): "
+            f"{', '.join(unresolved)}."
+        )
     if our_marker_seen or manual_hits:
-        return ("\n".join(out) + f"\n\n⚠️ Not posting: a journal entry already "
-                f"touches '{clearing_account}' in {period} (idempotent — avoids "
-                "double-booking).")
+        return (
+            "\n".join(out) + f"\n\n⚠️ Not posting: a journal entry already "
+            f"touches '{clearing_account}' in {period} (idempotent — avoids "
+            "double-booking)."
+        )
 
     # Ensure accounts exist (create the clearing/fee accounts if missing).
     async def _ensure(name, atype, sub=""):
@@ -3131,25 +4353,37 @@ async def qb_stripe_reconcile(
 
     resolved = {}
     for name, atype, sub in (
-            (clearing_account, "Other Current Asset", "OtherCurrentAssets"),
-            (income_account, "Income", "SalesOfProductIncome"),
-            (fee_account, "Expense", "OtherMiscServiceCost"),
-            (platform_fee_account, "Expense", "OtherMiscServiceCost"),
-            (refund_account, "Income", "DiscountsRefundsGiven")):
+        (clearing_account, "Other Current Asset", "OtherCurrentAssets"),
+        (income_account, "Income", "SalesOfProductIncome"),
+        (fee_account, "Expense", "OtherMiscServiceCost"),
+        (platform_fee_account, "Expense", "OtherMiscServiceCost"),
+        (refund_account, "Income", "DiscountsRefundsGiven"),
+    ):
         resolved[name] = await _ensure(name, atype, sub)
 
     def _line(name, amount, posting):
         a = resolved[name]
-        return {"DetailType": "JournalEntryLineDetail", "Amount": round(amount, 2),
-                "JournalEntryLineDetail": {"PostingType": posting,
-                    "AccountRef": {"value": a["Id"], "name": a["Name"]}}}
+        return {
+            "DetailType": "JournalEntryLineDetail",
+            "Amount": round(amount, 2),
+            "JournalEntryLineDetail": {
+                "PostingType": posting,
+                "AccountRef": {"value": a["Id"], "name": a["Name"]},
+            },
+        }
 
-    je_lines = [_line(n, a, "Debit") for n, a in debits] + \
-               [_line(n, a, "Credit") for n, a in credits]
-    je = await qb_request("POST", "journalentry", json_body={
-        "TxnDate": f"{period}-01",
-        "PrivateNote": f"Stripe reconciliation {period} {marker}",
-        "Line": je_lines})
+    je_lines = [_line(n, a, "Debit") for n, a in debits] + [
+        _line(n, a, "Credit") for n, a in credits
+    ]
+    je = await qb_request(
+        "POST",
+        "journalentry",
+        json_body={
+            "TxnDate": f"{period}-01",
+            "PrivateNote": f"Stripe reconciliation {period} {marker}",
+            "Line": je_lines,
+        },
+    )
     je_id = je.get("JournalEntry", {}).get("Id", "?")
     out.append(f"\n✅ Posted activity journal entry #{je_id} tagged {marker}.")
 
@@ -3157,27 +4391,48 @@ async def qb_stripe_reconcile(
     if b["payouts"] and payout_bank_account:
         bank = await _ensure(payout_bank_account, "Bank", "Checking")
         clr = resolved[clearing_account]
-        pje = await qb_request("POST", "journalentry", json_body={
-            "TxnDate": f"{period}-01",
-            "PrivateNote": f"Stripe payouts {period} {marker}",
-            "Line": [
-                {"DetailType": "JournalEntryLineDetail", "Amount": b["payouts"],
-                 "JournalEntryLineDetail": {"PostingType": "Debit",
-                    "AccountRef": {"value": bank["Id"], "name": bank["Name"]}}},
-                {"DetailType": "JournalEntryLineDetail", "Amount": b["payouts"],
-                 "JournalEntryLineDetail": {"PostingType": "Credit",
-                    "AccountRef": {"value": clr["Id"], "name": clr["Name"]}}}]})
-        out.append(f"✅ Posted payout journal entry #{pje.get('JournalEntry', {}).get('Id', '?')} "
-                   f"({fmt(b['payouts'])} to {payout_bank_account}).")
+        pje = await qb_request(
+            "POST",
+            "journalentry",
+            json_body={
+                "TxnDate": f"{period}-01",
+                "PrivateNote": f"Stripe payouts {period} {marker}",
+                "Line": [
+                    {
+                        "DetailType": "JournalEntryLineDetail",
+                        "Amount": b["payouts"],
+                        "JournalEntryLineDetail": {
+                            "PostingType": "Debit",
+                            "AccountRef": {"value": bank["Id"], "name": bank["Name"]},
+                        },
+                    },
+                    {
+                        "DetailType": "JournalEntryLineDetail",
+                        "Amount": b["payouts"],
+                        "JournalEntryLineDetail": {
+                            "PostingType": "Credit",
+                            "AccountRef": {"value": clr["Id"], "name": clr["Name"]},
+                        },
+                    },
+                ],
+            },
+        )
+        out.append(
+            f"✅ Posted payout journal entry #{pje.get('JournalEntry', {}).get('Id', '?')} "
+            f"({fmt(b['payouts'])} to {payout_bank_account})."
+        )
     elif b["payouts"]:
-        out.append(f"\n*Note: {fmt(b['payouts'])} of payouts were NOT booked to the "
-                   "bank — pass payout_bank_account to record clearing → bank.*")
+        out.append(
+            f"\n*Note: {fmt(b['payouts'])} of payouts were NOT booked to the "
+            "bank — pass payout_bank_account to record clearing → bank.*"
+        )
     return "\n".join(out)
 
 
 # ===================================================================
 # CPA WORKBOOK SUPPORT — reconciliation, comparatives, tax payments, draws
 # ===================================================================
+
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_reconciliation_status(as_of_date: str = "") -> str:
@@ -3186,12 +4441,23 @@ async def qb_reconciliation_status(as_of_date: str = "") -> str:
     as_of_date: YYYY-MM-DD (defaults to today). Note: the QuickBooks API does
     not expose reconciliation/cleared status — this is a book-side summary."""
     from datetime import date as _date
-    as_of_date = _validate_date(as_of_date, "as_of_date") if as_of_date \
-        else _date.today().isoformat()
 
-    accounts = (await qb_query(
-        "SELECT * FROM Account WHERE AccountType IN ('Bank', 'Credit Card') "
-        "MAXRESULTS 50")).get("QueryResponse", {}).get("Account", [])
+    as_of_date = (
+        _validate_date(as_of_date, "as_of_date")
+        if as_of_date
+        else _date.today().isoformat()
+    )
+
+    accounts = (
+        (
+            await qb_query(
+                "SELECT * FROM Account WHERE AccountType IN ('Bank', 'Credit Card') "
+                "MAXRESULTS 50"
+            )
+        )
+        .get("QueryResponse", {})
+        .get("Account", [])
+    )
     if not accounts:
         return "No bank or credit-card accounts found."
 
@@ -3200,27 +4466,36 @@ async def qb_reconciliation_status(as_of_date: str = "") -> str:
     for entity in ("Purchase", "Deposit"):
         result = await qb_query(
             f"SELECT * FROM {entity} WHERE TxnDate <= '{as_of_date}' "
-            f"ORDERBY TxnDate DESC MAXRESULTS 200")
+            f"ORDERBY TxnDate DESC MAXRESULTS 200"
+        )
         for txn in result.get("QueryResponse", {}).get(entity, []):
-            ref = (txn.get("AccountRef") or txn.get("DepositToAccountRef") or {})
+            ref = txn.get("AccountRef") or txn.get("DepositToAccountRef") or {}
             name = ref.get("name", "")
             d = txn.get("TxnDate", "")
             if name and d and d > last_activity.get(name, ""):
                 last_activity[name] = d
 
-    lines = [f"## Reconciliation Status — as of {as_of_date}\n",
-             "| Account | Type | Book balance | Last transaction |",
-             "|---|---|---|---|"]
+    lines = [
+        f"## Reconciliation Status — as of {as_of_date}\n",
+        "| Account | Type | Book balance | Last transaction |",
+        "|---|---|---|---|",
+    ]
     for a in accounts:
         name = a.get("Name", "?")
         bal = float(a.get("CurrentBalance", 0) or 0)
-        lines.append(f"| {name} | {a.get('AccountType', '')} | {fmt(bal)} | "
-                     f"{last_activity.get(name, 'no recent activity')} |")
+        lines.append(
+            f"| {name} | {a.get('AccountType', '')} | {fmt(bal)} | "
+            f"{last_activity.get(name, 'no recent activity')} |"
+        )
 
-    all_accounts = (await qb_query_all("SELECT * FROM Account MAXRESULTS 500")) \
-        .get("QueryResponse", {}).get("Account", [])
-    undeposited = [a for a in all_accounts
-                   if "undeposited" in (a.get("Name", "")).lower()]
+    all_accounts = (
+        (await qb_query_all("SELECT * FROM Account MAXRESULTS 500"))
+        .get("QueryResponse", {})
+        .get("Account", [])
+    )
+    undeposited = [
+        a for a in all_accounts if "undeposited" in (a.get("Name", "")).lower()
+    ]
     for u in undeposited:
         ubal = float(u.get("CurrentBalance", 0) or 0)
         flag = " ⚠️ should be cleared before year-end" if abs(ubal) > 0.01 else " ✅"
@@ -3269,6 +4544,7 @@ def _ytd_range(start_date: str = "", end_date: str = "") -> tuple:
     year-to-date when either is blank — so report tools can be called with no
     arguments instead of erroring (-32602) on a missing required param."""
     from datetime import date as _d
+
     today = _d.today()
     start = start_date.strip() if start_date else f"{today.year}-01-01"
     end = end_date.strip() if end_date else today.isoformat()
@@ -3278,6 +4554,7 @@ def _ytd_range(start_date: str = "", end_date: str = "") -> tuple:
 def _as_of_or_today(as_of_date: str = "") -> str:
     """Resolve an as-of date, defaulting to today when blank."""
     from datetime import date as _d
+
     return as_of_date.strip() if as_of_date else _d.today().isoformat()
 
 
@@ -3321,6 +4598,7 @@ async def qb_comparative_statements(statement: str = "pl", year: int = 0) -> str
     (Balance Sheet). year: the CURRENT year of the pair (default: this year;
     year-to-date vs the same era isn't attempted — prior year is full-year)."""
     from datetime import date as _date
+
     statement = statement.lower().strip()
     if statement not in ("pl", "bs"):
         return "statement must be 'pl' (Profit & Loss) or 'bs' (Balance Sheet)."
@@ -3329,20 +4607,39 @@ async def qb_comparative_statements(statement: str = "pl", year: int = 0) -> str
     cur_end = today.isoformat() if year == today.year else f"{year}-12-31"
 
     if statement == "pl":
-        cur = await qb_request("GET", "reports/ProfitAndLoss", params={
-            "start_date": f"{year}-01-01", "end_date": cur_end,
-            "summarize_column_by": "Total"})
-        prior = await qb_request("GET", "reports/ProfitAndLoss", params={
-            "start_date": f"{year-1}-01-01", "end_date": f"{year-1}-12-31",
-            "summarize_column_by": "Total"})
+        cur = await qb_request(
+            "GET",
+            "reports/ProfitAndLoss",
+            params={
+                "start_date": f"{year}-01-01",
+                "end_date": cur_end,
+                "summarize_column_by": "Total",
+            },
+        )
+        prior = await qb_request(
+            "GET",
+            "reports/ProfitAndLoss",
+            params={
+                "start_date": f"{year-1}-01-01",
+                "end_date": f"{year-1}-12-31",
+                "summarize_column_by": "Total",
+            },
+        )
         title = "Comparative Profit & Loss"
-        period_note = (f"{year} through {cur_end}" if year == today.year
-                       else str(year)) + f" vs {year-1} (full year)"
+        period_note = (
+            f"{year} through {cur_end}" if year == today.year else str(year)
+        ) + f" vs {year-1} (full year)"
     else:
-        cur = await qb_request("GET", "reports/BalanceSheet", params={
-            "start_date": cur_end, "end_date": cur_end})
-        prior = await qb_request("GET", "reports/BalanceSheet", params={
-            "start_date": f"{year-1}-12-31", "end_date": f"{year-1}-12-31"})
+        cur = await qb_request(
+            "GET",
+            "reports/BalanceSheet",
+            params={"start_date": cur_end, "end_date": cur_end},
+        )
+        prior = await qb_request(
+            "GET",
+            "reports/BalanceSheet",
+            params={"start_date": f"{year-1}-12-31", "end_date": f"{year-1}-12-31"},
+        )
         title = "Comparative Balance Sheet"
         period_note = f"as of {cur_end} vs {year-1}-12-31"
 
@@ -3351,9 +4648,12 @@ async def qb_comparative_statements(statement: str = "pl", year: int = 0) -> str
     if not cur_amts and not prior_amts:
         return f"No data available for either period ({year} / {year-1})."
 
-    lines = [f"## {title}", f"**Periods:** {period_note}\n",
-             f"| Line | {year} | {year-1} | Δ | Δ% |",
-             "|---|---|---|---|---|"]
+    lines = [
+        f"## {title}",
+        f"**Periods:** {period_note}\n",
+        f"| Line | {year} | {year-1} | Δ | Δ% |",
+        "|---|---|---|---|---|",
+    ]
     flagged = []
     seen = _merge_line_order(list(cur_amts), list(prior_amts))
     for name in seen:
@@ -3369,27 +4669,43 @@ async def qb_comparative_statements(statement: str = "pl", year: int = 0) -> str
         else:
             pct_s = "new" if c not in (None, 0) else "—"
         bold = "**" if name.lower().startswith(("total", "net ", "gross")) else ""
-        lines.append(f"| {bold}{name}{bold} | {fmt_signed(c)} | {fmt_signed(p)} | "
-                     f"{fmt_signed(delta)} | {pct_s} |")
+        lines.append(
+            f"| {bold}{name}{bold} | {fmt_signed(c)} | {fmt_signed(p)} | "
+            f"{fmt_signed(delta)} | {pct_s} |"
+        )
 
     if flagged:
         lines.append("\n### Swings your CPA will ask about (>±30%)")
         for name, pct in flagged[:8]:
             lines.append(f"- **{name}**: {pct:+.0f}% year over year")
 
-    lines.append("\n*Prior year is the full calendar year; the current column "
-                 "is year-to-date until Dec 31.*")
+    lines.append(
+        "\n*Prior year is the full calendar year; the current column "
+        "is year-to-date until Dec 31.*"
+    )
     _audit_log("COMPARATIVE_STATEMENTS", f"stmt={statement} year={year}")
     return "\n".join(lines)
 
 
 # Payees/memos that indicate income-tax payments to a tax authority.
 _TAX_AUTHORITY_HINTS = (
-    "irs", "internal revenue", "eftps", "united states treasury", "us treasury",
-    "u.s. treasury", "franchise tax", "department of revenue", "dept of revenue",
-    "estimated tax", "1040-es",
-    "cra", "canada revenue", "receiver general", "revenu quebec",
-    "revenu québec", "minister of finance",
+    "irs",
+    "internal revenue",
+    "eftps",
+    "united states treasury",
+    "us treasury",
+    "u.s. treasury",
+    "franchise tax",
+    "department of revenue",
+    "dept of revenue",
+    "estimated tax",
+    "1040-es",
+    "cra",
+    "canada revenue",
+    "receiver general",
+    "revenu quebec",
+    "revenu québec",
+    "minister of finance",
 )
 
 
@@ -3400,6 +4716,7 @@ async def qb_tax_payments_made(tax_year: str = "") -> str:
     records (CA), totals them, and compares against the quarterly estimate.
     tax_year: YYYY, defaults to the current year."""
     from datetime import date as _date
+
     if not tax_year:
         tax_year = str(_date.today().year)
     start, end = f"{tax_year}-01-01", f"{tax_year}-12-31"
@@ -3408,18 +4725,26 @@ async def qb_tax_payments_made(tax_year: str = "") -> str:
     for entity in ("Purchase",):
         result = await qb_query_all(
             f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
-            f"AND TxnDate <= '{end}' MAXRESULTS 1000")
+            f"AND TxnDate <= '{end}' MAXRESULTS 1000"
+        )
         for txn in result.get("QueryResponse", {}).get(entity, []):
             payee = (txn.get("EntityRef") or {}).get("name", "")
-            memo = str(txn.get("PrivateNote", "")) + " " + " ".join(
-                str((l.get("Description") or "")) for l in txn.get("Line", []))
+            memo = (
+                str(txn.get("PrivateNote", ""))
+                + " "
+                + " ".join(
+                    str((l.get("Description") or "")) for l in txn.get("Line", [])
+                )
+            )
             blob = (payee + " " + memo).lower()
             if any(h in blob for h in _TAX_AUTHORITY_HINTS):
-                found.append({
-                    "date": txn.get("TxnDate", "?"),
-                    "payee": payee or "(no payee)",
-                    "amount": float(txn.get("TotalAmt", 0) or 0),
-                })
+                found.append(
+                    {
+                        "date": txn.get("TxnDate", "?"),
+                        "payee": payee or "(no payee)",
+                        "amount": float(txn.get("TotalAmt", 0) or 0),
+                    }
+                )
 
     # CA/AU/UK: TaxPayment entity records payments against filed returns
     try:
@@ -3427,17 +4752,25 @@ async def qb_tax_payments_made(tax_year: str = "") -> str:
         for t in tp.get("QueryResponse", {}).get("TaxPayment", []):
             d = t.get("PaymentDate") or t.get("TxnDate") or ""
             if start <= d <= end:
-                found.append({"date": d, "payee": "Tax agency (TaxPayment)",
-                              "amount": float(t.get("PaymentAmount",
-                                                    t.get("TotalAmt", 0)) or 0)})
+                found.append(
+                    {
+                        "date": d,
+                        "payee": "Tax agency (TaxPayment)",
+                        "amount": float(
+                            t.get("PaymentAmount", t.get("TotalAmt", 0)) or 0
+                        ),
+                    }
+                )
     except Exception as e:
         logger.debug(f"TaxPayment query failed: {e}")
 
     lines = [f"## Tax Payments Made — {tax_year}\n"]
     if not found:
-        lines.append("No payments to tax authorities found in the books for "
-                     f"{tax_year}. If you paid the IRS/CRA from an account "
-                     "outside QuickBooks, tell your CPA the amounts and dates.")
+        lines.append(
+            "No payments to tax authorities found in the books for "
+            f"{tax_year}. If you paid the IRS/CRA from an account "
+            "outside QuickBooks, tell your CPA the amounts and dates."
+        )
     else:
         found.sort(key=lambda x: x["date"])
         lines.append("| Date | Payee | Amount |")
@@ -3448,12 +4781,47 @@ async def qb_tax_payments_made(tax_year: str = "") -> str:
             total += f_["amount"]
         lines.append(f"| **Total paid** | | **{fmt(total)}** |")
 
-    lines.append("\n*Verify against your IRS online account / CRA My Account — "
-                 "payments made outside QuickBooks won't appear here. "
-                 "Run qb_estimate_quarterly_tax to compare against what the "
-                 "estimator suggests per quarter.*")
+    lines.append(
+        "\n*Verify against your IRS online account / CRA My Account — "
+        "payments made outside QuickBooks won't appear here. "
+        "Run qb_estimate_quarterly_tax to compare against what the "
+        "estimator suggests per quarter.*"
+    )
     _audit_log("TAX_PAYMENTS_MADE", f"year={tax_year} found={len(found)}")
     return "\n".join(lines)
+
+
+# GeneralLedger column identity — QuickBooks tags each column with a ColKey in
+# MetaData. The signed transaction amount vs the running balance must never be
+# confused (summing the running balance overcounts wildly).
+_GL_AMOUNT_KEYS = {"subt_nat_amount", "nat_amount", "amount", "subt_nat_home_amount"}
+_GL_BALANCE_KEYS = {"rbal_nat_amount", "rbal_amount", "nat_run_bal_amount", "balance"}
+
+
+def _gl_col_index(report: dict, want: set, avoid: set = frozenset()):
+    """Index of the first report column whose ColKey (or title) is in ``want``,
+    skipping any in ``avoid``. Falls back to the first Money column not in
+    ``avoid``. Returns None if nothing matches — callers must handle that rather
+    than guess a position."""
+    cols = (report or {}).get("Columns", {}).get("Column", [])
+    money_fallback = None
+    for i, c in enumerate(cols):
+        ck = next(
+            (
+                m.get("Value", "")
+                for m in c.get("MetaData", [])
+                if m.get("Name") == "ColKey"
+            ),
+            "",
+        )
+        title = (c.get("ColTitle") or "").strip().lower()
+        if ck in avoid or title in avoid:
+            continue
+        if ck in want or title in want:
+            return i
+        if c.get("ColType") == "Money" and money_fallback is None:
+            money_fallback = i
+    return money_fallback if want & _GL_AMOUNT_KEYS else None
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -3462,42 +4830,110 @@ async def qb_owner_draws(year: int = 0) -> str:
     always asks about for Schedule C / T2125 filers. Summarizes activity in
     every Equity-type account. year: defaults to the current year."""
     from datetime import date as _date
+
     year = int(year) or _date.today().year
     start, end = f"{year}-01-01", f"{year}-12-31"
 
-    all_accounts = (await qb_query_all("SELECT * FROM Account MAXRESULTS 500")) \
-        .get("QueryResponse", {}).get("Account", [])
-    equity = [a for a in all_accounts
-              if (a.get("AccountType") or "").lower() == "equity"]
+    all_accounts = (
+        (await qb_query_all("SELECT * FROM Account MAXRESULTS 500"))
+        .get("QueryResponse", {})
+        .get("Account", [])
+    )
+    all_equity = [
+        a for a in all_accounts if (a.get("AccountType") or "").lower() == "equity"
+    ]
+    # Exclude QuickBooks' SYSTEM equity accounts — Opening Balance Equity carries
+    # QB's own deletion-adjustment journal entries (not owner activity), and
+    # Retained Earnings is a period rollup. Including them inverts the sign of the
+    # whole report on real books. Owner contributions/draws only.
+    equity = [
+        a
+        for a in all_equity
+        if (a.get("AccountSubType") or "") not in _SYSTEM_EQUITY_SUBTYPES
+    ]
+    excluded = [
+        a
+        for a in all_equity
+        if (a.get("AccountSubType") or "") in _SYSTEM_EQUITY_SUBTYPES
+    ]
     if not equity:
-        return "No equity accounts found in the chart of accounts."
+        return "No owner equity accounts found (excluding QuickBooks system equity)."
 
     lines = [f"## Owner's Draws & Contributions — {year}\n"]
     net = 0.0
     any_rows = False
+    reconciled_all = True
+    did_crosscheck = False
     for acct in equity:
-        report = await qb_request("GET", "reports/GeneralLedger", params={
-            "start_date": start, "end_date": end, "account": acct.get("Id")})
+        report = await qb_request(
+            "GET",
+            "reports/GeneralLedger",
+            params={"start_date": start, "end_date": end, "account": acct.get("Id")},
+        )
+
+        # A real GeneralLedger row has an AMOUNT column (the signed transaction)
+        # and a running-BALANCE column. Sum the AMOUNT — summing the running
+        # balance (which grows with every row) massively overcounts. Resolve the
+        # columns from the report's own metadata; a simplified shape with no
+        # metadata (demo/tests: [Date, Description, Amount]) has the amount last.
+        if (report or {}).get("Columns", {}).get("Column"):
+            amount_idx = _gl_col_index(report, _GL_AMOUNT_KEYS, avoid=_GL_BALANCE_KEYS)
+            bal_idx = _gl_col_index(report, _GL_BALANCE_KEYS)
+            date_idx = _gl_col_index(report, {"tx_date", "date"}) or 0
+            memo_idx = _gl_col_index(report, {"memo", "name", "txn_type"})
+            if memo_idx is None:
+                memo_idx = 1
+            if amount_idx is None:
+                lines.append(
+                    f"### {acct.get('Name', '?')}\n  ⚠️ Could not identify the "
+                    "amount column in this GeneralLedger report — skipped rather "
+                    "than risk a wrong figure."
+                )
+                reconciled_all = False
+                continue
+        else:
+            date_idx, memo_idx, amount_idx, bal_idx = 0, 1, -1, None
 
         # Collect leaf rows belonging to THIS account's section (the live API
         # filters by account; demo returns the full GL, so match the header).
         acct_rows = []
+        opening = ending = None
 
         def collect(sections):
+            nonlocal opening, ending
             for s in sections:
-                hdr = ((s.get("Header", {}).get("ColData") or [{}])[0]
-                       .get("value", ""))
+                hdr = (s.get("Header", {}).get("ColData") or [{}])[0].get("value", "")
                 nested = s.get("Rows", {}).get("Row", [])
                 if hdr == acct.get("Name") and nested:
                     for leaf in nested:
                         cd = leaf.get("ColData", [])
-                        if len(cd) >= 2:
+                        if len(cd) <= amount_idx:
+                            continue
+                        label0 = (
+                            cd[date_idx].get("value", "") if date_idx < len(cd) else ""
+                        )
+                        raw = cd[amount_idx].get("value", "")
+                        # Running balance, if present, for an independent cross-check.
+                        if bal_idx is not None and bal_idx < len(cd):
                             try:
-                                amt = float(cd[-1].get("value", "0") or 0)
-                            except (ValueError, TypeError):
-                                continue
-                            desc = cd[1].get("value", "") if len(cd) >= 3 else ""
-                            acct_rows.append((cd[0].get("value", ""), desc, amt))
+                                bv = float(cd[bal_idx].get("value", "") or "")
+                                if opening is None and not raw:
+                                    opening = bv  # "Beginning Balance" row
+                                ending = bv  # last seen wins
+                            except ValueError:
+                                pass
+                        # Skip non-transaction rows (Beginning Balance / totals have
+                        # no amount value).
+                        try:
+                            amt = float(raw or "")
+                        except ValueError:
+                            continue
+                        desc = (
+                            cd[memo_idx].get("value", "")
+                            if memo_idx is not None and memo_idx < len(cd)
+                            else ""
+                        )
+                        acct_rows.append((label0, desc, amt))
                 elif nested:
                     collect(nested)
 
@@ -3505,40 +4941,81 @@ async def qb_owner_draws(year: int = 0) -> str:
         if not acct_rows:
             continue
         any_rows = True
+        acct_net = round(sum(v for _, _, v in acct_rows), 2)
+        net += acct_net
         lines.append(f"### {acct.get('Name', '?')}")
         for d, desc, v in acct_rows:
             direction = "contribution" if v > 0 else "draw"
-            label = f"{d} — {desc}" if desc else d
+            label = f"{d} — {desc}" if desc else (d or desc or "entry")
             lines.append(f"  {label}: {fmt_signed(v)} ({direction})")
-            net += v
+        lines.append(f"  **Account net: {fmt_signed(acct_net)}**")
+        # Audit cross-check: the summed transactions must equal the balance change
+        # (ending − opening running balance). If they disagree, say so — never
+        # present a figure that doesn't tie out.
+        if opening is not None and ending is not None:
+            did_crosscheck = True
+            bal_change = round(ending - opening, 2)
+            if abs(bal_change - acct_net) > 0.01:
+                reconciled_all = False
+                lines.append(
+                    f"  ⚠️ Does not tie to the balance change "
+                    f"({fmt_signed(bal_change)}) — review this account."
+                )
     if not any_rows:
-        lines.append("No equity activity recorded this year. Draws taken "
-                     "outside QuickBooks should be reported to your CPA "
-                     "directly.")
+        lines.append(
+            "No equity activity recorded this year. Draws taken "
+            "outside QuickBooks should be reported to your CPA "
+            "directly."
+        )
     else:
         label = "net contribution" if net >= 0 else "net draw"
-        lines.append(f"\n**Net owner activity: {fmt_signed(net)}** ({label})")
+        lines.append(f"\n**Net owner activity: {fmt_signed(round(net, 2))}** ({label})")
+        if did_crosscheck and reconciled_all:
+            lines.append(
+                "*Every account's transactions tie to its balance change "
+                "(audit cross-check passed).*"
+            )
 
-    lines.append("\n*Draws are not business expenses — they reduce owner's "
-                 "equity. Your CPA reconciles this against the balance sheet.*")
-    _audit_log("OWNER_DRAWS", f"year={year} net={fmt(net)}")
+    if excluded:
+        names = ", ".join(
+            f"{a.get('Name', '?')} ({a.get('AccountSubType', '')})" for a in excluded
+        )
+        lines.append(
+            f"\n*Excluded QuickBooks system equity (not owner activity): " f"{names}.*"
+        )
+
+    lines.append(
+        "\n*Draws are not business expenses — they reduce owner's "
+        "equity. Your CPA reconciles this against the balance sheet. "
+        "Positive = owner put money in (contribution); negative = took "
+        "money out (draw).*"
+    )
+    _audit_log(
+        "OWNER_DRAWS",
+        f"year={year} net={fmt(round(net, 2))} "
+        f"reconciled={reconciled_all} excluded={len(excluded)}",
+    )
     return "\n".join(lines)
-
 
 
 # ===================================================================
 # REPORTS — Accounts Receivable Aging
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_ar_aging(as_of_date: str = "") -> str:
     """Generate an Accounts Receivable Aging report. Date in YYYY-MM-DD (defaults to today). Shows what customers owe you, grouped by how overdue."""
     as_of_date = _as_of_or_today(as_of_date)
-    report = await qb_request("GET", "reports/AgedReceivables", params={
-        "date_macro": "",
-        "start_date": as_of_date,
-        "end_date": as_of_date,
-    })
+    report = await qb_request(
+        "GET",
+        "reports/AgedReceivables",
+        params={
+            "date_macro": "",
+            "start_date": as_of_date,
+            "end_date": as_of_date,
+        },
+    )
 
     lines = [f"## Accounts Receivable Aging as of {as_of_date}\n"]
     rows = report.get("Rows", {}).get("Row", [])
@@ -3550,15 +5027,20 @@ async def qb_ar_aging(as_of_date: str = "") -> str:
 # REPORTS — Accounts Payable Aging
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_ap_aging(as_of_date: str = "") -> str:
     """Generate an Accounts Payable Aging report. Date in YYYY-MM-DD (defaults to today). Shows what you owe vendors, grouped by how overdue."""
     as_of_date = _as_of_or_today(as_of_date)
-    report = await qb_request("GET", "reports/AgedPayables", params={
-        "date_macro": "",
-        "start_date": as_of_date,
-        "end_date": as_of_date,
-    })
+    report = await qb_request(
+        "GET",
+        "reports/AgedPayables",
+        params={
+            "date_macro": "",
+            "start_date": as_of_date,
+            "end_date": as_of_date,
+        },
+    )
 
     lines = [f"## Accounts Payable Aging as of {as_of_date}\n"]
     rows = report.get("Rows", {}).get("Row", [])
@@ -3592,38 +5074,52 @@ def _extract_pl_expense_accounts(pl_result: dict) -> dict:
     amount; a PARENT account with sub-accounts contributes anything posted
     directly to it — i.e. ``parent_summary − Σ(children)``. Without this, amounts
     booked straight to a parent (a user picks "Travel", not "Travel:Hotels") are
-    silently dropped from Schedule C. Shared so both Schedule C tools + tax
-    summary use the same numbers and reconcile to the P&L."""
+    silently dropped from Schedule C.
+
+    Keys of accounts nested under a sub-parent are PARENT-QUALIFIED (e.g.
+    'Home office:Repairs & maintenance'), matching QuickBooks' FullyQualifiedName.
+    This keeps two accounts that share a leaf name ('Repairs & maintenance' under
+    'Home office' vs. a standalone one) DISTINCT — otherwise they merge into one
+    entry and get one treatment, so home routing over- or under-claims. Shared so
+    both Schedule C tools + T2125 + tax summary reconcile to the P&L."""
     out: dict = {}
 
-    def walk(rows):
-        """Record leaves + parent residuals; return the summed total of `rows`."""
+    def walk(rows, parent_path=""):
+        """Record leaves + parent residuals; return the summed total of `rows`.
+        ``parent_path`` is the FQN of the enclosing sub-parent ('' at top level)."""
         total = 0.0
         for section in rows or []:
             nested = section.get("Rows", {}).get("Row", [])
             col = section.get("ColData", [])
             if nested:
-                children_sum = walk(nested)
                 hdr = section.get("Header", {}).get("ColData", [{}]) or [{}]
                 name = hdr[0].get("value", "")
+                this_path = f"{parent_path}:{name}" if parent_path and name else name
+                children_sum = walk(nested, this_path)
                 summ = section.get("Summary", {}).get("ColData", [])
                 try:
-                    grp_total = (float(summ[-1].get("value", "0") or 0)
-                                 if len(summ) >= 2 else children_sum)
+                    grp_total = (
+                        float(summ[-1].get("value", "0") or 0)
+                        if len(summ) >= 2
+                        else children_sum
+                    )
                 except (ValueError, TypeError):
                     grp_total = children_sum
-                residual = round(grp_total - children_sum, 2)   # posted to the parent itself
+                residual = round(
+                    grp_total - children_sum, 2
+                )  # posted to the parent itself
                 if name and abs(residual) > 0.005:
-                    out[name] = out.get(name, 0.0) + residual
+                    out[this_path] = out.get(this_path, 0.0) + residual
                 total += grp_total
             elif len(col) >= 2:
                 name = col[0].get("value", "")
+                key = f"{parent_path}:{name}" if parent_path and name else name
                 try:
                     val = float(col[-1].get("value", "0") or 0)
                 except (ValueError, TypeError):
                     val = 0.0
                 if name and val != 0:
-                    out[name] = out.get(name, 0.0) + val
+                    out[key] = out.get(key, 0.0) + val
                 total += val
         return round(total, 2)
 
@@ -3673,8 +5169,12 @@ def _pl_income_breakdown(pl_result: dict, name_to_subtype: dict = None):
                 yield from leaf_items(nested)
 
     for section in pl_result.get("Rows", {}).get("Row", []):
-        header = (section.get("Header", {}).get("ColData", [{}]) or [{}])[0] \
-            .get("value", "").strip().lower()
+        header = (
+            (section.get("Header", {}).get("ColData", [{}]) or [{}])[0]
+            .get("value", "")
+            .strip()
+            .lower()
+        )
         summ = section.get("Summary", {}).get("ColData", [])
         summ_label = (summ[0].get("value", "") if summ else "").strip().lower()
         total = 0.0
@@ -3692,9 +5192,14 @@ def _pl_income_breakdown(pl_result: dict, name_to_subtype: dict = None):
         # as a substring, so without this guard the Other-Income amount is counted
         # a second time (once for the section, once for its Net roll-up).
         is_net = header.startswith("net ") or summ_label.startswith("net ")
-        is_other = not is_net and ("other income" in header or "other income" in summ_label)
-        is_cogs = not is_net and ("cost of goods" in header or "cost of goods" in summ_label
-                                  or header == "cogs")
+        is_other = not is_net and (
+            "other income" in header or "other income" in summ_label
+        )
+        is_cogs = not is_net and (
+            "cost of goods" in header
+            or "cost of goods" in summ_label
+            or header == "cogs"
+        )
         is_income = not is_net and (header == "income" or summ_label == "total income")
 
         nested = section.get("Rows", {}).get("Row", [])
@@ -3712,14 +5217,14 @@ def _pl_income_breakdown(pl_result: dict, name_to_subtype: dict = None):
             cogs += _section_total()
         elif is_income:
             items = list(leaf_items(nested))
-            if items:                        # detail present — subtype, then sign
+            if items:  # detail present — subtype, then sign
                 for nm, v in items:
                     st = subs.get(nm, "")
                     if st == "DiscountsRefundsGiven" or (not st and v < 0):
                         returns += abs(v)
                     else:
                         gross += v
-            else:                            # summary only — treat as net receipts
+            else:  # summary only — treat as net receipts
                 gross += total
     return round(gross, 2), round(returns, 2), round(cogs, 2), round(other, 2)
 
@@ -3735,7 +5240,7 @@ def _pl_expense_total(pl_result: dict) -> float:
         if len(summary) < 2:
             continue
         label = summary[0].get("value", "").lower()
-        if "expense" in label and "net" not in label:      # skip 'Net ... Income'
+        if "expense" in label and "net" not in label:  # skip 'Net ... Income'
             try:
                 total += abs(float(summary[-1].get("value", "0") or 0))
             except (ValueError, TypeError):
@@ -3743,7 +5248,14 @@ def _pl_expense_total(pl_result: dict) -> float:
     return round(total, 2)
 
 
-def _account_alloc(name: str, line: str, flags: list, profile: dict):
+def _account_alloc(
+    name: str,
+    line: str,
+    flags: list,
+    profile: dict,
+    vehicle_lines: tuple = ("9",),
+    allow_standard_mileage: bool = True,
+):
     """Taxpayer allocation treatment for one account, from the profile. Returns
     ``(treatment, pct, basis)`` where treatment is:
     - 'home_indirect' — a home-office account → routed to Form 8829 (Line 30);
@@ -3753,16 +5265,22 @@ def _account_alloc(name: str, line: str, flags: list, profile: dict):
     p = profile or {}
     if "home_8829" in flags:
         return "home_indirect", 1.0, ""
-    if line == "9":
+    if line in vehicle_lines:
         veh = p.get("vehicle") or {}
         method = veh.get("method")
-        if method == "standard_mileage":
+        # Standard mileage is a US-only method; Canada uses business-use % of
+        # actual motor-vehicle expenses, so there SM collapses to the percentage.
+        if method == "standard_mileage" and allow_standard_mileage:
             return "mileage_excluded", 0.0, "standard mileage used"
-        if method == "actual":
+        if method in ("actual", "standard_mileage"):
             pct = float(veh.get("percentage", 1.0) or 1.0)
             return "line", pct, f"vehicle {pct * 100:.0f}% business use"
         return "line", 1.0, ""
-    acc = (p.get("account_allocations") or {}).get(name)
+    # Profiles store LEAF names ('Cell phone'); the mapper key may now be the
+    # fully-qualified name ('Communications:Cell phone'). Match on either so a
+    # configured % is never silently ignored (that would over-claim).
+    allocs = p.get("account_allocations") or {}
+    acc = allocs.get(name) or allocs.get(name.rsplit(":", 1)[-1])
     if acc:
         try:
             pct = float(acc.get("percentage", 1.0))
@@ -3772,36 +5290,99 @@ def _account_alloc(name: str, line: str, flags: list, profile: dict):
     return "line", 1.0, ""
 
 
-def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = None,
-                                profile: dict = None):
+def _map_expenses_to_schedule_c(
+    expense_accounts: dict,
+    name_to_subtype: dict = None,
+    profile: dict = None,
+    name_to_fqn: dict = None,
+    jurisdiction: str = "US",
+):
     """Classify → ALLOCATE (taxpayer %) → LIMIT (statutory %). Returns a dict:
     ``lines`` (per-line buckets; each account tuple is
     (name, full, allocated, deductible, pct, basis, factor, cite)),
-    ``home_indirect`` [(name, amt)] for Form 8829, ``mileage_excluded``
-    [(name, amt)] for the standard-mileage method, and ``alloc_candidates``
-    (accounts at 100% that likely need an allocation). Nothing is dropped — every
-    routing is reported."""
+    ``home_indirect`` [(name, amt)] for the home-office form, ``mileage_excluded``
+    [(name, amt)] for the standard-mileage method (US only), and
+    ``alloc_candidates`` (accounts at 100% that likely need an allocation). One
+    code path for US Schedule C and CA T2125 — only the line numbers differ.
+    Nothing is dropped — every routing is reported."""
     from collections import defaultdict
+
+    juris = "US" if str(jurisdiction).upper() == "US" else "CA"
+    # Jurisdiction-specific line numbers: vehicle (US 9 / CA 9281) and the
+    # mixed-use accounts that most often need a business-use % (US utilities 25 /
+    # CA utilities 9220), for the "you haven't set an allocation" warning.
+    vehicle_lines = ("9",) if juris == "US" else ("9281",)
+    candidate_lines = ("25", "9") if juris == "US" else ("9220", "9281")
+    allow_sm = juris == "US"
     subs = name_to_subtype or {}
-    sc = defaultdict(lambda: {"amount": 0.0, "deductible": 0.0, "accounts": [],
-                              "nondeductible": False, "limit_factor": 1.0,
-                              "limit_cite": "", "line": "", "allocated": False})
+    fqns = name_to_fqn or {}
+    # Accounts the taxpayer has explicitly designated as home-indirect (e.g. an
+    # electricity account that's really a home cost) — routed to Form 8829 even
+    # when neither the name nor the parent chain says "home".
+    designated_home = set((profile or {}).get("home_office", {}).get("accounts") or [])
+    # Every profile key we EXPECT to match an account this run — so we can warn
+    # loudly when a configured allocation matches nothing (a leaf/FQN mismatch, a
+    # typo, or a deleted account). A silent non-match over-claims AND lies ("not
+    # configured"), which is worse than either alone.
+    configured_keys = (
+        set((profile or {}).get("account_allocations") or {}) | designated_home
+    )
+    seen_ids: set = set()
+    sc = defaultdict(
+        lambda: {
+            "amount": 0.0,
+            "deductible": 0.0,
+            "accounts": [],
+            "nondeductible": False,
+            "limit_factor": 1.0,
+            "limit_cite": "",
+            "line": "",
+            "allocated": False,
+        }
+    )
     home_indirect, mileage_excluded, alloc_candidates = [], [], []
     for name, amount in expense_accounts.items():
         amt = abs(amount)
-        line, desc, flags = classify_account(name, subs.get(name, ""), "US")
-        treatment, pct, basis = _account_alloc(name, line, flags, profile)
+        subtype = subs.get(name, "")
+        line, desc, flags = classify_account(name, subtype, juris)
+        leaf = name.rsplit(":", 1)[-1]
+        fqn = fqns.get(name, name)
+        seen_ids.update((name, leaf, fqn))
+        # Home-office detection, in the v3.14 taxonomy's resolution order:
+        #   1. AccountSubType in QB's home-office family (authoritative) — catches
+        #      the case a bare leaf name can't ('Repairs & maintenance');
+        #   2. FullyQualifiedName parent chain ('Home office:Property taxes') —
+        #      catches members whose subtype is generic (mortgage → InterestPaid);
+        #   3. explicit taxpayer designation (home_office_accounts).
+        # The extractor's keys are already parent-qualified, so two accounts that
+        # share a leaf name no longer collide into one treatment. Designation
+        # matches on full name, FQN, OR leaf (profiles store the leaf name).
+        if (
+            is_home_office_subtype(subtype)
+            or is_home_office_account(fqn)
+            or is_home_office_account(name)
+            or name in designated_home
+            or fqn in designated_home
+            or leaf in designated_home
+        ) and "home_8829" not in flags:
+            flags = list(flags) + ["home_8829"]
+        treatment, pct, basis = _account_alloc(
+            name, line, flags, profile, vehicle_lines, allow_sm
+        )
         if treatment == "home_indirect":
             home_indirect.append((name, amt))
             continue
         if treatment == "mileage_excluded":
             mileage_excluded.append((name, amt))
             continue
-        factor, cite = line_limitation(line, "US")
+        factor, cite = line_limitation(line, juris)
         allocated = round(amt * pct, 2)
         ded = round(allocated * factor, 2)
-        key = (f"Non-deductible — {desc}" if line.startswith("NONDED")
-               else f"Line {line} — {desc}")
+        key = (
+            f"Non-deductible — {desc}"
+            if line.startswith("NONDED")
+            else f"Line {line} — {desc}"
+        )
         b = sc[key]
         b["line"] = line
         b["amount"] += amt
@@ -3813,10 +5394,18 @@ def _map_expenses_to_schedule_c(expense_accounts: dict, name_to_subtype: dict = 
             b["allocated"] = True
         if "nondeductible" in flags:
             b["nondeductible"] = True
-        if pct >= 0.999 and factor >= 0.999 and line in ("25", "9"):
+        if pct >= 0.999 and factor >= 0.999 and line in candidate_lines:
             alloc_candidates.append((name, key))
-    return {"lines": sc, "home_indirect": home_indirect,
-            "mileage_excluded": mileage_excluded, "alloc_candidates": alloc_candidates}
+    # Configured allocations that matched no account this run — surfaced loudly so
+    # a mismatch never silently over-claims under a false "not configured".
+    unmatched_config = sorted(k for k in configured_keys if k not in seen_ids)
+    return {
+        "lines": sc,
+        "home_indirect": home_indirect,
+        "mileage_excluded": mileage_excluded,
+        "alloc_candidates": alloc_candidates,
+        "unmatched_config": unmatched_config,
+    }
 
 
 def _form8829(indirect_total: float, biz_pct: float, tentative_profit: float):
@@ -3828,22 +5417,211 @@ def _form8829(indirect_total: float, biz_pct: float, tentative_profit: float):
     return allowed, round(tentative - allowed, 2), tentative
 
 
-def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income: float,
-                                pl_total: float, lines: list) -> float:
-    """Append the Schedule C expense section (allocated + limited lines, standard
-    mileage, Form 8829 Line 30 with the income limit + carryforward, Line 28/31,
+# Jurisdiction-specific labels so ONE renderer serves US Schedule C and CA T2125.
+# Only line numbers / form names differ; the allocate→limit→home→reconcile logic
+# is identical. Canada's business-use-of-home (line 9945) has the same loss
+# limitation + carryforward as Form 8829, so _form8829 is reused verbatim.
+_JURIS_RENDER = {
+    "US": {
+        "sched": "Schedule C",
+        "total_line": "Line 28 — Total expenses",
+        "home_line": "Line 30 — Home office (Form 8829)",
+        "home_form": "Form 8829",
+        "income_ref": "Line 29",
+        "net_line": "Line 31 — Net profit (loss)",
+        "meals_eg": "meals §274(n)",
+        "supports_mileage": True,
+        "loss": "NOL",
+        "loss_note": "This {amt} loss can be carried forward.",
+    },
+    "CA": {
+        "sched": "T2125",
+        "exp_header": "### Part 4 — Expenses",
+        "total_line": "Line 9368 — Total expenses",
+        "home_line": "Line 9945 — Business-use-of-home",
+        "home_form": "business-use-of-home",
+        "income_ref": "Line 9369",
+        "net_line": "Line 9369 — Net income (loss)",
+        "meals_eg": "meals ITA s.67.1",
+        "supports_mileage": False,
+        "loss": "loss",
+        "loss_note": "This {amt} non-capital loss may be applied to other income "
+        "(carry back 3 years / forward 20).",
+    },
+}
+
+
+def _append_home_office_comparison(lines: list, comp: dict, chosen_method: str) -> None:
+    """Show the simplified-vs-actual home-office choice with the nuances that flip
+    it: the gross-income cap, the carryforward (actual carries, simplified is lost
+    per Pub 587 — so a smaller actual number can be worth more in a loss year), and
+    the depreciation / §1250 recapture trade-off. Only shown when the profile has
+    the inputs for at least one method."""
+    if not comp:
+        return
+    s, a = comp["simplified"], comp["actual"]
+    lines.append("\n### Home-office method — simplified vs. actual (Form 8829)")
+    lines.append(
+        f"  - **Simplified:** {comp['office_sqft']:.0f} sq ft × $5 (max 300) = "
+        f"{fmt(s['gross'])} → **{fmt(s['allowed'])}** this year"
+        + (
+            " (excess is permanently LOST — Pub 587, no carryover)"
+            if s["gross"] - s["allowed"] > 0.005
+            else ""
+        )
+    )
+    lines.append(
+        f"  - **Actual:** {fmt(a['gross'])} tentative → **{fmt(a['allowed'])}** this year"
+        + (
+            f", {fmt(a['carry'])} carries forward to a future profit year"
+            if a["carry"] > 0.005
+            else ""
+        )
+    )
+    if comp["at_a_loss"]:
+        lines.append(
+            "  - **At a loss, both cap to $0 this year** — but *actual* is worth more: "
+            f"its {fmt(a['gross'])} tentative carries forward, while simplified's "
+            f"{fmt(s['gross'])} is lost. Prefer the actual method in a loss year."
+        )
+    elif s["allowed"] > a["allowed"] + 0.005:
+        lines.append(
+            f"  - This year, **simplified wins by {fmt(s['allowed'] - a['allowed'])}** on the "
+            "recorded numbers. But the actual base is often incomplete (partial-year "
+            "utilities/insurance/mortgage) — a full-year base can flip this."
+        )
+    elif a["allowed"] > s["allowed"] + 0.005:
+        lines.append(
+            f"  - This year, **actual wins by {fmt(a['allowed'] - s['allowed'])}**."
+        )
+    lines.append(
+        "  - *Actual also permits depreciating the business share of the home (more "
+        "deduction now), but that creates §1250 recapture (taxed up to 25% on "
+        "depreciation taken — whether or not you claimed it) when you sell. Simplified "
+        "avoids recapture. A judgment call for the taxpayer/CPA.*"
+    )
+    lines.append(
+        f"  - *Currently configured: **{chosen_method}** method. Change with "
+        "qb_allocation_profile (home_office_method) — set it to match the filed return.*"
+    )
+
+
+def _schedule_c_totals(
+    res: dict,
+    profile: dict,
+    tax_year,
+    gross_income: float,
+    supports_mileage: bool = True,
+) -> dict:
+    """Canonical Line 28 (total expenses), home-office allowed + carryforward, and
+    Line 31 (net) from a mapped result. THE single source of these totals — shared
+    by _render_schedule_c_expenses AND qb_deduction_finder so they can never
+    diverge. Non-deductible buckets are EXCLUDED from Line 28 (they are not
+    deductions — counting them overstates expenses and the loss)."""
+    profile = profile or {}
+    pl_deductible = round(
+        sum(
+            b["deductible"] for b in res["lines"].values() if not b.get("nondeductible")
+        ),
+        2,
+    )
+    mileage_ded = 0.0
+    veh = profile.get("vehicle") or {}
+    if supports_mileage and veh.get("method") == "standard_mileage":
+        rate, _n = tax_value_or_latest("STD_MILEAGE_CENTS", int(tax_year))
+        mileage_ded = round(float(veh.get("business_miles", 0) or 0) * rate / 100.0, 2)
+    line28 = round(pl_deductible + mileage_ded, 2)
+    home_indirect_total = round(sum(a for _, a in res["home_indirect"]), 2)
+    income_before_home = round(gross_income - line28, 2)
+    ho = profile.get("home_office") or {}
+    method = (ho.get("method") or "actual").lower()
+    pct = float(ho.get("percentage") or 0)
+    office_sqft = float(ho.get("office_sqft") or 0)
+    limit = max(0.0, income_before_home)  # Line 30 ≤ tentative profit (both methods)
+
+    # BOTH methods, income-limited — so the tools can show the real choice:
+    #  · Simplified: $5 × min(office sqft, 300); the gross-income excess is LOST
+    #    (Pub 587 — no carryover), and the actual home costs are NOT on Schedule C.
+    #  · Actual (Form 8829): business % × real home costs; the excess CARRIES
+    #    FORWARD to offset a future year — which is why, in a loss year, the
+    #    smaller actual number can be worth more than simplified's larger one.
+    simp_gross = (
+        round(
+            _HOME_OFFICE_SIMPLIFIED["rate_per_sqft"]
+            * min(office_sqft, _HOME_OFFICE_SIMPLIFIED["max_sqft"]),
+            2,
+        )
+        if office_sqft
+        else 0.0
+    )
+    simp_allowed = round(min(simp_gross, limit), 2)
+    act_allowed, act_carry, act_gross = (0.0, 0.0, 0.0)
+    if home_indirect_total > 0.005 and pct > 0:
+        act_allowed, act_carry, act_gross = _form8829(
+            home_indirect_total, pct, income_before_home
+        )
+
+    if method == "simplified":
+        # Simplified Line 30 is a FORMULA add (like standard mileage) — not sourced
+        # from the P&L home accounts, which stay personal/Schedule A. So it is NOT
+        # part of P&L conservation (home_from_pl=False).
+        home_allowed, ho_carry, home_from_pl = simp_allowed, 0.0, False
+    else:
+        home_allowed, ho_carry, home_from_pl = act_allowed, act_carry, True
+
+    net = round(income_before_home - home_allowed, 2)
+    comparison = None
+    if simp_gross > 0.005 or act_gross > 0.005:
+        comparison = {
+            "office_sqft": office_sqft,
+            "pct": pct,
+            "simplified": {"gross": simp_gross, "allowed": simp_allowed, "carry": 0.0},
+            "actual": {
+                "gross": round(act_gross, 2),
+                "allowed": round(act_allowed, 2),
+                "carry": round(act_carry, 2),
+            },
+            "at_a_loss": limit <= 0.005,
+        }
+    return {
+        "line28": line28,
+        "deductible_operating": pl_deductible,
+        "mileage_ded": mileage_ded,
+        "home_indirect_total": home_indirect_total,
+        "home_allowed": round(home_allowed, 2),
+        "ho_carry": round(ho_carry, 2),
+        "home_method": method,
+        "home_from_pl": home_from_pl,
+        "home_comparison": comparison,
+        "net": net,
+    }
+
+
+def _render_schedule_c_expenses(
+    res: dict,
+    profile: dict,
+    tax_year,
+    gross_income: float,
+    pl_total: float,
+    lines: list,
+    jurisdiction: str = "US",
+) -> float:
+    """Append the expense section (allocated + limited lines, standard mileage,
+    the home-office form with the income limit + carryforward, totals,
     non-deductibles, and the allocation warning) to ``lines``. Enforces the
     conservation invariant (every P&L dollar in a reported bucket). Returns the
-    Line 31 net profit. Shared by qb_schedule_c and qb_schedule_c_detailed so the
-    two never disagree."""
+    net profit. Shared by qb_schedule_c, qb_schedule_c_detailed, and
+    qb_t2125_summary so the jurisdictions never disagree — only line labels
+    differ (see _JURIS_RENDER)."""
     profile = profile or {}
+    L = _JURIS_RENDER["US" if str(jurisdiction).upper() == "US" else "CA"]
     sc = res["lines"]
 
     def _sort(item):
         m = _re.search(r"Line (\d+)([a-z]?)", item[0])
         return (int(m.group(1)) if m else 999, m.group(2) if m else "")
 
-    lines.append("### Expenses:")
+    lines.append(L.get("exp_header", "### Expenses:"))
     pl_deductible = stat_disallowed = alloc_disallowed = nondeduct_total = 0.0
     nondeduct = []
     for key, d in sorted(sc.items(), key=_sort):
@@ -3865,75 +5643,147 @@ def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income
             alloc_disallowed += round(full - alloc, 2)
             stat_disallowed += round(alloc - ded, 2)
 
-    # Vehicle standard mileage — a Line 9 deduction NOT sourced from the P&L.
-    mileage_ded = 0.0
+    # Authoritative totals from the SHARED helper (the single source of Line 28 /
+    # home / Line 31 — qb_deduction_finder uses the same, so they can't diverge).
+    T = _schedule_c_totals(res, profile, tax_year, gross_income, L["supports_mileage"])
+    mileage_ded = T["mileage_ded"]
     mileage_excluded_total = round(sum(a for _, a in res["mileage_excluded"]), 2)
     veh = profile.get("vehicle") or {}
-    if veh.get("method") == "standard_mileage":
+    if mileage_ded > 0.005:
         rate, _note = tax_value_or_latest("STD_MILEAGE_CENTS", int(tax_year))
         miles = float(veh.get("business_miles", 0) or 0)
-        mileage_ded = round(miles * rate / 100.0, 2)
-        lines.append(f"\n**Line 9 — Car and truck (standard mileage): {fmt(mileage_ded)}**")
-        lines.append(f"  - {miles:,.0f} business miles × ${rate / 100:.3f}/mi = {fmt(mileage_ded)}")
+        lines.append(
+            f"\n**Line 9 — Car and truck (standard mileage): {fmt(mileage_ded)}**"
+        )
+        lines.append(
+            f"  - {miles:,.0f} business miles × ${rate / 100:.3f}/mi = {fmt(mileage_ded)}"
+        )
         if mileage_excluded_total:
-            lines.append(f"  - *actual vehicle expenses of {fmt(mileage_excluded_total)} are "
-                         "excluded — you cannot deduct both*")
+            lines.append(
+                f"  - *actual vehicle expenses of {fmt(mileage_excluded_total)} are "
+                "excluded — you cannot deduct both*"
+            )
 
-    total_line28 = round(pl_deductible + mileage_ded, 2)
-    lines.append(f"\n**Line 28 — Total expenses: {fmt(total_line28)}**")
+    total_expenses = T["line28"]
+    lines.append(f"\n**{L['total_line']}: {fmt(total_expenses)}**")
 
-    # Form 8829 (home office) → Line 30, limited to tentative profit (Line 29).
-    home_indirect_total = round(sum(a for _, a in res["home_indirect"]), 2)
-    line29 = round(gross_income - total_line28, 2)
+    # Home office → the home line. Method-aware: 'actual' (Form 8829, business % of
+    # real home costs, excess carries forward) or 'simplified' ($5/sqft, excess
+    # LOST). Line 30 ≤ income before home in both.
+    home_indirect_total = T["home_indirect_total"]
+    income_before_home = round(gross_income - total_expenses, 2)
     ho = profile.get("home_office") or {}
-    ho_allowed = ho_carry = ho_personal = ho_pending = 0.0
-    if home_indirect_total > 0.005:
-        if ho.get("percentage") is not None:
-            pct = float(ho["percentage"])
-            allowed, carry, tentative = _form8829(home_indirect_total, pct, line29)
-            ho_allowed, ho_carry = allowed, carry
-            ho_personal = round(home_indirect_total - tentative, 2)
-            lines.append(f"\n**Line 30 — Home office (Form 8829): {fmt(ho_allowed)}**")
-            lines.append(f"  - home expenses {fmt(home_indirect_total)} × {pct * 100:.2f}% "
-                         f"business use = {fmt(tentative)} tentative")
-            if ho_carry > 0.005:
-                lines.append(f"  - capped at tentative profit {fmt(max(0.0, line29))} (Line 29) "
-                             f"— {fmt(ho_carry)} carries forward (can't create/increase a loss)")
-        else:
-            ho_pending = home_indirect_total
-            lines.append(f"\n**Line 30 — Home office: not computed** — {fmt(home_indirect_total)} "
-                         "of home-flagged expenses have no home-office %. Set one with "
-                         "qb_home_office_calculator (save_to_profile=true) or qb_allocation_profile.")
+    method = T["home_method"]
+    ho_allowed = T["home_allowed"]
+    ho_carry = T["ho_carry"]
+    ho_personal = ho_pending = 0.0
+    if method == "simplified" and ho.get("office_sqft"):
+        sqft = min(float(ho["office_sqft"]), _HOME_OFFICE_SIMPLIFIED["max_sqft"])
+        lines.append(f"\n**{L['home_line']} — simplified: {fmt(ho_allowed)}**")
+        lines.append(
+            f"  - {sqft:.0f} sq ft × ${_HOME_OFFICE_SIMPLIFIED['rate_per_sqft']:.0f}/sq ft "
+            f"(max {_HOME_OFFICE_SIMPLIFIED['max_sqft']}) = "
+            f"{fmt(_HOME_OFFICE_SIMPLIFIED['rate_per_sqft'] * sqft)}"
+            + (
+                f", capped at income before home {fmt(max(0.0, income_before_home))}"
+                if ho_allowed < _HOME_OFFICE_SIMPLIFIED["rate_per_sqft"] * sqft - 0.005
+                else ""
+            )
+        )
+        # Simplified: the actual home costs stay off Schedule C (mortgage interest &
+        # property taxes go to Schedule A); nothing carries forward.
+        ho_personal = home_indirect_total  # all P&L home dollars are personal here
+        if home_indirect_total > 0.005:
+            lines.append(
+                f"  - the {fmt(home_indirect_total)} of recorded home costs are NOT "
+                "on Schedule C under this method (mortgage interest / property taxes "
+                "→ Schedule A); no carryforward"
+            )
+    elif home_indirect_total > 0.005 and ho.get("percentage") is not None:
+        pct = float(ho["percentage"])
+        tentative = round(ho_allowed + ho_carry, 2)
+        ho_personal = round(home_indirect_total - tentative, 2)
+        lines.append(f"\n**{L['home_line']}: {fmt(ho_allowed)}**")
+        lines.append(
+            f"  - home expenses {fmt(home_indirect_total)} × {pct * 100:.2f}% "
+            f"business use = {fmt(tentative)} tentative"
+        )
+        if ho_carry > 0.005:
+            lines.append(
+                f"  - capped at income before home {fmt(max(0.0, income_before_home))} "
+                f"({L['income_ref']}) — {fmt(ho_carry)} carries forward "
+                "(can't create/increase a loss)"
+            )
+    elif home_indirect_total > 0.005:
+        ho_pending = home_indirect_total
+        lines.append(
+            f"\n**{L['home_line'].split('(')[0].strip()}: not computed** — "
+            f"{fmt(home_indirect_total)} of home-flagged expenses have no "
+            "home-office %. Set one with qb_home_office_calculator "
+            "(save_to_profile=true) or qb_allocation_profile."
+        )
 
-    net_profit = round(line29 - ho_allowed, 2)
-    lines.append(f"**Line 31 — Net profit (loss): {fmt(net_profit)}**")
+    # The simplified $5/sqft method is US-only (Rev. Proc. 2013-13); Canada has
+    # only the actual business-use-of-home method, so no method comparison there.
+    if L["supports_mileage"]:
+        _append_home_office_comparison(lines, T.get("home_comparison"), method)
+
+    net_profit = T["net"]
+    lines.append(f"**{L['net_line']}: {fmt(net_profit)}**")
 
     disallowed_note = []
     if stat_disallowed > 0.005:
-        disallowed_note.append(f"{fmt(round(stat_disallowed, 2))} statutory (e.g. meals §274(n))")
+        disallowed_note.append(
+            f"{fmt(round(stat_disallowed, 2))} statutory (e.g. {L['meals_eg']})"
+        )
     if alloc_disallowed > 0.005:
-        disallowed_note.append(f"{fmt(round(alloc_disallowed, 2))} personal (allocation)")
+        disallowed_note.append(
+            f"{fmt(round(alloc_disallowed, 2))} personal (allocation)"
+        )
     if ho_personal > 0.005:
         disallowed_note.append(f"{fmt(round(ho_personal, 2))} personal home share")
+    if ho_carry > 0.005:
+        disallowed_note.append(
+            f"{fmt(round(ho_carry, 2))} home-office carryforward "
+            "(deferred, not lost)"
+        )
     if disallowed_note:
-        lines.append("*Removed from deductions: " + "; ".join(disallowed_note) + ".*")
+        lines.append(
+            "*Removed from this year's deductions: " + "; ".join(disallowed_note) + ".*"
+        )
 
-    # Conservation: every P&L expense dollar lands in exactly one bucket.
-    pl_accounted = round(pl_deductible + stat_disallowed + alloc_disallowed
-                         + ho_allowed + ho_carry + ho_personal + ho_pending
-                         + mileage_excluded_total + nondeduct_total, 2)
+    # Conservation: every P&L expense dollar lands in exactly one bucket. The home
+    # accounts (home_indirect_total) are ALWAYS fully accounted here — deducted +
+    # carried + personal under 'actual', all-personal under 'simplified'. The
+    # simplified Line 30 is a FORMULA add (not a P&L dollar), so it is not summed.
+    pl_accounted = round(
+        pl_deductible
+        + stat_disallowed
+        + alloc_disallowed
+        + home_indirect_total
+        + mileage_excluded_total
+        + nondeduct_total,
+        2,
+    )
     if pl_total and abs(pl_accounted - pl_total) > 0.02:
-        lines.append(f"⚠️ Does not reconcile to P&L expenses ({fmt(pl_total)}) — "
-                     f"difference {fmt(round(abs(pl_accounted - pl_total), 2))}. Review.")
+        lines.append(
+            f"⚠️ Does not reconcile to P&L expenses ({fmt(pl_total)}) — "
+            f"difference {fmt(round(abs(pl_accounted - pl_total), 2))}. Review."
+        )
 
     if nondeduct:
-        lines.append(f"\n### Not deductible on Schedule C — excluded from Line 28: "
-                     f"({fmt(round(nondeduct_total, 2))})")
+        lines.append(
+            f"\n### Not deductible on {L['sched']} — excluded from "
+            f"{L['total_line'].split('—')[0].strip()}: ({fmt(round(nondeduct_total, 2))})"
+        )
         for key, d in nondeduct:
             for name, full, *_ in d["accounts"]:
                 lines.append(f"  - {name}: {fmt(full)}")
-        lines.append("*e.g. entertainment (§274(a)) and charitable contributions (§170, "
-                     "claimed on Schedule A) reduce book profit but not taxable income.*")
+        lines.append(
+            "*Non-business or separately-claimed items (e.g. charitable "
+            "contributions) reduce book profit but not this return's taxable "
+            "income.*"
+        )
 
     cands = res["alloc_candidates"]
     if cands:
@@ -3942,17 +5792,73 @@ def _render_schedule_c_expenses(res: dict, profile: dict, tax_year, gross_income
             if name not in seen:
                 seen.add(name)
                 uniq.append((name, key))
-        lines.append("\n### ⚠️ Likely need a business-use % (personal share NOT removed)")
-        lines.append("Deducted at **100%** with no allocation configured — set one with "
-                     "qb_allocation_profile so the personal share isn't over-claimed:")
+        lines.append(
+            "\n### ⚠️ Likely need a business-use % (personal share NOT removed)"
+        )
+        lines.append(
+            "Deducted at **100%** with no allocation configured — set one with "
+            "qb_allocation_profile so the personal share isn't over-claimed:"
+        )
         for name, key in uniq[:12]:
             lines.append(f"  - {name} → {key}")
         if len(uniq) > 12:
             lines.append(f"  - (+{len(uniq) - 12} more)")
 
+    unmatched = res.get("unmatched_config") or []
+    if unmatched:
+        lines.append("\n### 🔴 Configured allocations that match NO account")
+        lines.append(
+            "These are set in your allocation profile but no account this "
+            "period matches the name — so the percentage was **not applied** "
+            "(the account was deducted at 100%). Fix the name in "
+            "qb_allocation_profile (use the exact account name):"
+        )
+        for k in unmatched:
+            lines.append(f"  - {k}")
+
     if net_profit < 0:
-        lines.append(f"\n📋 **NOL:** This {fmt(abs(net_profit))} loss can be carried forward.")
+        lines.append(
+            f"\n📋 **{L['loss']}:** " + L["loss_note"].format(amt=fmt(abs(net_profit)))
+        )
     return net_profit
+
+
+async def _chart_maps():
+    """(name -> AccountSubType, name -> FullyQualifiedName) from one Account
+    fetch. The FQN map lets home-office detection key on the PARENT chain
+    ('Home office:Property taxes'), not just the leaf name — so a sub-account
+    whose own name lacks 'home' is still routed to Form 8829. Returns ({}, {})
+    if the chart can't be fetched — callers then classify by name alone."""
+    try:
+        # INCLUDE inactive accounts — real books carry deleted accounts with
+        # balances (e.g. 'Mortgage interest (deleted)' still under Home office).
+        # QuickBooks returns active-only by default; the Active IN clause is the
+        # documented way to get both. Without it, home routing and subtype
+        # resolution silently miss every inactive account.
+        accts = (
+            (await qb_query_all("SELECT * FROM Account WHERE Active IN (true, false)"))
+            .get("QueryResponse", {})
+            .get("Account", [])
+        )
+    except Exception as e:
+        logger.debug(f"chart maps fetch failed: {e}")
+        return {}, {}
+    # Two passes so the FullyQualifiedName (unique) is AUTHORITATIVE and a bare
+    # leaf Name (which two accounts can share — 'Repairs & maintenance' under
+    # 'Home office' vs. standalone) only fills gaps, never overriding the correct
+    # FQN entry. The extractor emits FQN-qualified keys, so these lookups are exact.
+    sub, fqn = {}, {}
+    for a in accts:
+        f = a.get("FullyQualifiedName", "")
+        if f:
+            sub[f] = a.get("AccountSubType", "") or ""
+            fqn[f] = f
+    for a in accts:
+        n, f = a.get("Name", ""), a.get("FullyQualifiedName", "")
+        if n:
+            sub.setdefault(n, a.get("AccountSubType", "") or "")
+            fqn.setdefault(n, f or n)
+    return sub, fqn
 
 
 async def _account_subtype_map() -> dict:
@@ -3960,20 +5866,8 @@ async def _account_subtype_map() -> dict:
     so we join back to the chart of accounts for the authoritative subtype
     (Name first, FullyQualifiedName as a fallback for sub-accounts). Returns {}
     if the chart can't be fetched — callers then classify by name alone."""
-    try:
-        accts = (await qb_query_all("SELECT * FROM Account")).get(
-            "QueryResponse", {}).get("Account", [])
-    except Exception as e:
-        logger.debug(f"subtype map fetch failed: {e}")
-        return {}
-    m = {}
-    for a in accts:
-        st = a.get("AccountSubType", "") or ""
-        if a.get("Name"):
-            m.setdefault(a["Name"], st)
-        if a.get("FullyQualifiedName"):
-            m.setdefault(a["FullyQualifiedName"], st)
-    return m
+    sub, _ = await _chart_maps()
+    return sub
 
 
 def _alloc_local_path():
@@ -3997,7 +5891,12 @@ async def _get_allocation_profile(tax_year) -> dict:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.get(
                     f"{QB_API_URL}/api/allocations/profile",
-                    params={"licenseKey": license_key, "realmId": realm, "taxYear": year})
+                    params={
+                        "licenseKey": license_key,
+                        "realmId": realm,
+                        "taxYear": year,
+                    },
+                )
             if resp.status_code == 200:
                 return resp.json().get("profile") or {}
         except Exception as e:
@@ -4025,8 +5924,13 @@ async def _save_allocation_profile(tax_year, profile: dict) -> bool:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.post(
                     f"{QB_API_URL}/api/allocations/profile",
-                    json={"licenseKey": license_key, "realmId": realm,
-                          "taxYear": year, "profile": profile})
+                    json={
+                        "licenseKey": license_key,
+                        "realmId": realm,
+                        "taxYear": year,
+                        "profile": profile,
+                    },
+                )
             return resp.status_code == 200
         except Exception as e:
             logger.warning(f"allocation profile save failed: {e}")
@@ -4045,27 +5949,55 @@ async def _save_allocation_profile(tax_year, profile: dict) -> bool:
 def _fmt_allocation_profile(year: int, p: dict) -> str:
     """Human-readable render of a stored allocation profile."""
     if not p:
-        return (f"## Allocation Profile — {year}\n\nNo profile set. Every account is "
-                "deducted at **100%**, so any personal share is over-claimed. Set "
-                "percentages with qb_allocation_profile (home-office sqft, vehicle miles, "
-                "and per-account business-use %).")
+        return (
+            f"## Allocation Profile — {year}\n\nNo profile set. Every account is "
+            "deducted at **100%**, so any personal share is over-claimed. Set "
+            "percentages with qb_allocation_profile (home-office sqft, vehicle miles, "
+            "and per-account business-use %)."
+        )
     lines = [f"## Allocation Profile — {year}\n"]
     ho = p.get("home_office") or {}
-    if ho.get("percentage") is not None:
-        basis = f" (office {ho.get('office_sqft')} / home {ho.get('home_sqft')} sqft)" \
-            if ho.get("office_sqft") else ""
-        lines.append(f"- **Home office:** {ho['percentage'] * 100:.2f}%{basis} "
-                     f"· method: {ho.get('method', 'actual')}")
+    if ho.get("percentage") is not None or ho.get("office_sqft"):
+        _method = ho.get("method", "actual")
+        if _method == "simplified":
+            sqft = min(
+                float(ho.get("office_sqft") or 0), _HOME_OFFICE_SIMPLIFIED["max_sqft"]
+            )
+            lines.append(
+                f"- **Home office:** simplified — {ho.get('office_sqft', 0):g} sq ft "
+                f"(capped at {_HOME_OFFICE_SIMPLIFIED['max_sqft']}) × $5 = "
+                f"{fmt(_HOME_OFFICE_SIMPLIFIED['rate_per_sqft'] * sqft)} (before the "
+                "net-profit limit; no carryforward)"
+            )
+        else:
+            basis = (
+                f" (office {ho.get('office_sqft')} / home {ho.get('home_sqft')} sqft)"
+                if ho.get("office_sqft")
+                else ""
+            )
+            lines.append(
+                f"- **Home office:** {(ho.get('percentage') or 0) * 100:.2f}%{basis} "
+                "· method: actual (Form 8829)"
+            )
+    if ho.get("accounts"):
+        lines.append(
+            "  - designated home-indirect accounts (→ Form 8829): "
+            + ", ".join(ho["accounts"])
+        )
     v = p.get("vehicle") or {}
     if v.get("method"):
         if v["method"] == "standard_mileage":
-            lines.append(f"- **Vehicle:** standard mileage — {v.get('business_miles', 0):,.0f} "
-                         "business miles (replaces actual vehicle expenses)")
+            lines.append(
+                f"- **Vehicle:** standard mileage — {v.get('business_miles', 0):,.0f} "
+                "business miles (replaces actual vehicle expenses)"
+            )
         else:
             pct = (v.get("percentage") or 0) * 100
-            lines.append(f"- **Vehicle:** {pct:.1f}% business use "
-                         f"({v.get('business_miles', 0):,.0f}/{v.get('total_miles', 0):,.0f} mi) "
-                         "· method: actual")
+            lines.append(
+                f"- **Vehicle:** {pct:.1f}% business use "
+                f"({v.get('business_miles', 0):,.0f}/{v.get('total_miles', 0):,.0f} mi) "
+                "· method: actual"
+            )
     acc = p.get("account_allocations") or {}
     if acc:
         lines.append("- **Account allocations:**")
@@ -4074,32 +6006,57 @@ def _fmt_allocation_profile(year: int, p: dict) -> str:
             lines.append(f"  - {name}: {cfg.get('percentage', 0) * 100:.0f}%{note}")
     prov = p.get("provenance") or {}
     if prov:
-        lines.append(f"\n*Set by {prov.get('set_by', '?')} on {prov.get('set_at', '?')[:10]}"
-                     + (f" · source: {prov.get('source')}" if prov.get("source") else "") + "*")
-    lines.append("\n*A percentage without a documented basis is indefensible under "
-                 "examination — record what each was derived from.*")
+        lines.append(
+            f"\n*Set by {prov.get('set_by', '?')} on {prov.get('set_at', '?')[:10]}"
+            + (f" · source: {prov.get('source')}" if prov.get("source") else "")
+            + "*"
+        )
+    lines.append(
+        "\n*A percentage without a documented basis is indefensible under "
+        "examination — record what each was derived from.*"
+    )
     return "\n".join(lines)
 
 
 @mcp.tool(annotations={"destructiveHint": False})
 async def qb_allocation_profile(
-        tax_year: int = 0, home_office_sqft: float = 0, home_sqft: float = 0,
-        vehicle_method: str = "", business_miles: float = 0, total_miles: float = 0,
-        account_allocations_json: str = "", source: str = "") -> str:
+    tax_year: int = 0,
+    home_office_sqft: float = 0,
+    home_sqft: float = 0,
+    home_office_method: str = "",
+    vehicle_method: str = "",
+    business_miles: float = 0,
+    total_miles: float = 0,
+    account_allocations_json: str = "",
+    home_office_accounts_json: str = "",
+    source: str = "",
+) -> str:
     """Get or set this company's TAXPAYER allocation profile for a tax year — the
     business-use percentages that turn mixed personal/business costs into their
     deductible share (home office, vehicle, per-account internet/phone). Call with
     just tax_year to VIEW it. To SET: pass home_office_sqft + home_sqft (derives
-    the home-office %), and/or vehicle_method ('standard_mileage' or 'actual') with
-    business_miles + total_miles, and/or account_allocations_json (a JSON object
-    like {"Internet & TV": 0.6} or {"Internet & TV": {"percentage":0.6,
-    "basis_note":"..."}}). source documents the basis (e.g. 'CPA Form 8829 TY2025').
-    These are per-realm taxpayer inputs, stored outside the statutory tax ledger."""
+    the home-office %), and/or home_office_method ('actual' = Form 8829 business %
+    of real costs, carries forward; 'simplified' = $5/sqft max 300, no carryover),
+    and/or vehicle_method ('standard_mileage' or 'actual') with business_miles +
+    total_miles, and/or account_allocations_json (a JSON object like
+    {"Internet & TV": 0.6} or {"Internet & TV": {"percentage":0.6,"basis_note":".."}}),
+    and/or home_office_accounts_json (a JSON array of account names to route to the
+    home-office form, e.g. ["Electricity"] — for home utilities not under a 'Home
+    office' parent). source documents the basis (e.g. 'CPA Form 8829 TY2025'). These
+    are per-realm taxpayer inputs, stored outside the statutory tax ledger."""
     from datetime import datetime, timezone
+
     year = int(tax_year) or datetime.now(timezone.utc).year
 
-    is_set = bool(home_office_sqft or vehicle_method or account_allocations_json
-                  or business_miles or total_miles)
+    is_set = bool(
+        home_office_sqft
+        or home_office_method
+        or vehicle_method
+        or account_allocations_json
+        or home_office_accounts_json
+        or business_miles
+        or total_miles
+    )
     profile = await _get_allocation_profile(year)
     if not is_set:
         return _fmt_allocation_profile(year, profile)
@@ -4107,15 +6064,28 @@ async def qb_allocation_profile(
     profile = dict(profile or {})
     warnings = []
 
-    if home_office_sqft or home_sqft:
-        if home_office_sqft <= 0 or home_sqft <= 0:
-            return "Home office needs both home_office_sqft and home_sqft (> 0)."
-        if home_office_sqft > home_sqft:
-            return "home_office_sqft cannot exceed home_sqft."
-        profile["home_office"] = {
-            "method": "actual", "office_sqft": home_office_sqft, "home_sqft": home_sqft,
-            "percentage": round(home_office_sqft / home_sqft, 4),
-            "basis_note": f"{home_office_sqft:g} / {home_sqft:g} sqft"}
+    if home_office_method and home_office_method not in ("actual", "simplified"):
+        return "home_office_method must be 'actual' or 'simplified'."
+
+    if home_office_sqft or home_sqft or home_office_method:
+        ho = dict(profile.get("home_office") or {})
+        if home_office_sqft or home_sqft:
+            if home_office_sqft <= 0 or home_sqft <= 0:
+                return "Home office needs both home_office_sqft and home_sqft (> 0)."
+            if home_office_sqft > home_sqft:
+                return "home_office_sqft cannot exceed home_sqft."
+            ho.update(
+                {
+                    "office_sqft": home_office_sqft,
+                    "home_sqft": home_sqft,
+                    "percentage": round(home_office_sqft / home_sqft, 4),
+                    "basis_note": f"{home_office_sqft:g} / {home_sqft:g} sqft",
+                }
+            )
+        if home_office_method:
+            ho["method"] = home_office_method
+        ho.setdefault("method", "actual")
+        profile["home_office"] = ho  # preserves any designated "accounts" list
 
     if vehicle_method:
         if vehicle_method not in ("standard_mileage", "actual"):
@@ -4123,10 +6093,12 @@ async def qb_allocation_profile(
         if total_miles <= 0 or business_miles < 0 or business_miles > total_miles:
             return "Vehicle needs business_miles and total_miles (0 <= business <= total, total > 0)."
         profile["vehicle"] = {
-            "method": vehicle_method, "business_miles": business_miles,
+            "method": vehicle_method,
+            "business_miles": business_miles,
             "total_miles": total_miles,
             "percentage": round(business_miles / total_miles, 4),
-            "basis_note": f"{business_miles:g} / {total_miles:g} miles"}
+            "basis_note": f"{business_miles:g} / {total_miles:g} miles",
+        }
 
     if account_allocations_json:
         try:
@@ -4146,15 +6118,37 @@ async def qb_allocation_profile(
             if not 0.0 <= pct <= 1.0:
                 return f"Allocation for '{name}' must be between 0 and 1 (got {pct})."
             if chart and name not in chart:
-                warnings.append(f"'{name}' is not an account in this chart — check the name.")
+                warnings.append(
+                    f"'{name}' is not an account in this chart — check the name."
+                )
             acc[name] = {"percentage": round(pct, 4), "basis_note": note}
         profile["account_allocations"] = acc
+
+    if home_office_accounts_json:
+        try:
+            names = json.loads(home_office_accounts_json)
+            assert isinstance(names, list) and all(isinstance(n, str) for n in names)
+        except Exception:
+            return (
+                "home_office_accounts_json must be a JSON array of account "
+                'names like ["Electricity", "National Grid"].'
+            )
+        chart = await _account_subtype_map()
+        for n in names:
+            if chart and n not in chart:
+                warnings.append(
+                    f"'{n}' is not an account in this chart — check the name."
+                )
+        ho = dict(profile.get("home_office") or {})
+        ho["accounts"] = sorted(set(names))
+        profile["home_office"] = ho
 
     ctx = get_ctx()
     profile["provenance"] = {
         "set_by": getattr(ctx, "user_id", "") or ctx.license_key or "self-hosted",
         "set_at": datetime.now(timezone.utc).isoformat(),
-        "source": source or (profile.get("provenance") or {}).get("source", "")}
+        "source": source or (profile.get("provenance") or {}).get("source", ""),
+    }
 
     if not await _save_allocation_profile(year, profile):
         return "⚠️ Could not save the allocation profile — try again."
@@ -4166,62 +6160,72 @@ async def qb_allocation_profile(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("US", "For Canadian books use qb_t2125_summary.")
-async def qb_tax_summary(start_date: str = "", end_date: str = "") -> str:
-    """Generate a tax-oriented summary mapping QuickBooks data to Schedule C lines. Dates in YYYY-MM-DD (default: current year-to-date)."""
-    start_date, end_date = _ytd_range(start_date, end_date)
-    report = await qb_request("GET", "reports/ProfitAndLoss", params={
-        "start_date": start_date,
-        "end_date": end_date,
-        "summarize_column_by": "Total",
-    })
+async def qb_tax_summary(
+    tax_year: int = 0, start_date: str = "", end_date: str = ""
+) -> str:
+    """Generate a tax-oriented Schedule C summary. Uses the SAME canonical taxonomy
+    + allocation/limitation engine as qb_schedule_c, so the two can never disagree
+    (previously this tool classified by name only, with no subtype, and routed
+    meals to Line 24a — skipping the §274(n) 50% limit). Pass tax_year (e.g. 2025)
+    for a full-year view, or start_date/end_date (YYYY-MM-DD) for a custom range
+    (default: current year-to-date)."""
+    if tax_year:
+        start_date, end_date = f"{int(tax_year)}-01-01", f"{int(tax_year)}-12-31"
+    else:
+        start_date, end_date = _ytd_range(start_date, end_date)
+    year = int(tax_year) or int(str(start_date)[:4])
+
+    result = await qb_request(
+        "GET",
+        "reports/ProfitAndLoss",
+        params={
+            "start_date": start_date,
+            "end_date": end_date,
+            "summarize_column_by": "Total",
+        },
+    )
+
+    # Same pipeline as qb_schedule_c: chart maps (subtype + FQN) → income split →
+    # classify → allocate → limit → render (with Form 8829, net, non-deductibles,
+    # conservation). One taxonomy, one engine — no two-tools-disagree class.
+    name_sub, name_fqn = await _chart_maps()
+    gross_receipts, returns_allow, cogs, other_income = _pl_income_breakdown(
+        result, name_sub
+    )
+    net_receipts = round(gross_receipts - returns_allow, 2)
+    gross_profit = round(net_receipts - cogs, 2)
+    gross_income = round(gross_profit + other_income, 2)
+
+    profile = await _get_allocation_profile(year)
+    expense_dict = _extract_pl_expense_accounts(result)
+    res = _map_expenses_to_schedule_c(expense_dict, name_sub, profile, name_fqn)
+    pl_total = _pl_expense_total(result)
 
     lines = [f"## Tax Summary (Schedule C): {start_date} to {end_date}\n"]
-    schedule_c = {}
-    nondeductible = {}
+    lines.append(f"**Line 1 — Gross receipts or sales:** {fmt(gross_receipts)}")
+    if returns_allow:
+        lines.append(f"**Line 2 — Returns and allowances:** {fmt(returns_allow)}")
+        lines.append(f"**Line 3 — Net receipts:** {fmt(net_receipts)}")
+    if cogs:
+        lines.append(f"**Line 4 — Cost of goods sold:** {fmt(cogs)}")
+        lines.append(f"**Line 5 — Gross profit:** {fmt(gross_profit)}")
+    if other_income:
+        lines.append(f"**Line 6 — Other income (interest, etc.):** {fmt(other_income)}")
+    lines.append(f"**Line 7 — Gross income:** {fmt(gross_income)}\n")
 
-    # Expense accounts only (period activity), classified via the canonical
-    # taxonomy (name fallback here — no subtype fetch in this lightweight tool),
-    # with the statutory limitation applied (meals 50%, §274(n)).
-    for rname, amount in _extract_pl_expense_accounts(report).items():
-        amt = abs(amount)
-        line, desc, _flags = classify_account(rname, "", "US")
-        if line.startswith("NONDED"):
-            nondeductible.setdefault(desc, []).append((rname, amt))
-            continue
-        factor, cite = line_limitation(line, "US")
-        schedule_c.setdefault(f"Line {line} - {desc}", []).append(
-            (rname, amt, round(amt * factor, 2), factor, cite))
-
-    grand = 0.0
-    for sc_line in sorted(schedule_c.keys()):
-        items = schedule_c[sc_line]
-        total = round(sum(d for _, _, d, _, _ in items), 2)
-        grand += total
-        lines.append(f"### {sc_line}: {fmt(total)}")
-        for rname, full, ded, factor, cite in items:
-            if factor < 0.999:
-                lines.append(f"  - {rname}: {fmt(full)} × {factor * 100:.0f}% ({cite}) = {fmt(ded)}")
-            else:
-                lines.append(f"  - {rname}: {fmt(full)}")
-        lines.append("")
-
-    lines.append(f"\n**Total Deductible Expenses: {fmt(round(grand, 2))}**")
-    if nondeductible:
-        nd_total = sum(sum(a for _, a in items) for items in nondeductible.values())
-        lines.append(f"\n### Excluded — not deductible on Schedule C: ({fmt(nd_total)})")
-        for k in sorted(nondeductible):
-            for rname, a in nondeductible[k]:
-                lines.append(f"  - {rname}: {fmt(a)} — {k}")
-    return "\n".join(lines)
+    _render_schedule_c_expenses(res, profile, year, gross_income, pl_total, lines)
+    return "\n".join(lines) + tax_data_footer(year)
 
 
 # ===================================================================
 # ENTITY MANAGEMENT — Accounts
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_accounts(account_type: str = "", active_only: bool = False,
-                           max_results: int = 0) -> str:
+async def qb_list_accounts(
+    account_type: str = "", active_only: bool = False, max_results: int = 0
+) -> str:
     """List the chart of accounts. Fetches the FULL chart (paginated) so a large
     CoA isn't silently truncated. Optionally filter by account_type (e.g. 'Bank',
     'Credit Card', 'Expense', 'Income', 'Accounts Payable', 'Fixed Asset') and/or
@@ -4235,15 +6239,21 @@ async def qb_list_accounts(account_type: str = "", active_only: bool = False,
     else:
         where = []
         if account_type:
-            where.append(f"AccountType = '{account_type.replace(chr(39), chr(92) + chr(39))}'")
+            where.append(
+                f"AccountType = '{account_type.replace(chr(39), chr(92) + chr(39))}'"
+            )
         if active_only:
             where.append("Active = true")
-        query = "SELECT * FROM Account" + (" WHERE " + " AND ".join(where) if where else "")
+        query = "SELECT * FROM Account" + (
+            " WHERE " + " AND ".join(where) if where else ""
+        )
         result = await qb_query_all(query)
         accounts = result.get("QueryResponse", {}).get("Account", [])
 
     if not accounts:
-        filt = ", ".join(filter(None, [account_type, "active only" if active_only else ""]))
+        filt = ", ".join(
+            filter(None, [account_type, "active only" if active_only else ""])
+        )
         return "No accounts found." + (f" (filter: {filt})" if filt else "")
 
     total = len(accounts)
@@ -4278,37 +6288,55 @@ async def qb_list_accounts(account_type: str = "", active_only: bool = False,
 # ENTITY MANAGEMENT — Vendors
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_vendors(name: str = "", max_results: int = 50) -> str:
-    """List vendors/suppliers in QuickBooks. Optionally filter by name."""
-    # Demo mode: return mock vendors
+    """List vendors/suppliers in QuickBooks. Optionally filter by name.
+    max_results caps how many are shown (0 = all); the true total is always
+    reported, and truncation is disclosed rather than hidden."""
+    # Demo mode: return mock vendors (filter BEFORE limiting).
     if _demo_active():
-        vendors = DEMO_VENDORS[:max_results]
+        vendors = DEMO_VENDORS
         if name:
-            vendors = [v for v in vendors if name.lower() in v.get("DisplayName", "").lower()]
+            vendors = [
+                v for v in vendors if name.lower() in v.get("DisplayName", "").lower()
+            ]
     else:
+        # Page through EVERY vendor (a bare MAXRESULTS silently truncates and
+        # stops mid-alphabet with no disclosure); cap the DISPLAY, not the fetch.
         query = "SELECT * FROM Vendor"
         if name:
             query += f" WHERE DisplayName LIKE '%{name}%'"
-        query += f" MAXRESULTS {max_results}"
-        result = await qb_query(query)
+        result = await qb_query_all(query)
         vendors = result.get("QueryResponse", {}).get("Vendor", [])
 
     if not vendors:
         return "No vendors found."
 
-    lines = [f"## Vendors ({len(vendors)} found)\n"]
-    for v in vendors:
+    total = len(vendors)
+    shown = vendors[:max_results] if max_results and max_results > 0 else vendors
+    lines = [f"## Vendors ({total} found)\n"]
+    for v in shown:
         vname = v.get("DisplayName", "Unknown")
         balance = fmt(v.get("Balance", 0))
         active = "Active" if v.get("Active", True) else "Inactive"
         email = v.get("PrimaryEmailAddr", {}).get("Address", "")
-        lines.append(f"- **{vname}** (ID: {v.get('Id')}) | Balance: {balance} | {active}" + (f" | {email}" if email else ""))
+        lines.append(
+            f"- **{vname}** (ID: {v.get('Id')}) | Balance: {balance} | {active}"
+            + (f" | {email}" if email else "")
+        )
+    if len(shown) < total:
+        lines.append(
+            f"\n*Showing the first {len(shown)} of {total}. Pass "
+            "max_results (0 = all) or a name filter to see the rest.*"
+        )
     return "\n".join(lines)
 
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_vendor(display_name: str, email: str = "", phone: str = "", company_name: str = "") -> str:
+async def qb_create_vendor(
+    display_name: str, email: str = "", phone: str = "", company_name: str = ""
+) -> str:
     """Create a new vendor/supplier in QuickBooks. display_name is required. Optionally include email, phone, company_name."""
     vendor_body = {"DisplayName": display_name}
     if email:
@@ -4332,37 +6360,54 @@ async def qb_create_vendor(display_name: str, email: str = "", phone: str = "", 
 # ENTITY MANAGEMENT — Customers
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_customers(name: str = "", max_results: int = 50) -> str:
-    """List customers in QuickBooks. Optionally filter by name."""
-    # Demo mode: return mock customers
+    """List customers in QuickBooks. Optionally filter by name.
+    max_results caps how many are shown (0 = all); the true total is always
+    reported, and truncation is disclosed rather than hidden."""
+    # Demo mode: return mock customers (filter BEFORE limiting).
     if _demo_active():
-        customers = DEMO_CUSTOMERS[:max_results]
+        customers = DEMO_CUSTOMERS
         if name:
-            customers = [c for c in customers if name.lower() in c.get("DisplayName", "").lower()]
+            customers = [
+                c for c in customers if name.lower() in c.get("DisplayName", "").lower()
+            ]
     else:
+        # Page through EVERY customer; cap the DISPLAY, not the fetch.
         query = "SELECT * FROM Customer"
         if name:
             query += f" WHERE DisplayName LIKE '%{name}%'"
-        query += f" MAXRESULTS {max_results}"
-        result = await qb_query(query)
+        result = await qb_query_all(query)
         customers = result.get("QueryResponse", {}).get("Customer", [])
 
     if not customers:
         return "No customers found."
 
-    lines = [f"## Customers ({len(customers)} found)\n"]
-    for c in customers:
+    total = len(customers)
+    shown = customers[:max_results] if max_results and max_results > 0 else customers
+    lines = [f"## Customers ({total} found)\n"]
+    for c in shown:
         cname = c.get("DisplayName", "Unknown")
         balance = fmt(c.get("Balance", 0))
         active = "Active" if c.get("Active", True) else "Inactive"
         email = c.get("PrimaryEmailAddr", {}).get("Address", "")
-        lines.append(f"- **{cname}** (ID: {c.get('Id')}) | Balance: {balance} | {active}" + (f" | {email}" if email else ""))
+        lines.append(
+            f"- **{cname}** (ID: {c.get('Id')}) | Balance: {balance} | {active}"
+            + (f" | {email}" if email else "")
+        )
+    if len(shown) < total:
+        lines.append(
+            f"\n*Showing the first {len(shown)} of {total}. Pass "
+            "max_results (0 = all) or a name filter to see the rest.*"
+        )
     return "\n".join(lines)
 
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_customer(display_name: str, email: str = "", phone: str = "", company_name: str = "") -> str:
+async def qb_create_customer(
+    display_name: str, email: str = "", phone: str = "", company_name: str = ""
+) -> str:
     """Create a new customer in QuickBooks. display_name is required. Optionally include email, phone, company_name."""
     customer_body = {"DisplayName": display_name}
     if email:
@@ -4385,6 +6430,7 @@ async def qb_create_customer(display_name: str, email: str = "", phone: str = ""
 # ===================================================================
 # ENTITY MANAGEMENT — Items / Products & Services
 # ===================================================================
+
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_items(name: str = "", max_results: int = 100) -> str:
@@ -4409,7 +6455,9 @@ async def qb_list_items(name: str = "", max_results: int = 100) -> str:
         income_acct = item.get("IncomeAccountRef", {}).get("name", "")
         expense_acct = item.get("ExpenseAccountRef", {}).get("name", "")
 
-        lines.append(f"- **{iname}** (ID: {item.get('Id')}) | {itype} | Price: {price} | {active}")
+        lines.append(
+            f"- **{iname}** (ID: {item.get('Id')}) | {itype} | Price: {price} | {active}"
+        )
         if income_acct:
             lines.append(f"  Income account: {income_acct}")
         if expense_acct:
@@ -4421,10 +6469,21 @@ async def qb_list_items(name: str = "", max_results: int = 100) -> str:
 # TRANSACTION CREATION — Expenses / Purchases
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_expense(vendor_name: str, amount: float, account_name: str, date: str, description: str = "", payment_method: str = "", tax_code: str = "", tax_inclusive: bool = False) -> str:
+async def qb_create_expense(
+    vendor_name: str,
+    amount: float,
+    account_name: str,
+    date: str,
+    description: str = "",
+    payment_method: str = "",
+    tax_code: str = "",
+    tax_inclusive: bool = False,
+) -> str:
     """Create a new expense/purchase in QuickBooks. vendor_name: payee, amount: total, account_name: expense category, date: YYYY-MM-DD, description: memo, payment_method: bank/card account name.
-    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; tax_inclusive=True when amount already includes tax."""
+    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; tax_inclusive=True when amount already includes tax.
+    """
     # Demo mode: simulate success
     if _demo_active():
         return (
@@ -4436,7 +6495,9 @@ async def qb_create_expense(vendor_name: str, amount: float, account_name: str, 
             f"- Date: {date}\n\n"
             f"*In production, this would create a real expense in QuickBooks.*"
         )
-    vendors = await qb_query(f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1")
+    vendors = await qb_query(
+        f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1"
+    )
     vendor_list = vendors.get("QueryResponse", {}).get("Vendor", [])
     if not vendor_list:
         return f"Vendor '{vendor_name}' not found. Use qb_list_vendors to find existing vendors, or qb_create_vendor to create one."
@@ -4450,14 +6511,16 @@ async def qb_create_expense(vendor_name: str, amount: float, account_name: str, 
         "PaymentType": "Cash",
         "TxnDate": date,
         "EntityRef": {"value": vendor["Id"], "name": vendor["DisplayName"]},
-        "Line": [{
-            "DetailType": "AccountBasedExpenseLineDetail",
-            "Amount": amount,
-            "AccountBasedExpenseLineDetail": {
-                "AccountRef": {"value": account["Id"], "name": account["Name"]}
-            },
-            "Description": description or ""
-        }],
+        "Line": [
+            {
+                "DetailType": "AccountBasedExpenseLineDetail",
+                "Amount": amount,
+                "AccountBasedExpenseLineDetail": {
+                    "AccountRef": {"value": account["Id"], "name": account["Name"]}
+                },
+                "Description": description or "",
+            }
+        ],
     }
     if description:
         purchase_body["PrivateNote"] = description
@@ -4470,14 +6533,23 @@ async def qb_create_expense(vendor_name: str, amount: float, account_name: str, 
             tax_id, _ = await _resolve_tax_code(tax_code)
         except ValueError as e:
             return str(e)
-        _apply_global_tax(purchase_body, "Line", "AccountBasedExpenseLineDetail",
-                          tax_id, tax_inclusive, region)
+        _apply_global_tax(
+            purchase_body,
+            "Line",
+            "AccountBasedExpenseLineDetail",
+            tax_id,
+            tax_inclusive,
+            region,
+        )
 
     if payment_method:
         pay_acct, pay_err = await _resolve_account(payment_method)
         if pay_err:
             return f"Payment method: {pay_err}"
-        purchase_body["AccountRef"] = {"value": pay_acct["Id"], "name": pay_acct["Name"]}
+        purchase_body["AccountRef"] = {
+            "value": pay_acct["Id"],
+            "name": pay_acct["Name"],
+        }
 
     result = await qb_request("POST", "purchase", json_body=purchase_body)
     p = result.get("Purchase", {})
@@ -4495,10 +6567,19 @@ async def qb_create_expense(vendor_name: str, amount: float, account_name: str, 
 # TRANSACTION CREATION — Invoices
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_invoice(customer_name: str, line_items: str, due_date: str = "", memo: str = "", tax_code: str = "", tax_inclusive: bool = False) -> str:
+async def qb_create_invoice(
+    customer_name: str,
+    line_items: str,
+    due_date: str = "",
+    memo: str = "",
+    tax_code: str = "",
+    tax_inclusive: bool = False,
+) -> str:
     """Create a customer invoice. line_items is a JSON string: [{"description": "...", "amount": 100}]. due_date in YYYY-MM-DD.
-    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; per-line override via 'tax_code' key in line_items JSON; tax_inclusive=True when amounts already include tax."""
+    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; per-line override via 'tax_code' key in line_items JSON; tax_inclusive=True when amounts already include tax.
+    """
     # Demo mode: simulate success
     if _demo_active():
         items = json.loads(line_items) if isinstance(line_items, str) else line_items
@@ -4511,7 +6592,9 @@ async def qb_create_invoice(customer_name: str, line_items: str, due_date: str =
             f"- Due: {due_date or 'Net 30'}\n\n"
             f"*In production, this would create a real invoice in QuickBooks.*"
         )
-    customers = await qb_query(f"SELECT * FROM Customer WHERE DisplayName LIKE '%{customer_name}%' MAXRESULTS 1")
+    customers = await qb_query(
+        f"SELECT * FROM Customer WHERE DisplayName LIKE '%{customer_name}%' MAXRESULTS 1"
+    )
     customer_list = customers.get("QueryResponse", {}).get("Customer", [])
     if not customer_list:
         return f"Customer '{customer_name}' not found. Use qb_list_customers or qb_create_customer."
@@ -4537,7 +6620,7 @@ async def qb_create_invoice(customer_name: str, line_items: str, due_date: str =
             "SalesItemLineDetail": {
                 "Qty": item.get("quantity", 1),
                 "UnitPrice": item.get("amount", 0) / max(item.get("quantity", 1), 1),
-            }
+            },
         }
         try:
             line_tax = await _line_tax_code_ref(item, region, tax_cache)
@@ -4547,8 +6630,10 @@ async def qb_create_invoice(customer_name: str, line_items: str, due_date: str =
             line["SalesItemLineDetail"]["TaxCodeRef"] = line_tax
         inv_lines.append(line)
 
-    if region != "US" and not default_tax_id and not any(
-        "TaxCodeRef" in l["SalesItemLineDetail"] for l in inv_lines
+    if (
+        region != "US"
+        and not default_tax_id
+        and not any("TaxCodeRef" in l["SalesItemLineDetail"] for l in inv_lines)
     ):
         return _TAX_CODE_REQUIRED_MSG
 
@@ -4560,8 +6645,14 @@ async def qb_create_invoice(customer_name: str, line_items: str, due_date: str =
         invoice_body["DueDate"] = due_date
     if memo:
         invoice_body["CustomerMemo"] = {"value": memo}
-    _apply_global_tax(invoice_body, "Line", "SalesItemLineDetail",
-                      default_tax_id, tax_inclusive, region)
+    _apply_global_tax(
+        invoice_body,
+        "Line",
+        "SalesItemLineDetail",
+        default_tax_id,
+        tax_inclusive,
+        region,
+    )
 
     result = await qb_request("POST", "invoice", json_body=invoice_body)
     inv = result.get("Invoice", {})
@@ -4578,6 +6669,7 @@ async def qb_create_invoice(customer_name: str, line_items: str, due_date: str =
 # TRANSACTION CREATION — Journal Entries (Reclassify)
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") -> str:
     """Create a journal entry for reclassifications or adjustments. date: YYYY-MM-DD. lines_json is a JSON string: [{"account_name": "...", "amount": 100.00, "type": "Debit"}, {"account_name": "...", "amount": 100.00, "type": "Credit"}]. Debits and credits must balance."""
@@ -4591,13 +6683,17 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
     for i, entry in enumerate(entries, 1):
         unknown = set(entry) - _allowed_keys
         if unknown:
-            return (f"Journal line {i} has unrecognized field(s): "
-                    f"{', '.join(sorted(unknown))}. Allowed per line: account_name "
-                    "(or account_id), amount, type ('Debit' or 'Credit'), description.")
+            return (
+                f"Journal line {i} has unrecognized field(s): "
+                f"{', '.join(sorted(unknown))}. Allowed per line: account_name "
+                "(or account_id), amount, type ('Debit' or 'Credit'), description."
+            )
         posting_type = entry.get("type", "Debit")
         if posting_type not in ("Debit", "Credit"):
-            return (f"Journal line {i}: type must be 'Debit' or 'Credit' "
-                    f"(got '{posting_type}').")
+            return (
+                f"Journal line {i}: type must be 'Debit' or 'Credit' "
+                f"(got '{posting_type}')."
+            )
         amount = float(entry.get("amount", 0))
 
         acct_id = str(entry.get("account_id", "") or "").strip()
@@ -4614,9 +6710,12 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
         # Depreciation must credit an Accumulated Depreciation contra
         # account — crediting the asset itself corrupts its cost basis.
         text = f"{entry.get('description', '')} {memo}".lower()
-        if (posting_type == "Credit" and acct.get("AccountType") == "Fixed Asset"
-                and acct.get("AccountSubType") != "AccumulatedDepreciation"
-                and "deprec" in text):
+        if (
+            posting_type == "Credit"
+            and acct.get("AccountType") == "Fixed Asset"
+            and acct.get("AccountSubType") != "AccumulatedDepreciation"
+            and "deprec" in text
+        ):
             return (
                 f"This looks like a depreciation entry, but it credits the fixed "
                 f"asset '{acct.get('Name')}' directly — that reduces the asset's "
@@ -4630,15 +6729,17 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
         else:
             total_credit += amount
 
-        je_lines.append({
-            "DetailType": "JournalEntryLineDetail",
-            "Amount": amount,
-            "Description": entry.get("description", ""),
-            "JournalEntryLineDetail": {
-                "PostingType": posting_type,
-                "AccountRef": {"value": acct["Id"], "name": acct["Name"]},
+        je_lines.append(
+            {
+                "DetailType": "JournalEntryLineDetail",
+                "Amount": amount,
+                "Description": entry.get("description", ""),
+                "JournalEntryLineDetail": {
+                    "PostingType": posting_type,
+                    "AccountRef": {"value": acct["Id"], "name": acct["Name"]},
+                },
             }
-        })
+        )
 
     if abs(total_debit - total_credit) > 0.01:
         return f"Journal entry does not balance. Debits: {fmt(total_debit)}, Credits: {fmt(total_credit)}. They must be equal."
@@ -4657,13 +6758,14 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
         f"- ID: {je.get('Id')}\n"
         f"- Date: {date}\n"
         f"- Total: {fmt(total_debit)}\n"
-        f"- Lines: {len(je_lines)}" +
-        (f"\n- Memo: {memo}" if memo else "")
+        f"- Lines: {len(je_lines)}" + (f"\n- Memo: {memo}" if memo else "")
     )
 
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_record_depreciation(asset_account: str, amount: float, date: str, memo: str = "") -> str:
+async def qb_record_depreciation(
+    asset_account: str, amount: float, date: str, memo: str = ""
+) -> str:
     """Record period depreciation for a fixed asset the CORRECT way:
     debit Depreciation Expense, credit an Accumulated Depreciation contra
     account (auto-created as a sub-account of the asset if missing) — never
@@ -4676,11 +6778,15 @@ async def qb_record_depreciation(asset_account: str, amount: float, date: str, m
     if err:
         return err
     if asset.get("AccountType") != "Fixed Asset":
-        return (f"'{asset.get('Name')}' is a {asset.get('AccountType')} account, "
-                f"not a Fixed Asset — depreciation applies to fixed assets only.")
+        return (
+            f"'{asset.get('Name')}' is a {asset.get('AccountType')} account, "
+            f"not a Fixed Asset — depreciation applies to fixed assets only."
+        )
     if asset.get("AccountSubType") == "AccumulatedDepreciation":
-        return (f"'{asset.get('Name')}' is itself an Accumulated Depreciation "
-                f"account — pass the asset's cost account instead.")
+        return (
+            f"'{asset.get('Name')}' is itself an Accumulated Depreciation "
+            f"account — pass the asset's cost account instead."
+        )
 
     # Cost basis must be on the books before depreciating against it
     basis = float(asset.get("CurrentBalance", 0) or 0)
@@ -4696,13 +6802,17 @@ async def qb_record_depreciation(asset_account: str, amount: float, date: str, m
     accum, _ = await _resolve_account(accum_name)
     created_accum = False
     if not accum or accum.get("AccountSubType") != "AccumulatedDepreciation":
-        result = await qb_request("POST", "account", json_body={
-            "Name": accum_name,
-            "AccountType": "Fixed Asset",
-            "AccountSubType": "AccumulatedDepreciation",
-            "SubAccount": True,
-            "ParentRef": {"value": asset["Id"]},
-        })
+        result = await qb_request(
+            "POST",
+            "account",
+            json_body={
+                "Name": accum_name,
+                "AccountType": "Fixed Asset",
+                "AccountSubType": "AccumulatedDepreciation",
+                "SubAccount": True,
+                "ParentRef": {"value": asset["Id"]},
+            },
+        )
         accum = result.get("Account", {})
         if not accum.get("Id"):
             return "Failed to create the Accumulated Depreciation sub-account."
@@ -4712,11 +6822,15 @@ async def qb_record_depreciation(asset_account: str, amount: float, date: str, m
     expense, _ = await _resolve_account("Depreciation Expense")
     created_exp = False
     if not expense or expense.get("AccountType") != "Expense":
-        result = await qb_request("POST", "account", json_body={
-            "Name": "Depreciation Expense",
-            "AccountType": "Other Expense",
-            "AccountSubType": "Depreciation",
-        })
+        result = await qb_request(
+            "POST",
+            "account",
+            json_body={
+                "Name": "Depreciation Expense",
+                "AccountType": "Other Expense",
+                "AccountSubType": "Depreciation",
+            },
+        )
         expense = result.get("Account", {})
         if not expense.get("Id"):
             return "Failed to create the Depreciation Expense account."
@@ -4726,20 +6840,33 @@ async def qb_record_depreciation(asset_account: str, amount: float, date: str, m
         "TxnDate": date,
         "PrivateNote": memo or f"Depreciation — {asset.get('Name')}",
         "Line": [
-            {"DetailType": "JournalEntryLineDetail", "Amount": amount,
-             "Description": f"Depreciation expense — {asset.get('Name')}",
-             "JournalEntryLineDetail": {"PostingType": "Debit",
-                                        "AccountRef": {"value": expense["Id"]}}},
-            {"DetailType": "JournalEntryLineDetail", "Amount": amount,
-             "Description": f"Accumulated depreciation — {asset.get('Name')}",
-             "JournalEntryLineDetail": {"PostingType": "Credit",
-                                        "AccountRef": {"value": accum["Id"]}}},
+            {
+                "DetailType": "JournalEntryLineDetail",
+                "Amount": amount,
+                "Description": f"Depreciation expense — {asset.get('Name')}",
+                "JournalEntryLineDetail": {
+                    "PostingType": "Debit",
+                    "AccountRef": {"value": expense["Id"]},
+                },
+            },
+            {
+                "DetailType": "JournalEntryLineDetail",
+                "Amount": amount,
+                "Description": f"Accumulated depreciation — {asset.get('Name')}",
+                "JournalEntryLineDetail": {
+                    "PostingType": "Credit",
+                    "AccountRef": {"value": accum["Id"]},
+                },
+            },
         ],
     }
     result = await qb_request("POST", "journalentry", json_body=je_body)
     je = result.get("JournalEntry", {})
 
-    _audit_log("RECORD_DEPRECIATION", f"asset={asset.get('Name')} amount={fmt(amount)} je={je.get('Id')}")
+    _audit_log(
+        "RECORD_DEPRECIATION",
+        f"asset={asset.get('Name')} amount={fmt(amount)} je={je.get('Id')}",
+    )
     notes = []
     if created_accum:
         notes.append(f"created contra account '{accum_name}'")
@@ -4758,10 +6885,18 @@ async def qb_record_depreciation(asset_account: str, amount: float, date: str, m
 # TRANSACTION CREATION — Deposits
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str, memo: str = "", tax_code: str = "") -> str:
+async def qb_create_deposit(
+    date: str,
+    deposit_to_account: str,
+    lines_json: str,
+    memo: str = "",
+    tax_code: str = "",
+) -> str:
     """Create a bank deposit. date: YYYY-MM-DD. deposit_to_account: name of bank account receiving deposit. lines_json: JSON string [{"account_name": "...", "amount": 100.00, "description": "..."}].
-    Canada/global editions: optional tax_code applies a sales tax code to each deposit line, e.g. 'HST ON' (deposits do not require one)."""
+    Canada/global editions: optional tax_code applies a sales tax code to each deposit line, e.g. 'HST ON' (deposits do not require one).
+    """
     dep_acct, dep_err = await _resolve_account(deposit_to_account)
     if dep_err:
         return dep_err
@@ -4777,14 +6912,16 @@ async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str,
         if err:
             return err
 
-        dep_lines.append({
-            "DetailType": "DepositLineDetail",
-            "Amount": amount,
-            "Description": desc,
-            "DepositLineDetail": {
-                "AccountRef": {"value": acct["Id"], "name": acct["Name"]},
+        dep_lines.append(
+            {
+                "DetailType": "DepositLineDetail",
+                "Amount": amount,
+                "Description": desc,
+                "DepositLineDetail": {
+                    "AccountRef": {"value": acct["Id"], "name": acct["Name"]},
+                },
             }
-        })
+        )
 
     deposit_body = {
         "TxnDate": date,
@@ -4801,8 +6938,9 @@ async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str,
                 tax_id, _ = await _resolve_tax_code(tax_code)
             except ValueError as e:
                 return str(e)
-            _apply_global_tax(deposit_body, "Line", "DepositLineDetail",
-                              tax_id, False, region)
+            _apply_global_tax(
+                deposit_body, "Line", "DepositLineDetail", tax_id, False, region
+            )
 
     result = await qb_request("POST", "deposit", json_body=deposit_body)
     dep = result.get("Deposit", {})
@@ -4819,8 +6957,11 @@ async def qb_create_deposit(date: str, deposit_to_account: str, lines_json: str,
 # TRANSACTION CREATION — Transfers
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_transfer(date: str, from_account: str, to_account: str, amount: float, memo: str = "") -> str:
+async def qb_create_transfer(
+    date: str, from_account: str, to_account: str, amount: float, memo: str = ""
+) -> str:
     """Create a transfer between two accounts. date: YYYY-MM-DD. from_account and to_account are account names. amount is the transfer amount."""
     from_acct, from_err = await _resolve_account(from_account)
     if from_err:
@@ -4854,8 +6995,11 @@ async def qb_create_transfer(date: str, from_account: str, to_account: str, amou
 # TRANSACTION UPDATE — Generic entity updater
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_update_transaction(entity_type: str, entity_id: str, updates_json: str) -> str:
+async def qb_update_transaction(
+    entity_type: str, entity_id: str, updates_json: str
+) -> str:
     """Update an existing transaction. entity_type: Purchase, Deposit, Transfer, JournalEntry, Bill, Invoice, etc. entity_id: the transaction ID. updates_json: JSON string of fields to update (e.g., {"PrivateNote": "new memo", "TxnDate": "2025-01-15"}). Fetches current version first to ensure SyncToken is correct."""
     entity_lower = entity_type.lower()
     current = await qb_read(entity_lower, entity_id)
@@ -4864,7 +7008,9 @@ async def qb_update_transaction(entity_type: str, entity_id: str, updates_json: 
     if not entity_data:
         return f"{entity_type} with ID {entity_id} not found."
 
-    updates = json.loads(updates_json) if isinstance(updates_json, str) else updates_json
+    updates = (
+        json.loads(updates_json) if isinstance(updates_json, str) else updates_json
+    )
     entity_data.update(updates)
 
     result = await qb_request("POST", entity_lower, json_body=entity_data)
@@ -4880,6 +7026,7 @@ async def qb_update_transaction(entity_type: str, entity_id: str, updates_json: 
 # ===================================================================
 # TRANSACTION VOID
 # ===================================================================
+
 
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_void_transaction(entity_type: str, entity_id: str) -> str:
@@ -4897,7 +7044,9 @@ async def qb_void_transaction(entity_type: str, entity_id: str) -> str:
     }
 
     try:
-        result = await qb_request("POST", f"{entity_lower}?operation=void", json_body=void_body)
+        result = await qb_request(
+            "POST", f"{entity_lower}?operation=void", json_body=void_body
+        )
         voided = result.get(entity_type, {})
         return f"{entity_type} voided!\n- ID: {voided.get('Id')}\n- Original amount: {fmt(entity_data.get('TotalAmt', entity_data.get('Amount')))}"
     except Exception as e:
@@ -4908,8 +7057,11 @@ async def qb_void_transaction(entity_type: str, entity_id: str) -> str:
 # RECONCILIATION
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_reconcile_invoices(start_date: str, end_date: str, invoice_data: str) -> str:
+async def qb_reconcile_invoices(
+    start_date: str, end_date: str, invoice_data: str
+) -> str:
     """Compare email-extracted invoices against QuickBooks transactions. invoice_data is a JSON string: [{"vendor": "...", "amount": 100.00, "date": "2025-01-15"}]. Dates in YYYY-MM-DD."""
     query = (
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' "
@@ -4921,17 +7073,23 @@ async def qb_reconcile_invoices(start_date: str, end_date: str, invoice_data: st
     qb_by_vendor = {}
     for p in qb_purchases:
         vendor = p.get("EntityRef", {}).get("name", "Unknown").lower()
-        qb_by_vendor.setdefault(vendor, []).append({
-            "amount": float(p.get("TotalAmt", 0)),
-            "date": p.get("TxnDate", ""),
-            "id": p.get("Id", ""),
-        })
+        qb_by_vendor.setdefault(vendor, []).append(
+            {
+                "amount": float(p.get("TotalAmt", 0)),
+                "date": p.get("TxnDate", ""),
+                "id": p.get("Id", ""),
+            }
+        )
 
     try:
-        invoices = json.loads(invoice_data) if isinstance(invoice_data, str) else invoice_data
+        invoices = (
+            json.loads(invoice_data) if isinstance(invoice_data, str) else invoice_data
+        )
     except json.JSONDecodeError:
-        return ('invoice_data must be a JSON array like '
-                '[{"vendor": "Acme", "amount": 100.00, "date": "2026-01-15"}].')
+        return (
+            "invoice_data must be a JSON array like "
+            '[{"vendor": "Acme", "amount": 100.00, "date": "2026-01-15"}].'
+        )
     matched = []
     missing = []
     mismatched = []
@@ -4946,12 +7104,24 @@ async def qb_reconcile_invoices(start_date: str, end_date: str, invoice_data: st
             if vendor in key or key in vendor:
                 for qb_txn in qb_by_vendor[key]:
                     if abs(qb_txn["amount"] - amount) < 0.02:
-                        matched.append({"vendor": inv["vendor"], "amount": amount, "qb_id": qb_txn["id"]})
+                        matched.append(
+                            {
+                                "vendor": inv["vendor"],
+                                "amount": amount,
+                                "qb_id": qb_txn["id"],
+                            }
+                        )
                         found = True
                         break
                 if not found:
                     qb_total = sum(t["amount"] for t in qb_by_vendor[key])
-                    mismatched.append({"vendor": inv["vendor"], "invoice_amount": amount, "qb_total": qb_total})
+                    mismatched.append(
+                        {
+                            "vendor": inv["vendor"],
+                            "invoice_amount": amount,
+                            "qb_total": qb_total,
+                        }
+                    )
                     found = True
                 break
 
@@ -4959,7 +7129,9 @@ async def qb_reconcile_invoices(start_date: str, end_date: str, invoice_data: st
             missing.append({"vendor": inv["vendor"], "amount": amount, "date": date})
 
     lines = [f"## Reconciliation: {start_date} to {end_date}\n"]
-    lines.append(f"**Matched:** {len(matched)} | **Missing from QB:** {len(missing)} | **Mismatched:** {len(mismatched)}\n")
+    lines.append(
+        f"**Matched:** {len(matched)} | **Missing from QB:** {len(missing)} | **Mismatched:** {len(mismatched)}\n"
+    )
 
     if missing:
         lines.append("### Missing from QuickBooks")
@@ -4969,7 +7141,9 @@ async def qb_reconcile_invoices(start_date: str, end_date: str, invoice_data: st
     if mismatched:
         lines.append("\n### Amount Mismatches")
         for m in mismatched:
-            lines.append(f"- {m['vendor']}: Invoice {fmt(m['invoice_amount'])} vs QB {fmt(m['qb_total'])}")
+            lines.append(
+                f"- {m['vendor']}: Invoice {fmt(m['invoice_amount'])} vs QB {fmt(m['qb_total'])}"
+            )
 
     if matched:
         lines.append(f"\n### Matched ({len(matched)})")
@@ -4985,10 +7159,13 @@ async def qb_reconcile_invoices(start_date: str, end_date: str, invoice_data: st
 # ACCOUNT BALANCE LOOKUP
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_account_balance(account_name: str) -> str:
     """Get the current balance of a specific account by name. Returns account details and balance."""
-    accounts = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 5")
+    accounts = await qb_query(
+        f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 5"
+    )
     acct_list = accounts.get("QueryResponse", {}).get("Account", [])
 
     if not acct_list:
@@ -5007,12 +7184,18 @@ async def qb_account_balance(account_name: str) -> str:
 # SMART FEATURES — Uncategorized / Duplicates / Auto-Categorize
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_uncategorized_transactions(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+async def qb_uncategorized_transactions(
+    start_date: str = "", end_date: str = "", max_results: int = 100
+) -> str:
     """Find transactions that are uncategorized or booked to 'Uncategorized Expense/Income/Asset'.
-    Useful for cleaning up books. Dates in YYYY-MM-DD format. If omitted, searches all time."""
+    Useful for cleaning up books. Dates in YYYY-MM-DD format. If omitted, searches all time.
+    """
     # Find uncategorized accounts
-    accts = await qb_query("SELECT Id, Name FROM Account WHERE Name LIKE '%ncategorized%' MAXRESULTS 10")
+    accts = await qb_query(
+        "SELECT Id, Name FROM Account WHERE Name LIKE '%ncategorized%' MAXRESULTS 10"
+    )
     acct_list = accts.get("QueryResponse", {}).get("Account", [])
     if not acct_list:
         return "No uncategorized accounts found — your books look clean!"
@@ -5036,14 +7219,16 @@ async def qb_uncategorized_transactions(start_date: str = "", end_date: str = ""
             result = await qb_query_all(q)
             purchases = result.get("QueryResponse", {}).get("Purchase", [])
             for p in purchases:
-                all_uncategorized.append({
-                    "id": p.get("Id"),
-                    "date": p.get("TxnDate"),
-                    "amount": float(p.get("TotalAmt", 0)),
-                    "vendor": p.get("EntityRef", {}).get("name", "Unknown"),
-                    "account": acct_names.get(acct_id, "Uncategorized"),
-                    "memo": p.get("PrivateNote", ""),
-                })
+                all_uncategorized.append(
+                    {
+                        "id": p.get("Id"),
+                        "date": p.get("TxnDate"),
+                        "amount": float(p.get("TotalAmt", 0)),
+                        "vendor": p.get("EntityRef", {}).get("name", "Unknown"),
+                        "account": acct_names.get(acct_id, "Uncategorized"),
+                        "memo": p.get("PrivateNote", ""),
+                    }
+                )
         except Exception:
             continue
 
@@ -5053,10 +7238,18 @@ async def qb_uncategorized_transactions(start_date: str = "", end_date: str = ""
     all_uncategorized.sort(key=lambda x: x["date"] or "", reverse=True)
     total = sum(t["amount"] for t in all_uncategorized)  # true total, all rows
     shown = all_uncategorized[:max_results] if max_results else all_uncategorized
-    cap_note = f" — showing the first {len(shown)}" if len(shown) < len(all_uncategorized) else ""
-    lines = [f"## Uncategorized Transactions ({len(all_uncategorized)} found){cap_note}\n"]
+    cap_note = (
+        f" — showing the first {len(shown)}"
+        if len(shown) < len(all_uncategorized)
+        else ""
+    )
+    lines = [
+        f"## Uncategorized Transactions ({len(all_uncategorized)} found){cap_note}\n"
+    ]
     for t in shown:
-        lines.append(f"- **{t['date']}** | {t['vendor']} | {fmt(t['amount'])} | {t['account']} | ID: {t['id']}")
+        lines.append(
+            f"- **{t['date']}** | {t['vendor']} | {fmt(t['amount'])} | {t['account']} | ID: {t['id']}"
+        )
         if t["memo"]:
             lines.append(f"  Memo: {t['memo']}")
     lines.append(f"\n**Total uncategorized: {fmt(total)}**")
@@ -5072,12 +7265,15 @@ def _purchase_dup_clusters(purchases, tolerance_days: int = 0):
     ``(vendor, amount, [txns])``. Shared by qb_find_duplicates AND
     qb_books_health_audit so their duplicate counts always agree."""
     from collections import defaultdict
+
     by_va = defaultdict(list)
     for p in purchases:
         if not p.get("TxnDate"):
             continue
-        key = ((p.get("EntityRef", {}).get("name", "") or "").lower().strip(),
-               round(float(p.get("TotalAmt", 0)), 2))
+        key = (
+            (p.get("EntityRef", {}).get("name", "") or "").lower().strip(),
+            round(float(p.get("TotalAmt", 0)), 2),
+        )
         by_va[key].append(p)
 
     def _day_clusters(txns, tol):
@@ -5085,7 +7281,10 @@ def _purchase_dup_clusters(purchases, tolerance_days: int = 0):
         for t in sorted(txns, key=lambda x: x["TxnDate"]):
             d = datetime.strptime(t["TxnDate"], "%Y-%m-%d")
             for c in clusters:
-                if abs((d - datetime.strptime(c[0]["TxnDate"], "%Y-%m-%d")).days) <= tol:
+                if (
+                    abs((d - datetime.strptime(c[0]["TxnDate"], "%Y-%m-%d")).days)
+                    <= tol
+                ):
                     c.append(t)
                     break
             else:
@@ -5104,13 +7303,19 @@ def _purchase_dup_clusters(purchases, tolerance_days: int = 0):
             else:
                 recurring_suppressed += 1
             continue
-        clusters.extend((vendor, amt, c)
-                        for c in _day_clusters(txns, tolerance_days) if len(c) >= 2)
+        clusters.extend(
+            (vendor, amt, c) for c in _day_clusters(txns, tolerance_days) if len(c) >= 2
+        )
     return clusters, recurring_suppressed
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_find_duplicates(start_date: str = "", end_date: str = "", tolerance_days: int = 0, max_results: int = 200) -> str:
+async def qb_find_duplicates(
+    start_date: str = "",
+    end_date: str = "",
+    tolerance_days: int = 0,
+    max_results: int = 200,
+) -> str:
     """Find likely duplicate purchases. By default a duplicate is same VENDOR +
     same AMOUNT + same DAY (tolerance_days=0) — the pattern that is almost always
     a double-entry. Widen tolerance_days to catch near-day repeats. Vendor+amount
@@ -5130,22 +7335,32 @@ async def qb_find_duplicates(start_date: str = "", end_date: str = "", tolerance
     clusters, recurring_suppressed = _purchase_dup_clusters(purchases, tolerance_days)
     extra = sum(len(c) - 1 for _, _, c in clusters)
     if not clusters:
-        note = (f" ({recurring_suppressed} recurring vendor+amount pattern(s) "
-                "treated as legitimate)" if recurring_suppressed else "")
-        return (f"No likely duplicates between {start_date} and {end_date}"
-                f"{note}. Books look clean!")
+        note = (
+            f" ({recurring_suppressed} recurring vendor+amount pattern(s) "
+            "treated as legitimate)"
+            if recurring_suppressed
+            else ""
+        )
+        return (
+            f"No likely duplicates between {start_date} and {end_date}"
+            f"{note}. Books look clean!"
+        )
 
     clusters.sort(key=lambda x: (len(x[2]), x[1]), reverse=True)
     shown = clusters[:max_results]
     win = "same day" if tolerance_days == 0 else f"within {tolerance_days} day(s)"
-    lines = [f"## Potential Duplicates — {len(clusters)} cluster(s), "
-             f"{extra} extra transaction(s)\n",
-             f"*Matched on same vendor + same amount + {win}. "
-             "The extra-transaction count is directly comparable to "
-             "qb_books_health_audit's duplicate check.*"]
+    lines = [
+        f"## Potential Duplicates — {len(clusters)} cluster(s), "
+        f"{extra} extra transaction(s)\n",
+        f"*Matched on same vendor + same amount + {win}. "
+        "The extra-transaction count is directly comparable to "
+        "qb_books_health_audit's duplicate check.*",
+    ]
     if recurring_suppressed:
-        lines.append(f"*Suppressed {recurring_suppressed} recurring vendor+amount "
-                     "pattern(s) (spread across many days — likely legitimate).*")
+        lines.append(
+            f"*Suppressed {recurring_suppressed} recurring vendor+amount "
+            "pattern(s) (spread across many days — likely legitimate).*"
+        )
     if len(shown) < len(clusters):
         lines.append(f"*Showing the {len(shown)} largest of {len(clusters)} clusters.*")
     lines.append("")
@@ -5153,28 +7368,39 @@ async def qb_find_duplicates(start_date: str = "", end_date: str = "", tolerance
         name = txns[0].get("EntityRef", {}).get("name", "Unknown")
         lines.append(f"**{name}** — {fmt(amt)} × {len(txns)}:")
         for t in txns:
-            lines.append(f"  - {t['TxnDate']} (ID: {t['Id']}) — "
-                         f"{t.get('PrivateNote', '') or 'no memo'}")
+            lines.append(
+                f"  - {t['TxnDate']} (ID: {t['Id']}) — "
+                f"{t.get('PrivateNote', '') or 'no memo'}"
+            )
         lines.append("")
-    lines.append("Review each cluster and void the extra copies with `qb_void_transaction`.")
+    lines.append(
+        "Review each cluster and void the extra copies with `qb_void_transaction`."
+    )
     return "\n".join(lines)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_auto_categorize_suggestions(start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+async def qb_auto_categorize_suggestions(
+    start_date: str = "", end_date: str = "", max_results: int = 100
+) -> str:
     """Suggest categories for uncategorized transactions based on vendor history.
-    Analyzes past categorization patterns to recommend correct accounts. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    Analyzes past categorization patterns to recommend correct accounts. Dates in YYYY-MM-DD (default: current year-to-date).
+    """
     start_date, end_date = _ytd_range(start_date, end_date)
     # Get uncategorized purchases
-    accts = await qb_query("SELECT Id FROM Account WHERE Name LIKE '%ncategorized%' MAXRESULTS 10")
+    accts = await qb_query(
+        "SELECT Id FROM Account WHERE Name LIKE '%ncategorized%' MAXRESULTS 10"
+    )
     acct_list = accts.get("QueryResponse", {}).get("Account", [])
     if not acct_list:
         return "No uncategorized accounts found."
 
     uncategorized = []
     for acct in acct_list:
-        q = (f"SELECT * FROM Purchase WHERE AccountRef = '{acct['Id']}' "
-             f"AND TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}")
+        q = (
+            f"SELECT * FROM Purchase WHERE AccountRef = '{acct['Id']}' "
+            f"AND TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
+        )
         try:
             result = await qb_query(q)
             uncategorized.extend(result.get("QueryResponse", {}).get("Purchase", []))
@@ -5185,10 +7411,13 @@ async def qb_auto_categorize_suggestions(start_date: str = "", end_date: str = "
         return "No uncategorized transactions found to categorize."
 
     # Build vendor → account history from categorized purchases
-    all_purchases = await qb_query_all(f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500")
+    all_purchases = await qb_query_all(
+        f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
+    )
     categorized = all_purchases.get("QueryResponse", {}).get("Purchase", [])
 
     from collections import Counter
+
     vendor_history = {}
     for p in categorized:
         vendor = (p.get("EntityRef", {}).get("name", "") or "").lower().strip()
@@ -5212,9 +7441,13 @@ async def qb_auto_categorize_suggestions(start_date: str = "", end_date: str = "
         if vendor in vendor_history:
             top = vendor_history[vendor].most_common(1)
             if top:
-                suggestion = f"→ **{top[0][0]}** (based on {top[0][1]} past transactions)"
+                suggestion = (
+                    f"→ **{top[0][0]}** (based on {top[0][1]} past transactions)"
+                )
 
-        lines.append(f"- {date} | {p.get('EntityRef', {}).get('name', 'Unknown')} | {fmt(amt)} | {suggestion} | ID: {p.get('Id')}")
+        lines.append(
+            f"- {date} | {p.get('EntityRef', {}).get('name', 'Unknown')} | {fmt(amt)} | {suggestion} | ID: {p.get('Id')}"
+        )
 
     lines.append("\nUse `qb_update_transaction` to apply the suggested categories.")
     return "\n".join(lines)
@@ -5224,12 +7457,14 @@ async def qb_auto_categorize_suggestions(start_date: str = "", end_date: str = "
 # BATCH OPERATIONS
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_batch_create_expenses(expenses_json: str, tax_code: str = "") -> str:
     """Create multiple expenses in one call. expenses_json is a JSON array of objects:
     [{"vendor_name": "...", "amount": 100, "account_name": "...", "date": "YYYY-MM-DD", "description": "..."}].
     Useful for importing invoices or bulk expense entry.
-    Canada/global editions: tax_code applies a sales tax code to every expense, e.g. 'HST ON'; per-item override via a 'tax_code' key in the JSON objects."""
+    Canada/global editions: tax_code applies a sales tax code to every expense, e.g. 'HST ON'; per-item override via a 'tax_code' key in the JSON objects.
+    """
     try:
         expenses = json.loads(expenses_json)
     except json.JSONDecodeError:
@@ -5267,21 +7502,32 @@ async def qb_batch_create_expenses(expenses_json: str, tax_code: str = "") -> st
                         tax_cache[item_code] = (await _resolve_tax_code(item_code))[0]
                     item_tax_id = tax_cache[item_code]
                 if not item_tax_id:
-                    errors.append(f"#{i+1}: ❌ {vendor_name} — {_TAX_CODE_REQUIRED_MSG}")
+                    errors.append(
+                        f"#{i+1}: ❌ {vendor_name} — {_TAX_CODE_REQUIRED_MSG}"
+                    )
                     continue
 
             # Look up vendor
-            vendors = await qb_query(f"SELECT Id, DisplayName FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1")
+            vendors = await qb_query(
+                f"SELECT Id, DisplayName FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1"
+            )
             vendor_list = vendors.get("QueryResponse", {}).get("Vendor", [])
             if not vendor_list:
                 # Create vendor
-                new_vendor = await qb_request("POST", "vendor", json_body={"DisplayName": vendor_name})
+                new_vendor = await qb_request(
+                    "POST", "vendor", json_body={"DisplayName": vendor_name}
+                )
                 vendor_ref = {"value": new_vendor["Vendor"]["Id"], "name": vendor_name}
             else:
-                vendor_ref = {"value": vendor_list[0]["Id"], "name": vendor_list[0]["DisplayName"]}
+                vendor_ref = {
+                    "value": vendor_list[0]["Id"],
+                    "name": vendor_list[0]["DisplayName"],
+                }
 
             # Look up expense account
-            accounts = await qb_query(f"SELECT Id, Name FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 1")
+            accounts = await qb_query(
+                f"SELECT Id, Name FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 1"
+            )
             acct_list = accounts.get("QueryResponse", {}).get("Account", [])
             if not acct_list:
                 errors.append(f"#{i+1}: Account '{account_name}' not found")
@@ -5291,7 +7537,9 @@ async def qb_batch_create_expenses(expenses_json: str, tax_code: str = "") -> st
             # Look up payment account if specified
             pay_ref = None
             if payment_method:
-                pay_accts = await qb_query(f"SELECT Id, Name FROM Account WHERE Name LIKE '%{payment_method}%' MAXRESULTS 1")
+                pay_accts = await qb_query(
+                    f"SELECT Id, Name FROM Account WHERE Name LIKE '%{payment_method}%' MAXRESULTS 1"
+                )
                 pay_list = pay_accts.get("QueryResponse", {}).get("Account", [])
                 if pay_list:
                     pay_ref = {"value": pay_list[0]["Id"], "name": pay_list[0]["Name"]}
@@ -5300,21 +7548,31 @@ async def qb_batch_create_expenses(expenses_json: str, tax_code: str = "") -> st
                 "PaymentType": "Cash",
                 "TxnDate": date,
                 "EntityRef": vendor_ref,
-                "Line": [{
-                    "Amount": amount,
-                    "DetailType": "AccountBasedExpenseLineDetail",
-                    "AccountBasedExpenseLineDetail": {"AccountRef": acct_ref},
-                    "Description": description,
-                }],
+                "Line": [
+                    {
+                        "Amount": amount,
+                        "DetailType": "AccountBasedExpenseLineDetail",
+                        "AccountBasedExpenseLineDetail": {"AccountRef": acct_ref},
+                        "Description": description,
+                    }
+                ],
             }
             if pay_ref:
                 body["AccountRef"] = pay_ref
-            _apply_global_tax(body, "Line", "AccountBasedExpenseLineDetail",
-                              item_tax_id, False, region)
+            _apply_global_tax(
+                body,
+                "Line",
+                "AccountBasedExpenseLineDetail",
+                item_tax_id,
+                False,
+                region,
+            )
 
             resp = await qb_request("POST", "purchase", json_body=body)
             txn_id = resp.get("Purchase", {}).get("Id", "?")
-            results.append(f"#{i+1}: ✅ {date} | {vendor_name} | {fmt(amount)} → {account_name} (ID: {txn_id})")
+            results.append(
+                f"#{i+1}: ✅ {date} | {vendor_name} | {fmt(amount)} → {account_name} (ID: {txn_id})"
+            )
 
         except Exception as e:
             errors.append(f"#{i+1}: ❌ {exp.get('vendor_name', '?')} — {str(e)}")
@@ -5335,7 +7593,8 @@ async def qb_batch_create_bills(bills_json: str, tax_code: str = "") -> str:
     """Create multiple bills (accounts payable) in one call. bills_json is a JSON array:
     [{"vendor_name": "...", "amount": 100, "account_name": "...", "date": "YYYY-MM-DD", "due_date": "YYYY-MM-DD", "description": "..."}].
     Useful for importing vendor invoices from email extraction.
-    Canada/global editions: tax_code applies a sales tax code to every bill, e.g. 'HST ON'; per-item override via a 'tax_code' key in the JSON objects."""
+    Canada/global editions: tax_code applies a sales tax code to every bill, e.g. 'HST ON'; per-item override via a 'tax_code' key in the JSON objects.
+    """
     try:
         bills = json.loads(bills_json)
     except json.JSONDecodeError:
@@ -5370,20 +7629,31 @@ async def qb_batch_create_bills(bills_json: str, tax_code: str = "") -> str:
                         tax_cache[item_code] = (await _resolve_tax_code(item_code))[0]
                     item_tax_id = tax_cache[item_code]
                 if not item_tax_id:
-                    errors.append(f"#{i+1}: ❌ {vendor_name} — {_TAX_CODE_REQUIRED_MSG}")
+                    errors.append(
+                        f"#{i+1}: ❌ {vendor_name} — {_TAX_CODE_REQUIRED_MSG}"
+                    )
                     continue
 
             # Look up or create vendor
-            vendors = await qb_query(f"SELECT Id, DisplayName FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1")
+            vendors = await qb_query(
+                f"SELECT Id, DisplayName FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1"
+            )
             vendor_list = vendors.get("QueryResponse", {}).get("Vendor", [])
             if not vendor_list:
-                new_vendor = await qb_request("POST", "vendor", json_body={"DisplayName": vendor_name})
+                new_vendor = await qb_request(
+                    "POST", "vendor", json_body={"DisplayName": vendor_name}
+                )
                 vendor_ref = {"value": new_vendor["Vendor"]["Id"], "name": vendor_name}
             else:
-                vendor_ref = {"value": vendor_list[0]["Id"], "name": vendor_list[0]["DisplayName"]}
+                vendor_ref = {
+                    "value": vendor_list[0]["Id"],
+                    "name": vendor_list[0]["DisplayName"],
+                }
 
             # Look up expense account
-            accounts = await qb_query(f"SELECT Id, Name FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 1")
+            accounts = await qb_query(
+                f"SELECT Id, Name FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 1"
+            )
             acct_list = accounts.get("QueryResponse", {}).get("Account", [])
             if not acct_list:
                 errors.append(f"#{i+1}: Account '{account_name}' not found")
@@ -5394,19 +7664,29 @@ async def qb_batch_create_bills(bills_json: str, tax_code: str = "") -> str:
                 "VendorRef": vendor_ref,
                 "TxnDate": date,
                 "DueDate": due_date,
-                "Line": [{
-                    "Amount": amount,
-                    "DetailType": "AccountBasedExpenseLineDetail",
-                    "AccountBasedExpenseLineDetail": {"AccountRef": acct_ref},
-                    "Description": description,
-                }],
+                "Line": [
+                    {
+                        "Amount": amount,
+                        "DetailType": "AccountBasedExpenseLineDetail",
+                        "AccountBasedExpenseLineDetail": {"AccountRef": acct_ref},
+                        "Description": description,
+                    }
+                ],
             }
-            _apply_global_tax(body, "Line", "AccountBasedExpenseLineDetail",
-                              item_tax_id, False, region)
+            _apply_global_tax(
+                body,
+                "Line",
+                "AccountBasedExpenseLineDetail",
+                item_tax_id,
+                False,
+                region,
+            )
 
             resp = await qb_request("POST", "bill", json_body=body)
             bill_id = resp.get("Bill", {}).get("Id", "?")
-            results.append(f"#{i+1}: ✅ {date} | {vendor_name} | {fmt(amount)} → {account_name} (Bill ID: {bill_id})")
+            results.append(
+                f"#{i+1}: ✅ {date} | {vendor_name} | {fmt(amount)} → {account_name} (Bill ID: {bill_id})"
+            )
 
         except Exception as e:
             errors.append(f"#{i+1}: ❌ {bill.get('vendor_name', '?')} — {str(e)}")
@@ -5426,8 +7706,15 @@ async def qb_batch_create_bills(bills_json: str, tax_code: str = "") -> str:
 # ADVANCED REPORTS — Period Comparison, Runway, Burn Rate
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_compare_periods(report_type: str, period1_start: str, period1_end: str, period2_start: str, period2_end: str) -> str:
+async def qb_compare_periods(
+    report_type: str,
+    period1_start: str,
+    period1_end: str,
+    period2_start: str,
+    period2_end: str,
+) -> str:
     """Compare two time periods side-by-side. report_type: 'ProfitAndLoss' or 'BalanceSheet'.
     Shows each period's totals and the dollar/percentage change. Dates in YYYY-MM-DD."""
     if report_type not in ("ProfitAndLoss", "BalanceSheet"):
@@ -5435,6 +7722,7 @@ async def qb_compare_periods(report_type: str, period1_start: str, period1_end: 
 
     def extract_rows(report_data):
         rows = {}
+
         def _walk(row_list, prefix=""):
             for section in row_list:
                 col_data = section.get("ColData", [])
@@ -5451,7 +7739,9 @@ async def qb_compare_periods(report_type: str, period1_start: str, period1_end: 
                     cols = summary.get("ColData", [])
                     if len(cols) >= 2:
                         try:
-                            rows[cols[0].get("value", "")] = float(cols[-1].get("value", "0"))
+                            rows[cols[0].get("value", "")] = float(
+                                cols[-1].get("value", "0")
+                            )
                         except (ValueError, TypeError):
                             pass
                 nested = section.get("Rows", {}).get("Row", [])
@@ -5460,23 +7750,30 @@ async def qb_compare_periods(report_type: str, period1_start: str, period1_end: 
                     group_name = header[0].get("value", "") if header else ""
                     _walk(nested, f"{group_name} > " if group_name else prefix)
             return rows
+
         report_rows = report_data.get("Rows", {}).get("Row", [])
         _walk(report_rows)
         return rows
 
-    r1 = await qb_request("GET", f"reports/{report_type}", params={
-        "start_date": period1_start, "end_date": period1_end
-    })
-    r2 = await qb_request("GET", f"reports/{report_type}", params={
-        "start_date": period2_start, "end_date": period2_end
-    })
+    r1 = await qb_request(
+        "GET",
+        f"reports/{report_type}",
+        params={"start_date": period1_start, "end_date": period1_end},
+    )
+    r2 = await qb_request(
+        "GET",
+        f"reports/{report_type}",
+        params={"start_date": period2_start, "end_date": period2_end},
+    )
 
     rows1 = extract_rows(r1)
     rows2 = extract_rows(r2)
     all_keys = sorted(set(list(rows1.keys()) + list(rows2.keys())))
 
     lines = [f"## {report_type} Period Comparison\n"]
-    lines.append(f"| Account | {period1_start}→{period1_end} | {period2_start}→{period2_end} | Change | % Change |")
+    lines.append(
+        f"| Account | {period1_start}→{period1_end} | {period2_start}→{period2_end} | Change | % Change |"
+    )
     lines.append("|---|---|---|---|---|")
 
     for key in all_keys:
@@ -5485,7 +7782,9 @@ async def qb_compare_periods(report_type: str, period1_start: str, period1_end: 
         change = v2 - v1
         pct = (change / abs(v1) * 100) if v1 != 0 else 0
         sign = "+" if change >= 0 else ""
-        lines.append(f"| {key} | {fmt(v1)} | {fmt(v2)} | {sign}{fmt(change)} | {sign}{pct:.1f}% |")
+        lines.append(
+            f"| {key} | {fmt(v1)} | {fmt(v2)} | {sign}{fmt(change)} | {sign}{pct:.1f}% |"
+        )
 
     return "\n".join(lines)
 
@@ -5510,7 +7809,9 @@ def _pl_income_expense_totals(pl_result: dict) -> tuple:
             val = float(cols[-1].get("value", "0") or 0)
         except (ValueError, TypeError):
             val = 0.0
-        if "income" in label and not any(w in label for w in ("net", "gross", "operating")):
+        if "income" in label and not any(
+            w in label for w in ("net", "gross", "operating")
+        ):
             income += val
         elif "expense" in label and "net" not in label:
             expenses += abs(val)
@@ -5521,9 +7822,13 @@ async def _bank_cash_on_hand() -> float:
     """Sum of Bank-type account balances (cash on hand). Queries Account
     directly — the balance-sheet 'bank' section-header scan missed nested rows."""
     try:
-        r = await qb_query("SELECT * FROM Account WHERE AccountType = 'Bank' MAXRESULTS 50")
-        return sum(float(a.get("CurrentBalance", 0) or 0)
-                   for a in r.get("QueryResponse", {}).get("Account", []))
+        r = await qb_query(
+            "SELECT * FROM Account WHERE AccountType = 'Bank' MAXRESULTS 50"
+        )
+        return sum(
+            float(a.get("CurrentBalance", 0) or 0)
+            for a in r.get("QueryResponse", {}).get("Account", [])
+        )
     except Exception:
         return 0.0
 
@@ -5533,6 +7838,7 @@ async def qb_monthly_burn_rate(months_back: int = 6) -> str:
     """Calculate monthly burn rate based on the last N months of expenses.
     Returns monthly totals, average burn, and trend. Useful for runway planning."""
     from datetime import date
+
     today = date.today()
     monthly_data = []
 
@@ -5550,42 +7856,63 @@ async def qb_monthly_burn_rate(months_back: int = 6) -> str:
             next_m_start = date(y if m < 12 else y + 1, (m % 12) + 1, 1)
             month_end = (next_m_start - timedelta(days=1)).strftime("%Y-%m-%d")
 
-        result = await qb_request("GET", "reports/ProfitAndLoss", params={
-            "start_date": month_start, "end_date": month_end
-        })
+        result = await qb_request(
+            "GET",
+            "reports/ProfitAndLoss",
+            params={"start_date": month_start, "end_date": month_end},
+        )
 
         # Income (Total Income, not Net Income) + summed expenses, both positive
         total_income, total_expense = _pl_income_expense_totals(result)
 
         from calendar import month_abbr
-        monthly_data.append({
-            "month": f"{month_abbr[m]} {y}",
-            "expenses": total_expense,
-            "income": total_income,
-            "net": total_income - total_expense,
-        })
 
-    avg_burn = sum(d["expenses"] for d in monthly_data) / len(monthly_data) if monthly_data else 0
-    avg_income = sum(d["income"] for d in monthly_data) / len(monthly_data) if monthly_data else 0
-    avg_net = sum(d["net"] for d in monthly_data) / len(monthly_data) if monthly_data else 0
+        monthly_data.append(
+            {
+                "month": f"{month_abbr[m]} {y}",
+                "expenses": total_expense,
+                "income": total_income,
+                "net": total_income - total_expense,
+            }
+        )
+
+    avg_burn = (
+        sum(d["expenses"] for d in monthly_data) / len(monthly_data)
+        if monthly_data
+        else 0
+    )
+    avg_income = (
+        sum(d["income"] for d in monthly_data) / len(monthly_data)
+        if monthly_data
+        else 0
+    )
+    avg_net = (
+        sum(d["net"] for d in monthly_data) / len(monthly_data) if monthly_data else 0
+    )
 
     lines = ["## Monthly Burn Rate Analysis\n"]
     lines.append("| Month | Income | Expenses | Net |")
     lines.append("|---|---|---|---|")
     for d in monthly_data:
-        lines.append(f"| {d['month']} | {fmt(d['income'])} | {fmt(d['expenses'])} | {fmt(d['net'])} |")
+        lines.append(
+            f"| {d['month']} | {fmt(d['income'])} | {fmt(d['expenses'])} | {fmt(d['net'])} |"
+        )
     lines.append(f"\n**Average Monthly Burn:** {fmt(avg_burn)}")
     lines.append(f"**Average Monthly Income:** {fmt(avg_income)}")
     lines.append(f"**Average Monthly Net:** {fmt(avg_net)}")
 
     # Trend (is burn increasing or decreasing?)
     if len(monthly_data) >= 3:
-        first_half = sum(d["expenses"] for d in monthly_data[:len(monthly_data)//2])
-        second_half = sum(d["expenses"] for d in monthly_data[len(monthly_data)//2:])
+        first_half = sum(d["expenses"] for d in monthly_data[: len(monthly_data) // 2])
+        second_half = sum(d["expenses"] for d in monthly_data[len(monthly_data) // 2 :])
         if second_half > first_half * 1.1:
-            lines.append("\n⚠️ **Trend: Expenses increasing** — burn rate growing over time.")
+            lines.append(
+                "\n⚠️ **Trend: Expenses increasing** — burn rate growing over time."
+            )
         elif second_half < first_half * 0.9:
-            lines.append("\n✅ **Trend: Expenses decreasing** — spending is tightening.")
+            lines.append(
+                "\n✅ **Trend: Expenses decreasing** — spending is tightening."
+            )
         else:
             lines.append("\n📊 **Trend: Stable** — expenses roughly consistent.")
 
@@ -5593,7 +7920,9 @@ async def qb_monthly_burn_rate(months_back: int = 6) -> str:
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_runway_calculator(current_cash: float = 0, monthly_revenue: float = 0, monthly_expenses: float = 0) -> str:
+async def qb_runway_calculator(
+    current_cash: float = 0, monthly_revenue: float = 0, monthly_expenses: float = 0
+) -> str:
     """Calculate runway (months until cash runs out). If amounts are 0, auto-calculates from last 3 months of QB data.
     Returns months of runway and recommendations."""
     if current_cash == 0:
@@ -5601,33 +7930,42 @@ async def qb_runway_calculator(current_cash: float = 0, monthly_revenue: float =
 
     if monthly_expenses == 0 or monthly_revenue == 0:
         from datetime import date
+
         today = date.today()
         start_3mo = (today - timedelta(days=90)).strftime("%Y-%m-%d")
         end = today.strftime("%Y-%m-%d")
-        result = await qb_request("GET", "reports/ProfitAndLoss", params={
-            "start_date": start_3mo, "end_date": end
-        })
+        result = await qb_request(
+            "GET",
+            "reports/ProfitAndLoss",
+            params={"start_date": start_3mo, "end_date": end},
+        )
         income, expenses = _pl_income_expense_totals(result)
         monthly_revenue = income / 3
         monthly_expenses = expenses / 3
 
     net_burn = monthly_expenses - monthly_revenue
 
-    header = (f"## Runway Calculator\n\n"
-              f"**Cash on hand:** {fmt(current_cash)}\n"
-              f"**Monthly revenue:** {fmt(monthly_revenue)}\n"
-              f"**Monthly expenses:** {fmt(monthly_expenses)}\n")
+    header = (
+        f"## Runway Calculator\n\n"
+        f"**Cash on hand:** {fmt(current_cash)}\n"
+        f"**Monthly revenue:** {fmt(monthly_revenue)}\n"
+        f"**Monthly expenses:** {fmt(monthly_expenses)}\n"
+    )
 
     if net_burn <= 0:
-        return (header + f"\n✅ **Cash-flow positive!** Revenue covers expenses "
-                f"with {fmt(abs(net_burn))}/month to spare — no cash runway limit "
-                f"at the current rate.")
+        return (
+            header + f"\n✅ **Cash-flow positive!** Revenue covers expenses "
+            f"with {fmt(abs(net_burn))}/month to spare — no cash runway limit "
+            f"at the current rate."
+        )
 
     if current_cash <= 0:
-        return (header + f"**Net monthly burn:** {fmt(net_burn)}\n\n"
-                f"🔴 **No runway** — the cash balance is {fmt(current_cash)} "
-                f"(zero or negative) while burning {fmt(net_burn)}/month. Raise "
-                f"cash or cut costs immediately.")
+        return (
+            header + f"**Net monthly burn:** {fmt(net_burn)}\n\n"
+            f"🔴 **No runway** — the cash balance is {fmt(current_cash)} "
+            f"(zero or negative) while burning {fmt(net_burn)}/month. Raise "
+            f"cash or cut costs immediately."
+        )
 
     runway_months = current_cash / net_burn
 
@@ -5639,11 +7977,17 @@ async def qb_runway_calculator(current_cash: float = 0, monthly_revenue: float =
     lines.append(f"\n### 🏃 Runway: {runway_months:.1f} months")
 
     if runway_months < 3:
-        lines.append("\n🔴 **CRITICAL** — Less than 3 months of runway. Immediate action needed.")
+        lines.append(
+            "\n🔴 **CRITICAL** — Less than 3 months of runway. Immediate action needed."
+        )
     elif runway_months < 6:
-        lines.append("\n🟡 **WARNING** — Less than 6 months. Begin fundraising or cost-cutting.")
+        lines.append(
+            "\n🟡 **WARNING** — Less than 6 months. Begin fundraising or cost-cutting."
+        )
     elif runway_months < 12:
-        lines.append("\n🟢 **OK** — 6-12 months of runway. Plan ahead for sustainability.")
+        lines.append(
+            "\n🟢 **OK** — 6-12 months of runway. Plan ahead for sustainability."
+        )
     else:
         lines.append("\n✅ **HEALTHY** — 12+ months of runway.")
 
@@ -5654,37 +7998,42 @@ async def qb_runway_calculator(current_cash: float = 0, monthly_revenue: float =
 # TAX TOOLS — Schedule C, Quarterly Estimates, Deductions, Depreciation
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("US", "For Canadian books use qb_t2125_summary.")
 async def qb_schedule_c(tax_year: str = "2024") -> str:
     """Generate IRS Schedule C (Profit or Loss from Business) line-by-line mapping.
-    Maps QuickBooks expense categories to Schedule C lines for tax filing. tax_year: YYYY format."""
+    Maps QuickBooks expense categories to Schedule C lines for tax filing. tax_year: YYYY format.
+    """
     start = f"{tax_year}-01-01"
     end = f"{tax_year}-12-31"
 
-    result = await qb_request("GET", "reports/ProfitAndLoss", params={
-        "start_date": start, "end_date": end,
-        "summarize_column_by": "Total"
-    })
+    result = await qb_request(
+        "GET",
+        "reports/ProfitAndLoss",
+        params={"start_date": start, "end_date": end, "summarize_column_by": "Total"},
+    )
 
-    # Chart-of-accounts subtype map (P&L rows carry only names) — used for both
-    # income (returns detection) and expense classification.
-    name_sub = await _account_subtype_map()
+    # Chart-of-accounts maps (P&L rows carry only names) — subtype for
+    # classification, FQN so home-office sub-accounts are caught by parent chain.
+    name_sub, name_fqn = await _chart_maps()
 
     # Income lines, split correctly (the old code read section summaries in a
     # loop, so 'Total Other Income' overwrote 'Total Income' and every Sales /
     # Refund account was dropped). Sales → Line 1; refunds/discounts → Line 2;
     # interest & other income → Line 6 (NOT gross receipts).
-    gross_receipts, returns_allow, cogs, other_income = _pl_income_breakdown(result, name_sub)
-    net_receipts = round(gross_receipts - returns_allow, 2)     # Line 3
-    gross_profit = round(net_receipts - cogs, 2)                # Line 5
-    gross_income = round(gross_profit + other_income, 2)        # Line 7
+    gross_receipts, returns_allow, cogs, other_income = _pl_income_breakdown(
+        result, name_sub
+    )
+    net_receipts = round(gross_receipts - returns_allow, 2)  # Line 3
+    gross_profit = round(net_receipts - cogs, 2)  # Line 5
+    gross_income = round(gross_profit + other_income, 2)  # Line 7
 
     # Expenses: classify → ALLOCATE (taxpayer %) → LIMIT (statutory %). Home
     # accounts route to Form 8829; the profile supplies the business-use %.
     profile = await _get_allocation_profile(int(tax_year))
     expense_dict = _extract_pl_expense_accounts(result)
-    res = _map_expenses_to_schedule_c(expense_dict, name_sub, profile)
+    res = _map_expenses_to_schedule_c(expense_dict, name_sub, profile, name_fqn)
     pl_total = _pl_expense_total(result)
 
     lines = [f"## IRS Schedule C — {tax_year}\n"]
@@ -5703,24 +8052,25 @@ async def qb_schedule_c(tax_year: str = "2024") -> str:
     return "\n".join(lines) + tax_data_footer(int(tax_year))
 
 
-
-
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("US", "Use qb_estimate_instalments for CRA instalments + CPP.")
-async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str = "single", state: str = "") -> str:
+async def qb_estimate_quarterly_tax(
+    tax_year: str = "2025", filing_status: str = "single", state: str = ""
+) -> str:
     """Estimate quarterly tax payments (federal + state) based on YTD P&L.
     filing_status: single, married_joint, married_separate. state: two-letter
     code (MA, CA, ...); auto-detected from the QuickBooks company address
     when omitted."""
     from datetime import date
+
     today = date.today()
     year = int(tax_year)
     start = f"{year}-01-01"
     end = min(today.strftime("%Y-%m-%d"), f"{year}-12-31")
 
-    result = await qb_request("GET", "reports/ProfitAndLoss", params={
-        "start_date": start, "end_date": end
-    })
+    result = await qb_request(
+        "GET", "reports/ProfitAndLoss", params={"start_date": start, "end_date": end}
+    )
 
     # Income split correctly (never let 'Other Income' overwrite Sales); gross
     # income = net receipts − COGS + other income. Expenses summed across BOTH
@@ -5754,19 +8104,26 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
     vintage_notes = [n for n in (_ss_note, _fed_note) if n]
 
     se_base = net_income * _SE_NET_EARNINGS_FACTOR if net_income > 0 else 0
-    se_tax = (min(se_base, ss_wage_base) * _SE_SS_RATE
-              + se_base * _SE_MEDICARE_RATE)
+    se_tax = min(se_base, ss_wage_base) * _SE_SS_RATE + se_base * _SE_MEDICARE_RATE
 
     adjusted_income = net_income - (se_tax / 2)  # SE deduction
-    standard_deduction = (params["std_single"]
-                          if filing_status in ("single", "married_separate")
-                          else params["std_married"])
+    standard_deduction = (
+        params["std_single"]
+        if filing_status in ("single", "married_separate")
+        else params["std_married"]
+    )
 
     taxable = max(0, adjusted_income - standard_deduction)
-    thresholds = (params["single"] if filing_status in ("single", "married_separate")
-                  else params["married_joint"])
-    sizes = [thresholds[0]] + [thresholds[i] - thresholds[i - 1]
-                               for i in range(1, len(thresholds))] + [float("inf")]
+    thresholds = (
+        params["single"]
+        if filing_status in ("single", "married_separate")
+        else params["married_joint"]
+    )
+    sizes = (
+        [thresholds[0]]
+        + [thresholds[i] - thresholds[i - 1] for i in range(1, len(thresholds))]
+        + [float("inf")]
+    )
     brackets = list(zip(sizes, _RATES))
     federal_tax = 0
 
@@ -5791,11 +8148,15 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
         elif kind == "flat":
             state_rate_desc = f"{state} flat {rate * 100:g}% income tax"
         else:
-            state_rate_desc = f"{state} progressive — ~{rate * 100:g}% effective-rate approximation"
+            state_rate_desc = (
+                f"{state} progressive — ~{rate * 100:g}% effective-rate approximation"
+            )
     else:
         state_tax = max(0, net_income) * 0.05  # Generic estimate
-        state_rate_desc = (f"{state or 'state unknown'} — generic ~5% estimate "
-                           f"(pass state=XX for a better one)")
+        state_rate_desc = (
+            f"{state or 'state unknown'} — generic ~5% estimate "
+            f"(pass state=XX for a better one)"
+        )
 
     total_annual = federal_tax + se_tax + state_tax
     quarterly = total_annual / 4
@@ -5814,20 +8175,30 @@ async def qb_estimate_quarterly_tax(tax_year: str = "2025", filing_status: str =
     lines.append("### Tax Breakdown:")
     lines.append(f"- Federal income tax: {fmt(federal_tax)}")
     lines.append(f"- Self-employment tax: {fmt(se_tax)}")
-    lines.append(f"  (Social Security: {fmt(min(se_base, ss_wage_base) * 0.124)}, Medicare: {fmt(se_base * 0.029)})")
+    lines.append(
+        f"  (Social Security: {fmt(min(se_base, ss_wage_base) * 0.124)}, Medicare: {fmt(se_base * 0.029)})"
+    )
     lines.append(f"- {state_rate_desc}: {fmt(state_tax)}")
     lines.append(f"\n**Total estimated annual tax: {fmt(total_annual)}**")
     lines.append(f"**Each quarterly payment: {fmt(quarterly)}**")
-    lines.append("\n*State tax is a planning approximation — flat-state rates "
-                 "are statutory; progressive states use a rough effective rate.*")
+    lines.append(
+        "\n*State tax is a planning approximation — flat-state rates "
+        "are statutory; progressive states use a rough effective rate.*"
+    )
 
     lines.append(f"\n### Quarterly Due Dates:")
     for q, due in quarter_due.items():
-        status = "✅ Past" if q < current_quarter else ("⏳ Current" if q == current_quarter else "📅 Upcoming")
+        status = (
+            "✅ Past"
+            if q < current_quarter
+            else ("⏳ Current" if q == current_quarter else "📅 Upcoming")
+        )
         lines.append(f"  Q{q}: {due} — {fmt(quarterly)} ({status})")
 
     if net_income <= 0:
-        lines.append(f"\n📋 **Note:** With a net loss, no estimated payments are due. You may carry forward this NOL.")
+        lines.append(
+            f"\n📋 **Note:** With a net loss, no estimated payments are due. You may carry forward this NOL."
+        )
 
     return "\n".join(lines) + tax_data_footer(year)
 
@@ -5840,14 +8211,15 @@ async def qb_deduction_finder(tax_year: str = "") -> str:
     Section 179, and more. Returns suggestions with estimated savings.
     tax_year defaults to the current year."""
     from datetime import date as _date
+
     if not tax_year:
         tax_year = str(_date.today().year)
     start = f"{tax_year}-01-01"
     end = f"{tax_year}-12-31"
 
-    result = await qb_request("GET", "reports/ProfitAndLoss", params={
-        "start_date": start, "end_date": end
-    })
+    result = await qb_request(
+        "GET", "reports/ProfitAndLoss", params={"start_date": start, "end_date": end}
+    )
 
     expense_dict = {}
     total_income = 0
@@ -5893,130 +8265,295 @@ async def qb_deduction_finder(tax_year: str = "") -> str:
     findings = []
     estimated_savings = 0
 
-    # Check for home office
-    has_home_office = any("home" in k.lower() and "office" in k.lower() for k in expense_dict)
-    has_rent = any("rent" in k.lower() for k in expense_dict)
-    if not has_home_office and not has_rent:
-        findings.append({
-            "deduction": "Home Office Deduction (IRS Form 8829)",
-            "status": "🔴 NOT CLAIMED",
-            "details": "Simplified: $5/sq ft up to 300 sq ft = $1,500. Regular method may be higher with mortgage interest, property taxes, utilities, insurance.",
-            "estimate": 1500,
-        })
-        estimated_savings += 1500
+    # Canonical net (SAME engine as qb_schedule_c) so the loss figure and the
+    # limitation gating reflect LIMITED deductions (meals at 50%), not the raw
+    # book total. Income-limited items are capped at net SE income; at a loss
+    # they resolve to $0 this year rather than a fabricated gross value.
+    name_sub, name_fqn = await _chart_maps()
+    profile = await _get_allocation_profile(int(tax_year))
+    gr, ra, cogs_c, oi = _pl_income_breakdown(result, name_sub)
+    gross_income = round(gr - ra - cogs_c + oi, 2)
+    res = _map_expenses_to_schedule_c(
+        _extract_pl_expense_accounts(result), name_sub, profile, name_fqn
+    )
+    # Totals from the SHARED helper — identical to qb_schedule_c's Line 28 / 31, so
+    # this tool can't diverge. Non-deductible items (charitable, entertainment) are
+    # excluded from Line 28 by the helper (they inflated it and the loss before).
+    T = _schedule_c_totals(res, profile, tax_year, gross_income)
+    deductible = T["line28"]
+    home_allowed = T["home_allowed"]
+    home_total = T["home_indirect_total"]
+    ho = profile.get("home_office") or {}
+    ho_pct = float(ho.get("percentage") or 0)
+    se_net = T["net"]  # Schedule C Line 31 — matches qb_schedule_c
+    income_cap = max(0.0, se_net)  # income-limited deductions can't exceed this
+    net_income = se_net  # report the TAX net, not the raw book net
+    at_a_loss = se_net < 0
 
-    # Check for vehicle expenses
-    has_vehicle = any("auto" in k.lower() or "vehicle" in k.lower() or "car" in k.lower() or "mileage" in k.lower() for k in expense_dict)
+    # Home office — read the PROFILE (and the books), not just account names. If a
+    # percentage or designated accounts are configured, it IS being claimed.
+    home_configured = (
+        ho_pct > 0
+        or bool(ho.get("accounts"))
+        or bool(res["home_indirect"])
+        or any("home" in k.lower() and "office" in k.lower() for k in expense_dict)
+        or any("rent" in k.lower() for k in expense_dict)
+    )
+    if home_configured:
+        claimed = fmt(home_allowed) if ho_pct > 0 else "see qb_schedule_c Line 30"
+        findings.append(
+            {
+                "deduction": "Home Office Deduction (IRS Form 8829)",
+                "status": "✅ CONFIGURED",
+                "details": (
+                    f"An allocation profile and/or home accounts are present — Line 30 "
+                    f"= {claimed} this year"
+                    + (
+                        " (limited to income; the excess carries forward)"
+                        if home_total * ho_pct > home_allowed + 0.005
+                        else ""
+                    )
+                    + ". Not an unclaimed deduction."
+                ),
+                "estimate": 0,
+            }
+        )
+    else:
+        # Simplified method — but Form 8829 can't create/increase a loss.
+        simplified = round(min(1500.0, income_cap), 2)
+        findings.append(
+            {
+                "deduction": "Home Office Deduction (IRS Form 8829)",
+                "status": (
+                    "🔴 NOT CLAIMED"
+                    if not at_a_loss
+                    else "🟡 NOT CLAIMED — $0 this year"
+                ),
+                "details": (
+                    "Simplified: $5/sq ft up to 300 sq ft = $1,500 (regular method may be "
+                    "higher). "
+                    + (
+                        "Limited to net profit — you're at a loss this year, so it "
+                        "would be $0 and carry forward."
+                        if at_a_loss
+                        else f"Capped at this year's net profit → {fmt(simplified)}."
+                    )
+                ),
+                "estimate": simplified,
+            }
+        )
+        estimated_savings += simplified
+
+    # Check for vehicle expenses. A prompt to TRACK mileage, not a found deduction
+    # — we can't estimate a dollar value without the miles, so don't fabricate one.
+    has_vehicle = any(
+        "auto" in k.lower()
+        or "vehicle" in k.lower()
+        or "car" in k.lower()
+        or "mileage" in k.lower()
+        for k in expense_dict
+    )
     if not has_vehicle:
-        findings.append({
-            "deduction": "Vehicle Expenses (Standard Mileage or Actual)",
-            "status": "🔴 NOT CLAIMED",
-            "details": (f"Standard mileage: "
-                        + ", ".join(f"{c}¢/mile ({y})" for y, c in sorted(_STD_MILEAGE_CENTS.items()))
-                        + ". Track business miles for meetings, supply runs, etc."),
-            "estimate": 1000,
-        })
-        estimated_savings += 1000
+        findings.append(
+            {
+                "deduction": "Vehicle Expenses (Standard Mileage or Actual)",
+                "status": "🟡 CONSIDER",
+                "details": (
+                    f"No vehicle account found. Standard mileage: "
+                    + ", ".join(
+                        f"{c}¢/mile ({y})"
+                        for y, c in sorted(_STD_MILEAGE_CENTS.items())
+                    )
+                    + ". If you drive for business, track the miles — value depends on them."
+                ),
+                "estimate": 0,
+            }
+        )
 
-    # Check for health insurance
-    has_health = any("health" in k.lower() or "medical" in k.lower() or "dental" in k.lower() for k in expense_dict)
+    # Self-employed health insurance — above-the-line but LIMITED to net SE income.
+    # We don't know their premiums (don't invent a number); flag the limit honestly.
+    has_health = any(
+        "health" in k.lower() or "medical" in k.lower() or "dental" in k.lower()
+        for k in expense_dict
+    )
     if not has_health:
-        findings.append({
-            "deduction": "Self-Employed Health Insurance (Schedule 1, Line 17)",
-            "status": "🟡 CHECK IF APPLICABLE",
-            "details": "100% of health/dental/vision premiums deductible above-the-line. Must not have employer coverage.",
-            "estimate": 6000,
-        })
-        estimated_savings += 6000
+        findings.append(
+            {
+                "deduction": "Self-Employed Health Insurance (Schedule 1, Line 17)",
+                "status": "🟡 CHECK IF APPLICABLE",
+                "details": (
+                    "100% of health/dental/vision premiums deductible above-the-line "
+                    "(must not have employer coverage) — but capped at net SE income. "
+                    + (
+                        "You're at a loss this year, so the deduction is $0 (it does not carry "
+                        "forward)."
+                        if at_a_loss
+                        else f"Up to {fmt(income_cap)} this year based on your net profit."
+                    )
+                ),
+                "estimate": 0,
+            }
+        )
 
     # Check for retirement contributions
-    has_retirement = any("retire" in k.lower() or "401k" in k.lower() or "sep" in k.lower() or "ira" in k.lower() for k in expense_dict)
+    has_retirement = any(
+        "retire" in k.lower()
+        or "401k" in k.lower()
+        or "sep" in k.lower()
+        or "ira" in k.lower()
+        for k in expense_dict
+    )
     if not has_retirement:
         ret_year = max(_RETIREMENT_LIMITS)
         ret = _RETIREMENT_LIMITS[ret_year]
-        findings.append({
-            "deduction": "Retirement Contributions (SEP-IRA / Solo 401k)",
-            "status": "🟡 OPPORTUNITY",
-            "details": (f"SEP-IRA: up to 25% of net SE income (max ${ret['sep_max']:,} "
-                        f"for {ret_year}). Solo 401k: ${ret['solo_401k_deferral']:,} "
-                        f"employee + 25% employer."),
-            "estimate": 0,
-        })
+        sep_room = round(min(0.25 * income_cap, ret["sep_max"]), 2)
+        findings.append(
+            {
+                "deduction": "Retirement Contributions (SEP-IRA / Solo 401k)",
+                "status": "🟡 OPPORTUNITY" if not at_a_loss else "🟡 $0 this year",
+                "details": (
+                    f"SEP-IRA: up to 25% of net SE income (max ${ret['sep_max']:,} "
+                    f"for {ret_year}). Solo 401k: ${ret['solo_401k_deferral']:,} "
+                    f"employee + 25% employer. "
+                    + (
+                        "At a loss this year, so the SEP-IRA employer contribution room "
+                        "is $0 (a Solo 401k employee deferral may still be possible from "
+                        "other earned income — check with your CPA)."
+                        if at_a_loss
+                        else f"Your ~25%-of-net-profit room this year: {fmt(sep_room)}."
+                    )
+                ),
+                "estimate": 0,
+            }
+        )
 
     # Check for depreciation
-    has_depreciation = any("deprec" in k.lower() or "section 179" in k.lower() for k in expense_dict)
+    has_depreciation = any(
+        "deprec" in k.lower() or "section 179" in k.lower() for k in expense_dict
+    )
     if not has_depreciation:
         # Check if there are asset purchases
-        findings.append({
-            "deduction": "Section 179 / Bonus Depreciation",
-            "status": "🟡 CHECK ASSETS",
-            "details": "Equipment, computers, furniture can be expensed immediately: §179 up to $2.56M (2026, active business required) or 100% bonus depreciation (permanent under OBBBA for property acquired after Jan 19, 2025; no income limit).",
-            "estimate": 0,
-        })
+        findings.append(
+            {
+                "deduction": "Section 179 / Bonus Depreciation",
+                "status": "🟡 CHECK ASSETS",
+                "details": "Equipment, computers, furniture can be expensed immediately: §179 up to $2.56M (2026, active business required) or 100% bonus depreciation (permanent under OBBBA for property acquired after Jan 19, 2025; no income limit).",
+                "estimate": 0,
+            }
+        )
 
-    # Check for education/training
-    has_education = any("education" in k.lower() or "training" in k.lower() or "course" in k.lower() for k in expense_dict)
+    # Check for education/training — a qualitative prompt; no invented dollar value.
+    has_education = any(
+        "education" in k.lower() or "training" in k.lower() or "course" in k.lower()
+        for k in expense_dict
+    )
     if not has_education:
-        findings.append({
-            "deduction": "Education & Training",
-            "status": "🟡 CHECK",
-            "details": "Courses, certifications, books, conferences related to your business are deductible.",
-            "estimate": 500,
-        })
-        estimated_savings += 500
+        findings.append(
+            {
+                "deduction": "Education & Training",
+                "status": "🟡 CHECK",
+                "details": "Courses, certifications, books, conferences related to your business are "
+                "deductible if you incurred them — no such expense is on the books yet.",
+                "estimate": 0,
+            }
+        )
 
-    # Check for startup costs
-    net_income = total_income - total_expenses
+    # Check for startup costs (pre-revenue only). net_income is the canonical
+    # Schedule C net computed above — not the raw book total.
     if net_income < 0 and total_income == 0:
-        findings.append({
-            "deduction": "Section 195 Startup Costs",
-            "status": "🟡 MAY APPLY",
-            "details": "First $5,000 of startup costs deductible in year 1 (phased out dollar-for-dollar above $50K). Remainder amortized over 180 months from commencement — run qb_startup_cost_analysis for the schedule.",
-            "estimate": 5000,
-        })
+        findings.append(
+            {
+                "deduction": "Section 195 Startup Costs",
+                "status": "🟡 MAY APPLY",
+                "details": "First $5,000 of startup costs deductible in year 1 (phased out dollar-for-dollar above $50K). Remainder amortized over 180 months from commencement — run qb_startup_cost_analysis for the schedule.",
+                "estimate": 5000,
+            }
+        )
         estimated_savings += 5000
 
     # R&D Tax Credit check (for tech/AI companies)
-    has_software = any("software" in k.lower() or "cloud" in k.lower() or "hosting" in k.lower() for k in expense_dict)
+    has_software = any(
+        "software" in k.lower() or "cloud" in k.lower() or "hosting" in k.lower()
+        for k in expense_dict
+    )
     if has_software:
-        sw_total = sum(abs(v) for k, v in expense_dict.items() if any(kw in k.lower() for kw in ["software", "cloud", "hosting", "api"]))
-        findings.append({
-            "deduction": "R&D Tax Credit (Form 6765)",
-            "status": "🟡 LIKELY ELIGIBLE",
-            "details": f"Software/cloud/API spend of {fmt(sw_total)} suggests R&D activity. Credit = ~10% of qualified research expenses. Startups can offset payroll taxes up to $500K/year.",
-            "estimate": sw_total * 0.10,
-        })
-        estimated_savings += sw_total * 0.10
-        findings.append({
-            "deduction": "§174A Domestic R&E Expensing",
-            "status": "🟢 RESTORED",
-            "details": "OBBBA restored 100% immediate expensing of domestic research & software development costs (§174A), ending the 5-year amortization required for 2022–2024. Small businesses may amend/elect to accelerate remaining unamortized 2022–2024 R&E. Foreign R&E remains 15-year.",
-            "estimate": 0,
-        })
+        sw_total = sum(
+            abs(v)
+            for k, v in expense_dict.items()
+            if any(kw in k.lower() for kw in ["software", "cloud", "hosting", "api"])
+        )
+        findings.append(
+            {
+                "deduction": "R&D Tax Credit (Form 6765)",
+                "status": "🟡 REVIEW ELIGIBILITY",
+                "details": (
+                    f"You have {fmt(sw_total)} of software/cloud spend. Note: §41 qualified "
+                    "research expenses are WAGES for research, supplies, and contract "
+                    "research — third-party SaaS subscriptions generally do NOT qualify. "
+                    "This is not an automatic credit; a study is needed to identify any "
+                    "qualifying wages/contract research before claiming a dollar figure."
+                ),
+                "estimate": 0,  # do NOT present a % of SaaS spend as a credit
+            }
+        )
+        findings.append(
+            {
+                "deduction": "§174A Domestic R&E Expensing",
+                "status": "🟢 RESTORED",
+                "details": "OBBBA restored 100% immediate expensing of domestic research & software development costs (§174A), ending the 5-year amortization required for 2022–2024. Small businesses may amend/elect to accelerate remaining unamortized 2022–2024 R&E. Foreign R&E remains 15-year.",
+                "estimate": 0,
+            }
+        )
 
     # NOL carryforward
     if net_income < 0:
-        findings.append({
-            "deduction": "Net Operating Loss (NOL) Carryforward",
-            "status": "📋 AVAILABLE",
-            "details": f"NOL of {fmt(abs(net_income))} can offset up to 80% of future taxable income. Carries forward indefinitely (federal) or 20 years (MA).",
-            "estimate": 0,
-        })
+        findings.append(
+            {
+                "deduction": "Net Operating Loss (NOL) Carryforward",
+                "status": "📋 AVAILABLE",
+                "details": f"NOL of {fmt(abs(net_income))} can offset up to 80% of future taxable income. Carries forward indefinitely (federal) or 20 years (MA).",
+                "estimate": 0,
+            }
+        )
 
     lines = [f"## Deduction Finder — {tax_year}\n"]
-    lines.append(f"**Total Income:** {fmt(total_income)} | **Total Expenses:** {fmt(total_expenses)} | **Net:** {fmt(net_income)}\n")
+    lines.append(
+        f"**Gross income:** {fmt(gross_income)} | **Deductible expenses:** "
+        f"{fmt(deductible)}"
+        + (f" + home office {fmt(home_allowed)}" if home_allowed > 0.005 else "")
+        + f" | **Net (Schedule C Line 31):** {fmt(net_income)}"
+        + ("  ⚠️ a loss" if at_a_loss else "")
+        + "\n"
+    )
 
     for f in findings:
         lines.append(f"### {f['status']} {f['deduction']}")
         lines.append(f"{f['details']}")
-        if f['estimate'] > 0:
-            lines.append(f"**Estimated value: {fmt(f['estimate'])}**")
+        if f["estimate"] > 0:
+            lines.append(f"**Estimated value this year: {fmt(f['estimate'])}**")
         lines.append("")
 
     if estimated_savings > 0:
-        lines.append(f"\n### 💰 Total Estimated Unclaimed Deductions: {fmt(estimated_savings)}")
-        # Rough tax savings at 30% effective rate
-        lines.append(f"**Potential tax savings: ~{fmt(estimated_savings * 0.30)}** (at ~30% effective rate)")
+        lines.append(
+            f"\n### 💰 Additional deductions identified (income-permitted): "
+            f"{fmt(round(estimated_savings, 2))}"
+        )
+        if at_a_loss:
+            lines.append(
+                "*You're at a loss this year, so these reduce the loss / carry "
+                "forward rather than produce current-year tax savings.*"
+            )
+        else:
+            lines.append(
+                f"**Rough tax savings: ~{fmt(round(estimated_savings * 0.30, 2))}** "
+                "(at ~30% effective rate)."
+            )
+    else:
+        lines.append(
+            "\n*No additional dollar-quantified deductions this year — the items "
+            "above are qualitative prompts, or are limited to $0 by your net profit "
+            "(they don't create savings at a loss). Review each with your CPA.*"
+        )
 
     return "\n".join(lines) + tax_data_footer()
 
@@ -6028,12 +8565,14 @@ async def qb_depreciation_schedule(tax_year: str = "") -> str:
     MACRS, and accumulated depreciation for tax year (defaults to the current
     year). Pulls from QB asset accounts."""
     from datetime import date as _date
+
     if not tax_year:
         tax_year = str(_date.today().year)
     # Fetch fixed-asset accounts (cost accounts + accumulated-depreciation contras)
     assets = await qb_query(
         "SELECT * FROM Account WHERE AccountType IN ('Fixed Asset', 'Other Asset') "
-        "MAXRESULTS 100")
+        "MAXRESULTS 100"
+    )
     acct_list = assets.get("QueryResponse", {}).get("Account", [])
     if not acct_list:
         return f"No fixed asset accounts found for {tax_year}."
@@ -6045,7 +8584,11 @@ async def qb_depreciation_schedule(tax_year: str = "") -> str:
     def _tokens(nm: str) -> set:
         stripped = _re.sub(
             r"accumulated|accum\.?|depreciation|deprec\.?|amortization|less|"
-            r"[-–—:()]", " ", nm or "", flags=_re.IGNORECASE)
+            r"[-–—:()]",
+            " ",
+            nm or "",
+            flags=_re.IGNORECASE,
+        )
         return {t.lower() for t in stripped.split() if len(t) > 2}
 
     contras, costs = [], []
@@ -6059,7 +8602,9 @@ async def qb_depreciation_schedule(tax_year: str = "") -> str:
 
     def _method_life(nm: str):
         low = nm.lower()
-        if any(k in low for k in ("computer", "laptop", "tablet", "server", "hardware")):
+        if any(
+            k in low for k in ("computer", "laptop", "tablet", "server", "hardware")
+        ):
             return "MACRS 5-yr", 5
         if "furniture" in low or "fixture" in low:
             return "MACRS 7-yr", 7
@@ -6094,14 +8639,16 @@ async def qb_depreciation_schedule(tax_year: str = "") -> str:
         lines.append(f"| {name} | {fmt(cost)} | {fmt(accum)} | {fmt(net)} | {life_s} |")
     lines.append(
         f"| **Totals** | **{fmt(total_cost)}** | **{fmt(total_accum)}** | "
-        f"**{fmt(total_net)}** | |")
+        f"**{fmt(total_net)}** | |"
+    )
     lines.append(
         "\n*Cost basis = net book value + the matched “Accumulated "
         "Depreciation” contra account; where the books don’t separate "
         "them, cost ≈ net. QuickBooks Online’s API does **not** expose "
         "per-asset **acquisition / in-service dates** or the elected "
         "**depreciation method** — confirm those from the purchase invoice "
-        "and prior-year Form 4562 before filing. Land is not depreciable.*")
+        "and prior-year Form 4562 before filing. Land is not depreciable.*"
+    )
 
     # Forward-looking tax estimate (illustrative straight-line on cost basis)
     lines.append("\n### Forward-looking tax depreciation estimate")
@@ -6119,7 +8666,8 @@ async def qb_depreciation_schedule(tax_year: str = "") -> str:
         "**100% bonus** (permanent for property acquired after Jan 19, 2025) depend "
         "on the in-service year and elections and are applied by your CPA on Form "
         "4562. This estimate will **not** match depreciation **booked in your P&L** "
-        "(actual recorded entries) — the two are reconciled at tax time.*")
+        "(actual recorded entries) — the two are reconciled at tax time.*"
+    )
 
     return "\n".join(lines) + tax_data_footer()
 
@@ -6128,11 +8676,15 @@ async def qb_depreciation_schedule(tax_year: str = "") -> str:
 # RECONCILIATION & MATCHING
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_match_invoices_to_transactions(invoices_json: str, start_date: str, end_date: str, tolerance: float = 2.0) -> str:
+async def qb_match_invoices_to_transactions(
+    invoices_json: str, start_date: str, end_date: str, tolerance: float = 2.0
+) -> str:
     """Match extracted invoices against QuickBooks transactions. invoices_json is a JSON array:
     [{"vendor": "...", "amount": 100, "date": "YYYY-MM-DD", "description": "..."}].
-    tolerance: dollar amount for fuzzy matching. Returns matched, unmatched, and suggestions."""
+    tolerance: dollar amount for fuzzy matching. Returns matched, unmatched, and suggestions.
+    """
     try:
         invoices = json.loads(invoices_json)
     except json.JSONDecodeError:
@@ -6158,7 +8710,9 @@ async def qb_match_invoices_to_transactions(invoices_json: str, start_date: str,
         for txn in txns:
             if txn["Id"] in used_txn_ids:
                 continue
-            txn_vendor = (txn.get("EntityRef", {}).get("name", "") or "").lower().strip()
+            txn_vendor = (
+                (txn.get("EntityRef", {}).get("name", "") or "").lower().strip()
+            )
             txn_amount = float(txn.get("TotalAmt", 0))
             txn_date = txn.get("TxnDate", "")
 
@@ -6166,7 +8720,11 @@ async def qb_match_invoices_to_transactions(invoices_json: str, start_date: str,
             score = 0
             if abs(txn_amount - inv_amount) <= tolerance:
                 score += 50
-            if inv_vendor and txn_vendor and (inv_vendor in txn_vendor or txn_vendor in inv_vendor):
+            if (
+                inv_vendor
+                and txn_vendor
+                and (inv_vendor in txn_vendor or txn_vendor in inv_vendor)
+            ):
                 score += 30
             if inv_date == txn_date:
                 score += 20
@@ -6185,33 +8743,45 @@ async def qb_match_invoices_to_transactions(invoices_json: str, start_date: str,
 
         if best_match:
             used_txn_ids.add(best_match["Id"])
-            matched.append({
-                "invoice": inv,
-                "transaction": best_match,
-                "score": best_score,
-            })
+            matched.append(
+                {
+                    "invoice": inv,
+                    "transaction": best_match,
+                    "score": best_score,
+                }
+            )
         else:
             unmatched_invoices.append(inv)
 
     lines = [f"## Invoice Matching Results\n"]
-    lines.append(f"**Matched:** {len(matched)} | **Unmatched:** {len(unmatched_invoices)} | **Total invoices:** {len(invoices)}\n")
+    lines.append(
+        f"**Matched:** {len(matched)} | **Unmatched:** {len(unmatched_invoices)} | **Total invoices:** {len(invoices)}\n"
+    )
 
     if matched:
         lines.append("### Matched Invoices:")
         for m in matched:
             inv = m["invoice"]
             txn = m["transaction"]
-            lines.append(f"- ✅ {inv.get('vendor', '?')} | Invoice: {fmt(inv.get('amount', 0))} ({inv.get('date', '?')}) → QB: {fmt(float(txn.get('TotalAmt', 0)))} ({txn.get('TxnDate', '?')}) [Score: {m['score']}]")
+            lines.append(
+                f"- ✅ {inv.get('vendor', '?')} | Invoice: {fmt(inv.get('amount', 0))} ({inv.get('date', '?')}) → QB: {fmt(float(txn.get('TotalAmt', 0)))} ({txn.get('TxnDate', '?')}) [Score: {m['score']}]"
+            )
 
     if unmatched_invoices:
-        lines.append(f"\n### Unmatched Invoices ({len(unmatched_invoices)} — need to be created):")
+        lines.append(
+            f"\n### Unmatched Invoices ({len(unmatched_invoices)} — need to be created):"
+        )
         total_unmatched = 0
         for inv in unmatched_invoices:
             amt = float(inv.get("amount", 0))
-            lines.append(f"- ❌ {inv.get('vendor', '?')} | {fmt(amt)} | {inv.get('date', '?')} | {inv.get('description', '')}")
+            lines.append(
+                f"- ❌ {inv.get('vendor', '?')} | {fmt(amt)} | {inv.get('date', '?')} | {inv.get('description', '')}"
+            )
             total_unmatched += amt
         lines.append(f"\n**Total unmatched: {fmt(total_unmatched)}**")
-        lines.append("\nUse `qb_batch_create_expenses` or `qb_batch_create_bills` to import these.")
+        lines.append(
+            "\nUse `qb_batch_create_expenses` or `qb_batch_create_bills` to import these."
+        )
 
     return "\n".join(lines)
 
@@ -6220,17 +8790,18 @@ async def qb_match_invoices_to_transactions(invoices_json: str, start_date: str,
 # UTILITIES — Account Management, Vendor Merge, Fiscal Year Close
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_inactivate_account(account_name: str) -> str:
     """Inactivate a QuickBooks account (hide it from active lists without deleting).
-    Useful for cleaning up unused or personal accounts. Requires exact account name."""
-    accounts = await qb_query(f"SELECT * FROM Account WHERE Name = '{account_name}' MAXRESULTS 1")
-    acct_list = accounts.get("QueryResponse", {}).get("Account", [])
+    Useful for cleaning up unused or personal accounts. Accepts an exact name, a
+    'Parent:Child' full name, or an unambiguous leaf name."""
+    # Shared resolver: exact Name → exact FullyQualifiedName → unambiguous leaf,
+    # refusing to guess between multiple matches (never silently wrong-account).
+    acct, err = await _resolve_account(account_name)
+    if err:
+        return err
 
-    if not acct_list:
-        return f"No account matching '{account_name}' found."
-
-    acct = acct_list[0]
     if not acct.get("Active", True):
         return f"Account '{account_name}' is already inactive."
 
@@ -6253,12 +8824,15 @@ async def qb_inactivate_account(account_name: str) -> str:
 
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_account(name: str, account_type: str, account_sub_type: str = "", description: str = "") -> str:
+async def qb_create_account(
+    name: str, account_type: str, account_sub_type: str = "", description: str = ""
+) -> str:
     """Create a new account in the chart of accounts.
     account_type: Bank, Accounts Receivable, Other Current Asset, Fixed Asset, Other Asset,
     Accounts Payable, Credit Card, Other Current Liability, Long Term Liability, Equity,
     Income, Cost of Goods Sold, Expense, Other Income, Other Expense.
-    account_sub_type: varies by type (e.g., 'Checking' for Bank, 'OfficeGeneralAdministrativeExpenses' for Expense)."""
+    account_sub_type: varies by type (e.g., 'Checking' for Bank, 'OfficeGeneralAdministrativeExpenses' for Expense).
+    """
     # QuickBooks caps these locally — validate before POST so the caller gets a
     # useful message instead of raw QBO error 2050.
     if len(name) > 100:
@@ -6276,12 +8850,16 @@ async def qb_create_account(name: str, account_type: str, account_sub_type: str 
 
     result = await qb_request("POST", "account", json_body=body)
     new_acct = result.get("Account", {})
-    return (f"✅ Created account '{new_acct.get('Name')}' (ID: {new_acct.get('Id')})\n"
-            f"  Type: {new_acct.get('AccountType')} / {new_acct.get('AccountSubType', '')}")
+    return (
+        f"✅ Created account '{new_acct.get('Name')}' (ID: {new_acct.get('Id')})\n"
+        f"  Type: {new_acct.get('AccountType')} / {new_acct.get('AccountSubType', '')}"
+    )
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_vendor_summary(start_date: str = "", end_date: str = "", top_n: int = 20) -> str:
+async def qb_vendor_summary(
+    start_date: str = "", end_date: str = "", top_n: int = 20
+) -> str:
     """Rank vendors by total spend within a date range. Shows top N vendors with
     transaction count and total amount. Useful for negotiation and cost analysis.
     Dates in YYYY-MM-DD (default: current year-to-date)."""
@@ -6295,6 +8873,7 @@ async def qb_vendor_summary(start_date: str = "", end_date: str = "", top_n: int
         return f"No transactions found between {start_date} and {end_date}."
 
     from collections import defaultdict
+
     vendor_totals = defaultdict(lambda: {"count": 0, "total": 0.0})
     for p in purchases:
         vendor = p.get("EntityRef", {}).get("name", "Unknown")
@@ -6302,7 +8881,9 @@ async def qb_vendor_summary(start_date: str = "", end_date: str = "", top_n: int
         vendor_totals[vendor]["count"] += 1
         vendor_totals[vendor]["total"] += amt
 
-    sorted_vendors = sorted(vendor_totals.items(), key=lambda x: x[1]["total"], reverse=True)[:top_n]
+    sorted_vendors = sorted(
+        vendor_totals.items(), key=lambda x: x[1]["total"], reverse=True
+    )[:top_n]
 
     lines = [f"## Top Vendors by Spend: {start_date} to {end_date}\n"]
     lines.append("| Rank | Vendor | Transactions | Total Spend |")
@@ -6312,28 +8893,47 @@ async def qb_vendor_summary(start_date: str = "", end_date: str = "", top_n: int
         lines.append(f"| {i} | {vendor} | {data['count']} | {fmt(data['total'])} |")
         grand_total += data["total"]
 
-    lines.append(f"\n**Total across top {len(sorted_vendors)} vendors: {fmt(grand_total)}**")
+    lines.append(
+        f"\n**Total across top {len(sorted_vendors)} vendors: {fmt(grand_total)}**"
+    )
     lines.append(f"**Total vendors in period: {len(vendor_totals)}**")
     return "\n".join(lines)
 
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_bill(vendor_name: str, amount: float, account_name: str, date: str, due_date: str = "", description: str = "", tax_code: str = "", tax_inclusive: bool = False) -> str:
+async def qb_create_bill(
+    vendor_name: str,
+    amount: float,
+    account_name: str,
+    date: str,
+    due_date: str = "",
+    description: str = "",
+    tax_code: str = "",
+    tax_inclusive: bool = False,
+) -> str:
     """Create a single bill (accounts payable) in QuickBooks.
     vendor_name: payee, amount: total, account_name: expense category, date: YYYY-MM-DD.
     due_date: when payment is due (defaults to date if empty).
-    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; tax_inclusive=True when amount already includes tax."""
+    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; tax_inclusive=True when amount already includes tax.
+    """
     if not due_date:
         due_date = date
 
     # Look up or create vendor
-    vendors = await qb_query(f"SELECT Id, DisplayName FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1")
+    vendors = await qb_query(
+        f"SELECT Id, DisplayName FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1"
+    )
     vendor_list = vendors.get("QueryResponse", {}).get("Vendor", [])
     if not vendor_list:
-        new_vendor = await qb_request("POST", "vendor", json_body={"DisplayName": vendor_name})
+        new_vendor = await qb_request(
+            "POST", "vendor", json_body={"DisplayName": vendor_name}
+        )
         vendor_ref = {"value": new_vendor["Vendor"]["Id"], "name": vendor_name}
     else:
-        vendor_ref = {"value": vendor_list[0]["Id"], "name": vendor_list[0]["DisplayName"]}
+        vendor_ref = {
+            "value": vendor_list[0]["Id"],
+            "name": vendor_list[0]["DisplayName"],
+        }
 
     # Look up expense account
     acct, acct_err = await _resolve_account(account_name)
@@ -6345,12 +8945,14 @@ async def qb_create_bill(vendor_name: str, amount: float, account_name: str, dat
         "VendorRef": vendor_ref,
         "TxnDate": date,
         "DueDate": due_date,
-        "Line": [{
-            "Amount": amount,
-            "DetailType": "AccountBasedExpenseLineDetail",
-            "AccountBasedExpenseLineDetail": {"AccountRef": acct_ref},
-            "Description": description,
-        }],
+        "Line": [
+            {
+                "Amount": amount,
+                "DetailType": "AccountBasedExpenseLineDetail",
+                "AccountBasedExpenseLineDetail": {"AccountRef": acct_ref},
+                "Description": description,
+            }
+        ],
     }
 
     region = (await _get_region())["region"]
@@ -6361,14 +8963,17 @@ async def qb_create_bill(vendor_name: str, amount: float, account_name: str, dat
             tax_id, _ = await _resolve_tax_code(tax_code)
         except ValueError as e:
             return str(e)
-        _apply_global_tax(body, "Line", "AccountBasedExpenseLineDetail",
-                          tax_id, tax_inclusive, region)
+        _apply_global_tax(
+            body, "Line", "AccountBasedExpenseLineDetail", tax_id, tax_inclusive, region
+        )
 
     resp = await qb_request("POST", "bill", json_body=body)
     bill = resp.get("Bill", {})
-    return (f"✅ Created bill #{bill.get('Id')}\n"
-            f"  Vendor: {vendor_name} | Amount: {fmt(amount)} | Due: {due_date}\n"
-            f"  Category: {acct_list[0]['Name']}")
+    return (
+        f"✅ Created bill #{bill.get('Id')}\n"
+        f"  Vendor: {vendor_name} | Amount: {fmt(amount)} | Due: {due_date}\n"
+        f"  Category: {acct_list[0]['Name']}"
+    )
 
 
 async def _profit_loss_by_dimension(start_date, end_date, column, label, needs):
@@ -6376,22 +8981,33 @@ async def _profit_loss_by_dimension(start_date, end_date, column, label, needs):
     which is PLURAL ('Classes'/'Departments'); the singular form is silently
     ignored by QBO and yields a non-columnar P&L (the old 'No class data' bug)."""
     start_date, end_date = _ytd_range(start_date, end_date)
-    result = await qb_request("GET", "reports/ProfitAndLoss", params={
-        "start_date": start_date, "end_date": end_date,
-        "summarize_column_by": column,
-    })
-    col_names = [c.get("ColTitle", "") for c in result.get("Columns", {}).get("Column", [])]
+    result = await qb_request(
+        "GET",
+        "reports/ProfitAndLoss",
+        params={
+            "start_date": start_date,
+            "end_date": end_date,
+            "summarize_column_by": column,
+        },
+    )
+    col_names = [
+        c.get("ColTitle", "") for c in result.get("Columns", {}).get("Column", [])
+    ]
     # The dimension columns are those between the Account column and the Total.
     # When tracking is OFF, QuickBooks ignores the grouping and returns either a
     # plain P&L (Account + Total) OR a single "Not Specified" column — both of
     # which would otherwise render as a misleading single-<dimension> P&L.
     dim_cols = [c.strip() for c in col_names[1:-1]] if len(col_names) >= 2 else []
-    meaningful = [c for c in dim_cols if c and c.lower() not in ("not specified", "total")]
+    meaningful = [
+        c for c in dim_cols if c and c.lower() not in ("not specified", "total")
+    ]
     if not meaningful:
-        return (f"No {label} breakdown available — this requires QuickBooks {needs} "
-                f"and transactions tagged to a {label}. "
-                f"(QuickBooks returned an ungrouped P&L, which is NOT a single-{label} "
-                f"result.) Use qb_profit_loss for the standard statement.")
+        return (
+            f"No {label} breakdown available — this requires QuickBooks {needs} "
+            f"and transactions tagged to a {label}. "
+            f"(QuickBooks returned an ungrouped P&L, which is NOT a single-{label} "
+            f"result.) Use qb_profit_loss for the standard statement."
+        )
     lines = [f"## Profit & Loss by {label.title()}: {start_date} to {end_date}\n"]
     _parse_report_rows(result.get("Rows", {}).get("Row", []), lines)
     return "\n".join(lines)
@@ -6403,7 +9019,8 @@ async def qb_profit_loss_by_class(start_date: str = "", end_date: str = "") -> s
     multi-segment businesses. Dates in YYYY-MM-DD (default: current year-to-date).
     Returns nothing if class tracking isn't enabled."""
     return await _profit_loss_by_dimension(
-        start_date, end_date, "Classes", "class", "class tracking to be enabled")
+        start_date, end_date, "Classes", "class", "class tracking to be enabled"
+    )
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -6412,17 +9029,25 @@ async def qb_profit_loss_by_department(start_date: str = "", end_date: str = "")
     (default: current year-to-date). Returns nothing if location tracking isn't
     enabled."""
     return await _profit_loss_by_dimension(
-        start_date, end_date, "Departments", "department", "location tracking to be enabled")
+        start_date,
+        end_date,
+        "Departments",
+        "department",
+        "location tracking to be enabled",
+    )
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_income_summary(start_date: str = "", end_date: str = "") -> str:
     """Get income grouped by source/category for a date range. Complements qb_expense_summary.
-    Shows all income accounts and their totals. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    Shows all income accounts and their totals. Dates in YYYY-MM-DD (default: current year-to-date).
+    """
     start_date, end_date = _ytd_range(start_date, end_date)
-    result = await qb_request("GET", "reports/ProfitAndLoss", params={
-        "start_date": start_date, "end_date": end_date
-    })
+    result = await qb_request(
+        "GET",
+        "reports/ProfitAndLoss",
+        params={"start_date": start_date, "end_date": end_date},
+    )
 
     income_items = {}
     report_rows = result.get("Rows", {}).get("Row", [])
@@ -6473,50 +9098,72 @@ async def qb_fiscal_year_close_checklist(tax_year: str = "2024") -> str:
     checks = []
 
     # 1. Check for uncategorized transactions
-    accts = await qb_query("SELECT Id, Name FROM Account WHERE Name LIKE '%ncategorized%' MAXRESULTS 10")
+    accts = await qb_query(
+        "SELECT Id, Name FROM Account WHERE Name LIKE '%ncategorized%' MAXRESULTS 10"
+    )
     uncat_accts = accts.get("QueryResponse", {}).get("Account", [])
     uncat_total = 0
     for a in uncat_accts:
         uncat_total += abs(float(a.get("CurrentBalance", 0)))
     if uncat_total > 0:
-        checks.append(f"🔴 **Uncategorized transactions:** {fmt(uncat_total)} needs categorization")
+        checks.append(
+            f"🔴 **Uncategorized transactions:** {fmt(uncat_total)} needs categorization"
+        )
     else:
         checks.append("✅ **No uncategorized transactions**")
 
     # 2. Check for open invoices
-    open_invoices = await qb_query(f"SELECT * FROM Invoice WHERE Balance > '0' MAXRESULTS 100")
+    open_invoices = await qb_query(
+        f"SELECT * FROM Invoice WHERE Balance > '0' MAXRESULTS 100"
+    )
     inv_list = open_invoices.get("QueryResponse", {}).get("Invoice", [])
     open_balance = sum(float(i.get("Balance", 0)) for i in inv_list)
     if open_balance > 0:
-        checks.append(f"🟡 **Open invoices:** {len(inv_list)} invoices, {fmt(open_balance)} outstanding")
+        checks.append(
+            f"🟡 **Open invoices:** {len(inv_list)} invoices, {fmt(open_balance)} outstanding"
+        )
     else:
         checks.append("✅ **No open invoices**")
 
     # 3. Check for undeposited funds
-    udf = await qb_query("SELECT * FROM Account WHERE Name = 'Undeposited Funds' MAXRESULTS 1")
+    udf = await qb_query(
+        "SELECT * FROM Account WHERE Name = 'Undeposited Funds' MAXRESULTS 1"
+    )
     udf_accts = udf.get("QueryResponse", {}).get("Account", [])
     if udf_accts:
         udf_balance = float(udf_accts[0].get("CurrentBalance", 0))
         if abs(udf_balance) > 0:
-            checks.append(f"🟡 **Undeposited funds:** {fmt(udf_balance)} — should be deposited or cleared")
+            checks.append(
+                f"🟡 **Undeposited funds:** {fmt(udf_balance)} — should be deposited or cleared"
+            )
         else:
             checks.append("✅ **Undeposited funds: $0.00**")
 
     # 4. Check Opening Balance Equity
-    obe = await qb_query("SELECT * FROM Account WHERE Name = 'Opening Balance Equity' MAXRESULTS 1")
+    obe = await qb_query(
+        "SELECT * FROM Account WHERE Name = 'Opening Balance Equity' MAXRESULTS 1"
+    )
     obe_accts = obe.get("QueryResponse", {}).get("Account", [])
     if obe_accts:
         obe_balance = float(obe_accts[0].get("CurrentBalance", 0))
         if abs(obe_balance) > 0:
-            checks.append(f"🟡 **Opening Balance Equity:** {fmt(obe_balance)} — CPA should close to Retained Earnings")
+            checks.append(
+                f"🟡 **Opening Balance Equity:** {fmt(obe_balance)} — CPA should close to Retained Earnings"
+            )
         else:
             checks.append("✅ **Opening Balance Equity: $0.00**")
 
     # 5. Check for personal accounts still active
     personal_keywords = ["personal", "mortgage", "student loan"]
-    all_accts = await qb_query_all("SELECT * FROM Account WHERE Active = true MAXRESULTS 200")
+    all_accts = await qb_query_all(
+        "SELECT * FROM Account WHERE Active = true MAXRESULTS 200"
+    )
     all_list = all_accts.get("QueryResponse", {}).get("Account", [])
-    personal_active = [a for a in all_list if any(kw in a.get("Name", "").lower() for kw in personal_keywords)]
+    personal_active = [
+        a
+        for a in all_list
+        if any(kw in a.get("Name", "").lower() for kw in personal_keywords)
+    ]
     if personal_active:
         names = ", ".join(a["Name"] for a in personal_active)
         checks.append(f"🟡 **Personal accounts still active:** {names}")
@@ -6524,9 +9171,9 @@ async def qb_fiscal_year_close_checklist(tax_year: str = "2024") -> str:
         checks.append("✅ **No personal accounts active**")
 
     # 6. P&L summary
-    pnl = await qb_request("GET", "reports/ProfitAndLoss", params={
-        "start_date": start, "end_date": end
-    })
+    pnl = await qb_request(
+        "GET", "reports/ProfitAndLoss", params={"start_date": start, "end_date": end}
+    )
     net_income = 0
     for section in pnl.get("Rows", {}).get("Row", []):
         summary = section.get("Summary", {})
@@ -6556,17 +9203,26 @@ async def qb_fiscal_year_close_checklist(tax_year: str = "2024") -> str:
 # ATTACHMENT / RECEIPT UPLOAD
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_upload_receipt(entity_type: str, entity_id: str, file_name: str, file_url: str, content_type: str = "image/jpeg") -> str:
+async def qb_upload_receipt(
+    entity_type: str,
+    entity_id: str,
+    file_name: str,
+    file_url: str,
+    content_type: str = "image/jpeg",
+) -> str:
     """Attach a receipt or document to a QuickBooks transaction.
     entity_type: Purchase, Bill, Invoice, etc. entity_id: transaction ID.
     file_url: public URL of the receipt image/PDF. content_type: MIME type."""
     if _demo_active():
         # This tool uploads via a raw multipart request, so the qb_request
         # demo fallback never sees it — simulate here instead.
-        return (f"🎭 *Demo Mode* — Attachment simulated!\n\n- File: {file_name}\n"
-                f"- Attached to: {entity_type} #{entity_id}\n"
-                f"- (No real upload was performed.)")
+        return (
+            f"🎭 *Demo Mode* — Attachment simulated!\n\n- File: {file_name}\n"
+            f"- Attached to: {entity_type} #{entity_id}\n"
+            f"- (No real upload was performed.)"
+        )
     token = await get_access_token()
     url = f"{BASE_URL}/v3/company/{get_ctx().realm_id}/upload"
 
@@ -6579,45 +9235,62 @@ async def qb_upload_receipt(entity_type: str, entity_id: str, file_name: str, fi
 
     # Upload as multipart
     import io
+
     boundary = "----QuickBooksAttachment"
-    metadata = json.dumps({
-        "AttachableRef": [{"EntityRef": {"type": entity_type, "value": entity_id}}],
-        "FileName": file_name,
-        "ContentType": content_type,
-    })
+    metadata = json.dumps(
+        {
+            "AttachableRef": [{"EntityRef": {"type": entity_type, "value": entity_id}}],
+            "FileName": file_name,
+            "ContentType": content_type,
+        }
+    )
 
     body = (
-        f"--{boundary}\r\n"
-        f"Content-Disposition: form-data; name=\"file_metadata_0\"\r\n"
-        f"Content-Type: application/json\r\n\r\n"
-        f"{metadata}\r\n"
-        f"--{boundary}\r\n"
-        f"Content-Disposition: form-data; name=\"file_content_0\"; filename=\"{file_name}\"\r\n"
-        f"Content-Type: {content_type}\r\n\r\n"
-    ).encode() + file_data + f"\r\n--{boundary}--\r\n".encode()
+        (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file_metadata_0"\r\n'
+            f"Content-Type: application/json\r\n\r\n"
+            f"{metadata}\r\n"
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file_content_0"; filename="{file_name}"\r\n'
+            f"Content-Type: {content_type}\r\n\r\n"
+        ).encode()
+        + file_data
+        + f"\r\n--{boundary}--\r\n".encode()
+    )
 
     async with httpx.AsyncClient(timeout=60.0) as client:
-        resp = await client.post(url, content=body, headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": f"multipart/form-data; boundary={boundary}",
-            "Accept": "application/json",
-        })
+        resp = await client.post(
+            url,
+            content=body,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Accept": "application/json",
+            },
+        )
         resp.raise_for_status()
         result = resp.json()
 
     attachable = result.get("AttachableResponse", [{}])[0].get("Attachable", {})
-    return (f"✅ Receipt attached to {entity_type} #{entity_id}\n"
-            f"  File: {file_name}\n"
-            f"  Attachment ID: {attachable.get('Id', '?')}")
+    return (
+        f"✅ Receipt attached to {entity_type} #{entity_id}\n"
+        f"  File: {file_name}\n"
+        f"  Attachment ID: {attachable.get('Id', '?')}"
+    )
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_attachments(entity_type: str = "", entity_id: str = "", max_results: int = 25) -> str:
+async def qb_list_attachments(
+    entity_type: str = "", entity_id: str = "", max_results: int = 25
+) -> str:
     """List attachments/receipts. Filter by entity_type and entity_id to see attachments
     for a specific transaction, or leave empty to list all recent attachments."""
     if entity_type and entity_id:
-        query = (f"SELECT * FROM Attachable WHERE AttachableRef.EntityRef.Type = '{entity_type}' "
-                 f"AND AttachableRef.EntityRef.Value = '{entity_id}' MAXRESULTS {max_results}")
+        query = (
+            f"SELECT * FROM Attachable WHERE AttachableRef.EntityRef.Type = '{entity_type}' "
+            f"AND AttachableRef.EntityRef.Value = '{entity_id}' MAXRESULTS {max_results}"
+        )
     else:
         query = f"SELECT * FROM Attachable MAXRESULTS {max_results}"
 
@@ -6630,9 +9303,14 @@ async def qb_list_attachments(entity_type: str = "", entity_id: str = "", max_re
     lines = [f"## Attachments ({len(attachments)} found)\n"]
     for a in attachments:
         refs = a.get("AttachableRef", [])
-        ref_str = ", ".join(f"{r.get('EntityRef', {}).get('type', '?')} #{r.get('EntityRef', {}).get('value', '?')}" for r in refs)
+        ref_str = ", ".join(
+            f"{r.get('EntityRef', {}).get('type', '?')} #{r.get('EntityRef', {}).get('value', '?')}"
+            for r in refs
+        )
         lines.append(f"- **{a.get('FileName', 'Unknown')}** (ID: {a.get('Id')})")
-        lines.append(f"  Size: {a.get('Size', '?')} bytes | Type: {a.get('ContentType', '?')}")
+        lines.append(
+            f"  Size: {a.get('Size', '?')} bytes | Type: {a.get('ContentType', '?')}"
+        )
         if ref_str:
             lines.append(f"  Linked to: {ref_str}")
         lines.append("")
@@ -6640,7 +9318,9 @@ async def qb_list_attachments(entity_type: str = "", entity_id: str = "", max_re
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_missing_receipts(threshold: float = 75.0, start_date: str = "", end_date: str = "") -> str:
+async def qb_missing_receipts(
+    threshold: float = 75.0, start_date: str = "", end_date: str = ""
+) -> str:
     """Find expense transactions at/above a dollar threshold that have NO
     receipt attached in QuickBooks — the IRS substantiation gap (receipts are
     generally required for expenses >= $75; lodging at any amount). threshold:
@@ -6656,7 +9336,9 @@ async def qb_missing_receipts(threshold: float = 75.0, start_date: str = "", end
             for r in a.get("AttachableRef", []):
                 ref = r.get("EntityRef", {})
                 if ref.get("value"):
-                    attached.add((str(ref.get("type", "")).lower(), str(ref.get("value"))))
+                    attached.add(
+                        (str(ref.get("type", "")).lower(), str(ref.get("value")))
+                    )
     except Exception as e:
         logger.debug(f"Attachable query failed: {e}")
 
@@ -6665,16 +9347,30 @@ async def qb_missing_receipts(threshold: float = 75.0, start_date: str = "", end
     # don't need a receipt. Same signal qb_books_hygiene uses. INCLUDE inactive
     # accounts: a payment categorized to a *deleted* credit-card account would
     # otherwise resolve to an unknown type and get flagged as a missing receipt.
-    active = (await qb_query_all("SELECT * FROM Account")).get(
-        "QueryResponse", {}).get("Account", [])
-    inactive = (await qb_query_all("SELECT * FROM Account WHERE Active = false")).get(
-        "QueryResponse", {}).get("Account", [])
+    active = (
+        (await qb_query_all("SELECT * FROM Account"))
+        .get("QueryResponse", {})
+        .get("Account", [])
+    )
+    inactive = (
+        (await qb_query_all("SELECT * FROM Account WHERE Active = false"))
+        .get("QueryResponse", {})
+        .get("Account", [])
+    )
     accts = active + inactive
     atype = {a["Id"]: a.get("AccountType", "") for a in accts}
     aname = {a["Id"]: (a.get("Name", "") or "").lower() for a in accts}
-    _NON_EXPENSE = {"Bank", "Equity", "Credit Card", "Accounts Payable",
-                    "Accounts Receivable", "Other Current Liability",
-                    "Long Term Liability", "Other Current Asset", "Fixed Asset"}
+    _NON_EXPENSE = {
+        "Bank",
+        "Equity",
+        "Credit Card",
+        "Accounts Payable",
+        "Accounts Receivable",
+        "Other Current Liability",
+        "Long Term Liability",
+        "Other Current Asset",
+        "Fixed Asset",
+    }
 
     def _needs_receipt(t) -> bool:
         """True only if the transaction has a genuine, non-interest expense line.
@@ -6682,19 +9378,22 @@ async def qb_missing_receipts(threshold: float = 75.0, start_date: str = "", end
         is not a substantiation gap."""
         cats = []
         for l in t.get("Line", []):
-            d = (l.get("AccountBasedExpenseLineDetail")
-                 or l.get("ItemBasedExpenseLineDetail") or {})
+            d = (
+                l.get("AccountBasedExpenseLineDetail")
+                or l.get("ItemBasedExpenseLineDetail")
+                or {}
+            )
             aid = (d.get("AccountRef") or {}).get("value")
             if aid:
                 cats.append(aid)
         if not cats:
-            return True                      # can't tell — don't hide a real gap
+            return True  # can't tell — don't hide a real gap
         for aid in cats:
             if atype.get(aid, "") in _NON_EXPENSE:
                 continue
             if "interest" in aname.get(aid, ""):
                 continue
-            return True                      # a real, non-interest expense line
+            return True  # a real, non-interest expense line
         return False
 
     missing = []
@@ -6702,7 +9401,8 @@ async def qb_missing_receipts(threshold: float = 75.0, start_date: str = "", end
     for entity in ("Purchase", "Bill"):
         r = await qb_query_all(
             f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' AND "
-            f"TxnDate <= '{end_date}' MAXRESULTS 1000")
+            f"TxnDate <= '{end_date}' MAXRESULTS 1000"
+        )
         for t in r.get("QueryResponse", {}).get(entity, []):
             amt = float(t.get("TotalAmt", 0) or 0)
             if amt < threshold:
@@ -6712,30 +9412,53 @@ async def qb_missing_receipts(threshold: float = 75.0, start_date: str = "", end
             if not _needs_receipt(t):
                 excluded += 1
                 continue
-            payee = (t.get("EntityRef") or t.get("VendorRef") or {}).get("name", "(no payee)")
-            missing.append({"type": entity, "id": t.get("Id"),
-                            "date": t.get("TxnDate", "?"), "payee": payee, "amount": amt})
+            payee = (t.get("EntityRef") or t.get("VendorRef") or {}).get(
+                "name", "(no payee)"
+            )
+            missing.append(
+                {
+                    "type": entity,
+                    "id": t.get("Id"),
+                    "date": t.get("TxnDate", "?"),
+                    "payee": payee,
+                    "amount": amt,
+                }
+            )
 
     missing.sort(key=lambda x: x["amount"], reverse=True)
-    excl_note = (f" · excluded {excluded} card-payment/transfer/interest "
-                 "transaction(s) that don't need a receipt" if excluded else "")
-    lines = [f"## Transactions Missing Receipts — {start_date} to {end_date}",
-             f"*Threshold: {fmt(threshold)} (IRS substantiation guideline){excl_note}.*\n"]
+    excl_note = (
+        f" · excluded {excluded} card-payment/transfer/interest "
+        "transaction(s) that don't need a receipt"
+        if excluded
+        else ""
+    )
+    lines = [
+        f"## Transactions Missing Receipts — {start_date} to {end_date}",
+        f"*Threshold: {fmt(threshold)} (IRS substantiation guideline){excl_note}.*\n",
+    ]
     if not missing:
-        lines.append(f"✅ Every expense at or above {fmt(threshold)} has a receipt "
-                     "attached in QuickBooks.")
+        lines.append(
+            f"✅ Every expense at or above {fmt(threshold)} has a receipt "
+            "attached in QuickBooks."
+        )
         return "\n".join(lines)
     total = sum(m["amount"] for m in missing)
-    lines.append(f"**{len(missing)} transactions ({fmt(total)}) are missing a receipt:**\n")
+    lines.append(
+        f"**{len(missing)} transactions ({fmt(total)}) are missing a receipt:**\n"
+    )
     lines.append("| Date | Payee | Amount | Transaction |")
     lines.append("|---|---|---|---|")
     for m in missing[:100]:
-        lines.append(f"| {m['date']} | {m['payee']} | {fmt(m['amount'])} | {m['type']} #{m['id']} |")
+        lines.append(
+            f"| {m['date']} | {m['payee']} | {fmt(m['amount'])} | {m['type']} #{m['id']} |"
+        )
     if len(missing) > 100:
         lines.append(f"\n*(showing the 100 largest of {len(missing)})*")
-    lines.append("\n*Attach receipts with qb_upload_receipt or in QuickBooks. Lodging "
-                 "requires a receipt at any amount; keep documentation for every "
-                 "deduction you claim.*")
+    lines.append(
+        "\n*Attach receipts with qb_upload_receipt or in QuickBooks. Lodging "
+        "requires a receipt at any amount; keep documentation for every "
+        "deduction you claim.*"
+    )
     return "\n".join(lines)
 
 
@@ -6753,6 +9476,29 @@ def _cdc_iter(cdc_response: dict):
                             yield t
 
 
+def _cdc_txn_amount(t: dict):
+    """Best transaction amount for a CDC record. A JournalEntry carries TotalAmt
+    of 0 — its real amount is the sum of the DEBIT lines — so fall back to the
+    line total when TotalAmt is missing/zero (otherwise every JE showed $0.00)."""
+    amt = t.get("TotalAmt")
+    try:
+        if amt not in (None, "") and abs(float(amt)) > 0.005:
+            return amt
+    except (ValueError, TypeError):
+        pass
+    total = 0.0
+    for ln in t.get("Line", []) or []:
+        det = ln.get("JournalEntryLineDetail") or {}
+        if det.get("PostingType") == "Debit":
+            try:
+                total += float(ln.get("Amount", 0) or 0)
+            except (ValueError, TypeError):
+                pass
+    if total > 0.005:
+        return round(total, 2)
+    return amt if amt not in (None, "") else ""
+
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_change_audit_trail(since_date: str = "", entities: str = "") -> str:
     """What changed in the books since a date — created, updated, and **deleted**
@@ -6761,26 +9507,33 @@ async def qb_change_audit_trail(since_date: str = "", entities: str = "") -> str
     QuickBooks allows up to ~31 days back). entities: comma-separated (default:
     the common transaction types)."""
     from datetime import date as _d, timedelta as _td
-    since = (since_date[:10] if since_date
-             else (_d.today() - _td(days=7)).isoformat())
-    ent = entities.strip() or ("Purchase,Bill,Invoice,JournalEntry,Payment,"
-                               "Deposit,CreditMemo,VendorCredit,BillPayment")
+
+    since = since_date[:10] if since_date else (_d.today() - _td(days=7)).isoformat()
+    ent = entities.strip() or (
+        "Purchase,Bill,Invoice,JournalEntry,Payment,"
+        "Deposit,CreditMemo,VendorCredit,BillPayment"
+    )
     try:
-        r = await qb_request("GET", "cdc",
-                             params={"entities": ent, "changedSince": f"{since}T00:00:00"})
+        r = await qb_request(
+            "GET", "cdc", params={"entities": ent, "changedSince": f"{since}T00:00:00"}
+        )
     except Exception as e:
-        return (f"Change data capture unavailable: {e}. QuickBooks CDC allows a "
-                "lookback of up to ~31 days — pick a more recent since_date.")
+        return (
+            f"Change data capture unavailable: {e}. QuickBooks CDC allows a "
+            "lookback of up to ~31 days — pick a more recent since_date."
+        )
 
     created, updated, deleted = [], [], []
     for t in _cdc_iter(r):
         status = str(t.get("status", "")).lower()
         meta = t.get("MetaData", {})
         rec = {
-            "entity": t.get("_entity", "?"), "id": t.get("Id", "?"),
-            "name": (t.get("EntityRef") or t.get("VendorRef")
-                     or t.get("CustomerRef") or {}).get("name", ""),
-            "amount": t.get("TotalAmt", ""),
+            "entity": t.get("_entity", "?"),
+            "id": t.get("Id", "?"),
+            "name": (
+                t.get("EntityRef") or t.get("VendorRef") or t.get("CustomerRef") or {}
+            ).get("name", ""),
+            "amount": _cdc_txn_amount(t),
             "created": (meta.get("CreateTime", "") or "")[:10],
             "updated": (meta.get("LastUpdatedTime", "") or "")[:10],
         }
@@ -6797,27 +9550,36 @@ async def qb_change_audit_trail(since_date: str = "", entities: str = "") -> str
         except (ValueError, TypeError):
             return "—"
 
-    lines = [f"## Change Audit Trail — since {since}\n",
-             f"*Created {len(created)} · Updated {len(updated)} · "
-             f"**Deleted {len(deleted)}** (QuickBooks Change Data Capture).*"]
+    lines = [
+        f"## Change Audit Trail — since {since}\n",
+        f"*Created {len(created)} · Updated {len(updated)} · "
+        f"**Deleted {len(deleted)}** (QuickBooks Change Data Capture).*",
+    ]
     if not (created or updated or deleted):
         lines.append("\nNo transaction changes recorded in this window.")
         return "\n".join(lines)
-    for title, group in (("🗑️ Deleted", deleted), ("🆕 Created", created),
-                         ("✏️ Updated", updated)):
+    for title, group in (
+        ("🗑️ Deleted", deleted),
+        ("🆕 Created", created),
+        ("✏️ Updated", updated),
+    ):
         if not group:
             continue
         lines.append(f"\n### {title} ({len(group)})")
         lines.append("| Entity | # | Party | Amount | Changed |")
         lines.append("|---|---|---|---|---|")
         for c in group[:50]:
-            lines.append(f"| {c['entity']} | {c['id']} | {c['name'] or '—'} | "
-                         f"{_amt(c['amount'])} | {c['updated'] or c['created']} |")
+            lines.append(
+                f"| {c['entity']} | {c['id']} | {c['name'] or '—'} | "
+                f"{_amt(c['amount'])} | {c['updated'] or c['created']} |"
+            )
         if len(group) > 50:
             lines.append(f"\n*(showing 50 of {len(group)})*")
-    lines.append("\n*Deleted transactions are the ones to review first when the "
-                 "books changed after a close. QuickBooks CDC reflects the last "
-                 "~31 days.*")
+    lines.append(
+        "\n*Deleted transactions are the ones to review first when the "
+        "books changed after a close. QuickBooks CDC reflects the last "
+        "~31 days.*"
+    )
     return "\n".join(lines)
 
 
@@ -6825,13 +9587,16 @@ async def qb_change_audit_trail(since_date: str = "", entities: str = "") -> str
 # RECURRING TRANSACTIONS
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_recurring_transactions(max_results: int = 50) -> str:
     """List all recurring transactions (templates) in QuickBooks.
     Shows recurring bills, invoices, and expenses with their schedules."""
     # QB API uses RecurringTransaction endpoint
     try:
-        result = await qb_query(f"SELECT * FROM RecurringTransaction MAXRESULTS {max_results}")
+        result = await qb_query(
+            f"SELECT * FROM RecurringTransaction MAXRESULTS {max_results}"
+        )
         recurrings = result.get("QueryResponse", {}).get("RecurringTransaction", [])
     except Exception:
         # Recurring transactions may not be queryable via SQL in all QBO versions
@@ -6865,20 +9630,24 @@ from functools import wraps
 _audit_logger = logging.getLogger("qb_audit")
 _audit_logger.setLevel(logging.INFO)
 _audit_handler = logging.StreamHandler()
-_audit_handler.setFormatter(logging.Formatter(
-    "%(asctime)s | %(levelname)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-))
+_audit_handler.setFormatter(
+    logging.Formatter(
+        "%(asctime)s | %(levelname)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
+)
 _audit_logger.addHandler(_audit_handler)
 
 # Try to add file handler for persistent audit trail
 try:
     _file_handler = logging.FileHandler(
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "audit.log"),
-        encoding="utf-8"
+        encoding="utf-8",
     )
-    _file_handler.setFormatter(logging.Formatter(
-        "%(asctime)s | %(levelname)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-    ))
+    _file_handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s | %(levelname)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+        )
+    )
     _audit_logger.addHandler(_file_handler)
 except Exception:
     pass  # File logging optional — stderr still captures audit events
@@ -6898,15 +9667,17 @@ def _sanitize_input(value: str, field_name: str = "input") -> str:
     ]
     for pattern in dangerous_patterns:
         if re.search(pattern, value, re.IGNORECASE):
-            raise ValueError(f"Invalid characters in {field_name}: potential injection detected")
+            raise ValueError(
+                f"Invalid characters in {field_name}: potential injection detected"
+            )
     # Strip control characters
-    value = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', value)
+    value = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", value)
     return value
 
 
 def _validate_date(date_str: str, field_name: str = "date") -> str:
     """Validate date format is YYYY-MM-DD."""
-    if not re.match(r'^\d{4}-\d{2}-\d{2}$', date_str):
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
         raise ValueError(f"Invalid {field_name} format: '{date_str}'. Use YYYY-MM-DD.")
     try:
         datetime.strptime(date_str, "%Y-%m-%d")
@@ -6933,8 +9704,11 @@ def _audit_log(action: str, details: str):
 # NEW TOOL 1: Reclassify Transaction
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_reclassify_transaction(entity_type: str, entity_id: str, new_account_name: str, memo: str = "") -> str:
+async def qb_reclassify_transaction(
+    entity_type: str, entity_id: str, new_account_name: str, memo: str = ""
+) -> str:
     """Reclassify a transaction to a different expense/income account. Simpler than manual update.
     entity_type: Purchase, Deposit, Bill, etc. entity_id: the transaction ID.
     new_account_name: name of the account to reclassify to."""
@@ -6942,10 +9716,15 @@ async def qb_reclassify_transaction(entity_type: str, entity_id: str, new_accoun
     entity_id = _sanitize_input(entity_id, "entity_id")
     new_account_name = _sanitize_input(new_account_name, "new_account_name")
 
-    _audit_log("RECLASSIFY_START", f"type={entity_type} id={entity_id} new_acct={new_account_name}")
+    _audit_log(
+        "RECLASSIFY_START",
+        f"type={entity_type} id={entity_id} new_acct={new_account_name}",
+    )
 
     # Find the new account
-    acct_result = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{new_account_name}%' MAXRESULTS 5")
+    acct_result = await qb_query(
+        f"SELECT * FROM Account WHERE Name LIKE '%{new_account_name}%' MAXRESULTS 5"
+    )
     accounts = acct_result.get("QueryResponse", {}).get("Account", [])
     if not accounts:
         return f"Account '{new_account_name}' not found. Use qb_list_accounts to see available accounts."
@@ -6964,11 +9743,15 @@ async def qb_reclassify_transaction(entity_type: str, entity_id: str, new_accoun
     # Update all AccountBasedExpenseLineDetail lines
     for line in entity_data.get("Line", []):
         if line.get("DetailType") == "AccountBasedExpenseLineDetail":
-            old_acct = line.get("AccountBasedExpenseLineDetail", {}).get("AccountRef", {}).get("name", "?")
+            old_acct = (
+                line.get("AccountBasedExpenseLineDetail", {})
+                .get("AccountRef", {})
+                .get("name", "?")
+            )
             old_lines_info.append(f"{old_acct}: {fmt(line.get('Amount'))}")
             line["AccountBasedExpenseLineDetail"]["AccountRef"] = {
                 "value": target_acct["Id"],
-                "name": target_acct["Name"]
+                "name": target_acct["Name"],
             }
 
     if memo:
@@ -6978,7 +9761,10 @@ async def qb_reclassify_transaction(entity_type: str, entity_id: str, new_accoun
     result = await qb_request("POST", entity_type.lower(), json_body=entity_data)
     updated = result.get(entity_type, {})
 
-    _audit_log("RECLASSIFY_DONE", f"type={entity_type} id={entity_id} new_acct={target_acct['Name']} (ID:{target_acct['Id']})")
+    _audit_log(
+        "RECLASSIFY_DONE",
+        f"type={entity_type} id={entity_id} new_acct={target_acct['Name']} (ID:{target_acct['Id']})",
+    )
 
     return (
         f"✅ Reclassified {entity_type} #{entity_id}\n"
@@ -6992,12 +9778,15 @@ async def qb_reclassify_transaction(entity_type: str, entity_id: str, new_accoun
 # NEW TOOL 2: Batch Create Journal Entries
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_batch_create_journal_entries(entries_json: str) -> str:
     """Create multiple journal entries in one call. entries_json is a JSON array:
     [{"date": "YYYY-MM-DD", "memo": "...", "lines": [{"account_name": "...", "amount": 100.00, "type": "Debit"}, ...]}].
     Each entry must have balanced debits and credits. Returns summary of created JEs."""
-    entries = json.loads(entries_json) if isinstance(entries_json, str) else entries_json
+    entries = (
+        json.loads(entries_json) if isinstance(entries_json, str) else entries_json
+    )
 
     if not isinstance(entries, list) or len(entries) == 0:
         return "Error: entries_json must be a non-empty JSON array of journal entries."
@@ -7016,7 +9805,9 @@ async def qb_batch_create_journal_entries(entries_json: str) -> str:
             lines = entry.get("lines", [])
 
             if not lines or len(lines) < 2:
-                errors.append(f"Entry {i+1}: Must have at least 2 lines (debit + credit)")
+                errors.append(
+                    f"Entry {i+1}: Must have at least 2 lines (debit + credit)"
+                )
                 continue
 
             je_lines = []
@@ -7024,15 +9815,21 @@ async def qb_batch_create_journal_entries(entries_json: str) -> str:
             total_credit = 0.0
 
             for line in lines:
-                acct_name = _sanitize_input(line.get("account_name", ""), "account_name")
+                acct_name = _sanitize_input(
+                    line.get("account_name", ""), "account_name"
+                )
                 amount = _validate_amount(float(line.get("amount", 0)), "amount")
                 posting_type = line.get("type", "Debit")
 
                 if posting_type not in ("Debit", "Credit"):
-                    errors.append(f"Entry {i+1}: Invalid posting type '{posting_type}'. Use 'Debit' or 'Credit'.")
+                    errors.append(
+                        f"Entry {i+1}: Invalid posting type '{posting_type}'. Use 'Debit' or 'Credit'."
+                    )
                     break
 
-                acct_result = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{acct_name}%' MAXRESULTS 1")
+                acct_result = await qb_query(
+                    f"SELECT * FROM Account WHERE Name LIKE '%{acct_name}%' MAXRESULTS 1"
+                )
                 acct_list = acct_result.get("QueryResponse", {}).get("Account", [])
                 if not acct_list:
                     errors.append(f"Entry {i+1}: Account '{acct_name}' not found.")
@@ -7044,21 +9841,25 @@ async def qb_batch_create_journal_entries(entries_json: str) -> str:
                 else:
                     total_credit += amount
 
-                je_lines.append({
-                    "DetailType": "JournalEntryLineDetail",
-                    "Amount": amount,
-                    "Description": line.get("description", ""),
-                    "JournalEntryLineDetail": {
-                        "PostingType": posting_type,
-                        "AccountRef": {"value": acct["Id"], "name": acct["Name"]},
+                je_lines.append(
+                    {
+                        "DetailType": "JournalEntryLineDetail",
+                        "Amount": amount,
+                        "Description": line.get("description", ""),
+                        "JournalEntryLineDetail": {
+                            "PostingType": posting_type,
+                            "AccountRef": {"value": acct["Id"], "name": acct["Name"]},
+                        },
                     }
-                })
+                )
 
             if len(je_lines) != len(lines):
                 continue  # An error was recorded above
 
             if abs(total_debit - total_credit) > 0.01:
-                errors.append(f"Entry {i+1}: Does not balance. Debits={fmt(total_debit)}, Credits={fmt(total_credit)}")
+                errors.append(
+                    f"Entry {i+1}: Does not balance. Debits={fmt(total_debit)}, Credits={fmt(total_credit)}"
+                )
                 continue
 
             je_body = {"TxnDate": date, "Line": je_lines}
@@ -7067,9 +9868,14 @@ async def qb_batch_create_journal_entries(entries_json: str) -> str:
 
             result = await qb_request("POST", "journalentry", json_body=je_body)
             je = result.get("JournalEntry", {})
-            results.append(f"  ✅ JE #{je.get('Id')} | {date} | {fmt(je.get('TotalAmt'))} | {memo[:50]}")
+            results.append(
+                f"  ✅ JE #{je.get('Id')} | {date} | {fmt(je.get('TotalAmt'))} | {memo[:50]}"
+            )
 
-            _audit_log("BATCH_JE_CREATED", f"id={je.get('Id')} date={date} amount={fmt(je.get('TotalAmt'))}")
+            _audit_log(
+                "BATCH_JE_CREATED",
+                f"id={je.get('Id')} date={date} amount={fmt(je.get('TotalAmt'))}",
+            )
 
         except Exception as e:
             errors.append(f"Entry {i+1}: {str(e)}")
@@ -7090,6 +9896,7 @@ async def qb_batch_create_journal_entries(entries_json: str) -> str:
 # NEW TOOL 3: Home Office Calculator (Form 8829)
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": False})
 @require_region("US", "CRA business-use-of-home rules differ; see qb_t2125_summary.")
 async def qb_home_office_calculator(
@@ -7104,7 +9911,7 @@ async def qb_home_office_calculator(
     annual_repairs: float = 0,
     depreciation_years: float = 39,
     tax_year: str = "2025",
-    save_to_profile: bool = False
+    save_to_profile: bool = False,
 ) -> str:
     """Calculate home office deduction using the regular method (Form 8829).
     Returns deduction breakdown by category with IRS line mappings.
@@ -7144,44 +9951,77 @@ async def qb_home_office_calculator(
         if amount > 0:
             lines.append(f"  {category}: **{fmt(amount)}**")
 
-    lines.extend([
-        f"\n### **TOTAL HOME OFFICE DEDUCTION: {fmt(total)}**",
-        f"\n### Calculation Details",
-        f"  Building value: {fmt(building_value)} (home {fmt(home_value)} - land {fmt(land_value)})",
-        f"  Annual depreciation: {fmt(annual_depreciation)} ({fmt(building_value)} / {depreciation_years:.0f} years)",
-        f"  Business %: {biz_pct_display}",
-        f"\n### Schedule C Mapping",
-        f"  Line 18 (Office expense): $0 — using Form 8829 instead",
-        f"  Line 30 (Business use of home): **{fmt(total)}** — attach Form 8829",
-        f"\n*Note: Regular method used. Simplified method ($5/sqft, max 300 sqft = $1,500) available as alternative.*",
-    ])
+    simplified = round(
+        _HOME_OFFICE_SIMPLIFIED["rate_per_sqft"]
+        * min(office_sqft, _HOME_OFFICE_SIMPLIFIED["max_sqft"]),
+        2,
+    )
+    lines.extend(
+        [
+            f"\n### **TOTAL HOME OFFICE DEDUCTION (actual / Form 8829): {fmt(total)}**",
+            f"\n### Calculation Details",
+            f"  Building value: {fmt(building_value)} (home {fmt(home_value)} - land {fmt(land_value)})",
+            f"  Annual depreciation: {fmt(annual_depreciation)} ({fmt(building_value)} / {depreciation_years:.0f} years)",
+            f"  Business %: {biz_pct_display}",
+            f"\n### Schedule C Mapping",
+            f"  Line 18 (Office expense): $0 — using Form 8829 instead",
+            f"  Line 30 (Business use of home): **{fmt(total)}** — attach Form 8829",
+            f"\n### Simplified vs. actual",
+            f"  - **Simplified:** {min(office_sqft, _HOME_OFFICE_SIMPLIFIED['max_sqft']):.0f} sq ft × $5 "
+            f"(max {_HOME_OFFICE_SIMPLIFIED['max_sqft']}) = **{fmt(simplified)}** — no depreciation, no "
+            "recapture, and any excess over your net profit is LOST (Pub 587, no carryover)",
+            f"  - **Actual (above):** **{fmt(total)}** — excess over net profit CARRIES FORWARD; in a "
+            "loss year that makes the actual method worth more even when it's the smaller number",
+            f"  - *{'Actual' if total > simplified else 'Simplified'} is larger on these full-year "
+            f"inputs ({fmt(max(total, simplified))} vs {fmt(min(total, simplified))}), before the "
+            "gross-income limit.*",
+            "  - *Actual permits depreciation (more deduction now) but creates §1250 recapture — taxed "
+            "up to 25% on depreciation taken whether or not claimed — when you sell. Simplified avoids "
+            "it. A judgment call for the taxpayer/CPA; confirm which method the filed return used.*",
+        ]
+    )
 
     if save_to_profile:
         from datetime import datetime, timezone
+
         profile = await _get_allocation_profile(int(tax_year))
         profile = dict(profile or {})
         profile["home_office"] = {
-            "method": "actual", "office_sqft": office_sqft, "home_sqft": home_sqft,
+            "method": "actual",
+            "office_sqft": office_sqft,
+            "home_sqft": home_sqft,
             "percentage": biz_pct,
-            "basis_note": f"Form 8829: {office_sqft:.0f}/{home_sqft:.0f} sqft"}
+            "basis_note": f"Form 8829: {office_sqft:.0f}/{home_sqft:.0f} sqft",
+        }
         profile["provenance"] = {
-            "set_by": getattr(get_ctx(), "user_id", "") or get_ctx().license_key or "self-hosted",
+            "set_by": getattr(get_ctx(), "user_id", "")
+            or get_ctx().license_key
+            or "self-hosted",
             "set_at": datetime.now(timezone.utc).isoformat(),
-            "source": (profile.get("provenance") or {}).get("source", "qb_home_office_calculator")}
+            "source": (profile.get("provenance") or {}).get(
+                "source", "qb_home_office_calculator"
+            ),
+        }
         ok = await _save_allocation_profile(int(tax_year), profile)
         if ok:
-            lines.append(f"\n✅ Saved the {biz_pct_display} home-office % to your allocation "
-                         "profile — qb_schedule_c will apply it on Line 30 automatically.")
+            lines.append(
+                f"\n✅ Saved the {biz_pct_display} home-office % to your allocation "
+                "profile — qb_schedule_c will apply it on Line 30 automatically."
+            )
         else:
             lines.append("\n⚠️ Could not save to the allocation profile.")
 
-    _audit_log("HOME_OFFICE_CALC", f"year={tax_year} biz_pct={biz_pct_display} total={fmt(total)}")
+    _audit_log(
+        "HOME_OFFICE_CALC",
+        f"year={tax_year} biz_pct={biz_pct_display} total={fmt(total)}",
+    )
     return "\n".join(lines) + tax_data_footer()
 
 
 # ===================================================================
 # NEW TOOL 4: Vehicle Depreciation Calculator
 # ===================================================================
+
 
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("US", "Use qb_cca_schedule (Class 10/10.1).")
@@ -7191,7 +10031,7 @@ async def qb_vehicle_depreciation_calculator(
     business_use_pct: float,
     vehicle_weight_lbs: float = 6001,
     is_new: bool = True,
-    tax_year: str = "2025"
+    tax_year: str = "2025",
 ) -> str:
     """Calculate vehicle depreciation deduction using Section 179, bonus depreciation, and MACRS.
     purchase_price: total vehicle cost. purchase_date: YYYY-MM-DD.
@@ -7222,17 +10062,22 @@ async def qb_vehicle_depreciation_calculator(
     # §179 and no bonus — straight-line ADS only.
     if business_use_pct <= 0.5:
         sl_yr1 = biz_basis / 5 / 2  # ADS 5-yr straight line, half-year convention
-        lines.extend([
-            f"\n### ⚠️ Business use is not more than 50%",
-            f"  Listed-property rules (§280F(b)) disallow Section 179 AND bonus",
-            f"  depreciation at ≤50% business use. Straight-line (ADS, 5-year,",
-            f"  half-year convention) applies:",
-            f"  Year 1: **{fmt(sl_yr1)}**  |  Years 2–5: {fmt(biz_basis / 5)}/yr  |  Year 6: {fmt(sl_yr1)}",
-            f"\n*If business use later exceeds 50%, regular MACRS becomes available "
-            f"prospectively; if it drops to ≤50% after claiming §179/bonus, recapture applies.*",
-            f"\n*⚠️ CPA should verify. Mileage log required to support business use percentage.*",
-        ])
-        _audit_log("VEHICLE_DEPR_CALC", f"year={tax_year} price={fmt(purchase_price)} biz_pct={business_use_pct} sl_only")
+        lines.extend(
+            [
+                f"\n### ⚠️ Business use is not more than 50%",
+                f"  Listed-property rules (§280F(b)) disallow Section 179 AND bonus",
+                f"  depreciation at ≤50% business use. Straight-line (ADS, 5-year,",
+                f"  half-year convention) applies:",
+                f"  Year 1: **{fmt(sl_yr1)}**  |  Years 2–5: {fmt(biz_basis / 5)}/yr  |  Year 6: {fmt(sl_yr1)}",
+                f"\n*If business use later exceeds 50%, regular MACRS becomes available "
+                f"prospectively; if it drops to ≤50% after claiming §179/bonus, recapture applies.*",
+                f"\n*⚠️ CPA should verify. Mileage log required to support business use percentage.*",
+            ]
+        )
+        _audit_log(
+            "VEHICLE_DEPR_CALC",
+            f"year={tax_year} price={fmt(purchase_price)} biz_pct={business_use_pct} sl_only",
+        )
         return "\n".join(lines)
 
     # OBBBA (2025): 100% bonus is PERMANENT for property acquired AND placed
@@ -7245,8 +10090,10 @@ async def qb_vehicle_depreciation_calculator(
         bonus_note = "100% — permanent under OBBBA (acquired after Jan 19, 2025)"
     else:
         bonus_rate = tax_value("TCJA_PHASE_DOWN", year)
-        bonus_note = (f"{bonus_rate*100:.0f}% — TCJA phase-down (acquired on/before "
-                      f"Jan 19, 2025; rate set by placed-in-service year)")
+        bonus_note = (
+            f"{bonus_rate*100:.0f}% — TCJA phase-down (acquired on/before "
+            f"Jan 19, 2025; rate set by placed-in-service year)"
+        )
 
     if is_heavy_suv:
         # Heavy SUV (GVWR 6,001–14,000 lbs): §179 up to the SUV cap, then
@@ -7267,17 +10114,19 @@ async def qb_vehicle_depreciation_calculator(
         macrs_yr1 = remaining_after_bonus * 0.20
         total_yr1 = sec179 + bonus + macrs_yr1
 
-        lines.extend([
-            f"\n### First-Year Deduction Breakdown",
-            f"  Section 179: **{fmt(sec179)}** (heavy SUV cap: {fmt(sec179_limit)})",
-            f"  Bonus depreciation: **{fmt(bonus)}** ({bonus_note})",
-            f"  MACRS Year 1 (20%): **{fmt(macrs_yr1)}**",
-            f"  **TOTAL FIRST-YEAR DEDUCTION: {fmt(total_yr1)}**",
-            f"\n  §179 also requires an active trade or business with sufficient",
-            f"  taxable income (the deduction can't create a business loss;",
-            f"  bonus depreciation can).",
-            f"\n### Remaining MACRS Schedule (5-year property)",
-        ])
+        lines.extend(
+            [
+                f"\n### First-Year Deduction Breakdown",
+                f"  Section 179: **{fmt(sec179)}** (heavy SUV cap: {fmt(sec179_limit)})",
+                f"  Bonus depreciation: **{fmt(bonus)}** ({bonus_note})",
+                f"  MACRS Year 1 (20%): **{fmt(macrs_yr1)}**",
+                f"  **TOTAL FIRST-YEAR DEDUCTION: {fmt(total_yr1)}**",
+                f"\n  §179 also requires an active trade or business with sufficient",
+                f"  taxable income (the deduction can't create a business loss;",
+                f"  bonus depreciation can).",
+                f"\n### Remaining MACRS Schedule (5-year property)",
+            ]
+        )
 
         macrs_rates = _MACRS_5YR
         remaining_macrs = remaining_after_bonus
@@ -7285,7 +10134,9 @@ async def qb_vehicle_depreciation_calculator(
             yr_deduction = remaining_macrs * rate
             year_num = year + yr
             marker = " ← (included above)" if yr == 0 else ""
-            lines.append(f"  Year {yr+1} ({year_num}): {fmt(yr_deduction)} ({rate*100:.1f}%){marker}")
+            lines.append(
+                f"  Year {yr+1} ({year_num}): {fmt(yr_deduction)} ({rate*100:.1f}%){marker}"
+            )
 
     else:
         # Standard vehicle: §280F luxury-auto caps apply (Rev. Proc. values;
@@ -7299,36 +10150,48 @@ async def qb_vehicle_depreciation_calculator(
         yr1_cap = limits[1] if bonus_rate > 0 else limits["no_bonus_1"]
         yr1_deduction = min(biz_basis, yr1_cap)
 
-        lines.extend([
-            f"\n### Standard Vehicle (≤ 6,000 lbs GVWR) — §280F caps",
-            f"  Bonus depreciation: {bonus_note}",
-            f"  Year 1: **{fmt(yr1_deduction)}** (cap: {fmt(yr1_cap)}"
-            f"{' with bonus' if bonus_rate > 0 else ' without bonus'})",
-            f"  Year 2 cap: {fmt(limits[2])}",
-            f"  Year 3 cap: {fmt(limits[3])}",
-            f"  Year 4+: {fmt(limits[4])}/year until fully depreciated",
-        ])
+        lines.extend(
+            [
+                f"\n### Standard Vehicle (≤ 6,000 lbs GVWR) — §280F caps",
+                f"  Bonus depreciation: {bonus_note}",
+                f"  Year 1: **{fmt(yr1_deduction)}** (cap: {fmt(yr1_cap)}"
+                f"{' with bonus' if bonus_rate > 0 else ' without bonus'})",
+                f"  Year 2 cap: {fmt(limits[2])}",
+                f"  Year 3 cap: {fmt(limits[3])}",
+                f"  Year 4+: {fmt(limits[4])}/year until fully depreciated",
+            ]
+        )
 
     for note in vintage_notes:
         lines.append(f"\n⚠️ {note}")
 
-    lines.extend([
-        f"\n### Schedule C Mapping",
-        f"  Line 13 (Depreciation / Form 4562): report vehicle depreciation",
-        f"\n*To put this on the books, use qb_record_depreciation — it credits an "
-        f"Accumulated Depreciation contra account, never the asset itself.*",
-        f"\n*⚠️ CPA should verify: bonus eligibility (acquisition vs. placed-in-service "
-        f"dates), Section 179 limits, and business use substantiation.*",
-        f"*Mileage log required to support business use percentage.*",
-    ])
+    lines.extend(
+        [
+            f"\n### Schedule C Mapping",
+            f"  Line 13 (Depreciation / Form 4562): report vehicle depreciation",
+            f"\n*To put this on the books, use qb_record_depreciation — it credits an "
+            f"Accumulated Depreciation contra account, never the asset itself.*",
+            f"\n*⚠️ CPA should verify: bonus eligibility (acquisition vs. placed-in-service "
+            f"dates), Section 179 limits, and business use substantiation.*",
+            f"*Mileage log required to support business use percentage.*",
+        ]
+    )
 
-    _audit_log("VEHICLE_DEPR_CALC", f"year={tax_year} price={fmt(purchase_price)} biz_pct={business_use_pct}")
+    _audit_log(
+        "VEHICLE_DEPR_CALC",
+        f"year={tax_year} price={fmt(purchase_price)} biz_pct={business_use_pct}",
+    )
     return "\n".join(lines) + tax_data_footer(year)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-@require_region("US", "CRA treats most startup costs as ordinary expenses once the business has commenced; see qb_t2125_summary.")
-async def qb_startup_cost_analysis(total_startup_costs: float, commencement_date: str, tax_year: str = "") -> str:
+@require_region(
+    "US",
+    "CRA treats most startup costs as ordinary expenses once the business has commenced; see qb_t2125_summary.",
+)
+async def qb_startup_cost_analysis(
+    total_startup_costs: float, commencement_date: str, tax_year: str = ""
+) -> str:
     """Compute the §195 startup-cost deduction and amortization schedule.
     Up to $5,000 is deductible in the year the business commences, phased
     out dollar-for-dollar once total startup costs exceed $50,000; the
@@ -7342,11 +10205,15 @@ async def qb_startup_cost_analysis(total_startup_costs: float, commencement_date
     c_month = int(commencement_date[5:7])
     year = int(tax_year) if tax_year else c_year
     if year < c_year:
-        return (f"tax_year {year} is before the commencement date "
-                f"{commencement_date} — no §195 deduction until the business "
-                f"actually commences.")
+        return (
+            f"tax_year {year} is before the commencement date "
+            f"{commencement_date} — no §195 deduction until the business "
+            f"actually commences."
+        )
 
-    immediate = max(0.0, min(5_000.0, 5_000.0 - max(0.0, total_startup_costs - 50_000.0)))
+    immediate = max(
+        0.0, min(5_000.0, 5_000.0 - max(0.0, total_startup_costs - 50_000.0))
+    )
     immediate = min(immediate, total_startup_costs)
     amortizable = total_startup_costs - immediate
     monthly = amortizable / 180 if amortizable > 0 else 0.0
@@ -7366,26 +10233,38 @@ async def qb_startup_cost_analysis(total_startup_costs: float, commencement_date
         f"\n### Year-{1 + (year - c_year)} treatment",
     ]
     if year == c_year:
-        lines.append(f"  Immediate deduction: **{fmt(immediate)}**"
-                     + (f" (reduced — costs exceed $50,000)" if total_startup_costs > 50_000 else ""))
+        lines.append(
+            f"  Immediate deduction: **{fmt(immediate)}**"
+            + (
+                f" (reduced — costs exceed $50,000)"
+                if total_startup_costs > 50_000
+                else ""
+            )
+        )
         if total_startup_costs >= 55_000:
-            lines.append("  ⚠️ Costs ≥ $55,000: the immediate deduction is fully "
-                         "phased out; everything amortizes over 180 months.")
-    lines.append(f"  Amortization ({months_this_year} month(s) × {fmt(monthly)}): "
-                 f"**{fmt(amort_this_year)}**")
+            lines.append(
+                "  ⚠️ Costs ≥ $55,000: the immediate deduction is fully "
+                "phased out; everything amortizes over 180 months."
+            )
+    lines.append(
+        f"  Amortization ({months_this_year} month(s) × {fmt(monthly)}): "
+        f"**{fmt(amort_this_year)}**"
+    )
     total_ded = amort_this_year + (immediate if year == c_year else 0)
     lines.append(f"  **Total {year} deduction: {fmt(total_ded)}**")
-    lines.extend([
-        f"\n### Ongoing",
-        f"  Amortizable balance: {fmt(amortizable)} over 180 months "
-        f"({fmt(monthly * 12)}/full year) beginning {c_year}-{c_month:02d}.",
-        f"\n*Schedule C: immediate portion on line 27a (other expenses); "
-        f"amortization via Form 4562 Part VI. Costs paid before commencement "
-        f"are capitalized until the business starts — the commencement date, "
-        f"not the payment date, starts the clock.*",
-        f"\n*⚠️ Organizational costs (entity formation) have a separate, "
-        f"parallel $5,000/§248 allowance. CPA should verify.*",
-    ])
+    lines.extend(
+        [
+            f"\n### Ongoing",
+            f"  Amortizable balance: {fmt(amortizable)} over 180 months "
+            f"({fmt(monthly * 12)}/full year) beginning {c_year}-{c_month:02d}.",
+            f"\n*Schedule C: immediate portion on line 27a (other expenses); "
+            f"amortization via Form 4562 Part VI. Costs paid before commencement "
+            f"are capitalized until the business starts — the commencement date, "
+            f"not the payment date, starts the clock.*",
+            f"\n*⚠️ Organizational costs (entity formation) have a separate, "
+            f"parallel $5,000/§248 allowance. CPA should verify.*",
+        ]
+    )
     _audit_log("STARTUP_COST_ANALYSIS", f"total={fmt(total_startup_costs)} year={year}")
     return "\n".join(lines) + tax_data_footer(year)
 
@@ -7394,8 +10273,11 @@ async def qb_startup_cost_analysis(total_startup_costs: float, commencement_date
 # NEW TOOL 5: List Journal Entries by Memo
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_journal_entries_by_memo(search_text: str, max_results: int = 50) -> str:
+async def qb_list_journal_entries_by_memo(
+    search_text: str, max_results: int = 50
+) -> str:
     """Search journal entries by memo/private note text. Useful for finding specific
     JEs by description (e.g., 'home office', 'depreciation', 'reclassify').
     search_text: text to search for in memo field (case-insensitive partial match)."""
@@ -7445,26 +10327,27 @@ async def qb_list_journal_entries_by_memo(search_text: str, max_results: int = 5
 # NEW TOOL 6: Account Transactions
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_account_transactions(account_name: str, start_date: str = "", end_date: str = "", max_results: int = 100) -> str:
+async def qb_account_transactions(
+    account_name: str, start_date: str = "", end_date: str = "", max_results: int = 100
+) -> str:
     """Get all transactions for a specific account within a date range.
     Shows every debit and credit hitting the account with vendor names, memos,
     transaction types, and IDs. Useful for account reconciliation and verifying balances.
-    account_name: exact or partial account name. Dates YYYY-MM-DD (default: current year-to-date)."""
+    account_name: exact or partial account name. Dates YYYY-MM-DD (default: current year-to-date).
+    """
     start_date, end_date = _ytd_range(start_date, end_date)
     account_name = _sanitize_input(account_name, "account_name")
     start_date = _validate_date(start_date, "start_date")
     end_date = _validate_date(end_date, "end_date")
 
-    # Find the account
-    acct_result = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 5")
-    accounts = acct_result.get("QueryResponse", {}).get("Account", [])
-    if not accounts:
-        return f"Account '{account_name}' not found."
-    if len(accounts) > 1:
-        names = ", ".join(f"{a['Name']} (ID:{a['Id']})" for a in accounts)
-        return f"Multiple accounts match: {names}. Please be more specific."
-    acct = accounts[0]
+    # Shared resolver: exact Name → exact FullyQualifiedName → unambiguous leaf.
+    # Resolves 'Utilities' / 'Repairs & maintenance' cleanly where a bare LIKE
+    # returned raw ambiguity, and gives a consistent, helpful error otherwise.
+    acct, err = await _resolve_account(account_name)
+    if err:
+        return err
     acct_id = acct["Id"]
     acct_type = acct.get("AccountType", "")
     is_active = acct.get("Active", True)
@@ -7496,7 +10379,9 @@ async def qb_account_transactions(account_name: str, start_date: str = "", end_d
 
     for txn_type, query in txn_types.items():
         try:
-            result = (await qb_query_all(query)).get("QueryResponse", {}).get(txn_type, [])
+            result = (
+                (await qb_query_all(query)).get("QueryResponse", {}).get(txn_type, [])
+            )
         except Exception:
             continue
 
@@ -7531,8 +10416,10 @@ async def qb_account_transactions(account_name: str, start_date: str = "", end_d
                         amount = float(line.get("Amount", amount))
 
             elif txn_type == "Transfer":
-                if (txn.get("FromAccountRef", {}).get("value") == acct_id or
-                        txn.get("ToAccountRef", {}).get("value") == acct_id):
+                if (
+                    txn.get("FromAccountRef", {}).get("value") == acct_id
+                    or txn.get("ToAccountRef", {}).get("value") == acct_id
+                ):
                     touches_account = True
 
             elif txn_type in ("Bill", "BillPayment"):
@@ -7551,15 +10438,19 @@ async def qb_account_transactions(account_name: str, start_date: str = "", end_d
                     to_name = txn.get("ToAccountRef", {}).get("name", "?")
                     vendor = f"{from_name} → {to_name}"
 
-                all_txns.append({
-                    "type": txn_type,
-                    "id": txn.get("Id", "?"),
-                    "date": txn.get("TxnDate", "?"),
-                    "amount": amount,
-                    "vendor": vendor or "(no vendor)",
-                    "memo": (txn.get("PrivateNote", "") or txn.get("Memo", "") or "")[:80],
-                    "payment_acct": txn.get("AccountRef", {}).get("name", ""),
-                })
+                all_txns.append(
+                    {
+                        "type": txn_type,
+                        "id": txn.get("Id", "?"),
+                        "date": txn.get("TxnDate", "?"),
+                        "amount": amount,
+                        "vendor": vendor or "(no vendor)",
+                        "memo": (
+                            txn.get("PrivateNote", "") or txn.get("Memo", "") or ""
+                        )[:80],
+                        "payment_acct": txn.get("AccountRef", {}).get("name", ""),
+                    }
+                )
 
     # Sort by date
     all_txns.sort(key=lambda t: t["date"])
@@ -7577,10 +10468,17 @@ async def qb_account_transactions(account_name: str, start_date: str = "", end_d
     # Build detailed output. The count + total reflect ALL matching transactions
     # (fully paginated); max_results caps only how many rows we print.
     total_amount = sum(t["amount"] for t in all_txns)
-    shown = all_txns[:max_results] if max_results and len(all_txns) > max_results else all_txns
-    cap_note = (f" — showing the first {len(shown)}"
-                if len(shown) < len(all_txns) else "")
-    lines.append(f"**Transactions Found:** {len(all_txns)} | **Total:** {fmt(total_amount)}{cap_note}\n")
+    shown = (
+        all_txns[:max_results]
+        if max_results and len(all_txns) > max_results
+        else all_txns
+    )
+    cap_note = (
+        f" — showing the first {len(shown)}" if len(shown) < len(all_txns) else ""
+    )
+    lines.append(
+        f"**Transactions Found:** {len(all_txns)} | **Total:** {fmt(total_amount)}{cap_note}\n"
+    )
     lines.append("| Date | Type | ID | Vendor | Amount | Memo |")
     lines.append("|------|------|----|--------|--------|------|")
 
@@ -7592,6 +10490,7 @@ async def qb_account_transactions(account_name: str, start_date: str = "", end_d
 
     # Summary by vendor
     from collections import Counter
+
     vendor_totals = Counter()
     vendor_counts = Counter()
     for t in all_txns:
@@ -7610,6 +10509,7 @@ async def qb_account_transactions(account_name: str, start_date: str = "", end_d
 # NEW TOOL 7: Schedule C Detailed
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("US", "For Canadian books use qb_t2125_summary.")
 async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
@@ -7624,18 +10524,23 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
     # LIABILITIES ("Delta Platinum Business Card" -> Line 9 via 'car' in 'Card')
     # — which was both the wrong number and the wrong accounts. Now identical
     # to qb_schedule_c so the two tools always agree and reconcile to the P&L.
-    result = await qb_request("GET", "reports/ProfitAndLoss", params={
-        "start_date": start, "end_date": end, "summarize_column_by": "Total"})
+    result = await qb_request(
+        "GET",
+        "reports/ProfitAndLoss",
+        params={"start_date": start, "end_date": end, "summarize_column_by": "Total"},
+    )
 
     expense_dict = _extract_pl_expense_accounts(result)
-    name_sub = await _account_subtype_map()
+    name_sub, name_fqn = await _chart_maps()
     profile = await _get_allocation_profile(int(tax_year))
-    res = _map_expenses_to_schedule_c(expense_dict, name_sub, profile)
+    res = _map_expenses_to_schedule_c(expense_dict, name_sub, profile, name_fqn)
     pl_total = _pl_expense_total(result)
 
     # Income split correctly (see qb_schedule_c) — Sales → Line 1, refunds →
     # Line 2, interest/other → Line 6; never let 'Other Income' overwrite Sales.
-    gross_receipts, returns_allow, cogs, other_income = _pl_income_breakdown(result, name_sub)
+    gross_receipts, returns_allow, cogs, other_income = _pl_income_breakdown(
+        result, name_sub
+    )
     net_receipts = round(gross_receipts - returns_allow, 2)
     gross_profit = round(net_receipts - cogs, 2)
     gross_income = round(gross_profit + other_income, 2)
@@ -7644,29 +10549,55 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
     company_name = ""
     try:
         _ci = await qb_query("SELECT * FROM CompanyInfo")
-        company_name = (_ci.get("QueryResponse", {})
-                        .get("CompanyInfo", [{}])[0].get("CompanyName", ""))
+        company_name = (
+            _ci.get("QueryResponse", {})
+            .get("CompanyInfo", [{}])[0]
+            .get("CompanyName", "")
+        )
     except Exception:
         pass
 
     lines = [
         f"## Schedule C Detail — {tax_year}\n",
-        *( [f"**{company_name}**"] if company_name else [] ),
+        *([f"**{company_name}**"] if company_name else []),
         f"**EIN:** Check QB Company Info",
         f"**Period:** {start} to {end}\n",
         f"**Line 1 — Gross receipts or sales: {fmt(gross_receipts)}**",
-        *( [f"**Line 2 — Returns and allowances: {fmt(returns_allow)}**",
-            f"**Line 3 — Net receipts: {fmt(net_receipts)}**"] if returns_allow else [] ),
-        *( [f"**Line 4 — Cost of goods sold: {fmt(cogs)}**",
-            f"**Line 5 — Gross profit: {fmt(gross_profit)}**"] if cogs else [] ),
-        *( [f"**Line 6 — Other income (interest, etc.): {fmt(other_income)}**"] if other_income else [] ),
+        *(
+            [
+                f"**Line 2 — Returns and allowances: {fmt(returns_allow)}**",
+                f"**Line 3 — Net receipts: {fmt(net_receipts)}**",
+            ]
+            if returns_allow
+            else []
+        ),
+        *(
+            [
+                f"**Line 4 — Cost of goods sold: {fmt(cogs)}**",
+                f"**Line 5 — Gross profit: {fmt(gross_profit)}**",
+            ]
+            if cogs
+            else []
+        ),
+        *(
+            [f"**Line 6 — Other income (interest, etc.): {fmt(other_income)}**"]
+            if other_income
+            else []
+        ),
         f"**Line 7 — Gross income: {fmt(gross_income)}**\n",
     ]
     # Shared with qb_schedule_c so the two tools can never disagree.
-    net = _render_schedule_c_expenses(res, profile, tax_year, gross_income, pl_total, lines)
-    lines.append("\n*Line 30 (business use of home) uses your allocation profile + Form 8829 "
-                 "gross-income limit; verify account-to-line mappings before filing.*")
-    _audit_log("SCHEDULE_C_DETAIL", f"year={tax_year} income={fmt(gross_income)} net={fmt(net)}")
+    net = _render_schedule_c_expenses(
+        res, profile, tax_year, gross_income, pl_total, lines
+    )
+    lines.append(
+        "\n*Line 30 (business use of home) uses your allocation profile + Form 8829 "
+        "gross-income limit; verify account-to-line mappings before filing.*"
+    )
+    _audit_log(
+        "SCHEDULE_C_DETAIL",
+        f"year={tax_year} income={fmt(gross_income)} net={fmt(net)}",
+    )
     return "\n".join(lines) + tax_data_footer(int(tax_year))
 
 
@@ -7674,8 +10605,15 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
 # NEW TOOL 8: Create Sub-Account
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_sub_account(name: str, parent_account_name: str, account_type: str = "", account_sub_type: str = "", description: str = "") -> str:
+async def qb_create_sub_account(
+    name: str,
+    parent_account_name: str,
+    account_type: str = "",
+    account_sub_type: str = "",
+    description: str = "",
+) -> str:
     """Create a sub-account under an existing parent account. Simpler than qb_create_account
     for building account hierarchies. name: new sub-account name.
     parent_account_name: name of existing parent account.
@@ -7684,11 +10622,15 @@ async def qb_create_sub_account(name: str, parent_account_name: str, account_typ
     parent_account_name = _sanitize_input(parent_account_name, "parent_account_name")
 
     # Find parent account
-    parent_result = await qb_query(f"SELECT * FROM Account WHERE Name = '{parent_account_name}' MAXRESULTS 5")
+    parent_result = await qb_query(
+        f"SELECT * FROM Account WHERE Name = '{parent_account_name}' MAXRESULTS 5"
+    )
     parents = parent_result.get("QueryResponse", {}).get("Account", [])
     if not parents:
         # Try partial match
-        parent_result = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{parent_account_name}%' MAXRESULTS 5")
+        parent_result = await qb_query(
+            f"SELECT * FROM Account WHERE Name LIKE '%{parent_account_name}%' MAXRESULTS 5"
+        )
         parents = parent_result.get("QueryResponse", {}).get("Account", [])
     if not parents:
         return f"Parent account '{parent_account_name}' not found."
@@ -7710,7 +10652,10 @@ async def qb_create_sub_account(name: str, parent_account_name: str, account_typ
     result = await qb_request("POST", "account", json_body=body)
     new_acct = result.get("Account", {})
 
-    _audit_log("CREATE_SUB_ACCOUNT", f"name={name} parent={parent['Name']} id={new_acct.get('Id')}")
+    _audit_log(
+        "CREATE_SUB_ACCOUNT",
+        f"name={name} parent={parent['Name']} id={new_acct.get('Id')}",
+    )
 
     return (
         f"✅ Created sub-account '{new_acct.get('FullyQualifiedName', name)}' (ID: {new_acct.get('Id')})\n"
@@ -7723,18 +10668,30 @@ async def qb_create_sub_account(name: str, parent_account_name: str, account_typ
 # NEW TOOL 9: Transaction Detail
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_transaction_detail(entity_type: str, entity_id: str) -> str:
     """Get complete details for a single transaction. entity_type: Purchase, Deposit,
     Transfer, JournalEntry, Bill, Invoice, Payment, SalesReceipt, BillPayment, etc.
-    entity_id: the transaction ID. Returns all fields including line items, memo, metadata."""
+    entity_id: the transaction ID. Returns all fields including line items, memo, metadata.
+    """
     entity_type = _sanitize_input(entity_type, "entity_type")
     entity_id = _sanitize_input(entity_id, "entity_id")
 
     valid_types = [
-        "Purchase", "Deposit", "Transfer", "JournalEntry", "Bill",
-        "Invoice", "Payment", "SalesReceipt", "BillPayment", "Estimate",
-        "CreditMemo", "RefundReceipt", "VendorCredit"
+        "Purchase",
+        "Deposit",
+        "Transfer",
+        "JournalEntry",
+        "Bill",
+        "Invoice",
+        "Payment",
+        "SalesReceipt",
+        "BillPayment",
+        "Estimate",
+        "CreditMemo",
+        "RefundReceipt",
+        "VendorCredit",
     ]
     if entity_type not in valid_types:
         return f"Invalid entity_type '{entity_type}'. Valid types: {', '.join(valid_types)}"
@@ -7751,8 +10708,11 @@ async def qb_transaction_detail(entity_type: str, entity_id: str) -> str:
 
     # Common fields
     for field, label in [
-        ("TxnDate", "Date"), ("TotalAmt", "Total"), ("PrivateNote", "Memo"),
-        ("DocNumber", "Doc Number"), ("TxnStatus", "Status"),
+        ("TxnDate", "Date"),
+        ("TotalAmt", "Total"),
+        ("PrivateNote", "Memo"),
+        ("DocNumber", "Doc Number"),
+        ("TxnStatus", "Status"),
     ]:
         val = entity_data.get(field)
         if val is not None:
@@ -7761,15 +10721,35 @@ async def qb_transaction_detail(entity_type: str, entity_id: str) -> str:
             else:
                 lines.append(f"**{label}:** {val}")
 
+    # The Credit flag is the ONLY field that distinguishes a card charge from a
+    # card payment/refund on a Purchase — both are positive and structurally
+    # identical, so surface it explicitly (it answers "is this a payment?").
+    if entity_data.get("Credit") is not None:
+        is_credit = bool(entity_data.get("Credit"))
+        lines.append(
+            f"**Credit flag:** {is_credit} — "
+            + (
+                "money IN: a refund or card payment that REDUCES the account balance"
+                if is_credit
+                else "money OUT: a normal charge/expense that increases it"
+            )
+        )
+    if entity_data.get("PaymentType"):
+        lines.append(f"**Payment type:** {entity_data['PaymentType']}")
+
     # Entity references
     for ref_field, label in [
-        ("EntityRef", "Vendor/Customer"), ("AccountRef", "Account"),
-        ("DepositToAccountRef", "Deposit To"), ("FromAccountRef", "From Account"),
+        ("EntityRef", "Vendor/Customer"),
+        ("AccountRef", "Account"),
+        ("DepositToAccountRef", "Deposit To"),
+        ("FromAccountRef", "From Account"),
         ("ToAccountRef", "To Account"),
     ]:
         ref = entity_data.get(ref_field, {})
         if ref:
-            lines.append(f"**{label}:** {ref.get('name', '?')} (ID: {ref.get('value', '?')})")
+            lines.append(
+                f"**{label}:** {ref.get('name', '?')} (ID: {ref.get('value', '?')})"
+            )
 
     # Line items
     txn_lines = entity_data.get("Line", [])
@@ -7787,10 +10767,14 @@ async def qb_transaction_detail(entity_type: str, entity_id: str) -> str:
             # Parse detail based on type
             if detail_type == "AccountBasedExpenseLineDetail":
                 detail = line.get("AccountBasedExpenseLineDetail", {})
-                lines.append(f"  Account: {detail.get('AccountRef', {}).get('name', '?')}")
+                lines.append(
+                    f"  Account: {detail.get('AccountRef', {}).get('name', '?')}"
+                )
             elif detail_type == "JournalEntryLineDetail":
                 detail = line.get("JournalEntryLineDetail", {})
-                lines.append(f"  Account: {detail.get('AccountRef', {}).get('name', '?')}")
+                lines.append(
+                    f"  Account: {detail.get('AccountRef', {}).get('name', '?')}"
+                )
                 lines.append(f"  Posting: {detail.get('PostingType', '?')}")
             elif detail_type == "ItemBasedExpenseLineDetail":
                 detail = line.get("ItemBasedExpenseLineDetail", {})
@@ -7811,11 +10795,13 @@ async def qb_transaction_detail(entity_type: str, entity_id: str) -> str:
 # NEW TOOL 10: Delete Journal Entry
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_delete_journal_entry(journal_entry_id: str, confirm: bool = False) -> str:
     """Delete a journal entry. Use for removing draft, duplicate, or test JEs.
     journal_entry_id: the JE ID to delete. confirm: must be True to execute deletion.
-    ⚠️ This is PERMANENT. Use qb_void_transaction to void instead of delete when possible."""
+    ⚠️ This is PERMANENT. Use qb_void_transaction to void instead of delete when possible.
+    """
     journal_entry_id = _sanitize_input(journal_entry_id, "journal_entry_id")
 
     if not confirm:
@@ -7847,9 +10833,13 @@ async def qb_delete_journal_entry(journal_entry_id: str, confirm: bool = False) 
 
     # QB delete: POST with ?operation=delete
     delete_body = {"Id": journal_entry_id, "SyncToken": je["SyncToken"]}
-    result = await qb_request("POST", "journalentry?operation=delete", json_body=delete_body)
+    result = await qb_request(
+        "POST", "journalentry?operation=delete", json_body=delete_body
+    )
 
-    _audit_log("DELETE_JE_DONE", f"id={journal_entry_id} memo={je.get('PrivateNote', '')[:50]}")
+    _audit_log(
+        "DELETE_JE_DONE", f"id={journal_entry_id} memo={je.get('PrivateNote', '')[:50]}"
+    )
 
     return f"✅ Journal entry #{journal_entry_id} permanently deleted."
 
@@ -7858,9 +10848,12 @@ async def qb_delete_journal_entry(journal_entry_id: str, confirm: bool = False) 
 # NEW: 1099 Contractor Reporting
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region("US", "Use qb_t4a_contractor_report.")
-async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 0.0) -> str:
+async def qb_1099_contractor_report(
+    tax_year: str = "2025", threshold: float = 0.0
+) -> str:
     """Generate 1099-NEC contractor reporting data for a tax year.
     Lists all vendors paid at or above the IRS reporting threshold via
     non-employee compensation ($600 through 2025; $2,000 from 2026 under
@@ -7870,7 +10863,9 @@ async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 0
     end = f"{tax_year}-12-31"
     if not threshold:
         try:
-            threshold, _t_note = tax_value_or_latest("NEC_1099_THRESHOLD", int(tax_year))
+            threshold, _t_note = tax_value_or_latest(
+                "NEC_1099_THRESHOLD", int(tax_year)
+            )
         except TaxDataError as e:
             return str(e)
     threshold = _validate_amount(threshold, "threshold")
@@ -7915,8 +10910,12 @@ async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 0
         }
         addr = v.get("BillAddr", {})
         if addr:
-            parts = [addr.get("Line1", ""), addr.get("City", ""),
-                     addr.get("CountrySubDivisionCode", ""), addr.get("PostalCode", "")]
+            parts = [
+                addr.get("Line1", ""),
+                addr.get("City", ""),
+                addr.get("CountrySubDivisionCode", ""),
+                addr.get("PostalCode", ""),
+            ]
             vendor_map[vid]["address"] = ", ".join(p for p in parts if p)
 
     # Tally from purchases (direct payments)
@@ -7971,12 +10970,16 @@ async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 0
                 missing_addr += 1
             tin_status = "✅ On file" if v["tin"] else "⚠️ MISSING"
             lines.append(f"### {i}. {v['name']}")
-            lines.append(f"  **Total Paid:** {fmt(v['total_paid'])} ({v['payment_count']} payments)")
+            lines.append(
+                f"  **Total Paid:** {fmt(v['total_paid'])} ({v['payment_count']} payments)"
+            )
             lines.append(f"  **TIN Status:** {tin_status}")
             if v["company"]:
                 lines.append(f"  **Company:** {v['company']}")
-            lines.append("  **Address:** " + (v["address"] or
-                         "⚠️ MISSING — needed for 1099-NEC filing"))
+            lines.append(
+                "  **Address:** "
+                + (v["address"] or "⚠️ MISSING — needed for 1099-NEC filing")
+            )
             if v["email"]:
                 lines.append(f"  **Email:** {v['email']}")
             lines.append("")
@@ -7987,7 +10990,8 @@ async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 0
             "→ **Edit** → check **“Track payments for 1099”** (and collect "
             "a W-9), then re-run. 1099-NEC covers non-employee **compensation** — "
             "not corporations, credit-card/loan payments, product purchases, or "
-            "owner draws.\n")
+            "owner draws.\n"
+        )
     else:
         lines.append("No 1099-flagged vendors reached the threshold this year.\n")
 
@@ -8003,37 +11007,51 @@ async def qb_1099_contractor_report(tax_year: str = "2025", threshold: float = 0
             "counted above**. Corporations, product purchases, credit-card/loan "
             "payments, and owner draws are not 1099-NEC reportable. If any below "
             "is an individual/LLC you paid for services, mark them in QuickBooks "
-            "and re-run.*\n")
+            "and re-run.*\n"
+        )
         for v in review[:20]:
-            lines.append(f"  - {v['name']}: {fmt(v['total_paid'])} "
-                         f"({v['payment_count']} payments)")
+            lines.append(
+                f"  - {v['name']}: {fmt(v['total_paid'])} "
+                f"({v['payment_count']} payments)"
+            )
         lines.append("")
 
-    lines.extend([
-        f"---",
-        f"### Summary",
-        f"  Reportable (1099-flagged) payments: {fmt(grand_total)}",
-        f"  Vendors requiring 1099-NEC: {len(reportable)}",
-        f"  Missing TIN: {missing_tin}",
-        f"  Missing address: {missing_addr}",
-        "",
-    ])
+    lines.extend(
+        [
+            f"---",
+            f"### Summary",
+            f"  Reportable (1099-flagged) payments: {fmt(grand_total)}",
+            f"  Vendors requiring 1099-NEC: {len(reportable)}",
+            f"  Missing TIN: {missing_tin}",
+            f"  Missing address: {missing_addr}",
+            "",
+        ]
+    )
 
     if reportable and (missing_tin > 0 or missing_addr > 0):
         lines.append("### ⚠️ Action Items")
         if missing_tin > 0:
-            lines.append(f"  - Collect W-9 from {missing_tin} flagged vendor(s) to get TIN")
+            lines.append(
+                f"  - Collect W-9 from {missing_tin} flagged vendor(s) to get TIN"
+            )
         if missing_addr > 0:
-            lines.append(f"  - Collect mailing address from {missing_addr} flagged vendor(s)")
+            lines.append(
+                f"  - Collect mailing address from {missing_addr} flagged vendor(s)"
+            )
         lines.append(f"  - 1099-NEC filing deadline: January 31, {int(tax_year)+1}")
         lines.append(f"  - Use IRS FIRE system or approved e-file provider")
 
-    _audit_log("1099_REPORT", f"year={tax_year} reportable={len(reportable)} total={fmt(grand_total)}")
+    _audit_log(
+        "1099_REPORT",
+        f"year={tax_year} reportable={len(reportable)} total={fmt(grand_total)}",
+    )
     return "\n".join(lines) + tax_data_footer(int(tax_year))
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-@require_region("US", "Canadian payroll differs — hand T4/T4A summaries to your accountant.")
+@require_region(
+    "US", "Canadian payroll differs — hand T4/T4A summaries to your accountant."
+)
 async def qb_payroll_checklist(tax_year: str = "") -> str:
     """Payroll boundary checklist. AccountingQB does NOT run payroll or compute
     payroll taxes — this inspects the books for payroll signals (wages, payroll-
@@ -8041,32 +11059,41 @@ async def qb_payroll_checklist(tax_year: str = "") -> str:
     your CPA / payroll provider: W-2 vs 1099 classification, 941/940 reconciliation,
     and year-end forms. tax_year: YYYY (default: current year)."""
     from datetime import date as _d
+
     if not tax_year:
         tax_year = str(_d.today().year)
     start, end = f"{tax_year}-01-01", f"{tax_year}-12-31"
 
-    pl = await qb_request("GET", "reports/ProfitAndLoss",
-                          params={"start_date": start, "end_date": end})
+    pl = await qb_request(
+        "GET", "reports/ProfitAndLoss", params={"start_date": start, "end_date": end}
+    )
     exp = _extract_pl_expense_accounts(pl)
-    wage_accts = {n: v for n, v in exp.items()
-                  if _re.search(r"\b(wage|salar|payroll)", n, _re.IGNORECASE)}
+    wage_accts = {
+        n: v
+        for n, v in exp.items()
+        if _re.search(r"\b(wage|salar|payroll)", n, _re.IGNORECASE)
+    }
     total_wages = sum(abs(v) for v in wage_accts.values())
 
     payroll_liabs = {}
     try:
         liabs = await qb_query(
             "SELECT * FROM Account WHERE AccountType IN ('Other Current Liability',"
-            "'Long Term Liability') MAXRESULTS 100")
+            "'Long Term Liability') MAXRESULTS 100"
+        )
         for a in liabs.get("QueryResponse", {}).get("Account", []):
             nm = a.get("Name", "")
-            if _re.search(r"payroll|941|940|futa|suta|fica|withhold|employ",
-                          nm, _re.IGNORECASE):
+            if _re.search(
+                r"payroll|941|940|futa|suta|fica|withhold|employ", nm, _re.IGNORECASE
+            ):
                 payroll_liabs[nm] = float(a.get("CurrentBalance", 0) or 0)
     except Exception as e:
         logger.debug(f"payroll liability query failed: {e}")
 
     try:
-        vres = await qb_query("SELECT * FROM Vendor WHERE Vendor1099 = true MAXRESULTS 100")
+        vres = await qb_query(
+            "SELECT * FROM Vendor WHERE Vendor1099 = true MAXRESULTS 100"
+        )
         contractors_1099 = len(vres.get("QueryResponse", {}).get("Vendor", []))
     except Exception:
         contractors_1099 = 0
@@ -8079,42 +11106,60 @@ async def qb_payroll_checklist(tax_year: str = "") -> str:
         "### What the books show",
     ]
     if wage_accts:
-        lines.append(f"- **Wages/salaries booked:** {fmt(total_wages)} across "
-                     f"{len(wage_accts)} account(s) — indicates **W-2 employees**.")
+        lines.append(
+            f"- **Wages/salaries booked:** {fmt(total_wages)} across "
+            f"{len(wage_accts)} account(s) — indicates **W-2 employees**."
+        )
         for n, v in sorted(wage_accts.items(), key=lambda x: -abs(x[1])):
             lines.append(f"  - {n}: {fmt(abs(v))}")
     else:
-        lines.append("- No wages/salary expense detected — likely no W-2 employees "
-                     "(a Schedule C owner's draws are **not** wages).")
+        lines.append(
+            "- No wages/salary expense detected — likely no W-2 employees "
+            "(a Schedule C owner's draws are **not** wages)."
+        )
     if payroll_liabs:
-        lines.append(f"- **Payroll-tax liability accounts:** {len(payroll_liabs)} "
-                     "(year-end balances should tie to filed 941/940).")
+        lines.append(
+            f"- **Payroll-tax liability accounts:** {len(payroll_liabs)} "
+            "(year-end balances should tie to filed 941/940)."
+        )
         for n, v in payroll_liabs.items():
             lines.append(f"  - {n}: {fmt(v)}")
-    lines.append(f"- **Contractors flagged for 1099:** {contractors_1099} "
-                 "(run qb_1099_contractor_report).")
+    lines.append(
+        f"- **Contractors flagged for 1099:** {contractors_1099} "
+        "(run qb_1099_contractor_report)."
+    )
 
     lines.append("\n### Hand to your CPA / payroll provider")
-    lines.append("- [ ] W-2 vs 1099 classification confirmed for every worker "
-                 "(misclassification is the #1 payroll audit issue)")
+    lines.append(
+        "- [ ] W-2 vs 1099 classification confirmed for every worker "
+        "(misclassification is the #1 payroll audit issue)"
+    )
     if wage_accts:
-        lines.append("- [ ] Form 941 (quarterly) reconciles to booked wages + withholding")
+        lines.append(
+            "- [ ] Form 941 (quarterly) reconciles to booked wages + withholding"
+        )
         lines.append("- [ ] Form 940 (FUTA, annual) filed")
         lines.append("- [ ] W-2 / W-3 issued to employees (due Jan 31)")
         lines.append("- [ ] Payroll-tax liability accounts cleared after each deposit")
     lines.append("- [ ] 1099-NEC issued to reportable contractors (due Jan 31)")
     lines.append("- [ ] State unemployment (SUTA) + withholding returns filed")
 
-    lines.append("\n*Boundary checklist, not payroll-tax advice. Use a payroll "
-                 "provider (Gusto, QuickBooks Payroll, ADP) or your CPA to compute "
-                 "and file employment taxes.*")
+    lines.append(
+        "\n*Boundary checklist, not payroll-tax advice. Use a payroll "
+        "provider (Gusto, QuickBooks Payroll, ADP) or your CPA to compute "
+        "and file employment taxes.*"
+    )
     return "\n".join(lines)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_bank_reconciliation(account_name: str, csv_data: str,
-                                 start_date: str = "", end_date: str = "",
-                                 tolerance_days: int = 4) -> str:
+async def qb_bank_reconciliation(
+    account_name: str,
+    csv_data: str,
+    start_date: str = "",
+    end_date: str = "",
+    tolerance_days: int = 4,
+) -> str:
     """Reconcile a bank / credit-card statement against the books. QuickBooks
     Online's API does not expose cleared/reconciled status, so paste your
     statement as CSV (columns like Date, Description, Amount) and this produces
@@ -8137,7 +11182,11 @@ async def qb_bank_reconciliation(account_name: str, csv_data: str,
                 return i
         return -1
 
-    di, ai, ni = _col("date"), _col("amount", "debit", "credit"), _col("desc", "memo", "payee", "name")
+    di, ai, ni = (
+        _col("date"),
+        _col("amount", "debit", "credit"),
+        _col("desc", "memo", "payee", "name"),
+    )
     body = rows[1:] if (di >= 0 or ai >= 0) else rows
     if di < 0:
         di = 0
@@ -8161,32 +11210,57 @@ async def qb_bank_reconciliation(account_name: str, csv_data: str,
         amt = _num(r[ai])
         if amt is None:
             continue
-        bank.append({"date": r[di].strip()[:10],
-                     "desc": (r[ni].strip() if 0 <= ni < len(r) else ""),
-                     "amount": amt})
+        bank.append(
+            {
+                "date": r[di].strip()[:10],
+                "desc": (r[ni].strip() if 0 <= ni < len(r) else ""),
+                "amount": amt,
+            }
+        )
     if not bank:
-        return ("Could not parse amounts from the CSV — expected a numeric Amount "
-                "column (Date, Description, Amount).")
+        return (
+            "Could not parse amounts from the CSV — expected a numeric Amount "
+            "column (Date, Description, Amount)."
+        )
 
     dates = [b["date"] for b in bank if b["date"]]
     start = start_date or (min(dates) if dates else "")
     end = end_date or (max(dates) if dates else "")
 
     book = []
-    for entity in ("Purchase", "BillPayment", "Deposit", "Payment",
-                   "SalesReceipt", "JournalEntry"):
+    for entity in (
+        "Purchase",
+        "BillPayment",
+        "Deposit",
+        "Payment",
+        "SalesReceipt",
+        "JournalEntry",
+    ):
         try:
-            r = await qb_query_all(f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
-                               f"AND TxnDate <= '{end}' MAXRESULTS 1000")
+            r = await qb_query_all(
+                f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
+                f"AND TxnDate <= '{end}' MAXRESULTS 1000"
+            )
             for t in r.get("QueryResponse", {}).get(entity, []):
                 amt = float(t.get("TotalAmt", 0) or 0)
                 if amt == 0:
                     continue
-                party = (t.get("EntityRef") or t.get("VendorRef")
-                         or t.get("CustomerRef") or {}).get("name", "")
-                book.append({"date": (t.get("TxnDate", "") or "")[:10], "amount": amt,
-                             "party": party, "type": entity, "id": t.get("Id"),
-                             "matched": False})
+                party = (
+                    t.get("EntityRef")
+                    or t.get("VendorRef")
+                    or t.get("CustomerRef")
+                    or {}
+                ).get("name", "")
+                book.append(
+                    {
+                        "date": (t.get("TxnDate", "") or "")[:10],
+                        "amount": amt,
+                        "party": party,
+                        "type": entity,
+                        "id": t.get("Id"),
+                        "matched": False,
+                    }
+                )
         except Exception as e:
             logger.debug(f"{entity} query failed in bank rec: {e}")
 
@@ -8232,12 +11306,16 @@ async def qb_bank_reconciliation(account_name: str, csv_data: str,
         lines.append("| Date | Party | Amount | Transaction |")
         lines.append("|---|---|---|---|")
         for k in unmatched_book[:50]:
-            lines.append(f"| {k['date']} | {k['party'] or '—'} | {fmt(k['amount'])} "
-                         f"| {k['type']} #{k['id']} |")
-    lines.append("\n*Matched by amount within the date tolerance — verify before "
-                 "clearing. QuickBooks Online's API does not expose cleared/"
-                 "reconciled status, which is why this reconciles against your "
-                 "statement CSV.*")
+            lines.append(
+                f"| {k['date']} | {k['party'] or '—'} | {fmt(k['amount'])} "
+                f"| {k['type']} #{k['id']} |"
+            )
+    lines.append(
+        "\n*Matched by amount within the date tolerance — verify before "
+        "clearing. QuickBooks Online's API does not expose cleared/"
+        "reconciled status, which is why this reconciles against your "
+        "statement CSV.*"
+    )
     return "\n".join(lines)
 
 
@@ -8245,8 +11323,11 @@ async def qb_bank_reconciliation(account_name: str, csv_data: str,
 # NEW: Anomaly Detection
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str = "medium") -> str:
+async def qb_anomaly_detection(
+    start_date: str, end_date: str, sensitivity: str = "medium"
+) -> str:
     """Analyze transactions for anomalies and unusual patterns.
     Detects: unusually large transactions, duplicate payments, weekend/holiday activity,
     round-number payments, vendor concentration risk, and statistical outliers.
@@ -8279,9 +11360,16 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
     # owner draws, personal expenses), NOT vendor payments. We exclude them from
     # round-number, outlier, and weekend checks to reduce false positives.
     EQUITY_KEYWORDS = {
-        "owner investment", "owner draw", "personal expense", "personal healthcare",
-        "opening balance equity", "federal estimated tax", "state tax",
-        "owner retirement", "health insurance premium", "hsa contribution",
+        "owner investment",
+        "owner draw",
+        "personal expense",
+        "personal healthcare",
+        "opening balance equity",
+        "federal estimated tax",
+        "state tax",
+        "owner retirement",
+        "health insurance premium",
+        "hsa contribution",
     }
 
     def _is_equity_txn(txn):
@@ -8308,17 +11396,19 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
             acct_name = detail.get("AccountRef", {}).get("name", "")
             if acct_name:
                 line_categories.append(acct_name)
-        all_txns.append({
-            "type": "Purchase",
-            "id": p.get("Id", "?"),
-            "date": p.get("TxnDate", "?"),
-            "amount": float(p.get("TotalAmt", 0)),
-            "vendor": p.get("EntityRef", {}).get("name", "Unknown"),
-            "memo": p.get("PrivateNote", p.get("Memo", "")),
-            "account": p.get("AccountRef", {}).get("name", "?"),
-            "account_category": ", ".join(line_categories),
-            "is_equity": False,  # set below
-        })
+        all_txns.append(
+            {
+                "type": "Purchase",
+                "id": p.get("Id", "?"),
+                "date": p.get("TxnDate", "?"),
+                "amount": float(p.get("TotalAmt", 0)),
+                "vendor": p.get("EntityRef", {}).get("name", "Unknown"),
+                "memo": p.get("PrivateNote", p.get("Memo", "")),
+                "account": p.get("AccountRef", {}).get("name", "?"),
+                "account_category": ", ".join(line_categories),
+                "is_equity": False,  # set below
+            }
+        )
     for b in bills:
         line_categories = []
         for line in b.get("Line", []):
@@ -8326,17 +11416,19 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
             acct_name = detail.get("AccountRef", {}).get("name", "")
             if acct_name:
                 line_categories.append(acct_name)
-        all_txns.append({
-            "type": "Bill",
-            "id": b.get("Id", "?"),
-            "date": b.get("TxnDate", "?"),
-            "amount": float(b.get("TotalAmt", 0)),
-            "vendor": b.get("VendorRef", {}).get("name", "Unknown"),
-            "memo": b.get("PrivateNote", ""),
-            "account": "",
-            "account_category": ", ".join(line_categories),
-            "is_equity": False,
-        })
+        all_txns.append(
+            {
+                "type": "Bill",
+                "id": b.get("Id", "?"),
+                "date": b.get("TxnDate", "?"),
+                "amount": float(b.get("TotalAmt", 0)),
+                "vendor": b.get("VendorRef", {}).get("name", "Unknown"),
+                "memo": b.get("PrivateNote", ""),
+                "account": "",
+                "account_category": ", ".join(line_categories),
+                "is_equity": False,
+            }
+        )
 
     # Tag equity transactions
     for t in all_txns:
@@ -8358,17 +11450,21 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
     # vendor as recurring if it appears >=3 times in the period, or its expense
     # account looks like software/subscription/SaaS.
     from collections import Counter
+
     _vendor_freq = Counter(t["vendor"] for t in biz_txns if t["vendor"] != "Unknown")
     _saas_re = _re.compile(
         r"\b(software|subscription|saas|hosting|cloud|web services|app|dues)\b",
-        _re.IGNORECASE)
+        _re.IGNORECASE,
+    )
     recurring_vendors = {v for v, c in _vendor_freq.items() if c >= 3} | {
-        t["vendor"] for t in biz_txns
+        t["vendor"]
+        for t in biz_txns
         if t["vendor"] != "Unknown" and _saas_re.search(t.get("account_category", ""))
     }
 
     # Statistical analysis
     import statistics
+
     mean_amt = statistics.mean(amounts)
     stdev_amt = statistics.stdev(amounts) if len(amounts) > 1 else 0
     median_amt = statistics.median(amounts)
@@ -8380,24 +11476,30 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
         if stdev_amt > 0 and t["amount"] > 0:
             z = (t["amount"] - mean_amt) / stdev_amt
             if z > z_limit:
-                anomalies.append({
-                    "category": "Statistical Outlier",
-                    "severity": "HIGH" if z > 3 else "MEDIUM",
-                    "detail": f"{t['type']} #{t['id']} on {t['date']}: {fmt(t['amount'])} to {t['vendor']} (z-score: {z:.1f})",
-                    "txn": t,
-                })
+                anomalies.append(
+                    {
+                        "category": "Statistical Outlier",
+                        "severity": "HIGH" if z > 3 else "MEDIUM",
+                        "detail": f"{t['type']} #{t['id']} on {t['date']}: {fmt(t['amount'])} to {t['vendor']} (z-score: {z:.1f})",
+                        "txn": t,
+                    }
+                )
 
     # 2. Duplicate detection (same vendor + similar amount within 3 days)
     # Skip equity transactions — CC payment on credit card + bank debit are two
     # legs of the same transfer, not duplicates.
     from datetime import timedelta
+
     non_equity_txns = [t for t in all_txns if not t["is_equity"]]
     sorted_txns = sorted(non_equity_txns, key=lambda x: (x["vendor"], x["date"]))
     for i in range(len(sorted_txns) - 1):
         a = sorted_txns[i]
         b = sorted_txns[i + 1]
-        if (a["vendor"] == b["vendor"] and a["vendor"] != "Unknown"
-                and a["vendor"] not in recurring_vendors):
+        if (
+            a["vendor"] == b["vendor"]
+            and a["vendor"] != "Unknown"
+            and a["vendor"] not in recurring_vendors
+        ):
             try:
                 date_a = datetime.strptime(a["date"], "%Y-%m-%d")
                 date_b = datetime.strptime(b["date"], "%Y-%m-%d")
@@ -8407,40 +11509,57 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
                 # signature. Adjacent-day identical charges are normal usage-based
                 # billing (Cursor/Windsurf), not duplicates.
                 if day_diff == 0 and amt_diff < 0.01 and a["amount"] > 0:
-                    anomalies.append({
-                        "category": "Potential Duplicate",
-                        "severity": "HIGH",
-                        "detail": f"{a['vendor']}: {fmt(a['amount'])} on {a['date']} & {b['date']} ({a['type']} #{a['id']} & #{b['id']})",
-                        "txn": a,
-                    })
+                    anomalies.append(
+                        {
+                            "category": "Potential Duplicate",
+                            "severity": "HIGH",
+                            "detail": f"{a['vendor']}: {fmt(a['amount'])} on {a['date']} & {b['date']} ({a['type']} #{a['id']} & #{b['id']})",
+                            "txn": a,
+                        }
+                    )
             except ValueError:
                 pass
 
     # 3. Round-number payments — skip equity (CC payments are naturally round)
     for t in biz_txns:
         if t["amount"] >= 1000 and t["amount"] == round(t["amount"], -2):
-            anomalies.append({
-                "category": "Round Number",
-                "severity": "LOW",
-                "detail": f"{t['type']} #{t['id']}: {fmt(t['amount'])} to {t['vendor']} on {t['date']}",
-                "txn": t,
-            })
+            anomalies.append(
+                {
+                    "category": "Round Number",
+                    "severity": "LOW",
+                    "detail": f"{t['type']} #{t['id']}: {fmt(t['amount'])} to {t['vendor']} on {t['date']}",
+                    "txn": t,
+                }
+            )
 
     # 4. Weekend transactions — skip equity (CC bills) and recurring/subscription
-    # vendors (automated billing runs on weekends; flagging it is noise).
+    # vendors (automated billing runs on weekends; flagging it is noise). Also
+    # skip dates carrying MANY same-day entries: that's a bulk data-entry /
+    # reclassification batch (all stamped one date), not real weekend spending —
+    # flagging each is pure noise and drowns the real findings.
+    from collections import Counter as _Counter
+
+    _day_counts = _Counter(t["date"] for t in biz_txns)
+    _BULK_DAY = 4
+    _weekend_suppressed = 0
     for t in biz_txns:
         if t["vendor"] in recurring_vendors:
             continue
         try:
             d = datetime.strptime(t["date"], "%Y-%m-%d")
+            if d.weekday() >= 5 and _day_counts.get(t["date"], 0) >= _BULK_DAY:
+                _weekend_suppressed += 1
+                continue
             if d.weekday() >= 5:  # Saturday=5, Sunday=6
                 day_name = "Saturday" if d.weekday() == 5 else "Sunday"
-                anomalies.append({
-                    "category": "Weekend Transaction",
-                    "severity": "LOW",
-                    "detail": f"{t['type']} #{t['id']}: {fmt(t['amount'])} to {t['vendor']} on {t['date']} ({day_name})",
-                    "txn": t,
-                })
+                anomalies.append(
+                    {
+                        "category": "Weekend Transaction",
+                        "severity": "LOW",
+                        "detail": f"{t['type']} #{t['id']}: {fmt(t['amount'])} to {t['vendor']} on {t['date']} ({day_name})",
+                        "txn": t,
+                    }
+                )
         except ValueError:
             pass
 
@@ -8453,12 +11572,14 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
     for v, total in vendor_totals.items():
         pct = (total / total_spend * 100) if total_spend > 0 else 0
         if pct > 30 and v != "Unknown":
-            anomalies.append({
-                "category": "Vendor Concentration",
-                "severity": "MEDIUM",
-                "detail": f"{v}: {fmt(total)} = {pct:.1f}% of total spend",
-                "txn": None,
-            })
+            anomalies.append(
+                {
+                    "category": "Vendor Concentration",
+                    "severity": "MEDIUM",
+                    "detail": f"{v}: {fmt(total)} = {pct:.1f}% of total spend",
+                    "txn": None,
+                }
+            )
 
     # Deduplicate
     seen = set()
@@ -8477,7 +11598,13 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
         f"## Transaction Anomaly Report",
         f"**Period:** {start_date} to {end_date}",
         f"**Total Transactions:** {len(all_txns)} ({equity_count} owner/equity transfers excluded from checks)",
-        f"**Business Transactions Analyzed:** {len(biz_txns)}",
+        f"**Business Transactions Analyzed:** {len(biz_txns)}"
+        + (
+            f" · {_weekend_suppressed} weekend flags suppressed (bulk same-day "
+            "data-entry batches, not real weekend activity)"
+            if _weekend_suppressed
+            else ""
+        ),
         f"**Sensitivity:** {sensitivity} (z-score threshold: {z_limit})",
         f"**Anomalies Found:** {len(unique_anomalies)}\n",
         f"### Statistics (business transactions only)",
@@ -8492,6 +11619,7 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
     else:
         # Group by category
         from collections import defaultdict
+
         by_cat = defaultdict(list)
         for a in unique_anomalies:
             by_cat[a["category"]].append(a)
@@ -8499,11 +11627,18 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
         for cat, items in by_cat.items():
             lines.append(f"### {cat} ({len(items)})")
             for a in items:
-                icon = "🔴" if a["severity"] == "HIGH" else "🟡" if a["severity"] == "MEDIUM" else "🟢"
+                icon = (
+                    "🔴"
+                    if a["severity"] == "HIGH"
+                    else "🟡" if a["severity"] == "MEDIUM" else "🟢"
+                )
                 lines.append(f"  {icon} [{a['severity']}] {a['detail']}")
             lines.append("")
 
-    _audit_log("ANOMALY_DETECTION", f"period={start_date}/{end_date} txns={len(all_txns)} anomalies={len(unique_anomalies)}")
+    _audit_log(
+        "ANOMALY_DETECTION",
+        f"period={start_date}/{end_date} txns={len(all_txns)} anomalies={len(unique_anomalies)}",
+    )
     return "\n".join(lines)
 
 
@@ -8511,8 +11646,11 @@ async def qb_anomaly_detection(start_date: str, end_date: str, sensitivity: str 
 # NEW: Credit Memo Management
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_credit_memos(start_date: str, end_date: str, customer_name: str = "", max_results: int = 100) -> str:
+async def qb_list_credit_memos(
+    start_date: str, end_date: str, customer_name: str = "", max_results: int = 100
+) -> str:
     """List credit memos (customer credits/refunds) within a date range.
     Credit memos reduce what a customer owes. Optionally filter by customer_name.
     start_date/end_date in YYYY-MM-DD format."""
@@ -8523,7 +11661,9 @@ async def qb_list_credit_memos(start_date: str, end_date: str, customer_name: st
     if customer_name:
         customer_name = _sanitize_input(customer_name, "customer_name")
         # Look up customer first
-        cust_result = await qb_query(f"SELECT * FROM Customer WHERE DisplayName LIKE '%{customer_name}%' MAXRESULTS 5")
+        cust_result = await qb_query(
+            f"SELECT * FROM Customer WHERE DisplayName LIKE '%{customer_name}%' MAXRESULTS 5"
+        )
         customers = cust_result.get("QueryResponse", {}).get("Customer", [])
         if customers:
             cust_id = customers[0]["Id"]
@@ -8559,17 +11699,27 @@ async def qb_list_credit_memos(start_date: str, end_date: str, customer_name: st
 
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_credit_memo(customer_name: str, line_items: str, date: str = "", memo: str = "", tax_code: str = "", tax_inclusive: bool = False) -> str:
+async def qb_create_credit_memo(
+    customer_name: str,
+    line_items: str,
+    date: str = "",
+    memo: str = "",
+    tax_code: str = "",
+    tax_inclusive: bool = False,
+) -> str:
     """Create a credit memo for a customer. Reduces what the customer owes.
     customer_name: customer to credit. line_items: JSON string array
     [{\"description\": \"Returned item\", \"amount\": 50.00}].
     date: YYYY-MM-DD (defaults to today). memo: internal note.
-    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; per-line override via 'tax_code' key in line_items JSON; tax_inclusive=True when amounts already include tax."""
+    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; per-line override via 'tax_code' key in line_items JSON; tax_inclusive=True when amounts already include tax.
+    """
     customer_name = _sanitize_input(customer_name, "customer_name")
     import json as _json
 
     # Find customer
-    cust_result = await qb_query(f"SELECT * FROM Customer WHERE DisplayName LIKE '%{customer_name}%' MAXRESULTS 5")
+    cust_result = await qb_query(
+        f"SELECT * FROM Customer WHERE DisplayName LIKE '%{customer_name}%' MAXRESULTS 5"
+    )
     customers = cust_result.get("QueryResponse", {}).get("Customer", [])
     if not customers:
         return f"Customer '{customer_name}' not found."
@@ -8581,7 +11731,7 @@ async def qb_create_credit_memo(customer_name: str, line_items: str, date: str =
     try:
         items = _json.loads(line_items)
     except _json.JSONDecodeError:
-        return "Invalid line_items JSON. Use format: [{\"description\": \"...\", \"amount\": 100}]"
+        return 'Invalid line_items JSON. Use format: [{"description": "...", "amount": 100}]'
 
     region = (await _get_region())["region"]
     default_tax_id = None
@@ -8611,8 +11761,10 @@ async def qb_create_credit_memo(customer_name: str, line_items: str, date: str =
             line["SalesItemLineDetail"]["TaxCodeRef"] = line_tax
         cm_lines.append(line)
 
-    if region != "US" and not default_tax_id and not any(
-        "TaxCodeRef" in l["SalesItemLineDetail"] for l in cm_lines
+    if (
+        region != "US"
+        and not default_tax_id
+        and not any("TaxCodeRef" in l["SalesItemLineDetail"] for l in cm_lines)
     ):
         return _TAX_CODE_REQUIRED_MSG
 
@@ -8624,13 +11776,17 @@ async def qb_create_credit_memo(customer_name: str, line_items: str, date: str =
         body["TxnDate"] = _validate_date(date, "date")
     if memo:
         body["PrivateNote"] = memo
-    _apply_global_tax(body, "Line", "SalesItemLineDetail",
-                      default_tax_id, tax_inclusive, region)
+    _apply_global_tax(
+        body, "Line", "SalesItemLineDetail", default_tax_id, tax_inclusive, region
+    )
 
     result = await qb_request("POST", "creditmemo", json_body=body)
     cm = result.get("CreditMemo", {})
 
-    _audit_log("CREATE_CREDIT_MEMO", f"customer={customer['DisplayName']} amount={fmt(float(cm.get('TotalAmt', 0)))}")
+    _audit_log(
+        "CREATE_CREDIT_MEMO",
+        f"customer={customer['DisplayName']} amount={fmt(float(cm.get('TotalAmt', 0)))}",
+    )
     return (
         f"✅ Credit memo created\n"
         f"  ID: {cm.get('Id')}\n"
@@ -8644,8 +11800,11 @@ async def qb_create_credit_memo(customer_name: str, line_items: str, date: str =
 # NEW: Vendor Credit Management
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_vendor_credits(start_date: str, end_date: str, vendor_name: str = "", max_results: int = 100) -> str:
+async def qb_list_vendor_credits(
+    start_date: str, end_date: str, vendor_name: str = "", max_results: int = 100
+) -> str:
     """List vendor credits within a date range. Vendor credits reduce what you owe a vendor.
     Optionally filter by vendor_name. start_date/end_date in YYYY-MM-DD format."""
     start_date = _validate_date(start_date, "start_date")
@@ -8654,7 +11813,9 @@ async def qb_list_vendor_credits(start_date: str, end_date: str, vendor_name: st
     query = f"SELECT * FROM VendorCredit WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
     if vendor_name:
         vendor_name = _sanitize_input(vendor_name, "vendor_name")
-        vend_result = await qb_query(f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 5")
+        vend_result = await qb_query(
+            f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 5"
+        )
         vendors = vend_result.get("QueryResponse", {}).get("Vendor", [])
         if vendors:
             vend_id = vendors[0]["Id"]
@@ -8682,27 +11843,44 @@ async def qb_list_vendor_credits(start_date: str, end_date: str, vendor_name: st
             lines.append(f"  Memo: {memo[:80]}")
 
         for line in vc.get("Line", []):
-            acct = line.get("AccountBasedExpenseLineDetail", {}).get("AccountRef", {}).get("name", "")
+            acct = (
+                line.get("AccountBasedExpenseLineDetail", {})
+                .get("AccountRef", {})
+                .get("name", "")
+            )
             if acct:
                 lines.append(f"  - {acct}: {fmt(float(line.get('Amount', 0)))}")
         lines.append("")
 
-    lines.append(f"---\n**Total Vendor Credits:** {fmt(total)} ({len(credits)} credits)")
+    lines.append(
+        f"---\n**Total Vendor Credits:** {fmt(total)} ({len(credits)} credits)"
+    )
     return "\n".join(lines)
 
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_vendor_credit(vendor_name: str, amount: float, account_name: str, date: str = "", description: str = "", tax_code: str = "", tax_inclusive: bool = False) -> str:
+async def qb_create_vendor_credit(
+    vendor_name: str,
+    amount: float,
+    account_name: str,
+    date: str = "",
+    description: str = "",
+    tax_code: str = "",
+    tax_inclusive: bool = False,
+) -> str:
     """Create a vendor credit. Reduces what you owe a vendor (e.g., refund, return, pricing adjustment).
     vendor_name: vendor issuing the credit. amount: credit amount.
     account_name: expense account to reduce. date: YYYY-MM-DD (defaults to today).
-    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; tax_inclusive=True when amount already includes tax."""
+    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; tax_inclusive=True when amount already includes tax.
+    """
     vendor_name = _sanitize_input(vendor_name, "vendor_name")
     account_name = _sanitize_input(account_name, "account_name")
     amount = _validate_amount(amount, "amount")
 
     # Find vendor
-    vend_result = await qb_query(f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 5")
+    vend_result = await qb_query(
+        f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 5"
+    )
     vendors = vend_result.get("QueryResponse", {}).get("Vendor", [])
     if not vendors:
         return f"Vendor '{vendor_name}' not found."
@@ -8712,7 +11890,9 @@ async def qb_create_vendor_credit(vendor_name: str, amount: float, account_name:
     vendor = vendors[0]
 
     # Find account
-    acct_result = await qb_query(f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 5")
+    acct_result = await qb_query(
+        f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 5"
+    )
     accounts = acct_result.get("QueryResponse", {}).get("Account", [])
     if not accounts:
         return f"Account '{account_name}' not found."
@@ -8720,14 +11900,16 @@ async def qb_create_vendor_credit(vendor_name: str, amount: float, account_name:
 
     body = {
         "VendorRef": {"value": vendor["Id"]},
-        "Line": [{
-            "Amount": amount,
-            "Description": description,
-            "DetailType": "AccountBasedExpenseLineDetail",
-            "AccountBasedExpenseLineDetail": {
-                "AccountRef": {"value": account["Id"], "name": account["Name"]},
-            },
-        }],
+        "Line": [
+            {
+                "Amount": amount,
+                "Description": description,
+                "DetailType": "AccountBasedExpenseLineDetail",
+                "AccountBasedExpenseLineDetail": {
+                    "AccountRef": {"value": account["Id"], "name": account["Name"]},
+                },
+            }
+        ],
     }
     if date:
         body["TxnDate"] = _validate_date(date, "date")
@@ -8740,13 +11922,16 @@ async def qb_create_vendor_credit(vendor_name: str, amount: float, account_name:
             tax_id, _ = await _resolve_tax_code(tax_code)
         except ValueError as e:
             return str(e)
-        _apply_global_tax(body, "Line", "AccountBasedExpenseLineDetail",
-                          tax_id, tax_inclusive, region)
+        _apply_global_tax(
+            body, "Line", "AccountBasedExpenseLineDetail", tax_id, tax_inclusive, region
+        )
 
     result = await qb_request("POST", "vendorcredit", json_body=body)
     vc = result.get("VendorCredit", {})
 
-    _audit_log("CREATE_VENDOR_CREDIT", f"vendor={vendor['DisplayName']} amount={fmt(amount)}")
+    _audit_log(
+        "CREATE_VENDOR_CREDIT", f"vendor={vendor['DisplayName']} amount={fmt(amount)}"
+    )
     return (
         f"✅ Vendor credit created\n"
         f"  ID: {vc.get('Id')}\n"
@@ -8761,11 +11946,13 @@ async def qb_create_vendor_credit(vendor_name: str, amount: float, account_name:
 # NEW: Sales Tax Summary
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_sales_tax_summary(start_date: str = "", end_date: str = "") -> str:
     """Generate a sales tax summary report for a date range.
     Shows taxable sales, tax collected, tax rates, and liability by jurisdiction.
-    Useful for state/local sales tax filing. Dates YYYY-MM-DD (default: current year-to-date)."""
+    Useful for state/local sales tax filing. Dates YYYY-MM-DD (default: current year-to-date).
+    """
     start_date, end_date = _ytd_range(start_date, end_date)
     start_date = _validate_date(start_date, "start_date")
     end_date = _validate_date(end_date, "end_date")
@@ -8842,7 +12029,9 @@ async def qb_sales_tax_summary(start_date: str = "", end_date: str = "") -> str:
                 rate_id = detail.get("TaxRateRef", {}).get("value", "")
                 tax_on = float(detail.get("NetAmountTaxable", 0))
                 tax_charged = float(tl.get("Amount", 0))
-                rate_info = rate_map.get(rate_id, {"name": f"Rate#{rate_id}", "rate": 0, "agency": "?"})
+                rate_info = rate_map.get(
+                    rate_id, {"name": f"Rate#{rate_id}", "rate": 0, "agency": "?"}
+                )
 
                 key = rate_info["name"]
                 if key not in tax_by_rate:
@@ -8859,7 +12048,8 @@ async def qb_sales_tax_summary(start_date: str = "", end_date: str = "") -> str:
         f"## Sales Tax Summary",
         f"**Period:** {start_date} to {end_date}",
         f"**Invoices:** {len(invoices)} | **Sales Receipts:** {len(sales_receipts)}"
-        + (f" | **Refunds (netted):** {len(refunds)}" if refunds else "") + "\n",
+        + (f" | **Refunds (netted):** {len(refunds)}" if refunds else "")
+        + "\n",
         f"### Totals",
         f"  Gross Sales: {fmt(total_gross)}",
         f"  Taxable Sales: {fmt(total_taxable)}",
@@ -8871,7 +12061,9 @@ async def qb_sales_tax_summary(start_date: str = "", end_date: str = "") -> str:
         lines.append(f"### Tax Breakdown by Rate")
         for name, info in sorted(tax_by_rate.items()):
             lines.append(f"  **{name}** ({info['rate']}%) — Agency: {info['agency']}")
-            lines.append(f"    Taxable: {fmt(info['taxable_amount'])} | Tax: {fmt(info['tax_collected'])}")
+            lines.append(
+                f"    Taxable: {fmt(info['taxable_amount'])} | Tax: {fmt(info['tax_collected'])}"
+            )
             lines.append("")
 
     if tax_codes:
@@ -8881,19 +12073,25 @@ async def qb_sales_tax_summary(start_date: str = "", end_date: str = "") -> str:
             taxable = "Taxable" if tc.get("Taxable") else "Non-Taxable"
             lines.append(f"  - {tc.get('Name', '?')} ({active}, {taxable})")
 
-    lines.extend([
-        f"\n---",
-        f"*Note: Verify totals against QB Sales Tax Liability report before filing.*",
-        f"*File frequency depends on your state registration.*",
-    ])
+    lines.extend(
+        [
+            f"\n---",
+            f"*Note: Verify totals against QB Sales Tax Liability report before filing.*",
+            f"*File frequency depends on your state registration.*",
+        ]
+    )
 
-    _audit_log("SALES_TAX_SUMMARY", f"period={start_date}/{end_date} tax_collected={fmt(total_tax)}")
+    _audit_log(
+        "SALES_TAX_SUMMARY",
+        f"period={start_date}/{end_date} tax_collected={fmt(total_tax)}",
+    )
     return "\n".join(lines) + tax_data_footer()
 
 
 # ===================================================================
 # SALES TAX CODES & RATES — discovery (Canada / global tax editions)
 # ===================================================================
+
 
 async def _tax_agency_names() -> dict:
     """Map TaxAgency Id -> DisplayName (best effort; names are cosmetic)."""
@@ -8908,7 +12106,9 @@ async def _tax_agency_names() -> dict:
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-@require_region("US", "Economic nexus is US-specific; Canadian GST/HST registration differs.")
+@require_region(
+    "US", "Economic nexus is US-specific; Canadian GST/HST registration differs."
+)
 async def qb_sales_tax_nexus(year: str = "", approaching_pct: int = 80) -> str:
     """Screen for state sales-tax ECONOMIC NEXUS exposure and show sales-tax
     liability by state. Rolls up your sales by DESTINATION state (ship-to) and
@@ -8917,6 +12117,7 @@ async def qb_sales_tax_nexus(year: str = "", approaching_pct: int = 80) -> str:
     before registering. year: YYYY (default: current). approaching_pct: warn at
     this % of a threshold (default 80)."""
     from datetime import date as _d
+
     if not year:
         year = str(_d.today().year)
     start, end = f"{year}-01-01", f"{year}-12-31"
@@ -8929,7 +12130,9 @@ async def qb_sales_tax_nexus(year: str = "", approaching_pct: int = 80) -> str:
     try:
         cres = await qb_query_all("SELECT * FROM Customer MAXRESULTS 1000")
         for c in cres.get("QueryResponse", {}).get("Customer", []):
-            st = (c.get("ShipAddr") or c.get("BillAddr") or {}).get("CountrySubDivisionCode", "")
+            st = (c.get("ShipAddr") or c.get("BillAddr") or {}).get(
+                "CountrySubDivisionCode", ""
+            )
             if st:
                 cust_state[c.get("Id", "")] = st.upper()
     except Exception as e:
@@ -8941,15 +12144,19 @@ async def qb_sales_tax_nexus(year: str = "", approaching_pct: int = 80) -> str:
     # overstate liability. A refund isn't a new sale, so it doesn't add to txns.
     for entity, sign in (("Invoice", 1), ("SalesReceipt", 1), ("RefundReceipt", -1)):
         try:
-            r = await qb_query_all(f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
-                               f"AND TxnDate <= '{end}' MAXRESULTS 1000")
+            r = await qb_query_all(
+                f"SELECT * FROM {entity} WHERE TxnDate >= '{start}' "
+                f"AND TxnDate <= '{end}' MAXRESULTS 1000"
+            )
         except Exception as e:
             logger.debug(f"nexus {entity} query failed: {e}")
             continue
         for t in r.get("QueryResponse", {}).get(entity, []):
-            st = ((t.get("ShipAddr") or {}).get("CountrySubDivisionCode")
-                  or (t.get("BillAddr") or {}).get("CountrySubDivisionCode")
-                  or cust_state.get((t.get("CustomerRef") or {}).get("value", ""), ""))
+            st = (
+                (t.get("ShipAddr") or {}).get("CountrySubDivisionCode")
+                or (t.get("BillAddr") or {}).get("CountrySubDivisionCode")
+                or cust_state.get((t.get("CustomerRef") or {}).get("value", ""), "")
+            )
             st = (st or "").upper()
             if not st:
                 continue
@@ -8957,12 +12164,16 @@ async def qb_sales_tax_nexus(year: str = "", approaching_pct: int = 80) -> str:
             d["sales"] += float(t.get("TotalAmt", 0) or 0) * sign
             if sign > 0:
                 d["txns"] += 1
-            d["tax"] += float((t.get("TxnTaxDetail") or {}).get("TotalTax", 0) or 0) * sign
+            d["tax"] += (
+                float((t.get("TxnTaxDetail") or {}).get("TotalTax", 0) or 0) * sign
+            )
 
     if not by_state:
-        return (f"No ship-to state found on invoices/sales receipts for {year}. "
-                "Economic-nexus screening needs destination (ship-to or bill-to) "
-                "states on your sales — add them in QuickBooks and re-run.")
+        return (
+            f"No ship-to state found on invoices/sales receipts for {year}. "
+            "Economic-nexus screening needs destination (ship-to or bill-to) "
+            "states on your sales — add them in QuickBooks and re-run."
+        )
 
     exposure, approaching, below, untracked = [], [], [], []
     for st, d in by_state.items():
@@ -8974,21 +12185,29 @@ async def qb_sales_tax_nexus(year: str = "", approaching_pct: int = 80) -> str:
             continue
         sales_ok = d["sales"] >= rule["sales"]
         txn_ok = rule["txns"] is not None and d["txns"] >= rule["txns"]
-        met = (sales_ok and (rule["txns"] is None or txn_ok)) if rule["basis"] == "and" \
+        met = (
+            (sales_ok and (rule["txns"] is None or txn_ok))
+            if rule["basis"] == "and"
             else (sales_ok or txn_ok)
+        )
         pct = (d["sales"] / rule["sales"] * 100) if rule["sales"] else 0
         rec = (st, d, rule, pct)
         if met:
             exposure.append(rec)
-        elif pct >= approaching_pct or (rule["txns"] and
-                                        d["txns"] >= rule["txns"] * approaching_pct / 100):
+        elif pct >= approaching_pct or (
+            rule["txns"] and d["txns"] >= rule["txns"] * approaching_pct / 100
+        ):
             approaching.append(rec)
         else:
             below.append(rec)
 
     def _thr(rule):
         s = fmt(rule["sales"])
-        return f"{s} {rule['basis']} {rule['txns']} txns" if rule["txns"] else f"{s} (sales only)"
+        return (
+            f"{s} {rule['basis']} {rule['txns']} txns"
+            if rule["txns"]
+            else f"{s} (sales only)"
+        )
 
     lines = [
         f"## Sales-Tax Economic-Nexus Screen — {year}",
@@ -9003,19 +12222,29 @@ async def qb_sales_tax_nexus(year: str = "", approaching_pct: int = 80) -> str:
         for st, d, rule, _ in sorted(exposure, key=lambda x: -x[1]["sales"]):
             lines.append(f"| {st} | {fmt(d['sales'])} | {d['txns']} | {_thr(rule)} |")
     if approaching:
-        lines.append(f"\n### 🟡 Approaching (≥{approaching_pct}% of threshold) ({len(approaching)})")
+        lines.append(
+            f"\n### 🟡 Approaching (≥{approaching_pct}% of threshold) ({len(approaching)})"
+        )
         lines.append("| State | Your sales | Txns | Threshold | % |")
         lines.append("|---|---|---|---|---|")
         for st, d, rule, pct in sorted(approaching, key=lambda x: -x[3]):
-            lines.append(f"| {st} | {fmt(d['sales'])} | {d['txns']} | {_thr(rule)} | {pct:.0f}% |")
+            lines.append(
+                f"| {st} | {fmt(d['sales'])} | {d['txns']} | {_thr(rule)} | {pct:.0f}% |"
+            )
     if below:
-        lines.append(f"\n### 🟢 Below threshold ({len(below)}): " +
-                     ", ".join(f"{st} ({fmt(d['sales'])})"
-                               for st, d, _, _ in sorted(below, key=lambda x: -x[1]["sales"])))
+        lines.append(
+            f"\n### 🟢 Below threshold ({len(below)}): "
+            + ", ".join(
+                f"{st} ({fmt(d['sales'])})"
+                for st, d, _, _ in sorted(below, key=lambda x: -x[1]["sales"])
+            )
+        )
     if untracked:
-        lines.append(f"\n### ⚠️ Not yet assessed ({len(untracked)}): " +
-                     ", ".join(sorted(untracked)) +
-                     " — no verified threshold on file; check the state DOR.")
+        lines.append(
+            f"\n### ⚠️ Not yet assessed ({len(untracked)}): "
+            + ", ".join(sorted(untracked))
+            + " — no verified threshold on file; check the state DOR."
+        )
 
     total_tax = sum(d["tax"] for d in by_state.values())
     lines.append(f"\n### Sales tax collected (liability) — {fmt(total_tax)} total")
@@ -9025,16 +12254,20 @@ async def qb_sales_tax_nexus(year: str = "", approaching_pct: int = 80) -> str:
         lines.append("|---|---|---|")
         for st, d in sorted(tax_states, key=lambda x: -x[1]["tax"]):
             lines.append(f"| {st} | {fmt(d['tax'])} | {fmt(d['sales'])} |")
-    lines.append("\n*Tax collected is money you owe the state — verify each "
-                 "jurisdiction's filing frequency and due dates in the state portal "
-                 "(QuickBooks' API doesn't expose remittance/filed status). Run "
-                 "qb_sales_tax_summary for the by-agency breakdown.*")
-    lines.append("\n*Nexus edges: marketplace-facilitated sales (Amazon/Etsy) "
-                 "usually don't count toward your own threshold; exempt/resale "
-                 "sales don't count; the measurement window (prior vs current "
-                 "calendar year) varies by state. This screen counts all ship-to "
-                 "sales (net of customer refunds) — a flag to investigate, not a "
-                 "final answer.*")
+    lines.append(
+        "\n*Tax collected is money you owe the state — verify each "
+        "jurisdiction's filing frequency and due dates in the state portal "
+        "(QuickBooks' API doesn't expose remittance/filed status). Run "
+        "qb_sales_tax_summary for the by-agency breakdown.*"
+    )
+    lines.append(
+        "\n*Nexus edges: marketplace-facilitated sales (Amazon/Etsy) "
+        "usually don't count toward your own threshold; exempt/resale "
+        "sales don't count; the measurement window (prior vs current "
+        "calendar year) varies by state. This screen counts all ship-to "
+        "sales (net of customer refunds) — a flag to investigate, not a "
+        "final answer.*"
+    )
     return "\n".join(lines) + tax_data_footer()
 
 
@@ -9047,7 +12280,8 @@ async def qb_list_tax_codes() -> str:
 
     tc_result = await qb_query_all("SELECT * FROM TaxCode MAXRESULTS 1000")
     tax_codes = [
-        tc for tc in tc_result.get("QueryResponse", {}).get("TaxCode", [])
+        tc
+        for tc in tc_result.get("QueryResponse", {}).get("TaxCode", [])
         if tc.get("Active", True)
     ]
     if not tax_codes:
@@ -9063,7 +12297,7 @@ async def qb_list_tax_codes() -> str:
         rate_map[str(tr.get("Id", ""))] = {
             "rate": float(tr.get("RateValue", 0) or 0),
             "agency": agency_ref.get("name")
-                      or agency_names.get(str(agency_ref.get("value", "")), ""),
+            or agency_names.get(str(agency_ref.get("value", "")), ""),
         }
 
     taxable, zero = [], []
@@ -9103,10 +12337,10 @@ async def qb_list_tax_codes() -> str:
         lines.append("\n### Zero-rated / Exempt (0%)")
         lines.extend(zero)
     lines.append(
-        "\n*Hint: pass tax_code=\"<Name>\" (e.g. tax_code=\"HST ON\") to create "
+        '\n*Hint: pass tax_code="<Name>" (e.g. tax_code="HST ON") to create '
         "tools like qb_create_invoice, qb_create_expense, or qb_create_bill to "
         "apply a code to every line; JSON line_items also accept a per-line "
-        "\"tax_code\" key.*"
+        '"tax_code" key.*'
     )
     return "\n".join(lines)
 
@@ -9125,10 +12359,13 @@ async def qb_list_tax_rates() -> str:
     lines = ["## Sales Tax Rates\n"]
     for tr in sorted(tax_rates, key=lambda r: r.get("Name", "")):
         agency_ref = tr.get("AgencyRef") or {}
-        agency = (agency_ref.get("name")
-                  or agency_names.get(str(agency_ref.get("value", "")), ""))
-        entry = (f"- **{tr.get('Name', '?')}** (Id {tr.get('Id', '?')}): "
-                 f"{float(tr.get('RateValue', 0) or 0):g}%")
+        agency = agency_ref.get("name") or agency_names.get(
+            str(agency_ref.get("value", "")), ""
+        )
+        entry = (
+            f"- **{tr.get('Name', '?')}** (Id {tr.get('Id', '?')}): "
+            f"{float(tr.get('RateValue', 0) or 0):g}%"
+        )
         if agency:
             entry += f" — {agency}"
         lines.append(entry)
@@ -9138,6 +12375,7 @@ async def qb_list_tax_rates() -> str:
 # ===================================================================
 # NEW: Multi-Period Cash Flow Forecast
 # ===================================================================
+
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -> str:
@@ -9163,7 +12401,9 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
     # Parse the report
     rows = result.get("Rows", {}).get("Row", [])
     columns = result.get("Columns", {}).get("Column", [])
-    month_labels = [c.get("ColTitle", "") for c in columns if c.get("ColTitle", "") != ""]
+    month_labels = [
+        c.get("ColTitle", "") for c in columns if c.get("ColTitle", "") != ""
+    ]
 
     # Extract income and expense totals per month.
     # P&L by month may have separate "Income" and "Other Income" sections
@@ -9178,7 +12418,11 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
         if row.get("type") != "Section":
             continue
         header = row.get("Header", {})
-        group = header.get("ColData", [{}])[0].get("value", "") if header.get("ColData") else ""
+        group = (
+            header.get("ColData", [{}])[0].get("value", "")
+            if header.get("ColData")
+            else ""
+        )
         group_lower = group.lower().strip()
 
         is_income = group_lower in ("income", "other income")
@@ -9204,8 +12448,14 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
             else:
                 expense_by_month[idx] += abs(val)
 
-    monthly_income = [income_by_month[i] for i in sorted(income_by_month)] if income_by_month else []
-    monthly_expenses = [expense_by_month[i] for i in sorted(expense_by_month)] if expense_by_month else []
+    monthly_income = (
+        [income_by_month[i] for i in sorted(income_by_month)] if income_by_month else []
+    )
+    monthly_expenses = (
+        [expense_by_month[i] for i in sorted(expense_by_month)]
+        if expense_by_month
+        else []
+    )
 
     # Fallback: use P&L total approach
     if not monthly_income and not monthly_expenses:
@@ -9218,7 +12468,9 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
             row_data = row.get("Summary", {}).get("ColData", [])
             if row_data:
                 label = row.get("Header", {}).get("ColData", [{}])[0].get("value", "")
-                val_str = row_data[-1].get("value", "0").replace(",", "") if row_data else "0"
+                val_str = (
+                    row_data[-1].get("value", "0").replace(",", "") if row_data else "0"
+                )
                 try:
                     val = float(val_str)
                 except ValueError:
@@ -9233,11 +12485,14 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
         avg_expenses = total_expenses / base_months
     else:
         import statistics
+
         avg_income = statistics.mean(monthly_income) if monthly_income else 0
         avg_expenses = statistics.mean(monthly_expenses) if monthly_expenses else 0
 
     # Get current cash position
-    accts_result = await qb_query("SELECT * FROM Account WHERE AccountType = 'Bank' MAXRESULTS 20")
+    accts_result = await qb_query(
+        "SELECT * FROM Account WHERE AccountType = 'Bank' MAXRESULTS 20"
+    )
     bank_accounts = accts_result.get("QueryResponse", {}).get("Account", [])
     current_cash = sum(float(a.get("CurrentBalance", 0)) for a in bank_accounts)
 
@@ -9271,10 +12526,12 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
         if balance <= 0 and months_to_zero is None:
             months_to_zero = m
 
-    lines.extend([
-        "",
-        f"### Runway Analysis",
-    ])
+    lines.extend(
+        [
+            "",
+            f"### Runway Analysis",
+        ]
+    )
 
     if avg_expenses > avg_income and avg_expenses > 0:
         burn = avg_expenses - avg_income
@@ -9287,17 +12544,24 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
             elif runway_months < 12:
                 lines.append(f"  🟡 **CAUTION:** Less than 12 months of runway")
         else:
-            lines.append(f"  🔴 **No runway** — cash balance is {fmt(current_cash)} "
-                         f"(zero or negative) while burning {fmt(burn)}/month.")
+            lines.append(
+                f"  🔴 **No runway** — cash balance is {fmt(current_cash)} "
+                f"(zero or negative) while burning {fmt(burn)}/month."
+            )
     elif avg_income > avg_expenses:
-        lines.append(f"  ✅ **Positive cash flow:** {fmt(avg_income - avg_expenses)}/month")
+        lines.append(
+            f"  ✅ **Positive cash flow:** {fmt(avg_income - avg_expenses)}/month"
+        )
         lines.append(f"  Cash position growing — no runway concerns")
     else:
         lines.append(f"  Break-even: income ≈ expenses")
 
     lines.append(f"\n*Forecast assumes constant rates. Actual results will vary.*")
 
-    _audit_log("CASH_FLOW_FORECAST", f"months={months_forward} cash={fmt(current_cash)} net={fmt(avg_income - avg_expenses)}")
+    _audit_log(
+        "CASH_FLOW_FORECAST",
+        f"months={months_forward} cash={fmt(current_cash)} net={fmt(avg_income - avg_expenses)}",
+    )
     return "\n".join(lines)
 
 
@@ -9305,8 +12569,11 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
 # NEW: Profit Margin by Customer/Item
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_profit_margin_analysis(start_date: str, end_date: str, group_by: str = "customer") -> str:
+async def qb_profit_margin_analysis(
+    start_date: str, end_date: str, group_by: str = "customer"
+) -> str:
     """Analyze profit margins by customer or item/product.
     Shows revenue, COGS (if tracked), and margin for each customer or item.
     group_by: 'customer' or 'item'. start_date/end_date in YYYY-MM-DD."""
@@ -9329,6 +12596,7 @@ async def qb_profit_margin_analysis(start_date: str, end_date: str, group_by: st
     sales_receipts = sr_result.get("QueryResponse", {}).get("SalesReceipt", [])
 
     from collections import defaultdict
+
     groups = defaultdict(lambda: {"revenue": 0.0, "cogs": 0.0, "count": 0})
 
     for txn_list in [invoices, sales_receipts]:
@@ -9383,11 +12651,15 @@ async def qb_profit_margin_analysis(start_date: str, end_date: str, group_by: st
     ]
 
     if total_cogs > 0:
-        lines.append(f"*COGS distributed proportionally to revenue (total COGS: {fmt(total_cogs)})*\n")
+        lines.append(
+            f"*COGS distributed proportionally to revenue (total COGS: {fmt(total_cogs)})*\n"
+        )
     else:
         lines.append(f"*No COGS tracked — margins show gross revenue only*\n")
 
-    lines.append(f"{'Name':<30} {'Revenue':>12} {'COGS':>12} {'Margin':>12} {'%':>8} {'Txns':>6}")
+    lines.append(
+        f"{'Name':<30} {'Revenue':>12} {'COGS':>12} {'Margin':>12} {'%':>8} {'Txns':>6}"
+    )
     lines.append(f"{'-'*80}")
 
     grand_revenue = 0.0
@@ -9401,22 +12673,30 @@ async def qb_profit_margin_analysis(start_date: str, end_date: str, group_by: st
         grand_cogs += cogs
 
         display_name = name[:28] if len(name) > 28 else name
-        lines.append(f"{display_name:<30} {fmt(rev):>12} {fmt(cogs):>12} {fmt(margin):>12} {pct:>7.1f}% {data['count']:>6}")
+        lines.append(
+            f"{display_name:<30} {fmt(rev):>12} {fmt(cogs):>12} {fmt(margin):>12} {pct:>7.1f}% {data['count']:>6}"
+        )
 
     grand_margin = grand_revenue - grand_cogs
     grand_pct = (grand_margin / grand_revenue * 100) if grand_revenue > 0 else 0
-    lines.extend([
-        f"{'-'*80}",
-        f"{'TOTAL':<30} {fmt(grand_revenue):>12} {fmt(grand_cogs):>12} {fmt(grand_margin):>12} {grand_pct:>7.1f}%",
-    ])
+    lines.extend(
+        [
+            f"{'-'*80}",
+            f"{'TOTAL':<30} {fmt(grand_revenue):>12} {fmt(grand_cogs):>12} {fmt(grand_margin):>12} {grand_pct:>7.1f}%",
+        ]
+    )
 
-    _audit_log("PROFIT_MARGIN", f"group={group_by} period={start_date}/{end_date} revenue={fmt(grand_revenue)}")
+    _audit_log(
+        "PROFIT_MARGIN",
+        f"group={group_by} period={start_date}/{end_date} revenue={fmt(grand_revenue)}",
+    )
     return "\n".join(lines)
 
 
 # ===================================================================
 # NEW: Budget vs Actual
 # ===================================================================
+
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_budget_vs_actual(fiscal_year: str = "2025") -> str:
@@ -9447,7 +12727,9 @@ async def qb_budget_vs_actual(fiscal_year: str = "2025") -> str:
     # Get Budget Summary report
     budget_params = {"start_date": start, "end_date": end, "summarize_by": "Total"}
     try:
-        bva_result = await qb_request("GET", "reports/BudgetVsActual", params=budget_params)
+        bva_result = await qb_request(
+            "GET", "reports/BudgetVsActual", params=budget_params
+        )
     except Exception:
         # Fall back to manual comparison
         bva_result = None
@@ -9468,6 +12750,7 @@ async def qb_budget_vs_actual(fiscal_year: str = "2025") -> str:
     budget_lines_data = budget.get("BudgetDetail", [])
 
     from collections import defaultdict
+
     budget_by_acct = defaultdict(float)
     for bd in budget_lines_data:
         acct_name = bd.get("AccountRef", {}).get("name", "?")
@@ -9504,20 +12787,29 @@ async def qb_budget_vs_actual(fiscal_year: str = "2025") -> str:
             over_budget.append((acct, budg_amt, act_amt, variance))
 
         display_name = acct[:33] if len(acct) > 33 else acct
-        lines.append(f"{display_name:<35} {fmt(budg_amt):>12} {fmt(act_amt):>12} {fmt(variance):>12} {pct:>7.1f}%{flag}")
+        lines.append(
+            f"{display_name:<35} {fmt(budg_amt):>12} {fmt(act_amt):>12} {fmt(variance):>12} {pct:>7.1f}%{flag}"
+        )
 
     total_variance = total_budget - total_actual
-    lines.extend([
-        f"{'-'*80}",
-        f"{'TOTAL':<35} {fmt(total_budget):>12} {fmt(total_actual):>12} {fmt(total_variance):>12}",
-    ])
+    lines.extend(
+        [
+            f"{'-'*80}",
+            f"{'TOTAL':<35} {fmt(total_budget):>12} {fmt(total_actual):>12} {fmt(total_variance):>12}",
+        ]
+    )
 
     if over_budget:
         lines.append(f"\n### ⚠️ Over Budget ({len(over_budget)} accounts)")
         for acct, b, a, v in over_budget:
-            lines.append(f"  - {acct}: {fmt(a)} actual vs {fmt(b)} budget ({fmt(abs(v))} over)")
+            lines.append(
+                f"  - {acct}: {fmt(a)} actual vs {fmt(b)} budget ({fmt(abs(v))} over)"
+            )
 
-    _audit_log("BUDGET_VS_ACTUAL", f"year={fiscal_year} budget={fmt(total_budget)} actual={fmt(total_actual)}")
+    _audit_log(
+        "BUDGET_VS_ACTUAL",
+        f"year={fiscal_year} budget={fmt(total_budget)} actual={fmt(total_actual)}",
+    )
     return "\n".join(lines)
 
 
@@ -9525,8 +12817,15 @@ async def qb_budget_vs_actual(fiscal_year: str = "2025") -> str:
 # NEW: Estimate to Invoice Conversion
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_list_estimates(start_date: str = "", end_date: str = "", customer_name: str = "", status: str = "", max_results: int = 50) -> str:
+async def qb_list_estimates(
+    start_date: str = "",
+    end_date: str = "",
+    customer_name: str = "",
+    status: str = "",
+    max_results: int = 50,
+) -> str:
     """List estimates/quotes. Optionally filter by date range, customer, or status.
     status: Pending, Accepted, Closed, Rejected (leave empty for all).
     start_date/end_date in YYYY-MM-DD format."""
@@ -9553,10 +12852,16 @@ async def qb_list_estimates(start_date: str = "", end_date: str = "", customer_n
     # Filter by customer and status in-memory (QB query limitations)
     if customer_name:
         customer_name = _sanitize_input(customer_name, "customer_name").lower()
-        estimates = [e for e in estimates if customer_name in e.get("CustomerRef", {}).get("name", "").lower()]
+        estimates = [
+            e
+            for e in estimates
+            if customer_name in e.get("CustomerRef", {}).get("name", "").lower()
+        ]
     if status:
         status = _sanitize_input(status, "status")
-        estimates = [e for e in estimates if e.get("TxnStatus", "").lower() == status.lower()]
+        estimates = [
+            e for e in estimates if e.get("TxnStatus", "").lower() == status.lower()
+        ]
 
     lines = [f"## Estimates ({len(estimates)} found)\n"]
     total = 0.0
@@ -9570,15 +12875,25 @@ async def qb_list_estimates(start_date: str = "", end_date: str = "", customer_n
         expiry = est.get("ExpirationDate", "")
         total += amount
 
-        lines.append(f"**#{doc_num or est_id}** | {date} | {cust} | {fmt(amount)} | {est_status}")
+        lines.append(
+            f"**#{doc_num or est_id}** | {date} | {cust} | {fmt(amount)} | {est_status}"
+        )
         if expiry:
             lines.append(f"  Expires: {expiry}")
-        line_count = len([l for l in est.get("Line", []) if l.get("DetailType") != "SubTotalLineDetail"])
+        line_count = len(
+            [
+                l
+                for l in est.get("Line", [])
+                if l.get("DetailType") != "SubTotalLineDetail"
+            ]
+        )
         lines.append(f"  Line items: {line_count}")
         lines.append("")
 
     lines.append(f"---\n**Total:** {fmt(total)}")
-    lines.append(f"\nUse qb_convert_estimate_to_invoice to convert an accepted estimate.")
+    lines.append(
+        f"\nUse qb_convert_estimate_to_invoice to convert an accepted estimate."
+    )
     return "\n".join(lines)
 
 
@@ -9604,14 +12919,18 @@ async def qb_convert_estimate_to_invoice(estimate_id: str) -> str:
         detail_type = line.get("DetailType", "")
         if detail_type == "SubTotalLineDetail":
             continue
-        invoice_lines.append({
-            "Amount": line.get("Amount", 0),
-            "Description": line.get("Description", ""),
-            "DetailType": detail_type,
-        })
+        invoice_lines.append(
+            {
+                "Amount": line.get("Amount", 0),
+                "Description": line.get("Description", ""),
+                "DetailType": detail_type,
+            }
+        )
         # Copy the detail object
         if detail_type == "SalesItemLineDetail":
-            invoice_lines[-1]["SalesItemLineDetail"] = line.get("SalesItemLineDetail", {})
+            invoice_lines[-1]["SalesItemLineDetail"] = line.get(
+                "SalesItemLineDetail", {}
+            )
         elif detail_type == "GroupLineDetail":
             invoice_lines[-1]["GroupLineDetail"] = line.get("GroupLineDetail", {})
 
@@ -9632,7 +12951,9 @@ async def qb_convert_estimate_to_invoice(estimate_id: str) -> str:
     result = await qb_request("POST", "invoice", json_body=body)
     invoice = result.get("Invoice", {})
 
-    _audit_log("ESTIMATE_TO_INVOICE", f"estimate={estimate_id} invoice={invoice.get('Id')}")
+    _audit_log(
+        "ESTIMATE_TO_INVOICE", f"estimate={estimate_id} invoice={invoice.get('Id')}"
+    )
 
     return (
         f"✅ Invoice created from Estimate #{estimate.get('DocNumber', estimate_id)}\n"
@@ -9649,6 +12970,7 @@ async def qb_convert_estimate_to_invoice(estimate_id: str) -> str:
 # BOOKS HEALTH AUDIT
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_books_health_audit(tax_year: str = "2025") -> str:
     """Run a comprehensive health audit on your QuickBooks books.
@@ -9664,14 +12986,22 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
     score = 100  # start perfect, deduct for issues
 
     # --- 1. Unknown/missing vendor transactions (split active vs deleted accounts) ---
-    purchases = (await qb_query_all(
-        f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
-    )).get("QueryResponse", {}).get("Purchase", [])
+    purchases = (
+        (
+            await qb_query_all(
+                f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
+            )
+        )
+        .get("QueryResponse", {})
+        .get("Purchase", [])
+    )
 
     # Build active account lookup
-    all_accounts_raw = (await qb_query_all(
-        "SELECT Id, Name, Active FROM Account MAXRESULTS 500"
-    )).get("QueryResponse", {}).get("Account", [])
+    all_accounts_raw = (
+        (await qb_query_all("SELECT Id, Name, Active FROM Account MAXRESULTS 500"))
+        .get("QueryResponse", {})
+        .get("Account", [])
+    )
     active_account_ids = {a["Id"] for a in all_accounts_raw if a.get("Active", True)}
 
     active_unknown = []
@@ -9714,35 +13044,46 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
         )
 
     # --- 2. Uncategorized transactions ---
-    all_accounts = (await qb_query_all(
-        "SELECT * FROM Account MAXRESULTS 200"
-    )).get("QueryResponse", {}).get("Account", [])
+    all_accounts = (
+        (await qb_query_all("SELECT * FROM Account MAXRESULTS 200"))
+        .get("QueryResponse", {})
+        .get("Account", [])
+    )
     # Merge with raw account data if needed
     if not all_accounts:
         all_accounts = all_accounts_raw
 
-    uncat_accounts = [a for a in all_accounts
-                      if "uncategorized" in a.get("Name", "").lower()]
-    uncat_with_balance = [a for a in uncat_accounts
-                         if abs(float(a.get("CurrentBalance", 0))) > 0.01]
+    uncat_accounts = [
+        a for a in all_accounts if "uncategorized" in a.get("Name", "").lower()
+    ]
+    uncat_with_balance = [
+        a for a in uncat_accounts if abs(float(a.get("CurrentBalance", 0))) > 0.01
+    ]
 
     if uncat_with_balance:
-        total_uncat = sum(abs(float(a.get("CurrentBalance", 0))) for a in uncat_with_balance)
+        total_uncat = sum(
+            abs(float(a.get("CurrentBalance", 0))) for a in uncat_with_balance
+        )
         score -= min(20, int(total_uncat / 500) + 5)
         issues.append(
             f"🔴 **{len(uncat_with_balance)} uncategorized accounts with balances** "
             f"(total: {fmt(total_uncat)})\n"
-            + "\n".join(f"   • {a['Name']}: {fmt(abs(float(a.get('CurrentBalance', 0))))}"
-                        for a in uncat_with_balance)
+            + "\n".join(
+                f"   • {a['Name']}: {fmt(abs(float(a.get('CurrentBalance', 0))))}"
+                for a in uncat_with_balance
+            )
             + "\n   → Use `qb_uncategorized_transactions` then `qb_reclassify_transaction` to fix."
         )
     else:
         passed.append("✅ No uncategorized account balances")
 
     # --- 3. Undeposited funds check ---
-    undeposited = [a for a in all_accounts
-                   if "undeposited" in a.get("Name", "").lower()
-                   and abs(float(a.get("CurrentBalance", 0))) > 0.01]
+    undeposited = [
+        a
+        for a in all_accounts
+        if "undeposited" in a.get("Name", "").lower()
+        and abs(float(a.get("CurrentBalance", 0))) > 0.01
+    ]
     if undeposited:
         total_ud = sum(abs(float(a.get("CurrentBalance", 0))) for a in undeposited)
         score -= 5
@@ -9754,9 +13095,15 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
         passed.append("✅ Undeposited Funds account is clear")
 
     # --- 4. Open/overdue invoices ---
-    invoices = (await qb_query_all(
-        f"SELECT * FROM Invoice WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
-    )).get("QueryResponse", {}).get("Invoice", [])
+    invoices = (
+        (
+            await qb_query_all(
+                f"SELECT * FROM Invoice WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
+            )
+        )
+        .get("QueryResponse", {})
+        .get("Invoice", [])
+    )
 
     unpaid = [i for i in invoices if float(i.get("Balance", 0)) > 0]
     if unpaid:
@@ -9769,9 +13116,15 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
         passed.append("✅ No unpaid invoices")
 
     # --- 5. Open bills (AP) ---
-    bills = (await qb_query_all(
-        f"SELECT * FROM Bill WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
-    )).get("QueryResponse", {}).get("Bill", [])
+    bills = (
+        (
+            await qb_query_all(
+                f"SELECT * FROM Bill WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
+            )
+        )
+        .get("QueryResponse", {})
+        .get("Bill", [])
+    )
 
     unpaid_bills = [b for b in bills if float(b.get("Balance", 0)) > 0]
     if unpaid_bills:
@@ -9784,9 +13137,12 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
         passed.append("✅ No unpaid bills")
 
     # --- 6. Equity account review (owner transactions) ---
-    equity_accounts = [a for a in all_accounts
-                       if a.get("AccountType", "").lower() == "equity"
-                       and abs(float(a.get("CurrentBalance", 0))) > 0.01]
+    equity_accounts = [
+        a
+        for a in all_accounts
+        if a.get("AccountType", "").lower() == "equity"
+        and abs(float(a.get("CurrentBalance", 0))) > 0.01
+    ]
     if equity_accounts:
         equity_detail = "\n".join(
             f"   • {a['Name']}: {fmt(float(a.get('CurrentBalance', 0)))}"
@@ -9800,7 +13156,9 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
                 f"   Reclassify to Owner's Equity or retained earnings.\n{equity_detail}"
             )
         else:
-            passed.append(f"✅ Equity accounts look clean ({len(equity_accounts)} accounts, net {fmt(total_equity)})")
+            passed.append(
+                f"✅ Equity accounts look clean ({len(equity_accounts)} accounts, net {fmt(total_equity)})"
+            )
     else:
         passed.append("✅ No equity accounts with balances")
 
@@ -9821,13 +13179,15 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
         passed.append("✅ No significant duplicate patterns detected")
 
     # --- 8. Missing tax info (1099 readiness) ---
-    vendors = (await qb_query_all(
-        "SELECT * FROM Vendor MAXRESULTS 200"
-    )).get("QueryResponse", {}).get("Vendor", [])
+    vendors = (
+        (await qb_query_all("SELECT * FROM Vendor MAXRESULTS 200"))
+        .get("QueryResponse", {})
+        .get("Vendor", [])
+    )
 
-    vendors_no_tin = [v for v in vendors
-                      if not v.get("TaxIdentifier")
-                      and v.get("Vendor1099", False)]
+    vendors_no_tin = [
+        v for v in vendors if not v.get("TaxIdentifier") and v.get("Vendor1099", False)
+    ]
     if vendors_no_tin:
         score -= 3
         warnings.append(
@@ -9869,16 +13229,22 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
         lines.extend(passed)
         lines.append("")
 
-    lines.append(f"\n**Summary:** {len(issues)} critical issues, {len(warnings)} warnings, {len(passed)} passed checks.")
+    lines.append(
+        f"\n**Summary:** {len(issues)} critical issues, {len(warnings)} warnings, {len(passed)} passed checks."
+    )
     lines.append(f"*Fix all critical issues before sending books to your accountant.*")
 
-    _audit_log("BOOKS_HEALTH_AUDIT", f"year={tax_year} score={score} issues={len(issues)} warnings={len(warnings)}")
+    _audit_log(
+        "BOOKS_HEALTH_AUDIT",
+        f"year={tax_year} score={score} issues={len(issues)} warnings={len(warnings)}",
+    )
     return "\n".join(lines)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_books_hygiene(start_date: str = "", end_date: str = "",
-                           statement_balances: str = "") -> str:
+async def qb_books_hygiene(
+    start_date: str = "", end_date: str = "", statement_balances: str = ""
+) -> str:
     """Structural books-quality audit that catches what a health score misses:
     transactions posted to deleted/inactive accounts, wrong-sign account balances,
     credit-card payments misfiled as expenses, and dormant accounts carrying large
@@ -9889,19 +13255,37 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
     catches everything else at once."""
     start_date, end_date = _ytd_range(start_date, end_date)
 
-    active = (await qb_query_all("SELECT * FROM Account")).get(
-        "QueryResponse", {}).get("Account", [])
-    inactive = (await qb_query_all("SELECT * FROM Account WHERE Active = false")).get(
-        "QueryResponse", {}).get("Account", [])
+    active = (
+        (await qb_query_all("SELECT * FROM Account"))
+        .get("QueryResponse", {})
+        .get("Account", [])
+    )
+    inactive = (
+        (await qb_query_all("SELECT * FROM Account WHERE Active = false"))
+        .get("QueryResponse", {})
+        .get("Account", [])
+    )
     by_id = {a["Id"]: a for a in active + inactive}
     inactive_ids = {a["Id"] for a in inactive}
     atype = {a["Id"]: a.get("AccountType", "") for a in active + inactive}
 
     async def _fetch(entity):
-        return (await qb_query_all(
-            f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' "
-            f"AND TxnDate <= '{end_date}'")).get("QueryResponse", {}).get(entity, [])
-    purchases, deposits, jes = await _fetch("Purchase"), await _fetch("Deposit"), await _fetch("JournalEntry")
+        return (
+            (
+                await qb_query_all(
+                    f"SELECT * FROM {entity} WHERE TxnDate >= '{start_date}' "
+                    f"AND TxnDate <= '{end_date}'"
+                )
+            )
+            .get("QueryResponse", {})
+            .get(entity, [])
+        )
+
+    purchases, deposits, jes = (
+        await _fetch("Purchase"),
+        await _fetch("Deposit"),
+        await _fetch("JournalEntry"),
+    )
 
     def _refs(t, kind):
         out = []
@@ -9909,7 +13293,11 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
             if t.get("AccountRef", {}).get("value"):
                 out.append(("pay", t["AccountRef"]["value"]))
             for l in t.get("Line", []):
-                v = l.get("AccountBasedExpenseLineDetail", {}).get("AccountRef", {}).get("value")
+                v = (
+                    l.get("AccountBasedExpenseLineDetail", {})
+                    .get("AccountRef", {})
+                    .get("value")
+                )
                 if v:
                     out.append(("cat", v))
         elif kind == "Deposit":
@@ -9921,29 +13309,55 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
                     out.append(("cat", v))
         else:  # JournalEntry
             for l in t.get("Line", []):
-                v = l.get("JournalEntryLineDetail", {}).get("AccountRef", {}).get("value")
+                v = (
+                    l.get("JournalEntryLineDetail", {})
+                    .get("AccountRef", {})
+                    .get("value")
+                )
                 if v:
                     out.append(("cat", v))
         return out
 
     from collections import Counter
+
     activity = Counter()
     dangling, misfiled = [], []
-    for kind, txns in (("Purchase", purchases), ("Deposit", deposits), ("JournalEntry", jes)):
+    for kind, txns in (
+        ("Purchase", purchases),
+        ("Deposit", deposits),
+        ("JournalEntry", jes),
+    ):
         for t in txns:
             refs = _refs(t, kind)
             for _, aid in refs:
                 activity[aid] += 1
                 if aid in inactive_ids:
-                    dangling.append((kind, t.get("Id"), by_id.get(aid, {}).get("Name", aid),
-                                     float(t.get("TotalAmt", 0))))
-            if kind == "Purchase":
+                    dangling.append(
+                        (
+                            kind,
+                            t.get("Id"),
+                            by_id.get(aid, {}).get("Name", aid),
+                            float(t.get("TotalAmt", 0)),
+                        )
+                    )
+            # A credit-card Purchase with Credit == true is a card CREDIT/PAYMENT
+            # (money-in — it REDUCES the card balance). That is exactly how a card
+            # payment is legitimately stored as a Purchase, so it is NOT a misfiled
+            # expense. Only a normal charge (Credit falsy) booked to a Bank/Equity
+            # account is suspect. Checking Credit — not the sign (all are positive)
+            # or the memo — is what distinguishes them.
+            if kind == "Purchase" and not t.get("Credit"):
                 pay = [aid for r, aid in refs if r == "pay"]
                 if pay and atype.get(pay[0]) == "Credit Card":
                     for c in [aid for r, aid in refs if r == "cat"]:
                         if atype.get(c) in ("Bank", "Equity"):
-                            misfiled.append((t.get("Id"), by_id.get(c, {}).get("Name", c),
-                                             float(t.get("TotalAmt", 0))))
+                            misfiled.append(
+                                (
+                                    t.get("Id"),
+                                    by_id.get(c, {}).get("Name", c),
+                                    float(t.get("TotalAmt", 0)),
+                                )
+                            )
 
     score = 100
     lines = [f"## Books Hygiene Audit — {start_date} to {end_date}\n"]
@@ -9954,10 +13368,12 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
         score -= 15
         by_acct = Counter(d[2] for d in dangling)
         total = sum(d[3] for d in dangling)
-        issues.append(f"🔴 **{len(dangling)} transaction(s) posted to inactive/deleted "
-                      f"accounts** ({fmt(total)}): "
-                      + ", ".join(f"{n} ({c})" for n, c in by_acct.most_common(5))
-                      + ". Reclassify to a live account (qb_reclassify_transaction).")
+        issues.append(
+            f"🔴 **{len(dangling)} transaction(s) posted to inactive/deleted "
+            f"accounts** ({fmt(total)}): "
+            + ", ".join(f"{n} ({c})" for n, c in by_acct.most_common(5))
+            + ". Reclassify to a live account (qb_reclassify_transaction)."
+        )
     else:
         passed.append("✅ No transactions posted to deleted/inactive accounts")
 
@@ -9967,10 +13383,14 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
         bal = float(a.get("CurrentBalance", 0) or 0)
         t = a.get("AccountType", "")
         if t == "Bank" and bal < -0.01:
-            sign_flags.append(f"{a.get('Name')} ({t}): {fmt(bal)} — negative bank balance "
-                              "(overdraft or opening-balance error)")
+            sign_flags.append(
+                f"{a.get('Name')} ({t}): {fmt(bal)} — negative bank balance "
+                "(overdraft or opening-balance error)"
+            )
         elif t == "Accounts Receivable" and bal < -0.01:
-            sign_flags.append(f"{a.get('Name')} ({t}): {fmt(bal)} — credit balance on AR")
+            sign_flags.append(
+                f"{a.get('Name')} ({t}): {fmt(bal)} — credit balance on AR"
+            )
     if sign_flags:
         score -= min(20, 10 * len(sign_flags))
         issues.append("🔴 **Wrong-sign balances:**\n   " + "\n   ".join(sign_flags))
@@ -9982,14 +13402,21 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
         score -= 15
         total = sum(m[2] for m in misfiled)
         id_list = ", ".join(str(m[0]) for m in misfiled[:10])
-        id_note = (f" (showing first 10 of {len(misfiled)})"
-                   if len(misfiled) > 10 else "")
-        issues.append(f"🔴 **{len(misfiled)} credit-card purchase(s) categorized to a "
-                      f"bank/equity account** ({fmt(total)}) — almost always a card "
-                      "PAYMENT misfiled as an expense, which inflates the card liability. "
-                      f"IDs{id_note}: " + id_list + ".")
+        id_note = (
+            f" (showing first 10 of {len(misfiled)})" if len(misfiled) > 10 else ""
+        )
+        issues.append(
+            f"🔴 **{len(misfiled)} credit-card charge(s) categorized to a "
+            f"bank/equity account** ({fmt(total)}) — a charge (not a payment; "
+            "card payments are excluded) booked to a Bank/Equity account "
+            "instead of an expense; likely miscategorized. Review. "
+            f"IDs{id_note}: " + id_list + "."
+        )
     else:
-        passed.append("✅ No credit-card payments misfiled as expenses")
+        passed.append(
+            "✅ No miscategorized credit-card charges "
+            "(card payments correctly excluded)"
+        )
 
     # 3b. Account name disagrees with its AccountSubType. The tax taxonomy keys
     # on the subtype, so a mistyped account (classic: "Cell phone" typed Travel)
@@ -9997,7 +13424,10 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
     # signals (a name that unambiguously means one category) whose subtype maps
     # elsewhere — avoids noise on soft cases like office-vs-supplies.
     _STRONG_NAME_SIGNAL = [
-        (_re.compile(r"\b(phone|internet|cell|telephone|utilit|electric)\b", _re.I), "25"),
+        (
+            _re.compile(r"\b(phone|internet|cell|telephone|utilit|electric)\b", _re.I),
+            "25",
+        ),
         (_re.compile(r"\bmortgage\b", _re.I), "16a"),
         (_re.compile(r"\b(payroll|wages?|salar)", _re.I), "26"),
     ]
@@ -10018,10 +13448,14 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
     if subtype_mismatch:
         score -= min(15, 5 * len(subtype_mismatch))
         rows = "; ".join(f"{nm} (typed {st})" for nm, st in subtype_mismatch[:8])
-        extra = f" (+{len(subtype_mismatch) - 8} more)" if len(subtype_mismatch) > 8 else ""
-        issues.append(f"🟡 **{len(subtype_mismatch)} account(s) whose name and QuickBooks "
-                      f"type disagree** — the tax mapping trusts the type, so these flow to "
-                      f"the wrong line: {rows}{extra}. Re-type or rename the account.")
+        extra = (
+            f" (+{len(subtype_mismatch) - 8} more)" if len(subtype_mismatch) > 8 else ""
+        )
+        issues.append(
+            f"🟡 **{len(subtype_mismatch)} account(s) whose name and QuickBooks "
+            f"type disagree** — the tax mapping trusts the type, so these flow to "
+            f"the wrong line: {rows}{extra}. Re-type or rename the account."
+        )
     else:
         passed.append("✅ Account names agree with their QuickBooks types")
 
@@ -10029,14 +13463,27 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
     dormant = []
     for a in active:
         bal = float(a.get("CurrentBalance", 0) or 0)
-        if abs(bal) >= 1000 and activity.get(a["Id"], 0) <= 2 \
-                and a.get("AccountType") in ("Bank", "Credit Card", "Other Current Asset",
-                                             "Other Current Liability", "Equity"):
-            dormant.append(f"{a.get('Name')}: {fmt(bal)} ({activity.get(a['Id'], 0)} txns in period)")
+        if (
+            abs(bal) >= 1000
+            and activity.get(a["Id"], 0) <= 2
+            and a.get("AccountType")
+            in (
+                "Bank",
+                "Credit Card",
+                "Other Current Asset",
+                "Other Current Liability",
+                "Equity",
+            )
+        ):
+            dormant.append(
+                f"{a.get('Name')}: {fmt(bal)} ({activity.get(a['Id'], 0)} txns in period)"
+            )
     if dormant:
         score -= min(20, 10 * len(dormant))
-        issues.append("🟡 **Large balance, near-zero activity** (likely an opening-balance "
-                      "error):\n   " + "\n   ".join(dormant))
+        issues.append(
+            "🟡 **Large balance, near-zero activity** (likely an opening-balance "
+            "error):\n   " + "\n   ".join(dormant)
+        )
     else:
         passed.append("✅ No dormant accounts carrying large balances")
 
@@ -10047,8 +13494,10 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
         except (json.JSONDecodeError, TypeError):
             claims = None
         if not isinstance(claims, dict):
-            issues.append("⚠️ statement_balances must be JSON like "
-                          '{"Checking": 4820.10}. Skipped attestation.')
+            issues.append(
+                "⚠️ statement_balances must be JSON like "
+                '{"Checking": 4820.10}. Skipped attestation.'
+            )
         else:
             mism = []
             for name, real in claims.items():
@@ -10059,17 +13508,22 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
                 book = float(acct.get("CurrentBalance", 0) or 0)
                 diff = round(book - float(real), 2)
                 if abs(diff) > 0.01:
-                    mism.append(f"{acct.get('Name')}: QuickBooks {fmt(book)} vs statement "
-                                f"{fmt(float(real))} — **off by {fmt(diff)}**")
+                    mism.append(
+                        f"{acct.get('Name')}: QuickBooks {fmt(book)} vs statement "
+                        f"{fmt(float(real))} — **off by {fmt(diff)}**"
+                    )
             if mism:
                 score -= min(30, 15 * len(mism))
-                issues.append("🔴 **Statement attestation mismatches:**\n   "
-                              + "\n   ".join(mism))
+                issues.append(
+                    "🔴 **Statement attestation mismatches:**\n   " + "\n   ".join(mism)
+                )
             else:
                 passed.append("✅ All attested balances match the statements")
     else:
-        passed.append("ℹ️ No statement balances provided — pass statement_balances to "
-                      "diff your real bank/card statements (the strongest check).")
+        passed.append(
+            "ℹ️ No statement balances provided — pass statement_balances to "
+            "diff your real bank/card statements (the strongest check)."
+        )
 
     score = max(0, score)
     grade = "🟢" if score >= 90 else "🟡" if score >= 70 else "🔴"
@@ -10080,10 +13534,14 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
         lines.append("")
     lines.append("### Passed")
     lines.extend(passed)
-    lines.append("\n*Structural checks; complements qb_books_health_audit. Not a "
-                 "substitute for a reconciliation against real statements.*")
-    _audit_log("BOOKS_HYGIENE", f"score={score} dangling={len(dangling)} "
-               f"misfiled={len(misfiled)}")
+    lines.append(
+        "\n*Structural checks; complements qb_books_health_audit. Not a "
+        "substitute for a reconciliation against real statements.*"
+    )
+    _audit_log(
+        "BOOKS_HYGIENE",
+        f"score={score} dangling={len(dangling)} " f"misfiled={len(misfiled)}",
+    )
     return "\n".join(lines)
 
 
@@ -10091,8 +13549,11 @@ async def qb_books_hygiene(start_date: str = "", end_date: str = "",
 # UNKNOWN VENDOR REPORT & BULK FIX
 # ===================================================================
 
+
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_unknown_vendor_report(start_date: str = "", end_date: str = "", max_results: int = 200) -> str:
+async def qb_unknown_vendor_report(
+    start_date: str = "", end_date: str = "", max_results: int = 200
+) -> str:
     """Find all transactions with unknown or missing vendor names.
     Groups by memo/description pattern to help identify bulk fixes.
     Separates fixable (active account) from unfixable (deleted account) transactions.
@@ -10113,9 +13574,11 @@ async def qb_unknown_vendor_report(start_date: str = "", end_date: str = "", max
     purchases = (await qb_query(query)).get("QueryResponse", {}).get("Purchase", [])
 
     # Build active account lookup
-    all_accounts = (await qb_query_all(
-        "SELECT Id, Name, Active FROM Account MAXRESULTS 500"
-    )).get("QueryResponse", {}).get("Account", [])
+    all_accounts = (
+        (await qb_query_all("SELECT Id, Name, Active FROM Account MAXRESULTS 500"))
+        .get("QueryResponse", {})
+        .get("Account", [])
+    )
     active_account_ids = {a["Id"] for a in all_accounts if a.get("Active", True)}
 
     # Filter to unknown vendors, tag with active/deleted account status
@@ -10174,16 +13637,22 @@ async def qb_unknown_vendor_report(start_date: str = "", end_date: str = "", max
             key = memo[:80] if len(memo) > 80 else memo
             memo_groups[key].append(t)
 
-        sorted_groups = sorted(memo_groups.items(),
-                               key=lambda x: sum(t["amount"] for t in x[1]),
-                               reverse=True)
+        sorted_groups = sorted(
+            memo_groups.items(),
+            key=lambda x: sum(t["amount"] for t in x[1]),
+            reverse=True,
+        )
 
-        lines.append(f"### ✅ Fixable Transactions ({len(active_unknown)} on active accounts)\n")
+        lines.append(
+            f"### ✅ Fixable Transactions ({len(active_unknown)} on active accounts)\n"
+        )
 
         for memo, txns in sorted_groups[:30]:
             total = sum(t["amount"] for t in txns)
-            lines.append(f"**\"{memo}\"** — {len(txns)} txn(s), total {fmt(total)}")
-            lines.append(f"  Account: {txns[0]['account']} | Categories: {txns[0]['categories']}")
+            lines.append(f'**"{memo}"** — {len(txns)} txn(s), total {fmt(total)}')
+            lines.append(
+                f"  Account: {txns[0]['account']} | Categories: {txns[0]['categories']}"
+            )
             ids = [t["id"] for t in txns]
             if len(ids) <= 5:
                 lines.append(f"  IDs: {', '.join(ids)}")
@@ -10192,7 +13661,9 @@ async def qb_unknown_vendor_report(start_date: str = "", end_date: str = "", max
             lines.append(f"  Date range: {txns[0]['date']} to {txns[-1]['date']}")
             lines.append("")
 
-        lines.append("**To fix:** Use `qb_bulk_update_vendor` with the IDs and the correct vendor name.\n")
+        lines.append(
+            "**To fix:** Use `qb_bulk_update_vendor` with the IDs and the correct vendor name.\n"
+        )
 
     # === Deleted account transactions (unfixable via API) ===
     if deleted_unknown:
@@ -10201,15 +13672,24 @@ async def qb_unknown_vendor_report(start_date: str = "", end_date: str = "", max
         for t in deleted_unknown:
             acct_groups[t["account"]].append(t)
 
-        lines.append(f"### ⚠️ Unfixable Transactions ({len(deleted_unknown)} on deleted/inactive accounts)\n")
-        lines.append("These transactions are on deleted accounts and **cannot be updated via API**.")
+        lines.append(
+            f"### ⚠️ Unfixable Transactions ({len(deleted_unknown)} on deleted/inactive accounts)\n"
+        )
+        lines.append(
+            "These transactions are on deleted accounts and **cannot be updated via API**."
+        )
         lines.append("Your accountant can safely ignore these.\n")
 
-        for acct_name, txns in sorted(acct_groups.items(), key=lambda x: len(x[1]), reverse=True):
+        for acct_name, txns in sorted(
+            acct_groups.items(), key=lambda x: len(x[1]), reverse=True
+        ):
             total = sum(t["amount"] for t in txns)
             lines.append(f"  **{acct_name}**: {len(txns)} txns, total {fmt(total)}")
 
-    _audit_log("UNKNOWN_VENDOR_REPORT", f"found={total_unknown} active={len(active_unknown)} deleted={len(deleted_unknown)}")
+    _audit_log(
+        "UNKNOWN_VENDOR_REPORT",
+        f"found={total_unknown} active={len(active_unknown)} deleted={len(deleted_unknown)}",
+    )
     return "\n".join(lines)
 
 
@@ -10226,19 +13706,33 @@ async def qb_bulk_update_vendor(transaction_ids: str, vendor_name: str) -> str:
         return "Error: vendor_name is required."
 
     # Look up the vendor to get the ID
-    vendors = (await qb_query(
-        f"SELECT * FROM Vendor WHERE DisplayName = '{vendor_name.replace(chr(39), '')}' MAXRESULTS 5"
-    )).get("QueryResponse", {}).get("Vendor", [])
+    vendors = (
+        (
+            await qb_query(
+                f"SELECT * FROM Vendor WHERE DisplayName = '{vendor_name.replace(chr(39), '')}' MAXRESULTS 5"
+            )
+        )
+        .get("QueryResponse", {})
+        .get("Vendor", [])
+    )
 
     if not vendors:
         # Try partial match
-        vendors = (await qb_query(
-            f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name.replace(chr(39), '')}%' MAXRESULTS 5"
-        )).get("QueryResponse", {}).get("Vendor", [])
+        vendors = (
+            (
+                await qb_query(
+                    f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name.replace(chr(39), '')}%' MAXRESULTS 5"
+                )
+            )
+            .get("QueryResponse", {})
+            .get("Vendor", [])
+        )
 
     if not vendors:
-        return (f"Error: Vendor '{vendor_name}' not found in QuickBooks. "
-                f"Create it first with `qb_create_vendor`.")
+        return (
+            f"Error: Vendor '{vendor_name}' not found in QuickBooks. "
+            f"Create it first with `qb_create_vendor`."
+        )
 
     vendor = vendors[0]
     vendor_ref = {"value": vendor["Id"], "name": vendor.get("DisplayName", vendor_name)}
@@ -10276,7 +13770,9 @@ async def qb_bulk_update_vendor(transaction_ids: str, vendor_name: str) -> str:
         for e in errors[:10]:
             lines.append(f"  • {e}")
 
-    _audit_log("BULK_UPDATE_VENDOR", f"vendor={vendor_name} success={success}/{len(ids)}")
+    _audit_log(
+        "BULK_UPDATE_VENDOR", f"vendor={vendor_name} success={success}/{len(ids)}"
+    )
     return "\n".join(lines)
 
 
@@ -10289,7 +13785,7 @@ async def qb_bulk_update_vendors_multi(vendor_mapping: str) -> str:
     try:
         mapping = json.loads(vendor_mapping)
     except (json.JSONDecodeError, TypeError):
-        return "Error: vendor_mapping must be valid JSON. Example: {\"Vendor\": [\"id1\",\"id2\"]}"
+        return 'Error: vendor_mapping must be valid JSON. Example: {"Vendor": ["id1","id2"]}'
 
     if not isinstance(mapping, dict):
         return "Error: vendor_mapping must be a JSON object mapping vendor names to ID arrays."
@@ -10305,22 +13801,41 @@ async def qb_bulk_update_vendors_multi(vendor_mapping: str) -> str:
 
         # Look up vendor
         safe_name = vendor_name.replace("'", "")
-        vendors = (await qb_query(
-            f"SELECT * FROM Vendor WHERE DisplayName = '{safe_name}' MAXRESULTS 5"
-        )).get("QueryResponse", {}).get("Vendor", [])
+        vendors = (
+            (
+                await qb_query(
+                    f"SELECT * FROM Vendor WHERE DisplayName = '{safe_name}' MAXRESULTS 5"
+                )
+            )
+            .get("QueryResponse", {})
+            .get("Vendor", [])
+        )
 
         if not vendors:
-            vendors = (await qb_query(
-                f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
-            )).get("QueryResponse", {}).get("Vendor", [])
+            vendors = (
+                (
+                    await qb_query(
+                        f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
+                    )
+                )
+                .get("QueryResponse", {})
+                .get("Vendor", [])
+            )
 
         if not vendors:
             total_errors.append(f"{vendor_name}: vendor not found in QB")
-            results_by_vendor[vendor_name] = {"success": 0, "failed": len(txn_ids), "error": "vendor not found"}
+            results_by_vendor[vendor_name] = {
+                "success": 0,
+                "failed": len(txn_ids),
+                "error": "vendor not found",
+            }
             continue
 
         vendor = vendors[0]
-        vendor_ref = {"value": vendor["Id"], "name": vendor.get("DisplayName", vendor_name)}
+        vendor_ref = {
+            "value": vendor["Id"],
+            "name": vendor.get("DisplayName", vendor_name),
+        }
         v_success = 0
         v_errors = []
 
@@ -10354,21 +13869,27 @@ async def qb_bulk_update_vendors_multi(vendor_mapping: str) -> str:
 
     for vname, vresult in results_by_vendor.items():
         status = "✅" if vresult.get("failed", 0) == 0 else "⚠️"
-        lines.append(f"  {status} **{vname}**: {vresult['success']} updated" +
-                      (f", {vresult['failed']} failed" if vresult.get("failed", 0) > 0 else ""))
+        lines.append(
+            f"  {status} **{vname}**: {vresult['success']} updated"
+            + (f", {vresult['failed']} failed" if vresult.get("failed", 0) > 0 else "")
+        )
 
     if total_errors:
         lines.append(f"\n### Errors")
         for e in total_errors[:20]:
             lines.append(f"  • {e}")
 
-    _audit_log("BULK_UPDATE_VENDORS_MULTI", f"vendors={len(mapping)} success={total_success} errors={len(total_errors)}")
+    _audit_log(
+        "BULK_UPDATE_VENDORS_MULTI",
+        f"vendors={len(mapping)} success={total_success} errors={len(total_errors)}",
+    )
     return "\n".join(lines)
 
 
 # ===================================================================
 # MONTH-END CLOSE WORKFLOW
 # ===================================================================
+
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
@@ -10382,33 +13903,64 @@ async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
     _, last_day = monthrange(year, month)
     start = f"{year}-{month:02d}-01"
     end = f"{year}-{month:02d}-{last_day:02d}"
-    month_name = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][month - 1]
+    month_name = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ][month - 1]
 
     checklist = []
     blockers = 0
     warnings_count = 0
 
     # --- 1. Transaction volume ---
-    purchases = (await qb_query_all(
-        f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
-    )).get("QueryResponse", {}).get("Purchase", [])
+    purchases = (
+        (
+            await qb_query_all(
+                f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
+            )
+        )
+        .get("QueryResponse", {})
+        .get("Purchase", [])
+    )
 
-    deposits = (await qb_query_all(
-        f"SELECT * FROM Deposit WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
-    )).get("QueryResponse", {}).get("Deposit", [])
+    deposits = (
+        (
+            await qb_query_all(
+                f"SELECT * FROM Deposit WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
+            )
+        )
+        .get("QueryResponse", {})
+        .get("Deposit", [])
+    )
 
-    journals = (await qb_query_all(
-        f"SELECT * FROM JournalEntry WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
-    )).get("QueryResponse", {}).get("JournalEntry", [])
+    journals = (
+        (
+            await qb_query_all(
+                f"SELECT * FROM JournalEntry WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 500"
+            )
+        )
+        .get("QueryResponse", {})
+        .get("JournalEntry", [])
+    )
 
     total_txns = len(purchases) + len(deposits) + len(journals)
-    checklist.append(f"📊 **Transaction Volume:** {total_txns} total "
-                     f"({len(purchases)} purchases, {len(deposits)} deposits, {len(journals)} journal entries)")
+    checklist.append(
+        f"📊 **Transaction Volume:** {total_txns} total "
+        f"({len(purchases)} purchases, {len(deposits)} deposits, {len(journals)} journal entries)"
+    )
 
     # --- 2. Unknown vendors ---
-    unknown_vendors = [p for p in purchases
-                       if not p.get("EntityRef", {}).get("name")]
+    unknown_vendors = [p for p in purchases if not p.get("EntityRef", {}).get("name")]
     if unknown_vendors:
         blockers += 1
         checklist.append(
@@ -10420,13 +13972,18 @@ async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
         checklist.append("✅ All purchases have vendors assigned")
 
     # --- 3. Uncategorized amounts ---
-    all_accounts = (await qb_query_all(
-        "SELECT * FROM Account MAXRESULTS 200"
-    )).get("QueryResponse", {}).get("Account", [])
+    all_accounts = (
+        (await qb_query_all("SELECT * FROM Account MAXRESULTS 200"))
+        .get("QueryResponse", {})
+        .get("Account", [])
+    )
 
-    uncat = [a for a in all_accounts
-             if "uncategorized" in a.get("Name", "").lower()
-             and abs(float(a.get("CurrentBalance", 0))) > 0.01]
+    uncat = [
+        a
+        for a in all_accounts
+        if "uncategorized" in a.get("Name", "").lower()
+        and abs(float(a.get("CurrentBalance", 0))) > 0.01
+    ]
     if uncat:
         total_uncat = sum(abs(float(a.get("CurrentBalance", 0))) for a in uncat)
         blockers += 1
@@ -10471,6 +14028,7 @@ async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
 
     # --- 5. Duplicate check ---
     from collections import defaultdict
+
     fingerprints = defaultdict(list)
     for p in purchases:
         key = (p.get("TxnDate", ""), str(round(float(p.get("TotalAmt", 0)), 2)))
@@ -10488,9 +14046,14 @@ async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
         checklist.append("✅ No significant duplicates detected")
 
     # --- 6. Large/unusual transactions ---
-    amounts = [float(p.get("TotalAmt", 0)) for p in purchases if float(p.get("TotalAmt", 0)) > 0]
+    amounts = [
+        float(p.get("TotalAmt", 0))
+        for p in purchases
+        if float(p.get("TotalAmt", 0)) > 0
+    ]
     if amounts:
         import statistics
+
         mean_amt = statistics.mean(amounts)
         std_amt = statistics.stdev(amounts) if len(amounts) > 1 else mean_amt
         threshold = mean_amt + 2.5 * std_amt
@@ -10524,22 +14087,31 @@ async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
     else:
         status = f"🔴 NOT READY — {blockers} blocking issue(s)"
 
-    lines = [
-        f"## Month-End Close: {month_name} {year}",
-        f"### Status: {status}\n",
-        "### Checklist\n",
-    ] + checklist + [
-        "",
-        f"---",
-        f"**Blockers:** {blockers} | **Warnings:** {warnings_count}",
-    ]
+    lines = (
+        [
+            f"## Month-End Close: {month_name} {year}",
+            f"### Status: {status}\n",
+            "### Checklist\n",
+        ]
+        + checklist
+        + [
+            "",
+            f"---",
+            f"**Blockers:** {blockers} | **Warnings:** {warnings_count}",
+        ]
+    )
 
     if blockers > 0:
         lines.append(f"\n*Resolve all 🔴 items before closing the month.*")
     else:
-        lines.append(f"\n*Month looks clean. Review 🟡 warnings and confirm bank reconciliation.*")
+        lines.append(
+            f"\n*Month looks clean. Review 🟡 warnings and confirm bank reconciliation.*"
+        )
 
-    _audit_log("MONTH_END_CLOSE", f"{month_name} {year} blockers={blockers} warnings={warnings_count}")
+    _audit_log(
+        "MONTH_END_CLOSE",
+        f"{month_name} {year} blockers={blockers} warnings={warnings_count}",
+    )
     return "\n".join(lines)
 
 
@@ -10547,8 +14119,11 @@ async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
 # NEW: Delete Transaction (generalized)
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_delete_transaction(entity_type: str, entity_id: str, confirm: bool = False) -> str:
+async def qb_delete_transaction(
+    entity_type: str, entity_id: str, confirm: bool = False
+) -> str:
     """Delete a transaction permanently. Supports: Purchase, Deposit, Transfer,
     JournalEntry, Bill, BillPayment, Invoice, Payment, SalesReceipt, CreditMemo, VendorCredit.
     entity_type: QB entity type. entity_id: the transaction ID.
@@ -10559,10 +14134,17 @@ async def qb_delete_transaction(entity_type: str, entity_id: str, confirm: bool 
 
     # Normalize entity type
     type_map = {
-        "purchase": "Purchase", "deposit": "Deposit", "transfer": "Transfer",
-        "journalentry": "JournalEntry", "bill": "Bill", "billpayment": "BillPayment",
-        "invoice": "Invoice", "payment": "Payment", "salesreceipt": "SalesReceipt",
-        "creditmemo": "CreditMemo", "vendorcredit": "VendorCredit",
+        "purchase": "Purchase",
+        "deposit": "Deposit",
+        "transfer": "Transfer",
+        "journalentry": "JournalEntry",
+        "bill": "Bill",
+        "billpayment": "BillPayment",
+        "invoice": "Invoice",
+        "payment": "Payment",
+        "salesreceipt": "SalesReceipt",
+        "creditmemo": "CreditMemo",
+        "vendorcredit": "VendorCredit",
     }
     normalized = type_map.get(entity_type.lower().replace(" ", ""), entity_type)
 
@@ -10570,7 +14152,9 @@ async def qb_delete_transaction(entity_type: str, entity_id: str, confirm: bool 
         try:
             txn = await qb_read(normalized.lower(), entity_id)
             entity = txn.get(normalized, txn)
-            memo = entity.get("PrivateNote", "") or entity.get("Memo", "") or "(no memo)"
+            memo = (
+                entity.get("PrivateNote", "") or entity.get("Memo", "") or "(no memo)"
+            )
             date = entity.get("TxnDate", "?")
             total = entity.get("TotalAmt", 0)
             vendor = entity.get("EntityRef", {}).get("name", "")
@@ -10608,22 +14192,42 @@ async def qb_delete_transaction(entity_type: str, entity_id: str, confirm: bool 
 # NEW: Update Vendor / Update Customer
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_update_vendor(vendor_name: str, email: str = "", phone: str = "",
-                           company_name: str = "", display_name: str = "",
-                           vendor_1099: bool = False, tax_id: str = "") -> str:
+async def qb_update_vendor(
+    vendor_name: str,
+    email: str = "",
+    phone: str = "",
+    company_name: str = "",
+    display_name: str = "",
+    vendor_1099: bool = False,
+    tax_id: str = "",
+) -> str:
     """Update an existing vendor's details.
     vendor_name: current display name to find the vendor.
-    Provide any fields to update: email, phone, company_name, display_name, vendor_1099, tax_id."""
+    Provide any fields to update: email, phone, company_name, display_name, vendor_1099, tax_id.
+    """
     safe_name = vendor_name.replace("'", "")
-    vendors = (await qb_query(
-        f"SELECT * FROM Vendor WHERE DisplayName = '{safe_name}' MAXRESULTS 5"
-    )).get("QueryResponse", {}).get("Vendor", [])
+    vendors = (
+        (
+            await qb_query(
+                f"SELECT * FROM Vendor WHERE DisplayName = '{safe_name}' MAXRESULTS 5"
+            )
+        )
+        .get("QueryResponse", {})
+        .get("Vendor", [])
+    )
 
     if not vendors:
-        vendors = (await qb_query(
-            f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
-        )).get("QueryResponse", {}).get("Vendor", [])
+        vendors = (
+            (
+                await qb_query(
+                    f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
+                )
+            )
+            .get("QueryResponse", {})
+            .get("Vendor", [])
+        )
 
     if not vendors:
         return f"Error: Vendor '{vendor_name}' not found."
@@ -10656,26 +14260,46 @@ async def qb_update_vendor(vendor_name: str, email: str = "", phone: str = "",
 
     if updated.get("Id"):
         fields_changed = ", ".join(updates.keys())
-        _audit_log("UPDATE_VENDOR", f"id={updated['Id']} name={updated.get('DisplayName', '')} fields={fields_changed}")
+        _audit_log(
+            "UPDATE_VENDOR",
+            f"id={updated['Id']} name={updated.get('DisplayName', '')} fields={fields_changed}",
+        )
         return f"✅ Vendor '{updated.get('DisplayName', vendor_name)}' (ID: {updated['Id']}) updated. Changed: {fields_changed}"
     return "Error: Update failed. Check the vendor name and try again."
 
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_update_customer(customer_name: str, email: str = "", phone: str = "",
-                             company_name: str = "", display_name: str = "") -> str:
+async def qb_update_customer(
+    customer_name: str,
+    email: str = "",
+    phone: str = "",
+    company_name: str = "",
+    display_name: str = "",
+) -> str:
     """Update an existing customer's details.
     customer_name: current display name to find the customer.
     Provide any fields to update: email, phone, company_name, display_name."""
     safe_name = customer_name.replace("'", "")
-    customers = (await qb_query(
-        f"SELECT * FROM Customer WHERE DisplayName = '{safe_name}' MAXRESULTS 5"
-    )).get("QueryResponse", {}).get("Customer", [])
+    customers = (
+        (
+            await qb_query(
+                f"SELECT * FROM Customer WHERE DisplayName = '{safe_name}' MAXRESULTS 5"
+            )
+        )
+        .get("QueryResponse", {})
+        .get("Customer", [])
+    )
 
     if not customers:
-        customers = (await qb_query(
-            f"SELECT * FROM Customer WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
-        )).get("QueryResponse", {}).get("Customer", [])
+        customers = (
+            (
+                await qb_query(
+                    f"SELECT * FROM Customer WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
+                )
+            )
+            .get("QueryResponse", {})
+            .get("Customer", [])
+        )
 
     if not customers:
         return f"Error: Customer '{customer_name}' not found."
@@ -10704,7 +14328,10 @@ async def qb_update_customer(customer_name: str, email: str = "", phone: str = "
 
     if updated.get("Id"):
         fields_changed = ", ".join(updates.keys())
-        _audit_log("UPDATE_CUSTOMER", f"id={updated['Id']} name={updated.get('DisplayName', '')} fields={fields_changed}")
+        _audit_log(
+            "UPDATE_CUSTOMER",
+            f"id={updated['Id']} name={updated.get('DisplayName', '')} fields={fields_changed}",
+        )
         return f"✅ Customer '{updated.get('DisplayName', customer_name)}' (ID: {updated['Id']}) updated. Changed: {fields_changed}"
     return "Error: Update failed. Check the customer name and try again."
 
@@ -10713,9 +14340,16 @@ async def qb_update_customer(customer_name: str, email: str = "", phone: str = "
 # NEW: Record Bill Payment / Invoice Payment
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_record_bill_payment(vendor_name: str, amount: float, bill_id: str = "",
-                                  payment_account: str = "", date: str = "", memo: str = "") -> str:
+async def qb_record_bill_payment(
+    vendor_name: str,
+    amount: float,
+    bill_id: str = "",
+    payment_account: str = "",
+    date: str = "",
+    memo: str = "",
+) -> str:
     """Record a payment against a vendor bill (accounts payable).
     vendor_name: vendor who issued the bill. amount: payment amount.
     bill_id: specific bill ID to pay (optional — will find unpaid bills if omitted).
@@ -10729,9 +14363,15 @@ async def qb_record_bill_payment(vendor_name: str, amount: float, bill_id: str =
 
     # Find vendor
     safe_name = vendor_name.replace("'", "")
-    vendors = (await qb_query(
-        f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
-    )).get("QueryResponse", {}).get("Vendor", [])
+    vendors = (
+        (
+            await qb_query(
+                f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
+            )
+        )
+        .get("QueryResponse", {})
+        .get("Vendor", [])
+    )
     if not vendors:
         return f"Error: Vendor '{vendor_name}' not found."
     vendor = vendors[0]
@@ -10739,13 +14379,25 @@ async def qb_record_bill_payment(vendor_name: str, amount: float, bill_id: str =
     # Find payment account
     if payment_account:
         safe_acct = payment_account.replace("'", "")
-        accts = (await qb_query(
-            f"SELECT * FROM Account WHERE Name LIKE '%{safe_acct}%' AND AccountType IN ('Bank', 'Credit Card') MAXRESULTS 5"
-        )).get("QueryResponse", {}).get("Account", [])
+        accts = (
+            (
+                await qb_query(
+                    f"SELECT * FROM Account WHERE Name LIKE '%{safe_acct}%' AND AccountType IN ('Bank', 'Credit Card') MAXRESULTS 5"
+                )
+            )
+            .get("QueryResponse", {})
+            .get("Account", [])
+        )
     else:
-        accts = (await qb_query(
-            "SELECT * FROM Account WHERE AccountType = 'Bank' AND Active = true MAXRESULTS 5"
-        )).get("QueryResponse", {}).get("Account", [])
+        accts = (
+            (
+                await qb_query(
+                    "SELECT * FROM Account WHERE AccountType = 'Bank' AND Active = true MAXRESULTS 5"
+                )
+            )
+            .get("QueryResponse", {})
+            .get("Account", [])
+        )
 
     if not accts:
         return "Error: No payment account found. Specify payment_account parameter."
@@ -10759,9 +14411,15 @@ async def qb_record_bill_payment(vendor_name: str, amount: float, bill_id: str =
             return f"Error: Bill #{bill_id} not found."
     else:
         # Find unpaid bills for this vendor
-        bills = (await qb_query(
-            f"SELECT * FROM Bill WHERE VendorRef = '{vendor['Id']}' AND Balance > '0' MAXRESULTS 10"
-        )).get("QueryResponse", {}).get("Bill", [])
+        bills = (
+            (
+                await qb_query(
+                    f"SELECT * FROM Bill WHERE VendorRef = '{vendor['Id']}' AND Balance > '0' MAXRESULTS 10"
+                )
+            )
+            .get("QueryResponse", {})
+            .get("Bill", [])
+        )
         if not bills:
             return f"No unpaid bills found for vendor '{vendor_name}'."
         bill = bills[0]  # Pay the oldest unpaid bill
@@ -10771,13 +14429,15 @@ async def qb_record_bill_payment(vendor_name: str, amount: float, bill_id: str =
         "TotalAmt": amount,
         "PayType": "Check",
         "CheckPayment": {
-            "BankAccountRef": {"value": pay_acct["Id"], "name": pay_acct.get("Name", "")}
+            "BankAccountRef": {
+                "value": pay_acct["Id"],
+                "name": pay_acct.get("Name", ""),
+            }
         },
         "TxnDate": date,
-        "Line": [{
-            "Amount": amount,
-            "LinkedTxn": [{"TxnId": bill["Id"], "TxnType": "Bill"}]
-        }],
+        "Line": [
+            {"Amount": amount, "LinkedTxn": [{"TxnId": bill["Id"], "TxnType": "Bill"}]}
+        ],
     }
     if memo:
         bill_payment["PrivateNote"] = memo
@@ -10786,7 +14446,10 @@ async def qb_record_bill_payment(vendor_name: str, amount: float, bill_id: str =
     bp = result.get("BillPayment", {})
 
     if bp.get("Id"):
-        _audit_log("RECORD_BILL_PAYMENT", f"id={bp['Id']} vendor={vendor_name} amount={amount} bill={bill['Id']}")
+        _audit_log(
+            "RECORD_BILL_PAYMENT",
+            f"id={bp['Id']} vendor={vendor_name} amount={amount} bill={bill['Id']}",
+        )
         return (
             f"✅ Bill payment recorded\n"
             f"  **Payment ID:** {bp['Id']} | **Amount:** {fmt(amount)}\n"
@@ -10797,14 +14460,21 @@ async def qb_record_bill_payment(vendor_name: str, amount: float, bill_id: str =
 
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_record_invoice_payment(customer_name: str, amount: float, invoice_id: str = "",
-                                     deposit_account: str = "", date: str = "",
-                                     payment_method: str = "", memo: str = "") -> str:
+async def qb_record_invoice_payment(
+    customer_name: str,
+    amount: float,
+    invoice_id: str = "",
+    deposit_account: str = "",
+    date: str = "",
+    payment_method: str = "",
+    memo: str = "",
+) -> str:
     """Record a customer payment against an invoice (accounts receivable).
     customer_name: customer making payment. amount: payment amount.
     invoice_id: specific invoice ID (optional — will find unpaid invoices if omitted).
     deposit_account: bank account to deposit to (defaults to Undeposited Funds).
-    date: YYYY-MM-DD (defaults to today). payment_method: Cash, Check, CreditCard, etc."""
+    date: YYYY-MM-DD (defaults to today). payment_method: Cash, Check, CreditCard, etc.
+    """
     amount = _validate_amount(amount, "amount")
     if date:
         date = _validate_date(date, "date")
@@ -10813,9 +14483,15 @@ async def qb_record_invoice_payment(customer_name: str, amount: float, invoice_i
 
     # Find customer
     safe_name = customer_name.replace("'", "")
-    customers = (await qb_query(
-        f"SELECT * FROM Customer WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
-    )).get("QueryResponse", {}).get("Customer", [])
+    customers = (
+        (
+            await qb_query(
+                f"SELECT * FROM Customer WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
+            )
+        )
+        .get("QueryResponse", {})
+        .get("Customer", [])
+    )
     if not customers:
         return f"Error: Customer '{customer_name}' not found."
     customer = customers[0]
@@ -10827,38 +14503,67 @@ async def qb_record_invoice_payment(customer_name: str, amount: float, invoice_i
         if not invoice.get("Id"):
             return f"Error: Invoice #{invoice_id} not found."
     else:
-        invoices = (await qb_query(
-            f"SELECT * FROM Invoice WHERE CustomerRef = '{customer['Id']}' AND Balance > '0' MAXRESULTS 10"
-        )).get("QueryResponse", {}).get("Invoice", [])
+        invoices = (
+            (
+                await qb_query(
+                    f"SELECT * FROM Invoice WHERE CustomerRef = '{customer['Id']}' AND Balance > '0' MAXRESULTS 10"
+                )
+            )
+            .get("QueryResponse", {})
+            .get("Invoice", [])
+        )
         if not invoices:
             return f"No unpaid invoices found for customer '{customer_name}'."
         invoice = invoices[0]
 
     payment = {
-        "CustomerRef": {"value": customer["Id"], "name": customer.get("DisplayName", "")},
+        "CustomerRef": {
+            "value": customer["Id"],
+            "name": customer.get("DisplayName", ""),
+        },
         "TotalAmt": amount,
         "TxnDate": date,
-        "Line": [{
-            "Amount": amount,
-            "LinkedTxn": [{"TxnId": invoice["Id"], "TxnType": "Invoice"}]
-        }],
+        "Line": [
+            {
+                "Amount": amount,
+                "LinkedTxn": [{"TxnId": invoice["Id"], "TxnType": "Invoice"}],
+            }
+        ],
     }
 
     if deposit_account:
         safe_acct = deposit_account.replace("'", "")
-        accts = (await qb_query(
-            f"SELECT * FROM Account WHERE Name LIKE '%{safe_acct}%' AND AccountType = 'Bank' MAXRESULTS 5"
-        )).get("QueryResponse", {}).get("Account", [])
+        accts = (
+            (
+                await qb_query(
+                    f"SELECT * FROM Account WHERE Name LIKE '%{safe_acct}%' AND AccountType = 'Bank' MAXRESULTS 5"
+                )
+            )
+            .get("QueryResponse", {})
+            .get("Account", [])
+        )
         if accts:
-            payment["DepositToAccountRef"] = {"value": accts[0]["Id"], "name": accts[0].get("Name", "")}
+            payment["DepositToAccountRef"] = {
+                "value": accts[0]["Id"],
+                "name": accts[0].get("Name", ""),
+            }
 
     if payment_method:
         # Look up payment method
-        pm_result = (await qb_query(
-            f"SELECT * FROM PaymentMethod WHERE Name LIKE '%{payment_method}%' MAXRESULTS 5"
-        )).get("QueryResponse", {}).get("PaymentMethod", [])
+        pm_result = (
+            (
+                await qb_query(
+                    f"SELECT * FROM PaymentMethod WHERE Name LIKE '%{payment_method}%' MAXRESULTS 5"
+                )
+            )
+            .get("QueryResponse", {})
+            .get("PaymentMethod", [])
+        )
         if pm_result:
-            payment["PaymentMethodRef"] = {"value": pm_result[0]["Id"], "name": pm_result[0].get("Name", "")}
+            payment["PaymentMethodRef"] = {
+                "value": pm_result[0]["Id"],
+                "name": pm_result[0].get("Name", ""),
+            }
 
     if memo:
         payment["PrivateNote"] = memo
@@ -10867,7 +14572,10 @@ async def qb_record_invoice_payment(customer_name: str, amount: float, invoice_i
     pmt = result.get("Payment", {})
 
     if pmt.get("Id"):
-        _audit_log("RECORD_INVOICE_PAYMENT", f"id={pmt['Id']} customer={customer_name} amount={amount} invoice={invoice['Id']}")
+        _audit_log(
+            "RECORD_INVOICE_PAYMENT",
+            f"id={pmt['Id']} customer={customer_name} amount={amount} invoice={invoice['Id']}",
+        )
         return (
             f"✅ Invoice payment recorded\n"
             f"  **Payment ID:** {pmt['Id']} | **Amount:** {fmt(amount)}\n"
@@ -10881,19 +14589,33 @@ async def qb_record_invoice_payment(customer_name: str, amount: float, invoice_i
 # NEW: Create Estimate
 # ===================================================================
 
+
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_estimate(customer_name: str, line_items: str, expiration_date: str = "",
-                              memo: str = "", tax_code: str = "", tax_inclusive: bool = False) -> str:
+async def qb_create_estimate(
+    customer_name: str,
+    line_items: str,
+    expiration_date: str = "",
+    memo: str = "",
+    tax_code: str = "",
+    tax_inclusive: bool = False,
+) -> str:
     """Create a customer estimate/quote.
     customer_name: customer to quote. line_items: JSON string array
     [{"description": "Consulting", "amount": 5000}]. expiration_date: YYYY-MM-DD (optional).
     memo: internal note.
-    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; per-line override via 'tax_code' key in line_items JSON; tax_inclusive=True when amounts already include tax."""
+    Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; per-line override via 'tax_code' key in line_items JSON; tax_inclusive=True when amounts already include tax.
+    """
     # Find customer
     safe_name = customer_name.replace("'", "")
-    customers = (await qb_query(
-        f"SELECT * FROM Customer WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
-    )).get("QueryResponse", {}).get("Customer", [])
+    customers = (
+        (
+            await qb_query(
+                f"SELECT * FROM Customer WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
+            )
+        )
+        .get("QueryResponse", {})
+        .get("Customer", [])
+    )
     if not customers:
         return f"Error: Customer '{customer_name}' not found. Create them first with qb_create_customer."
     customer = customers[0]
@@ -10901,7 +14623,7 @@ async def qb_create_estimate(customer_name: str, line_items: str, expiration_dat
     try:
         items = json.loads(line_items)
     except (json.JSONDecodeError, TypeError):
-        return "Error: line_items must be valid JSON array. Example: [{\"description\": \"Service\", \"amount\": 100}]"
+        return 'Error: line_items must be valid JSON array. Example: [{"description": "Service", "amount": 100}]'
 
     if not isinstance(items, list) or not items:
         return "Error: line_items must be a non-empty array."
@@ -10927,7 +14649,7 @@ async def qb_create_estimate(customer_name: str, line_items: str, expiration_dat
             "SalesItemLineDetail": {
                 "UnitPrice": amt,
                 "Qty": 1,
-            }
+            },
         }
         try:
             line_tax = await _line_tax_code_ref(item, region, tax_cache)
@@ -10937,13 +14659,18 @@ async def qb_create_estimate(customer_name: str, line_items: str, expiration_dat
             line["SalesItemLineDetail"]["TaxCodeRef"] = line_tax
         lines.append(line)
 
-    if region != "US" and not default_tax_id and not any(
-        "TaxCodeRef" in l["SalesItemLineDetail"] for l in lines
+    if (
+        region != "US"
+        and not default_tax_id
+        and not any("TaxCodeRef" in l["SalesItemLineDetail"] for l in lines)
     ):
         return _TAX_CODE_REQUIRED_MSG
 
     estimate = {
-        "CustomerRef": {"value": customer["Id"], "name": customer.get("DisplayName", "")},
+        "CustomerRef": {
+            "value": customer["Id"],
+            "name": customer.get("DisplayName", ""),
+        },
         "Line": lines,
         "TxnDate": datetime.now().strftime("%Y-%m-%d"),
     }
@@ -10952,14 +14679,17 @@ async def qb_create_estimate(customer_name: str, line_items: str, expiration_dat
         estimate["ExpirationDate"] = _validate_date(expiration_date, "expiration_date")
     if memo:
         estimate["PrivateNote"] = memo
-    _apply_global_tax(estimate, "Line", "SalesItemLineDetail",
-                      default_tax_id, tax_inclusive, region)
+    _apply_global_tax(
+        estimate, "Line", "SalesItemLineDetail", default_tax_id, tax_inclusive, region
+    )
 
     result = await qb_request("POST", "estimate", json_body=estimate)
     est = result.get("Estimate", {})
 
     if est.get("Id"):
-        _audit_log("CREATE_ESTIMATE", f"id={est['Id']} customer={customer_name} total={total}")
+        _audit_log(
+            "CREATE_ESTIMATE", f"id={est['Id']} customer={customer_name} total={total}"
+        )
         return (
             f"✅ Estimate created\n"
             f"  **Estimate ID:** {est['Id']} | **Total:** {fmt(total)}\n"
@@ -11006,7 +14736,6 @@ async def qb_create_estimate(customer_name: str, line_items: str, expiration_dat
 #   quarterly instalments one month after each fiscal quarter end.
 
 
-
 def _purchase_meals_split(txn: dict) -> tuple:
     """(meals_amount, other_amount) across a purchase/bill's expense lines.
 
@@ -11028,8 +14757,13 @@ def _purchase_meals_split(txn: dict) -> tuple:
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-@require_region("CA", "Use qb_sales_tax_summary / qb_schedule_c for US sales tax and income tax prep.")
-async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "") -> str:
+@require_region(
+    "CA",
+    "Use qb_sales_tax_summary / qb_schedule_c for US sales tax and income tax prep.",
+)
+async def qb_gst_hst_return(
+    start_date: str, end_date: str, agency_name: str = ""
+) -> str:
     """Build a GST/HST (GST34) return workpaper for a filing period.
     Computes lines 101 (sales & revenue), 103/105 (GST/HST collected),
     106/108 (input tax credits, with the 50% meals & entertainment
@@ -11053,20 +14787,26 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
 
     # ---- Resolve the tax agency for the reports/TaxSummary endpoint ----
     try:
-        agencies = (await qb_query_all("SELECT * FROM TaxAgency MAXRESULTS 1000")) \
-            .get("QueryResponse", {}).get("TaxAgency", [])
+        agencies = (
+            (await qb_query_all("SELECT * FROM TaxAgency MAXRESULTS 1000"))
+            .get("QueryResponse", {})
+            .get("TaxAgency", [])
+        )
     except Exception as e:
         logger.debug(f"TaxAgency query failed: {e}")
         agencies = []
 
-    provincial_agencies = [a for a in agencies
-                           if _ca_agency_is_provincial(a.get("DisplayName") or "")]
+    provincial_agencies = [
+        a for a in agencies if _ca_agency_is_provincial(a.get("DisplayName") or "")
+    ]
     pst_name = (regime or {}).get("pst_name", "PST/QST")
 
     agency = None
     if agency_name:
         wanted = agency_name.lower()
-        matches = [a for a in agencies if wanted in (a.get("DisplayName") or "").lower()]
+        matches = [
+            a for a in agencies if wanted in (a.get("DisplayName") or "").lower()
+        ]
         if not matches:
             names = ", ".join(a.get("DisplayName", "?") for a in agencies) or "(none)"
             return f"Tax agency '{agency_name}' not found. Available agencies: {names}"
@@ -11074,15 +14814,22 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
     elif len(agencies) == 1 and not provincial_agencies:
         agency = agencies[0]
     else:
-        cra = [a for a in agencies
-               if any(k in (a.get("DisplayName") or "").lower()
-                      for k in ("canada revenue", "cra", "receiver general"))]
+        cra = [
+            a
+            for a in agencies
+            if any(
+                k in (a.get("DisplayName") or "").lower()
+                for k in ("canada revenue", "cra", "receiver general")
+            )
+        ]
         if cra:
             agency = cra[0]
         elif agencies:
             names = ", ".join(a.get("DisplayName", "?") for a in agencies)
-            lines.append(f"*Multiple tax agencies found ({names}) — pass agency_name= "
-                         f"to pull the QuickBooks TaxSummary report for one of them.*\n")
+            lines.append(
+                f"*Multiple tax agencies found ({names}) — pass agency_name= "
+                f"to pull the QuickBooks TaxSummary report for one of them.*\n"
+            )
 
     for pa in provincial_agencies:
         lines.append(
@@ -11093,19 +14840,28 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
     # ---- QuickBooks TaxSummary report (non-US editions only) ----
     if agency is not None:
         try:
-            rep = await qb_request("GET", "reports/TaxSummary", params={
-                "start_date": start_date, "end_date": end_date,
-                "agency_id": agency.get("Id"),
-            })
+            rep = await qb_request(
+                "GET",
+                "reports/TaxSummary",
+                params={
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "agency_id": agency.get("Id"),
+                },
+            )
             rep_rows = rep.get("Rows", {}).get("Row", [])
             if rep_rows:
-                lines.append(f"### QuickBooks TaxSummary report — {agency.get('DisplayName', '?')}")
+                lines.append(
+                    f"### QuickBooks TaxSummary report — {agency.get('DisplayName', '?')}"
+                )
                 _parse_report_rows(rep_rows, lines)
                 lines.append("")
         except Exception as e:
             logger.debug(f"reports/TaxSummary failed: {e}")
-            lines.append("*QuickBooks TaxSummary report unavailable for this "
-                         "period/agency — using transaction-derived figures below.*\n")
+            lines.append(
+                "*QuickBooks TaxSummary report unavailable for this "
+                "period/agency — using transaction-derived figures below.*\n"
+            )
 
     # ---- Transaction-derived workpaper (always computed) ----
     line_101 = 0.0  # sales & revenue (net of GST/HST)
@@ -11123,7 +14879,7 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
             line_103 += tax
             sales_count += 1
 
-    line_106 = 0.0        # ITCs (tax on purchases, after meals restriction)
+    line_106 = 0.0  # ITCs (tax on purchases, after meals restriction)
     meals_restricted = 0.0  # disallowed half of meals & entertainment GST/HST
     purchase_count = 0
     for entity in ("Purchase", "Bill"):
@@ -11139,7 +14895,9 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
             meals, other = _purchase_meals_split(txn)
             if meals > 0 and (meals + other) > 0:
                 # ITA s.67.1: only 50% of GST/HST on the meals portion is claimable
-                claimable = tax * ((other + _MEALS_ITC_FACTOR * meals) / (meals + other))
+                claimable = tax * (
+                    (other + _MEALS_ITC_FACTOR * meals) / (meals + other)
+                )
                 meals_restricted += tax - claimable
             else:
                 claimable = tax
@@ -11150,17 +14908,23 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
     line_109 = line_105 - line_108
 
     lines.append("### Transaction-derived return lines")
-    lines.append(f"  Line 101 — Sales and other revenue (net of GST/HST): {fmt(line_101)}")
+    lines.append(
+        f"  Line 101 — Sales and other revenue (net of GST/HST): {fmt(line_101)}"
+    )
     lines.append(f"  Line 103 — GST/HST collected or collectible: {fmt(line_103)}")
     lines.append(f"  Line 105 — Total GST/HST and adjustments: {fmt(line_105)}")
     lines.append(f"  Line 106 — Input tax credits (ITCs): {fmt(line_106)}")
     lines.append(f"  Line 108 — Total ITCs and adjustments: {fmt(line_108)}")
     lines.append(f"  **Line 109 — Net tax (105 − 108): {fmt(line_109)}**")
-    lines.append(f"\n  Derived from {sales_count} sales documents and "
-                 f"{purchase_count} taxed purchase documents.")
+    lines.append(
+        f"\n  Derived from {sales_count} sales documents and "
+        f"{purchase_count} taxed purchase documents."
+    )
     if meals_restricted > 0:
-        lines.append(f"  Meals & entertainment ITC restriction applied (50% of "
-                     f"GST/HST disallowed): {fmt(meals_restricted)} excluded from line 106.")
+        lines.append(
+            f"  Meals & entertainment ITC restriction applied (50% of "
+            f"GST/HST disallowed): {fmt(meals_restricted)} excluded from line 106."
+        )
 
     if regime and regime["regime"] in ("GST_PST", "GST_QST"):
         lines.append(
@@ -11226,73 +14990,84 @@ async def qb_gst_hst_return(start_date: str, end_date: str, agency_name: str = "
         )
 
     lines.append(f"\n---\n⚠️ {_GST_WORKPAPER_FOOTER}")
-    _audit_log("GST_HST_RETURN", f"period={start_date}/{end_date} net_tax={fmt(line_109)}")
+    _audit_log(
+        "GST_HST_RETURN", f"period={start_date}/{end_date} net_tax={fmt(line_109)}"
+    )
     return "\n".join(lines) + tax_data_footer()
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-@require_region("CA", "Use qb_schedule_c / qb_schedule_c_detailed for the IRS Schedule C.")
+@require_region(
+    "CA", "Use qb_schedule_c / qb_schedule_c_detailed for the IRS Schedule C."
+)
 async def qb_t2125_summary(year: int = 0) -> str:
     """Generate a CRA T2125 (Statement of Business or Professional Activities)
     line-by-line mapping for a tax year. Maps QuickBooks expense accounts to
     T2125 Part 4 lines (8521 Advertising, 8523 Meals at 50%, 8910 Rent, ...)
-    the way qb_schedule_c maps to Schedule C. year: e.g. 2025 (default: current year)."""
+    the way qb_schedule_c maps to Schedule C. year: e.g. 2025 (default: current year).
+    """
     from datetime import date as _date
+
     year = int(year) or _date.today().year
     start = f"{year}-01-01"
     end = f"{year}-12-31"
 
-    result = await qb_request("GET", "reports/ProfitAndLoss", params={
-        "start_date": start, "end_date": end,
-        "summarize_column_by": "Total",
-    })
+    result = await qb_request(
+        "GET",
+        "reports/ProfitAndLoss",
+        params={
+            "start_date": start,
+            "end_date": end,
+            "summarize_column_by": "Total",
+        },
+    )
 
     # Shared extractor: reconciles at every tree level, so amounts posted
     # directly to a PARENT account are captured (not just leaves) — same fix as
     # Schedule C. Keeps the two jurisdictions on one code path.
     expense_dict = _extract_pl_expense_accounts(result)
 
-    # Chart subtype map (P&L rows carry only names). Income split correctly —
+    # Chart maps (P&L rows carry only names): subtype for classification, FQN so
+    # home-office sub-accounts are caught by parent chain. Income split correctly —
     # Sales/fees → gross sales; refunds → reduce it; interest & other income →
     # its own line. The old loop let 'Total Other Income' overwrite 'Total Income'.
-    name_sub = await _account_subtype_map()
-    gross_receipts, returns_allow, _cogs, other_income = _pl_income_breakdown(result, name_sub)
+    name_sub, name_fqn = await _chart_maps()
+    gross_receipts, returns_allow, _cogs, other_income = _pl_income_breakdown(
+        result, name_sub
+    )
     net_sales = round(gross_receipts - returns_allow, 2)
     gross_business_income = round(net_sales + other_income, 2)
 
-    # Map expense accounts to T2125 lines via the canonical taxonomy (subtype
-    # first, word-boundary name fallback). Meals & entertainment (8523) are 50%
-    # deductible (ITA s.67.1). Accounts landing on 9270 are flagged for review.
-    from collections import defaultdict
-    t_lines = defaultdict(lambda: {"amount": 0.0, "accounts": []})
-    nondeduct = defaultdict(lambda: {"amount": 0.0, "accounts": []})
-    unmapped = []
-    for acct_name, amount in expense_dict.items():
-        amount = abs(amount)
-        if amount == 0:
-            continue
-        line_no, desc, _flags = classify_account(acct_name, name_sub.get(acct_name, ""), "CA")
-        if line_no.startswith("NONDED"):
-            nondeduct[desc]["amount"] += amount
-            nondeduct[desc]["accounts"].append(f"{acct_name}: {fmt(amount)}")
-            continue
-        key = f"Line {line_no} — {desc}"
-        factor, cite = line_limitation(line_no, "CA")
-        deductible = round(amount * factor, 2)
-        t_lines[key]["amount"] += deductible
-        note = f" ({factor * 100:.0f}% of {fmt(amount)}, {cite})" if factor < 0.999 else ""
-        t_lines[key]["accounts"].append(f"{acct_name}: {fmt(deductible)}{note}")
-        if line_no == "9270":
-            unmapped.append(acct_name)
+    # Expenses: classify → ALLOCATE (taxpayer %) → LIMIT (statutory %) — one code
+    # path with Schedule C. Home-office costs route to line 9945 (business-use-of-
+    # home) with the loss limitation + carryforward; the motor-vehicle line (9281)
+    # takes the business-use %; meals (8523) are 50% (ITA s.67.1).
+    profile = await _get_allocation_profile(int(year))
+    res = _map_expenses_to_schedule_c(
+        expense_dict, name_sub, profile, name_fqn, jurisdiction="CA"
+    )
+    pl_total = _pl_expense_total(result)
+    unmapped = [
+        acct[0]
+        for d in res["lines"].values()
+        if d.get("line") == "9270"
+        for acct in d["accounts"]
+    ]
 
     lines = [f"## CRA T2125 — Statement of Business Activities — {year}\n"]
     lines.append("### Income")
-    lines.append(f"  Line 8000 — Gross sales, commissions or fees: {fmt(gross_receipts)}")
+    lines.append(
+        f"  Line 8000 — Gross sales, commissions or fees: {fmt(gross_receipts)}"
+    )
     if returns_allow:
-        lines.append(f"  Line 8000a — Returns, allowances & discounts: ({fmt(returns_allow)})")
+        lines.append(
+            f"  Line 8000a — Returns, allowances & discounts: ({fmt(returns_allow)})"
+        )
         lines.append(f"  Net sales: {fmt(net_sales)}")
     if other_income:
-        lines.append(f"  Line 8230 — Other income (interest, etc.): {fmt(other_income)}")
+        lines.append(
+            f"  Line 8230 — Other income (interest, etc.): {fmt(other_income)}"
+        )
         lines.append(
             "    *Interest/investment income may be reportable on Schedule 4 "
             "(T5), not T2125 — confirm it is business income before including.*"
@@ -11303,50 +15078,53 @@ async def qb_t2125_summary(year: int = 0) -> str:
         "(QuickBooks sales figures above exclude tax when tax codes are used).*\n"
     )
 
-    lines.append("### Part 4 — Expenses")
-    total_expenses = 0.0
-    for key in sorted(t_lines.keys()):
-        data = t_lines[key]
-        lines.append(f"\n**{key}: {fmt(data['amount'])}**")
-        for acct in data["accounts"]:
-            lines.append(f"  - {acct}")
-        total_expenses += data["amount"]
-
-    if nondeduct:
-        nd_total = sum(d["amount"] for d in nondeduct.values())
-        lines.append(f"\n### Not deductible on T2125 — excluded ({fmt(nd_total)})")
-        for desc in sorted(nondeduct):
-            for acct in nondeduct[desc]["accounts"]:
-                lines.append(f"  - {acct} — {desc}")
+    # Part 4 expenses via the shared renderer — allocation (business-use %),
+    # statutory 50% meals, business-use-of-home (line 9945) with the loss limit +
+    # carryforward, totals (9368 / 9369), non-deductibles, and the "needs a
+    # business-use %" warning. Same engine as Schedule C; conservation enforced.
+    net = _render_schedule_c_expenses(
+        res,
+        profile,
+        int(year),
+        gross_business_income,
+        pl_total,
+        lines,
+        jurisdiction="CA",
+    )
 
     lines.append(
         "\n**Line 9936 — Capital cost allowance (CCA):** not computed here — "
         "run qb_cca_schedule for the class-by-class UCC schedule."
     )
-    lines.append(
-        "**Line 9945 — Business-use-of-home:** compute separately — must be your "
-        "principal place of business OR used exclusively and regularly to meet "
-        "clients; prorate by area; cannot create or increase a loss (excess "
-        "carries forward)."
-    )
-
-    net = round(gross_business_income - total_expenses, 2)
-    lines.append(f"\n**Line 9368 — Total expenses: {fmt(total_expenses)}**")
-    lines.append(f"**Line 9369 — Net income (loss) before adjustments: {fmt(net)}**")
+    if not res["home_indirect"]:
+        lines.append(
+            "**Line 9945 — Business-use-of-home:** none detected in the books. If you "
+            "work from home, book the home costs (or designate them with "
+            "qb_allocation_profile) — must be your principal place of business OR used "
+            "regularly to meet clients; prorate by area; cannot create or increase a "
+            "loss (excess carries forward)."
+        )
 
     if unmapped:
-        lines.append(f"\n*Unmapped accounts placed on line 9270 — review: "
-                     f"{', '.join(unmapped)}*")
+        lines.append(
+            f"\n*Unmapped accounts placed on line 9270 — review: "
+            f"{', '.join(sorted(set(unmapped)))}*"
+        )
 
-    lines.extend([
-        "\n### Filing deadlines",
-        "  - T1 return (self-employed): June 15",
-        "  - Balance owing due: April 30",
-        "  - Meals & entertainment: only 50% deductible (line 8523, ITA s.67.1)",
-        "\n*Workpaper only — verify mappings with your accountant before filing.*",
-    ])
+    lines.extend(
+        [
+            "\n### Filing deadlines",
+            "  - T1 return (self-employed): June 15",
+            "  - Balance owing due: April 30",
+            "  - Meals & entertainment: only 50% deductible (line 8523, ITA s.67.1)",
+            "\n*Workpaper only — verify mappings with your accountant before filing.*",
+        ]
+    )
 
-    _audit_log("T2125_SUMMARY", f"year={year} income={fmt(gross_business_income)} expenses={fmt(total_expenses)}")
+    _audit_log(
+        "T2125_SUMMARY",
+        f"year={year} income={fmt(gross_business_income)} " f"net={fmt(net)}",
+    )
     return "\n".join(lines) + tax_data_footer(year)
 
 
@@ -11395,21 +15173,30 @@ async def qb_cca_schedule(assets_json: str = "", year: int = 0) -> str:
         assets = json.loads(assets_json)
         assert isinstance(assets, list) and assets
     except (json.JSONDecodeError, AssertionError):
-        return ('Error: assets_json must be a non-empty JSON array like '
-                '[{"name": "MacBook", "cost": 3000, "class": "50", '
-                '"acquired": "2026-02-01"}]')
+        return (
+            "Error: assets_json must be a non-empty JSON array like "
+            '[{"name": "MacBook", "cost": 3000, "class": "50", '
+            '"acquired": "2026-02-01"}]'
+        )
 
     from collections import defaultdict
+
     by_class = defaultdict(list)
     for a in assets:
         cls = str(a.get("class", "")).strip()
         if cls not in _CCA_CLASSES:
-            return (f"Error: unknown CCA class '{cls}'. Supported classes: "
-                    f"{', '.join(_CCA_CLASSES)}")
+            return (
+                f"Error: unknown CCA class '{cls}'. Supported classes: "
+                f"{', '.join(_CCA_CLASSES)}"
+            )
         by_class[cls].append(a)
 
     lines = [f"## CCA Schedule — {year}\n"]
-    lines.append("| Class | Asset | Cost (capped) | Opening UCC | CCA {0} | Closing UCC |".format(year))
+    lines.append(
+        "| Class | Asset | Cost (capped) | Opening UCC | CCA {0} | Closing UCC |".format(
+            year
+        )
+    )
     lines.append("|---|---|---|---|---|---|")
 
     total_cca = 0.0
@@ -11422,7 +15209,9 @@ async def qb_cca_schedule(assets_json: str = "", year: int = 0) -> str:
                 cost = float(a.get("cost", 0))
                 acq_year = int(str(a.get("acquired", ""))[:4])
             except (ValueError, TypeError):
-                return f"Error: asset '{name}' needs numeric cost and acquired=YYYY-MM-DD."
+                return (
+                    f"Error: asset '{name}' needs numeric cost and acquired=YYYY-MM-DD."
+                )
             if acq_year > year:
                 continue
 
@@ -11430,7 +15219,9 @@ async def qb_cca_schedule(assets_json: str = "", year: int = 0) -> str:
             capped_cost = cost
             if cls == "10.1":
                 try:
-                    ceiling, _c_note = tax_value_or_latest("CLASS_10_1_CEILING", acq_year)
+                    ceiling, _c_note = tax_value_or_latest(
+                        "CLASS_10_1_CEILING", acq_year
+                    )
                 except TaxDataError as e:
                     return str(e)
                 if _c_note:
@@ -11439,11 +15230,13 @@ async def qb_cca_schedule(assets_json: str = "", year: int = 0) -> str:
                     capped_cost = ceiling
                     ceiling_notes.append(
                         f"{name}: Class 10.1 cost capped at {fmt(ceiling)} "
-                        f"({acq_year} ceiling, plus GST/HST/PST on that amount).")
+                        f"({acq_year} ceiling, plus GST/HST/PST on that amount)."
+                    )
             elif cls == "54" and cost > _CLASS_54_ZEV_CEILING:
                 capped_cost = _CLASS_54_ZEV_CEILING
                 ceiling_notes.append(
-                    f"{name}: Class 54 ZEV cost capped at {fmt(_CLASS_54_ZEV_CEILING)}.")
+                    f"{name}: Class 54 ZEV cost capped at {fmt(_CLASS_54_ZEV_CEILING)}."
+                )
 
             # UCC simulation from acquisition year to the claim year.
             # Year 1: AII (1.5x rate, no half-year) for property acquired on or
@@ -11481,19 +15274,21 @@ async def qb_cca_schedule(assets_json: str = "", year: int = 0) -> str:
         for n in ceiling_notes:
             lines.append(f"  - {n}")
 
-    lines.extend([
-        "\n### Rules applied",
-        f"  - Half-year rule: half the net addition gets the class rate in year 1 "
-        f"(pre-{_AII_START_YEAR} acquisitions).",
-        f"  - Accelerated Investment Incentive (Budget 2025 / Bill C-15): property "
-        f"acquired on/after Jan 1 {_AII_START_YEAR} and available for use before 2030 "
-        f"gets {_AII_FIRST_YEAR_FACTOR}x the first-year rate with no half-year rule; "
-        f"phase-out 2030-2033.",
-        "  - Class 10.1: no terminal loss; half-year CCA allowed in the year of sale.",
-        "\n*Verify with your accountant — 100% immediate expensing may apply to "
-        "eligible manufacturing & processing, clean-energy, and zero-emission "
-        "vehicle property.*",
-    ])
+    lines.extend(
+        [
+            "\n### Rules applied",
+            f"  - Half-year rule: half the net addition gets the class rate in year 1 "
+            f"(pre-{_AII_START_YEAR} acquisitions).",
+            f"  - Accelerated Investment Incentive (Budget 2025 / Bill C-15): property "
+            f"acquired on/after Jan 1 {_AII_START_YEAR} and available for use before 2030 "
+            f"gets {_AII_FIRST_YEAR_FACTOR}x the first-year rate with no half-year rule; "
+            f"phase-out 2030-2033.",
+            "  - Class 10.1: no terminal loss; half-year CCA allowed in the year of sale.",
+            "\n*Verify with your accountant — 100% immediate expensing may apply to "
+            "eligible manufacturing & processing, clean-energy, and zero-emission "
+            "vehicle property.*",
+        ]
+    )
 
     _audit_log("CCA_SCHEDULE", f"year={year} assets={len(assets)} cca={fmt(total_cca)}")
     return "\n".join(lines) + tax_data_footer(year)
@@ -11528,8 +15323,12 @@ async def qb_t4a_contractor_report(year: int) -> str:
     for v in vendors:
         vid = v.get("Id", "")
         addr = v.get("BillAddr", {})
-        parts = [addr.get("Line1", ""), addr.get("City", ""),
-                 addr.get("CountrySubDivisionCode", ""), addr.get("PostalCode", "")]
+        parts = [
+            addr.get("Line1", ""),
+            addr.get("City", ""),
+            addr.get("CountrySubDivisionCode", ""),
+            addr.get("PostalCode", ""),
+        ]
         vendor_map[vid] = {
             "name": v.get("DisplayName", "?"),
             "company": v.get("CompanyName", ""),
@@ -11552,8 +15351,12 @@ async def qb_t4a_contractor_report(year: int) -> str:
             vendor_map[vid]["total_paid"] += float(b.get("TotalAmt", 0) or 0)
             vendor_map[vid]["payment_count"] += 1
 
-    reportable = [v for v in vendor_map.values() if v["total_paid"] >= _T4A_ADMIN_THRESHOLD]
-    below = [v for v in vendor_map.values() if 0 < v["total_paid"] < _T4A_ADMIN_THRESHOLD]
+    reportable = [
+        v for v in vendor_map.values() if v["total_paid"] >= _T4A_ADMIN_THRESHOLD
+    ]
+    below = [
+        v for v in vendor_map.values() if 0 < v["total_paid"] < _T4A_ADMIN_THRESHOLD
+    ]
     reportable.sort(key=lambda x: x["total_paid"], reverse=True)
 
     lines = [
@@ -11572,33 +15375,43 @@ async def qb_t4a_contractor_report(year: int) -> str:
         if not v["address"]:
             missing_addr += 1
         lines.append(f"### {i}. {v['name']}")
-        lines.append(f"  **Total Paid:** {fmt(v['total_paid'])} ({v['payment_count']} payments)")
-        lines.append(f"  **BN/SIN Status:** {'✅ On file' if v['bn'] else '⚠️ MISSING'}")
+        lines.append(
+            f"  **Total Paid:** {fmt(v['total_paid'])} ({v['payment_count']} payments)"
+        )
+        lines.append(
+            f"  **BN/SIN Status:** {'✅ On file' if v['bn'] else '⚠️ MISSING'}"
+        )
         if v["company"]:
             lines.append(f"  **Company:** {v['company']}")
-        lines.append(f"  **Address:** {v['address'] or '⚠️ MISSING — needed for the T4A slip'}")
+        lines.append(
+            f"  **Address:** {v['address'] or '⚠️ MISSING — needed for the T4A slip'}"
+        )
         if v["email"]:
             lines.append(f"  **Email:** {v['email']}")
         lines.append("")
 
-    lines.extend([
-        "---",
-        "### Summary",
-        f"  Total reportable payments: {fmt(grand_total)}",
-        f"  Vendors needing a T4A slip: {len(reportable)}",
-        f"  Missing BN/SIN: {missing_bn} | Missing address: {missing_addr}",
-        f"  Vendors below {fmt(_T4A_ADMIN_THRESHOLD)} (usually not slipped): {len(below)}",
-        "",
-        "### Filing notes",
-        "  - Report fees for services in **box 048** of the T4A (amounts exclude GST/HST).",
-        f"  - T4A slips and summary are due the **last day of February {year + 1}**.",
-        "  - Construction businesses: file **T5018** slips instead — report ALL "
-        "subcontractor payments with no minimum threshold.",
-        "  - Exclude payments for goods only; box 048 covers services.",
-        "\n*Verify recipient details and slip requirements with your accountant.*",
-    ])
+    lines.extend(
+        [
+            "---",
+            "### Summary",
+            f"  Total reportable payments: {fmt(grand_total)}",
+            f"  Vendors needing a T4A slip: {len(reportable)}",
+            f"  Missing BN/SIN: {missing_bn} | Missing address: {missing_addr}",
+            f"  Vendors below {fmt(_T4A_ADMIN_THRESHOLD)} (usually not slipped): {len(below)}",
+            "",
+            "### Filing notes",
+            "  - Report fees for services in **box 048** of the T4A (amounts exclude GST/HST).",
+            f"  - T4A slips and summary are due the **last day of February {year + 1}**.",
+            "  - Construction businesses: file **T5018** slips instead — report ALL "
+            "subcontractor payments with no minimum threshold.",
+            "  - Exclude payments for goods only; box 048 covers services.",
+            "\n*Verify recipient details and slip requirements with your accountant.*",
+        ]
+    )
 
-    _audit_log("T4A_REPORT", f"year={year} vendors={len(reportable)} total={fmt(grand_total)}")
+    _audit_log(
+        "T4A_REPORT", f"year={year} vendors={len(reportable)} total={fmt(grand_total)}"
+    )
     return "\n".join(lines) + tax_data_footer(year)
 
 
@@ -11610,6 +15423,7 @@ async def qb_estimate_instalments(year: int = 0, province: str = "") -> str:
     approximate 2025/2026 brackets plus a flat provincial factor — a rough
     planning estimate only. province: two-letter code (ON, BC, AB, QC, ...)."""
     from datetime import date
+
     today = date.today()
     if not year:
         year = today.year
@@ -11618,9 +15432,14 @@ async def qb_estimate_instalments(year: int = 0, province: str = "") -> str:
     start = f"{year}-01-01"
     end = min(today.strftime("%Y-%m-%d"), f"{year}-12-31")
 
-    result = await qb_request("GET", "reports/ProfitAndLoss", params={
-        "start_date": start, "end_date": end,
-    })
+    result = await qb_request(
+        "GET",
+        "reports/ProfitAndLoss",
+        params={
+            "start_date": start,
+            "end_date": end,
+        },
+    )
 
     # Income split correctly (never let 'Other Income' overwrite Sales); sum
     # expenses across both 'Total Expenses' and 'Total Other Expenses'.
@@ -11672,26 +15491,38 @@ async def qb_estimate_instalments(year: int = 0, province: str = "") -> str:
     quarterly = total_annual / 4
 
     lines = [f"## CRA Instalment Estimate — {year}\n"]
-    lines.append(f"**YTD Net self-employment income:** {fmt(net_income)} ({start} to {end})")
+    lines.append(
+        f"**YTD Net self-employment income:** {fmt(net_income)} ({start} to {end})"
+    )
     lines.append(f"**Province:** {province}\n")
 
     lines.append(f"### CPP (self-employed — both halves){cpp_year_note}")
-    lines.append(f"  Base CPP: {fmt(base_cpp)} — 11.9% on earnings between "
-                 f"{fmt(_CPP_BASIC_EXEMPTION)} and YMPE {fmt(ympe)}")
-    lines.append(f"  CPP2: {fmt(cpp2)} — 8% on earnings between YMPE {fmt(ympe)} "
-                 f"and YAMPE {fmt(yampe)}")
-    lines.append(f"  **Total CPP: {fmt(cpp_total)}** (half of base CPP — "
-                 f"{fmt(base_cpp / 2)} — is deductible)\n")
+    lines.append(
+        f"  Base CPP: {fmt(base_cpp)} — 11.9% on earnings between "
+        f"{fmt(_CPP_BASIC_EXEMPTION)} and YMPE {fmt(ympe)}"
+    )
+    lines.append(
+        f"  CPP2: {fmt(cpp2)} — 8% on earnings between YMPE {fmt(ympe)} "
+        f"and YAMPE {fmt(yampe)}"
+    )
+    lines.append(
+        f"  **Total CPP: {fmt(cpp_total)}** (half of base CPP — "
+        f"{fmt(base_cpp / 2)} — is deductible)\n"
+    )
 
     lines.append("### Income tax (approximate 2025/2026 brackets)")
     lines.append(f"  Federal (approx.): {fmt(federal_tax)}")
-    lines.append(f"  {province} provincial (flat ~{prov_rate * 100:g}%, approx.): {fmt(prov_tax)}")
+    lines.append(
+        f"  {province} provincial (flat ~{prov_rate * 100:g}%, approx.): {fmt(prov_tax)}"
+    )
     if province == "QC":
-        lines.append("  *Québec: Revenu Québec collects its own tax and requires "
-                     "separate provincial instalments (form TP-1026.A-V; the "
-                     "federal instalment threshold is $1,800 for Québec residents); "
-                     "QPP replaces CPP — QPP rates differ slightly from the CPP "
-                     "shown above.*")
+        lines.append(
+            "  *Québec: Revenu Québec collects its own tax and requires "
+            "separate provincial instalments (form TP-1026.A-V; the "
+            "federal instalment threshold is $1,800 for Québec residents); "
+            "QPP replaces CPP — QPP rates differ slightly from the CPP "
+            "shown above.*"
+        )
 
     lines.append(f"\n**Total estimated annual tax + CPP: {fmt(total_annual)}**")
     lines.append(f"**Each quarterly instalment: {fmt(quarterly)}**\n")
@@ -11724,7 +15555,10 @@ async def qb_estimate_instalments(year: int = 0, province: str = "") -> str:
         "are exact. Confirm with CRA My Account and your accountant.*"
     )
 
-    _audit_log("ESTIMATE_INSTALMENTS", f"year={year} net={fmt(net_income)} total={fmt(total_annual)}")
+    _audit_log(
+        "ESTIMATE_INSTALMENTS",
+        f"year={year} net={fmt(net_income)} total={fmt(total_annual)}",
+    )
     return "\n".join(lines) + tax_data_footer(year)
 
 
@@ -11751,9 +15585,15 @@ async def qb_tax_data_info() -> str:
         lines.append(f"\n### {jur}")
         for name, e in sorted(by_jur[jur]):
             years = _tt.table_year_keys(e) if e.get("year_keyed") else []
-            vintage = (f"{years[0]}–{years[-1]}" if years else
-                       {"stable_statute": "statutory", "approximation": "planning approx.",
-                        "exact": "current"}[e["kind"]])
+            vintage = (
+                f"{years[0]}–{years[-1]}"
+                if years
+                else {
+                    "stable_statute": "statutory",
+                    "approximation": "planning approx.",
+                    "exact": "current",
+                }[e["kind"]]
+            )
             lines.append(
                 f"- **{e['description']}** — {vintage} · {e['kind']} · "
                 f"verified {e['verified']} · review: {e['review']}\n"
@@ -11780,6 +15620,7 @@ async def qb_tax_data_info() -> str:
 # at startup. This is cleaner and means adding a new tool automatically
 # gets gated unless you add it to FREE_TOOLS.
 
+
 def _apply_license_gating():
     """Wrap all registered MCP tools that aren't in FREE_TOOLS."""
     # Only gate when license infrastructure is configured
@@ -11800,6 +15641,7 @@ def _apply_license_gating():
         f"{gated_count} paid tools"
     )
 
+
 def _apply_usage_tracking():
     """Wrap all registered MCP tools with usage tracking.
 
@@ -11819,6 +15661,7 @@ def _apply_usage_tracking():
         f"Usage tracking active: {tracked_count} tools wrapped "
         f"(runtime-gated on effective license)"
     )
+
 
 # Apply gating and tracking after all tools are registered
 _apply_license_gating()

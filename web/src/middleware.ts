@@ -1,9 +1,12 @@
-import { clerkMiddleware, createRouteMatcher, clerkClient } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { resolveAdmin, type AdminClaims } from "@/lib/admin-auth";
 
 const isPublicRoute = createRouteMatcher([
   "/",
-  "/pricing",
+  "/about",
+  "/demo",
+  "/pricing(.*)",
   "/canada",
   "/changelog",
   "/privacy",
@@ -27,6 +30,10 @@ const isPublicRoute = createRouteMatcher([
   // authenticates by license key in the body, not a Clerk session — without
   // this, Clerk bounced these POSTs to sign-in and tool_usage stayed empty.
   "/api/usage(.*)",
+  // Desktop-app download redirect: records the click then 302s to the GitHub asset.
+  "/api/download(.*)",
+  // Cross-app pairing: issue (Clerk-or-license), redeem (peer product), status (license).
+  "/api/link(.*)",
   // Allocation-profile broker: the MCP connector authenticates by license key in
   // the body/query (validated server-side), not a Clerk session — same as /api/usage.
   "/api/allocations(.*)",
@@ -45,27 +52,41 @@ const isPublicRoute = createRouteMatcher([
   "/dashboard(.*)",
 ]);
 
-const isAdminRoute = createRouteMatcher([
-  "/admin(.*)",
-  "/api/admin(.*)",
-]);
+const isAdminRoute = createRouteMatcher(["/admin(.*)", "/api/admin(.*)"]);
+
+// The "Connect AccountingQB" consent page. Must exist for signed-out visitors —
+// send them through sign-in/sign-up and back to the SAME authorize URL (query
+// intact), rather than Clerk's default protect-rewrite-to-404.
+const isLinkAuthorize = createRouteMatcher(["/link/authorize"]);
 
 export default clerkMiddleware(async (auth, req) => {
   // Admin routes require admin role
   if (isAdminRoute(req)) {
-    const { userId } = await auth();
+    const { userId, sessionClaims } = await auth();
 
     if (!userId) {
       return NextResponse.redirect(new URL("/sign-in", req.url));
     }
 
-    // Fetch user to get publicMetadata (not included in session JWT by default)
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    const role = (user.publicMetadata as { role?: string })?.role;
+    // Read the role from the SESSION TOKEN (no Clerk API call) — see
+    // resolveAdmin(); falls back to one getUser() only if the token isn't
+    // configured with the metadata claim yet. needEmail=false: the gate never
+    // fetches on /api/admin routes once the token is configured.
+    const { role } = await resolveAdmin(
+      userId,
+      sessionClaims as AdminClaims,
+      false,
+    );
 
     if (role !== "admin") {
       return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+  }
+  // Cross-app link consent: redirect signed-out users to sign-in, returning here.
+  else if (isLinkAuthorize(req)) {
+    const { userId, redirectToSignIn } = await auth();
+    if (!userId) {
+      return redirectToSignIn({ returnBackUrl: req.url });
     }
   }
   // Other protected routes just need authentication

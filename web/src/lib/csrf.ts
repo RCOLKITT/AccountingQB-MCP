@@ -20,9 +20,9 @@ export function generateState(): string {
  * Encodes state and license key into URL-safe base64.
  */
 export function encodeStatePayload(state: string, licenseKey: string): string {
-  return Buffer.from(
-    JSON.stringify({ state, licenseKey })
-  ).toString("base64url");
+  return Buffer.from(JSON.stringify({ state, licenseKey })).toString(
+    "base64url",
+  );
 }
 
 /**
@@ -32,7 +32,10 @@ export function encodeStatePayload(state: string, licenseKey: string): string {
 export function decodeStatePayload(encoded: string): StatePayload | null {
   try {
     const decoded = JSON.parse(Buffer.from(encoded, "base64url").toString());
-    if (typeof decoded.state === "string" && typeof decoded.licenseKey === "string") {
+    if (
+      typeof decoded.state === "string" &&
+      typeof decoded.licenseKey === "string"
+    ) {
       return decoded as StatePayload;
     }
     return null;
@@ -46,7 +49,7 @@ export function decodeStatePayload(encoded: string): StatePayload | null {
  */
 export function redirectWithStateCookie(
   url: string,
-  state: string
+  state: string,
 ): NextResponse {
   const response = NextResponse.redirect(url, 303);
 
@@ -69,7 +72,7 @@ export function redirectWithStateCookie(
  */
 export function validateState(
   cookieState: string | undefined,
-  urlStateEncoded: string | undefined
+  urlStateEncoded: string | undefined,
 ): StatePayload | null {
   if (!cookieState || !urlStateEncoded) {
     return null;

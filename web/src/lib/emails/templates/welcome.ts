@@ -59,7 +59,7 @@ export function welcomeEmail(params: WelcomeEmailParams): {
     subject: `Welcome to AccountingQB — Let's get you set up`,
     html: emailWrapper(
       content,
-      `Start your ${params.trialDays}-day free trial of AccountingQB`
+      `Start your ${params.trialDays}-day free trial of AccountingQB`,
     ),
   };
 }

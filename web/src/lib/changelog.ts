@@ -14,6 +14,163 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.18.1",
+    date: "2026-08-06",
+    title: "Public tax-data provenance endpoint",
+    tag: "Platform",
+    summary:
+      "The connector now serves a public /tax-data endpoint — version, hash-chained ledger status, per-table sources, and concrete cited highlights — built entirely from the live tax registry so it can never drift from what the tools actually use. It powers the marketing site's provenance card so that card is always accurate.",
+    highlights: [
+      "GET /tax-data (unauthenticated, cacheable): TAX_DATA version + verified date, ledger row count + chain-verification status, every table's source, and cited highlight values",
+      "Derived from the registry (tax_tables) at startup — if a rate changes, the endpoint changes with it; no hand-typed copy to fall out of date",
+      "Statutory facts only, no taxpayer data; safe to serve publicly",
+    ],
+  },
+  {
+    version: "3.18.0",
+    date: "2026-08-04",
+    title: "Home office: both methods, with the choice made explicit",
+    tag: "Tax",
+    summary:
+      "Schedule C now supports both home-office methods — actual (Form 8829, business % of real costs, carries forward) and simplified ($5/sq ft up to 300, no carryover) — and shows the two side by side so the choice is informed, including the nuance that flips it in a loss year and the depreciation/recapture trade-off.",
+    highlights: [
+      "Set the method with qb_allocation_profile (home_office_method: 'actual' or 'simplified'); Schedule C computes Line 30 accordingly, capped at net profit in both",
+      "Simplified is treated correctly: $5/sq ft (max 300), the recorded home costs stay off Schedule C (mortgage interest / property taxes → Schedule A), and any excess over net profit is lost (no carryover) — while the actual method's excess carries forward",
+      "Every Schedule C now shows a simplified-vs-actual comparison: which wins this year, why actual can be worth more in a loss year (its tentative carries forward), and the §1250 depreciation-recapture trade-off to weigh with your CPA",
+      "qb_home_office_calculator shows both methods and the recapture caveat alongside the regular-method breakdown",
+    ],
+  },
+  {
+    version: "3.17.6",
+    date: "2026-08-04",
+    title:
+      "Deduction finder no longer counts non-deductible items in the total",
+    tag: "Tax",
+    summary:
+      "The deduction finder was including non-deductible items (charitable contributions, entertainment) inside 'deductible expenses' and the net loss, so its numbers disagreed with Schedule C by exactly those amounts. It now shares the same totals helper as Schedule C, so the two can't diverge.",
+    highlights: [
+      "qb_deduction_finder's total expenses and net now exclude non-deductible items (§170 charitable, §274 entertainment) — they matched Schedule C on books that happened to have none, but overstated the loss on books that did",
+      "Line 28 / Line 31 are now computed by a single shared helper used by qb_schedule_c, qb_schedule_c_detailed, qb_tax_summary, qb_t2125_summary AND qb_deduction_finder — one source of truth",
+      "The golden-book test fixture now includes a non-deductible account, and a cross-tool test asserts the deduction finder's net equals Schedule C's — so this class of bug can't ship again",
+    ],
+  },
+  {
+    version: "3.17.5",
+    date: "2026-08-04",
+    title:
+      "Deploy smoke test — the live build is now verified after every release",
+    tag: "Platform",
+    summary:
+      "Infrastructure to close the gap that let the deployment-mode mislabel recur: a public /version endpoint and a smoke test that confirms the LIVE connector matches the released version and self-identifies as the hosted connector — including through the authenticated MCP path a client actually uses.",
+    highlights: [
+      "New public /version endpoint reports the running build's version, tool count, and deployment mode — a one-call check that the deploy actually landed",
+      "scripts/deploy-smoke.py verifies the live host after each deploy: version matches the tag, deployment is the hosted connector, and qb_server_info returns the same through the authenticated /mcp endpoint",
+      "Catches stale/failed deploys and version drift before a user does — the structural gap behind the recurring deployment-mode report",
+    ],
+  },
+  {
+    version: "3.17.4",
+    date: "2026-08-04",
+    title:
+      "Two tax tools brought onto the shared engine; deductions now respect the loss",
+    tag: "Tax",
+    summary:
+      "A full end-to-end sweep found two tools that bypassed the canonical taxonomy and produced tax numbers that disagreed with qb_schedule_c. Both are now on the shared engine, so they can't disagree. And the deduction finder no longer promises savings a loss disallows.",
+    highlights: [
+      "qb_tax_summary now uses the same taxonomy + allocation/limitation engine as qb_schedule_c — meals are correctly limited to 50% (they were landing on Line 24a at 100%), and it now shows income, home office, net, and non-deductibles too",
+      "qb_tax_summary accepts tax_year (previously it silently ignored it and returned year-to-date)",
+      "qb_deduction_finder gates every estimate on the income limit it cites — at a loss, self-employed health, SEP-IRA, and home office resolve to $0 this year (or carry forward) instead of fabricated gross values, and it reads your allocation profile before calling home office 'unclaimed'",
+      "The R&D-credit suggestion no longer prints a dollar figure off SaaS spend (those generally aren't qualified research expenses) — it prompts a proper eligibility review instead",
+      "Journal-entry amounts show correctly in the change audit trail (summed from the debit lines, not the always-zero TotalAmt); bulk same-day weekend data-entry batches no longer flood the anomaly report",
+    ],
+  },
+  {
+    version: "3.17.3",
+    date: "2026-08-04",
+    title:
+      "Allocation-key regression fixed; deployment mode & card-payment detection corrected",
+    tag: "Tax",
+    summary:
+      "A follow-up audit caught a regression the previous fix introduced: because account keys became fully-qualified, allocation percentages stored under leaf names stopped matching and were silently dropped (over-claiming). That's fixed, and now a configured percentage that matches no account is surfaced loudly instead of hidden. Plus the real root cause of the deployment-mode flip, and a corrected credit-card-payment check.",
+    highlights: [
+      "Allocation percentages match on either the leaf name or the full 'Parent:Child' name, so a profile that stores 'Cell phone' still applies to 'Communications:Cell phone' — no more silent 100% over-claim",
+      "A configured allocation that matches no account is now reported loudly ('matches NO account'), instead of silently ignored under a false 'not configured' message",
+      "Deployment mode (qb_server_info) is read from the import-time config, never the mutable session flag that flipped it after a token refresh — the actual root cause of the recurring mislabel",
+      "Credit-card payment detection now keys on QuickBooks' Credit flag (money-in), not the category or memo — card payments are correctly excluded from the 'miscategorized charge' finding, and qb_transaction_detail now shows the Credit flag",
+    ],
+  },
+  {
+    version: "3.17.2",
+    date: "2026-08-04",
+    title: "No more silent truncation; account lookups resolve consistently",
+    tag: "Platform",
+    summary:
+      "Two reliability fixes from the audit backlog. Vendor and customer lists now page through everything and tell you when there's more, instead of quietly stopping at 50. And two account-name lookups that used a bare pattern match now use the shared resolver, so an exact name like 'Utilities' resolves cleanly instead of colliding with 'Home utilities'.",
+    highlights: [
+      "qb_list_vendors / qb_list_customers report the true total and disclose truncation (pass max_results=0 for all) — no more stopping mid-alphabet with no notice",
+      "qb_inactivate_account and qb_account_transactions use the shared account resolver (exact name → full 'Parent:Child' name → unambiguous leaf), so they resolve where a bare pattern match returned raw ambiguity or 'not found'",
+      "The resolver still refuses to guess between genuinely ambiguous names rather than silently pick the wrong account",
+    ],
+  },
+  {
+    version: "3.17.1",
+    date: "2026-08-04",
+    title:
+      "Two correctness fixes from a real-book audit — owner equity & home routing",
+    tag: "Tax",
+    summary:
+      "An end-to-end test against a real chart of accounts surfaced two directional errors that the conservation check couldn't catch (a misrouted dollar still balances). Owner's Draws no longer counts QuickBooks' system equity accounts as owner activity, and home-office routing now distinguishes accounts that merely share a name — and includes inactive (deleted) accounts.",
+    highlights: [
+      "qb_owner_draws excludes QuickBooks system equity (Opening Balance Equity, Retained Earnings) — these carry QB's own adjustment entries and were inverting the net on real books; contributions-only books now read as a positive net, as they should",
+      "Home-office routing keys on the account's home-office AccountSubType first, then its parent chain — so two accounts sharing a leaf name (e.g. a home 'Repairs & maintenance' and a business one) no longer merge into one treatment",
+      "The chart lookup now includes inactive/deleted accounts, so a deleted home cost still routes correctly instead of sitting at 100% on the wrong line",
+      "New classification invariants (beyond conservation): no account in two buckets; every home-subtype account routes to the home form; no home cost on an operating line — each locks a specific bug permanently",
+    ],
+  },
+  {
+    version: "3.17.0",
+    date: "2026-08-04",
+    title: "Canada T2125 gets the full allocation engine",
+    tag: "Canada",
+    summary:
+      "The allocation & limitation layer that Schedule C got now runs for the CRA T2125 too — on the same code path, so the two jurisdictions never disagree. Home costs route to line 9945 (business-use-of-home) with the loss limit and carryforward, the motor-vehicle line takes your business-use %, and meals stay at 50% (ITA s.67.1). Previously every T2125 expense flowed at 100%.",
+    highlights: [
+      "T2125 now applies your allocation profile: motor-vehicle business-use % (line 9281) and per-account percentages, in the correct order (classify → allocate → limit)",
+      "Home-office costs route to line 9945 (business-use-of-home) with the CRA loss limitation and carryforward — detected by account parent chain, same as Schedule C's Form 8829",
+      "Full conservation: every P&L dollar is reported as deductible, personal (allocation), statutorily-limited, business-use-of-home, or non-deductible — nothing silently over-claimed",
+      "Accounts that likely need a business-use % you haven't set are flagged, not deducted at 100% by default",
+      "One shared engine for US Schedule C and CA T2125 — only the line numbers differ",
+    ],
+  },
+  {
+    version: "3.16.2",
+    date: "2026-08-04",
+    title: "Owner draws & contributions — fixed to sum the right column",
+    tag: "Tax",
+    summary:
+      "qb_owner_draws was summing the GeneralLedger's running-balance column instead of the transaction amount, which overstated equity activity. It now reads the amount column from the report's own metadata and cross-checks every account's transactions against its balance change, so the net owner figure ties out.",
+    highlights: [
+      "Sums the transaction Amount column (identified from QuickBooks' column metadata), never the running Balance — a $56,018 net contribution no longer reads as ~$96k",
+      "Each equity account now shows its own net, and the total is cross-checked against the account's balance change — if they don't tie, it says so instead of showing a wrong number",
+      "Clear sign convention in the output: positive = contribution (money in), negative = draw (money out)",
+    ],
+  },
+  {
+    version: "3.16.1",
+    date: "2026-08-04",
+    title: "Home-office routing hardened — no more silent over-claiming",
+    tag: "Tax",
+    summary:
+      "A precision fix to the allocation layer: home costs booked as sub-accounts under a 'Home office' parent (mortgage interest, property taxes, repairs) now correctly route to Form 8829 at your home-office %, instead of being deducted in full on their operating lines. Detection keys on the account's full parent path, which QuickBooks already provides — no setup required.",
+    highlights: [
+      "Home-office detection now reads the FullyQualifiedName (parent chain), not just the leaf name — 'Home office:Property taxes' is unambiguously a home cost even though 'Property taxes' alone classifies to Line 23",
+      "You can also designate any account as home-indirect in qb_allocation_profile (home_office_accounts) — for a home utility that isn't nested under a 'Home office' parent",
+      "The reconciliation footer now shows the Form 8829 carryforward as its own line, so every P&L dollar stays visibly accounted for",
+      "qb_server_info reports deployment mode from a static process signal, so it's correct even with an expired token",
+      "131 tools total across US & Canada",
+    ],
+  },
+  {
     version: "3.16.0",
     date: "2026-08-03",
     title: "Allocation profiles — the personal/business split, done right",
@@ -47,7 +204,8 @@ export const RELEASES: Release[] = [
   {
     version: "3.14.2",
     date: "2026-08-03",
-    title: "Taxonomy precision — parent accounts, charitable, and a trustworthy reconciliation",
+    title:
+      "Taxonomy precision — parent accounts, charitable, and a trustworthy reconciliation",
     tag: "Tax",
     summary:
       "Testing against a real chart of accounts surfaced deductions that were being dropped when amounts are booked directly to a parent category. Fixed, plus a reconciliation check that no longer cries wolf.",
@@ -92,7 +250,8 @@ export const RELEASES: Release[] = [
   {
     version: "3.13.1",
     date: "2026-08-03",
-    title: "Precision pass: Other Income, duplicate counts, and a server-version tool",
+    title:
+      "Precision pass: Other Income, duplicate counts, and a server-version tool",
     tag: "Tax",
     summary:
       "A second end-to-end review confirmed 16 of 17 fixes held and surfaced a few small precision issues. This patch closes them — most importantly a $0.76-scale Other Income double-count that reached the Schedule C bottom line.",
@@ -108,7 +267,8 @@ export const RELEASES: Release[] = [
   {
     version: "3.13",
     date: "2026-08-02",
-    title: "Correct tax returns, a real Trial Balance, and cleaner reconciliations",
+    title:
+      "Correct tax returns, a real Trial Balance, and cleaner reconciliations",
     tag: "Tax",
     summary:
       "A full end-to-end review against a live company surfaced reporting-layer bugs that produced confident-but-wrong numbers. This release fixes all of them — most importantly, business revenue now lands on the right tax-return lines.",

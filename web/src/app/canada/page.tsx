@@ -10,7 +10,8 @@ import LandingNav from "@/components/nav/LandingNav";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://accountingqb.com";
 
 export const metadata: Metadata = {
-  title: "AccountingQB for Canadian Businesses — GST/HST, T2125 & CRA Tools for Claude",
+  title:
+    "AccountingQB for Canadian Businesses — GST/HST, T2125 & CRA Tools for Claude",
   description:
     "AI-powered QuickBooks for Canadian books: GST/HST return workpapers, T2125 line mapping, CCA schedules, T4A reports, and CRA instalment estimates — all through Claude. Priced in CAD. 14-day free trial.",
   alternates: {
@@ -26,7 +27,8 @@ export const metadata: Metadata = {
     locale: "en_CA",
     url: `${siteUrl}/canada`,
     siteName: "AccountingQB",
-    title: "AccountingQB for Canadian Businesses — GST/HST, T2125 & CRA Tools for Claude",
+    title:
+      "AccountingQB for Canadian Businesses — GST/HST, T2125 & CRA Tools for Claude",
     description:
       "GST/HST return workpapers, T2125 mapping, CCA schedules, T4A reports and CRA instalments — AI-powered QuickBooks for Canadian books, priced in CAD.",
     images: [
@@ -162,22 +164,56 @@ const caFaqs = [
 /* ---------- Inline Logo SVG Component (local copy, gradient id namespaced) ---------- */
 function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+    <svg
+      className={className}
+      viewBox="0 0 512 512"
+      xmlns="http://www.w3.org/2000/svg"
+    >
       <defs>
-        <linearGradient id="lg-ca" x1="60" y1="60" x2="452" y2="452" gradientUnits="userSpaceOnUse">
+        <linearGradient
+          id="lg-ca"
+          x1="60"
+          y1="60"
+          x2="452"
+          y2="452"
+          gradientUnits="userSpaceOnUse"
+        >
           <stop offset="0%" stopColor="#22d3ee" />
           <stop offset="40%" stopColor="#3b82f6" />
           <stop offset="100%" stopColor="#6366f1" />
         </linearGradient>
       </defs>
-      <path d="M 210 108 A 148 148 0 1 1 209.99 108 Z M 210 164 A 92 92 0 1 0 210.01 164 Z"
-        fill="url(#lg-ca)" fillRule="evenodd" />
-      <rect x="290" y="310" width="120" height="52" rx="26" fill="url(#lg-ca)" transform="rotate(42, 350, 336)" />
+      <path
+        d="M 210 108 A 148 148 0 1 1 209.99 108 Z M 210 164 A 92 92 0 1 0 210.01 164 Z"
+        fill="url(#lg-ca)"
+        fillRule="evenodd"
+      />
+      <rect
+        x="290"
+        y="310"
+        width="120"
+        height="52"
+        rx="26"
+        fill="url(#lg-ca)"
+        transform="rotate(42, 350, 336)"
+      />
       <rect x="290" y="118" width="42" height="268" rx="4" fill="url(#lg-ca)" />
-      <path d="M 311 118 L 360 118 A 62 62 0 0 1 360 242 L 311 242 Z" fill="url(#lg-ca)" />
-      <path d="M 311 242 L 370 242 A 72 72 0 0 1 370 386 L 311 386 Z" fill="url(#lg-ca)" />
-      <path d="M 318 148 L 348 148 A 34 34 0 0 1 348 216 L 318 216 Z" fill="#0a0e1a" />
-      <path d="M 318 268 L 355 268 A 42 42 0 0 1 355 364 L 318 364 Z" fill="#0a0e1a" />
+      <path
+        d="M 311 118 L 360 118 A 62 62 0 0 1 360 242 L 311 242 Z"
+        fill="url(#lg-ca)"
+      />
+      <path
+        d="M 311 242 L 370 242 A 72 72 0 0 1 370 386 L 311 386 Z"
+        fill="url(#lg-ca)"
+      />
+      <path
+        d="M 318 148 L 348 148 A 34 34 0 0 1 348 216 L 318 216 Z"
+        fill="#0a0e1a"
+      />
+      <path
+        d="M 318 268 L 355 268 A 42 42 0 0 1 355 364 L 318 364 Z"
+        fill="#0a0e1a"
+      />
     </svg>
   );
 }
@@ -185,7 +221,13 @@ function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
 /* ---------- Check Icon ---------- */
 function CheckIcon() {
   return (
-    <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg
+      className="mt-0.5 h-5 w-5 flex-shrink-0 text-cyan-400"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
     </svg>
   );
@@ -259,9 +301,9 @@ export default function CanadaPage() {
             </span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-400">
-            GST/HST return workpapers, T2125 line mapping, CCA schedules, T4A reports,
-            and CRA instalment estimates — 131 AI tools connecting Claude to your
-            QuickBooks Online, in plain English.
+            GST/HST return workpapers, T2125 line mapping, CCA schedules, T4A
+            reports, and CRA instalment estimates — 131 AI tools connecting
+            Claude to your QuickBooks Online, in plain English.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <a
@@ -278,13 +320,17 @@ export default function CanadaPage() {
             </a>
           </div>
           <p className="mt-5 text-sm text-gray-500">
-            14-day free trial &middot; Billed in CAD &middot; No credit card required
+            14-day free trial &middot; Billed in CAD &middot; No credit card
+            required
           </p>
         </div>
       </section>
 
       {/* ========== FEATURES ========== */}
-      <section id="features" className="relative border-y border-white/[0.06] bg-[#0c1120] py-28">
+      <section
+        id="features"
+        className="relative border-y border-white/[0.06] bg-[#0c1120] py-28"
+      >
         <div className="absolute inset-0 bg-grid opacity-20" />
         <div className="relative mx-auto max-w-6xl px-6">
           <div className="text-center">
@@ -293,25 +339,34 @@ export default function CanadaPage() {
             </div>
             <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
               The CRA workpapers your{" "}
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">accountant would build</span>
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                accountant would build
+              </span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-gray-400">
-              Ask in plain English. Get line-by-line workpapers from your live QuickBooks data.
+              Ask in plain English. Get line-by-line workpapers from your live
+              QuickBooks data.
             </p>
           </div>
 
           <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {caFeatures.map((f) => (
-              <div key={f.title} className="rounded-2xl border border-white/[0.06] bg-[#131a2e] p-7 transition hover:border-white/[0.12]">
+              <div
+                key={f.title}
+                className="rounded-2xl border border-white/[0.06] bg-[#131a2e] p-7 transition hover:border-white/[0.12]"
+              >
                 <h3 className="text-lg font-semibold text-white">{f.title}</h3>
-                <p className="mt-3 text-sm leading-relaxed text-gray-400">{f.body}</p>
+                <p className="mt-3 text-sm leading-relaxed text-gray-400">
+                  {f.body}
+                </p>
               </div>
             ))}
           </div>
 
           <p className="mt-10 text-center text-sm text-gray-500">
-            Province-aware: HST in Ontario &amp; the Atlantic provinces, GST+PST in BC, Saskatchewan
-            &amp; Manitoba, GST+QST in Québec, GST-only in Alberta &amp; the territories.
+            Province-aware: HST in Ontario &amp; the Atlantic provinces, GST+PST
+            in BC, Saskatchewan &amp; Manitoba, GST+QST in Québec, GST-only in
+            Alberta &amp; the territories.
           </p>
         </div>
       </section>
@@ -325,10 +380,13 @@ export default function CanadaPage() {
             </div>
             <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
               Less than the cost of{" "}
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">one hour of bookkeeping</span>
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                one hour of bookkeeping
+              </span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-gray-400">
-              Start with a 14-day free trial. Billed in Canadian dollars. Cancel anytime.
+              Start with a 14-day free trial. Billed in Canadian dollars. Cancel
+              anytime.
             </p>
           </div>
 
@@ -350,12 +408,16 @@ export default function CanadaPage() {
                 <h3 className="text-lg font-semibold text-white">{t.name}</h3>
                 <p className="mt-1 text-sm text-gray-500">{t.description}</p>
                 <div className="mt-6 flex items-baseline gap-1">
-                  <span className="text-5xl font-bold text-white">{t.price}</span>
+                  <span className="text-5xl font-bold text-white">
+                    {t.price}
+                  </span>
                   <span className="text-gray-500">{t.period}</span>
                 </div>
                 <p className="mt-1 text-xs text-gray-500">Billed in CAD</p>
                 {t.savings && (
-                  <p className="mt-2 text-xs font-medium text-cyan-400/80">{t.savings}</p>
+                  <p className="mt-2 text-xs font-medium text-cyan-400/80">
+                    {t.savings}
+                  </p>
                 )}
                 <a
                   href={t.href}
@@ -369,7 +431,10 @@ export default function CanadaPage() {
                 </a>
                 <ul className="mt-8 space-y-3">
                   {t.features.map((f) => (
-                    <li key={f} className="flex items-start gap-3 text-sm text-gray-400">
+                    <li
+                      key={f}
+                      className="flex items-start gap-3 text-sm text-gray-400"
+                    >
                       <CheckIcon />
                       {f}
                     </li>
@@ -380,13 +445,17 @@ export default function CanadaPage() {
           </div>
 
           <p className="mt-8 text-center text-sm text-gray-500">
-            All plans include a 14-day free trial with full access. No credit card required.
+            All plans include a 14-day free trial with full access. No credit
+            card required.
           </p>
         </div>
       </section>
 
       {/* ========== FAQ ========== */}
-      <section id="faq" className="relative border-t border-white/[0.06] bg-[#0c1120] py-28">
+      <section
+        id="faq"
+        className="relative border-t border-white/[0.06] bg-[#0c1120] py-28"
+      >
         <div className="mx-auto max-w-3xl px-6">
           <div className="text-center">
             <div className="mb-4 inline-flex items-center rounded-full border border-purple-500/20 bg-purple-500/[0.08] px-3 py-1 text-xs font-medium text-purple-300">
@@ -421,7 +490,8 @@ export default function CanadaPage() {
             </span>
           </h2>
           <p className="mt-4 text-lg text-gray-400">
-            Join Canadian entrepreneurs saving hours every week on bookkeeping, GST/HST and tax prep.
+            Join Canadian entrepreneurs saving hours every week on bookkeeping,
+            GST/HST and tax prep.
           </p>
           <a
             href="#pricing"
@@ -430,7 +500,8 @@ export default function CanadaPage() {
             Start Your Free Trial
           </a>
           <p className="mt-5 text-sm text-gray-500">
-            14-day free trial &middot; Billed in CAD &middot; No credit card required
+            14-day free trial &middot; Billed in CAD &middot; No credit card
+            required
           </p>
         </div>
       </section>
@@ -443,38 +514,87 @@ export default function CanadaPage() {
               <a href="/" className="flex items-center gap-2">
                 <LogoMark className="h-7 w-7" />
                 <span className="text-lg font-bold text-white">
-                  Accounting<span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">QB</span>
+                  Accounting
+                  <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                    QB
+                  </span>
                 </span>
               </a>
               <p className="mt-4 text-sm text-gray-500">
-                AI-powered QuickBooks tools for Claude Desktop and Cowork.
-                A <a href="https://vasperacapital.com" className="text-gray-400 transition hover:text-white">Vaspera Capital</a> product.
+                AI-powered QuickBooks tools for Claude Desktop and Cowork. A{" "}
+                <a
+                  href="https://vasperacapital.com"
+                  className="text-gray-400 transition hover:text-white"
+                >
+                  Vaspera Capital
+                </a>{" "}
+                product.
               </p>
             </div>
             <div>
               <h4 className="text-sm font-semibold text-gray-300">Product</h4>
               <ul className="mt-4 space-y-2.5 text-sm text-gray-500">
-                <li><a href="#features" className="transition hover:text-white">Features</a></li>
-                <li><a href="#pricing" className="transition hover:text-white">Pricing</a></li>
-                <li><a href="#faq" className="transition hover:text-white">FAQ</a></li>
-                <li><a href="/" className="transition hover:text-white">US site</a></li>
-                <li><a href="/dashboard" className="transition hover:text-white">Dashboard</a></li>
-                <li><a href="/sign-in" className="transition hover:text-white">Sign In</a></li>
+                <li>
+                  <a href="#features" className="transition hover:text-white">
+                    Features
+                  </a>
+                </li>
+                <li>
+                  <a href="#pricing" className="transition hover:text-white">
+                    Pricing
+                  </a>
+                </li>
+                <li>
+                  <a href="#faq" className="transition hover:text-white">
+                    FAQ
+                  </a>
+                </li>
+                <li>
+                  <a href="/" className="transition hover:text-white">
+                    US site
+                  </a>
+                </li>
+                <li>
+                  <a href="/dashboard" className="transition hover:text-white">
+                    Dashboard
+                  </a>
+                </li>
+                <li>
+                  <a href="/sign-in" className="transition hover:text-white">
+                    Sign In
+                  </a>
+                </li>
               </ul>
             </div>
             <div>
               <h4 className="text-sm font-semibold text-gray-300">Legal</h4>
               <ul className="mt-4 space-y-2.5 text-sm text-gray-500">
-                <li><a href="/privacy" className="transition hover:text-white">Privacy Policy</a></li>
-                <li><a href="/terms" className="transition hover:text-white">Terms of Service</a></li>
-                <li><a href="mailto:support@vasperacapital.com" className="transition hover:text-white">Contact</a></li>
+                <li>
+                  <a href="/privacy" className="transition hover:text-white">
+                    Privacy Policy
+                  </a>
+                </li>
+                <li>
+                  <a href="/terms" className="transition hover:text-white">
+                    Terms of Service
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="mailto:support@vasperacapital.com"
+                    className="transition hover:text-white"
+                  >
+                    Contact
+                  </a>
+                </li>
               </ul>
             </div>
           </div>
           <div className="mt-14 border-t border-white/[0.06] pt-8">
             <p className="text-center text-sm text-gray-600">
-              &copy; {new Date().getFullYear()} Vaspera Capital. All rights reserved.
-              AccountingQB is not affiliated with Intuit or QuickBooks.
+              &copy; {new Date().getFullYear()} Vaspera Capital. All rights
+              reserved. AccountingQB is not affiliated with Intuit or
+              QuickBooks.
             </p>
           </div>
         </div>

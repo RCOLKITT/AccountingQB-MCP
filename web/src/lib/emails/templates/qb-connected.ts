@@ -51,7 +51,7 @@ export function qbConnectedEmail(params: QbConnectedEmailParams): {
     subject: `${params.companyName} connected to AccountingQB`,
     html: emailWrapper(
       content,
-      `Your QuickBooks company is now connected and ready to use`
+      `Your QuickBooks company is now connected and ready to use`,
     ),
   };
 }

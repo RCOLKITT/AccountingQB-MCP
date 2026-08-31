@@ -385,6 +385,8 @@ CREATE TABLE IF NOT EXISTS email_unsubscribes (
   source          TEXT,                                -- 'link' | 'admin' | 'bounce'
   unsubscribed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Deny-by-default (service-role only), like every other table.
+ALTER TABLE email_unsubscribes ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
 -- Email Schedules: queue for scheduled/automated emails
@@ -581,3 +583,58 @@ CREATE TABLE IF NOT EXISTS mrr_snapshots (
 );
 CREATE INDEX IF NOT EXISTS idx_mrr_snapshots_month ON mrr_snapshots(month);
 ALTER TABLE mrr_snapshots ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================================
+-- Desktop app downloads — macOS vs Windows download tracking
+-- (see migrations/2026-08-app-downloads.sql)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS app_downloads (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  platform        TEXT NOT NULL CHECK (platform IN ('macos', 'windows')),
+  version         TEXT,
+  license_key     TEXT REFERENCES licenses(key) ON DELETE SET NULL,
+  ip_hash         TEXT,
+  user_agent_hash TEXT,
+  referrer        TEXT,
+  downloaded_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_app_downloads_platform      ON app_downloads (platform);
+CREATE INDEX IF NOT EXISTS idx_app_downloads_downloaded_at ON app_downloads (downloaded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_app_downloads_platform_time ON app_downloads (platform, downloaded_at DESC);
+ALTER TABLE app_downloads ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================================
+-- Cross-app pairing (AccountingQB ↔ Coffer/Hearth), identity-anchored
+-- (see migrations/2026-08-account-links.sql)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS link_codes (
+  code            TEXT PRIMARY KEY,
+  identity_hash   TEXT NOT NULL,
+  pairing_secret  TEXT NOT NULL,
+  license_key     TEXT REFERENCES licenses(key) ON DELETE CASCADE,
+  peer_product    TEXT NOT NULL DEFAULT 'coffer',
+  expires_at      TIMESTAMPTZ NOT NULL,
+  redeemed_at     TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  -- OAuth-style linking (see migrations/2026-08-link-pkce.sql): a code carrying a
+  -- code_challenge is redeemed with the matching code_verifier (S256) instead of the
+  -- same-email identity match. redirect_uri is recorded for audit + exact return.
+  code_challenge  TEXT,
+  redirect_uri    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_link_codes_expires ON link_codes (expires_at);
+ALTER TABLE link_codes ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS account_links (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  license_key     TEXT NOT NULL REFERENCES licenses(key) ON DELETE CASCADE,
+  identity_hash   TEXT NOT NULL,
+  peer_product    TEXT NOT NULL DEFAULT 'coffer',
+  peer_identity   TEXT,
+  pairing_secret  TEXT NOT NULL,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  revoked_at      TIMESTAMPTZ,
+  UNIQUE (license_key, peer_product)
+);
+CREATE INDEX IF NOT EXISTS idx_account_links_key ON account_links (license_key);
+ALTER TABLE account_links ENABLE ROW LEVEL SECURITY;

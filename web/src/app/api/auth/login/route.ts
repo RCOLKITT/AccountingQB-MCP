@@ -12,10 +12,7 @@ export async function POST(req: NextRequest) {
     const { email } = await req.json();
 
     if (!email || typeof email !== "string") {
-      return NextResponse.json(
-        { error: "Email is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
     // Validate email format
@@ -23,7 +20,7 @@ export async function POST(req: NextRequest) {
     if (!emailRegex.test(email)) {
       return NextResponse.json(
         { error: "Invalid email address" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -40,7 +37,7 @@ export async function POST(req: NextRequest) {
       console.error("Magic link error:", error);
       return NextResponse.json(
         { error: "Failed to send magic link. Please try again." },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -49,7 +46,7 @@ export async function POST(req: NextRequest) {
     console.error("Login error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

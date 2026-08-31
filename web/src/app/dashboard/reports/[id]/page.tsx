@@ -103,7 +103,9 @@ export default function ReportDetailPage({
     return (
       <div className="min-h-screen bg-[#0a0f1c] flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Sign in required</h1>
+          <h1 className="text-2xl font-bold text-white mb-4">
+            Sign in required
+          </h1>
           <Link href="/sign-in" className="text-cyan-400 hover:text-cyan-300">
             Sign in to view this report
           </Link>
@@ -116,8 +118,13 @@ export default function ReportDetailPage({
     return (
       <div className="min-h-screen bg-[#0a0f1c] flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">{error || "Report not found"}</h1>
-          <Link href="/dashboard/reports" className="text-cyan-400 hover:text-cyan-300">
+          <h1 className="text-2xl font-bold text-white mb-4">
+            {error || "Report not found"}
+          </h1>
+          <Link
+            href="/dashboard/reports"
+            className="text-cyan-400 hover:text-cyan-300"
+          >
             Back to reports
           </Link>
         </div>
@@ -142,7 +149,9 @@ export default function ReportDetailPage({
               <button
                 onClick={toggleStar}
                 className={`text-2xl transition ${
-                  artifact.starred ? "text-yellow-400" : "text-gray-600 hover:text-yellow-400"
+                  artifact.starred
+                    ? "text-yellow-400"
+                    : "text-gray-600 hover:text-yellow-400"
                 }`}
               >
                 ★
@@ -213,7 +222,9 @@ function TypeBadge({ type }: { type: string }) {
   };
 
   return (
-    <span className={`px-3 py-1 rounded-lg border text-sm font-medium ${colors[type]}`}>
+    <span
+      className={`px-3 py-1 rounded-lg border text-sm font-medium ${colors[type]}`}
+    >
       {type}
     </span>
   );
@@ -309,7 +320,9 @@ function TableRenderer({ data }: { data: TableData }) {
 function SummaryRenderer({ data }: { data: SummaryData }) {
   return (
     <div className="space-y-6">
-      {data.title && <h2 className="text-2xl font-bold text-white">{data.title}</h2>}
+      {data.title && (
+        <h2 className="text-2xl font-bold text-white">{data.title}</h2>
+      )}
 
       {data.highlights && data.highlights.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -324,7 +337,9 @@ function SummaryRenderer({ data }: { data: SummaryData }) {
 
       {data.sections.map((section, i) => (
         <div key={i}>
-          <h3 className="text-lg font-semibold text-white mb-2">{section.heading}</h3>
+          <h3 className="text-lg font-semibold text-white mb-2">
+            {section.heading}
+          </h3>
           <p className="text-gray-300 whitespace-pre-wrap">{section.content}</p>
         </div>
       ))}

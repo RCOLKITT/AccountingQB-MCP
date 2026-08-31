@@ -143,7 +143,9 @@ class DefaultRealmCache:
     connected company when realm_id is empty.
     """
 
-    def __init__(self, api_url: str = QB_API_URL, ttl: float = DEFAULT_REALM_TTL_SECONDS):
+    def __init__(
+        self, api_url: str = QB_API_URL, ttl: float = DEFAULT_REALM_TTL_SECONDS
+    ):
         self._api_url = api_url.rstrip("/")
         self._ttl = ttl
         self._cache: dict[str, tuple[float, Optional[str]]] = {}
@@ -201,13 +203,21 @@ class BearerAuthMiddleware:
         jwt_secret: str,
         resource_url: str = RESOURCE_URL,
         auth_server_url: str = AS_URL,
-        realm_resolver: Optional[Callable[[str], Awaitable[Optional[str]]]] = _resolve_default_realm,
+        realm_resolver: Optional[
+            Callable[[str], Awaitable[Optional[str]]]
+        ] = _resolve_default_realm,
+        version: str = "",
+        tool_count: int = 0,
+        tax_data: Optional[dict] = None,
     ):
         self.app = app
         self.jwt_secret = jwt_secret
         self.resource_url = resource_url.rstrip("/")
         self.auth_server_url = auth_server_url.rstrip("/")
         self.realm_resolver = realm_resolver
+        self.version = version
+        self.tool_count = tool_count
+        self.tax_data = tax_data or {}
 
     # -- small ASGI response helpers (no Starlette Response objects needed,
     # but plain dict sends keep this middleware dependency-light) ----------
@@ -219,7 +229,9 @@ class BearerAuthMiddleware:
             (b"content-length", str(len(body)).encode()),
             *extra_headers,
         ]
-        await send({"type": "http.response.start", "status": status, "headers": headers})
+        await send(
+            {"type": "http.response.start", "status": status, "headers": headers}
+        )
         await send({"type": "http.response.body", "body": body})
 
     async def _send_401(self, send, description: str) -> None:
@@ -284,6 +296,33 @@ class BearerAuthMiddleware:
             await self._send_response(send, 200, b"ok", "text/plain")
             return
 
+        if path == "/version":
+            # Public deploy-verification endpoint: lets a smoke test confirm the
+            # LIVE build matches the released tag (and that it self-identifies as
+            # the hosted connector) without a JWT — catches stale/failed deploys
+            # and the deployment-mode class of bug in one unauthenticated call.
+            body = json.dumps(
+                {
+                    "version": self.version,
+                    "tools": self.tool_count,
+                    "deployment": "hosted connector (token-brokered)",
+                }
+            ).encode()
+            await self._send_response(send, 200, body, "application/json")
+            return
+
+        if path == "/tax-data":
+            # Public tax-data provenance (version, ledger status, per-table sources,
+            # concrete highlights) — statutory facts only, no taxpayer data. Built
+            # from the live registry so it can't drift; powers the marketing site's
+            # provenance card. Cacheable.
+            headers = [(b"cache-control", b"public, max-age=600")]
+            body = json.dumps(self.tax_data).encode()
+            await self._send_response(
+                send, 200, body, "application/json", extra_headers=headers
+            )
+            return
+
         if path == PROTECTED_RESOURCE_PATH:
             body = json.dumps(
                 {
@@ -311,7 +350,10 @@ class BearerAuthMiddleware:
                             "cacheScope": "public",
                         }
                     },
-                    "headerRouting": {"supported": True, "headers": ["Mcp-Method", "Mcp-Name"]},
+                    "headerRouting": {
+                        "supported": True,
+                        "headers": ["Mcp-Method", "Mcp-Name"],
+                    },
                 }
             ).encode()
             await self._send_response(send, 200, body, "application/json")
@@ -370,7 +412,9 @@ class BearerAuthMiddleware:
                 else:
                     # Non-JSON / streaming: forward now, just add the version header.
                     state["passthrough"] = True
-                    headers.append((b"mcp-protocol-version", SPEC_PROTOCOL_VERSION.encode()))
+                    headers.append(
+                        (b"mcp-protocol-version", SPEC_PROTOCOL_VERSION.encode())
+                    )
                     await send({**message, "headers": headers})
                 return
 
@@ -389,9 +433,13 @@ class BearerAuthMiddleware:
                     if k.lower() != b"content-length"
                 ]
                 new_headers.append((b"content-length", str(len(body)).encode()))
-                new_headers.append((b"mcp-protocol-version", SPEC_PROTOCOL_VERSION.encode()))
+                new_headers.append(
+                    (b"mcp-protocol-version", SPEC_PROTOCOL_VERSION.encode())
+                )
                 await send({**start, "headers": new_headers})
-                await send({"type": "http.response.body", "body": body, "more_body": False})
+                await send(
+                    {"type": "http.response.body", "body": body, "more_body": False}
+                )
                 return
 
             await send(message)
@@ -411,6 +459,7 @@ def create_app():
     # Importing accountingqb.server registers all tools on the shared
     # FastMCP instance.
     from accountingqb import server as _srv  # noqa: PLC0415
+
     mcp = _srv.mcp
     # Mark this process as the hosted connector so qb_server_info reports the
     # deployment mode unconditionally (not from the QuickBooks session state).
@@ -449,11 +498,29 @@ def create_app():
 
     inner = mcp.streamable_http_app()
 
+    try:
+        from accountingqb import __version__ as _ver  # noqa: PLC0415
+    except Exception:
+        _ver = ""
+    try:
+        _tools = len(mcp._tool_manager._tools)
+    except Exception:
+        _tools = 0
+    try:
+        from accountingqb.tax_tables import public_tax_data  # noqa: PLC0415
+
+        _tax_data = public_tax_data()  # computed once at startup (static per deploy)
+    except Exception:
+        _tax_data = {}
+
     return BearerAuthMiddleware(
         inner,
         jwt_secret=MCP_JWT_SECRET,
         resource_url=RESOURCE_URL,
         auth_server_url=AS_URL,
+        version=_ver,
+        tool_count=_tools,
+        tax_data=_tax_data,
     )
 
 

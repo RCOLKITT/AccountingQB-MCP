@@ -33,7 +33,9 @@ def test_hosted_mode_404_broker_raises_no_company_message(qb_ctx, monkeypatch):
     qb_ctx.hosted_mode = True
 
     with respx.mock:
-        respx.post(TOKEN_URL).mock(return_value=Response(404, json={"error": "not found"}))
+        respx.post(TOKEN_URL).mock(
+            return_value=Response(404, json={"error": "not found"})
+        )
         with pytest.raises(RuntimeError, match="No QuickBooks company is connected"):
             asyncio.run(qb_server.get_access_token())
 
@@ -42,15 +44,19 @@ def test_hosted_mode_lazy_fetch_returns_token(qb_ctx, monkeypatch):
     monkeypatch.setattr(qb_server, "LICENSE_KEY", "LK-TEST-123")
     qb_ctx.hosted_mode = True
 
-    companies = [{
-        "realmId": "111222333",
-        "companyName": "Acme LLC",
-        "accessToken": "hosted-tok",
-        "refreshToken": "hosted-rt",
-        "expiresAt": "2099-01-01T00:00:00Z",
-    }]
+    companies = [
+        {
+            "realmId": "111222333",
+            "companyName": "Acme LLC",
+            "accessToken": "hosted-tok",
+            "refreshToken": "hosted-rt",
+            "expiresAt": "2099-01-01T00:00:00Z",
+        }
+    ]
     with respx.mock:
-        respx.post(TOKEN_URL).mock(return_value=Response(200, json={"companies": companies}))
+        respx.post(TOKEN_URL).mock(
+            return_value=Response(200, json={"companies": companies})
+        )
         token = asyncio.run(qb_server.get_access_token())
 
     assert token == "hosted-tok"

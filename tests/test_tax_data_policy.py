@@ -19,7 +19,8 @@ import accountingqb.tax_tables as tt
 SERVER_PATH = pathlib.Path(__file__).parent.parent / "mcpb/src/accountingqb/server.py"
 
 YEAR_KEYED_ANNUAL = [
-    name for name, e in tt.TABLES.items()
+    name
+    for name, e in tt.TABLES.items()
     if e.get("year_keyed") and e.get("review", "").startswith("annual-")
 ]
 
@@ -27,6 +28,7 @@ YEAR_KEYED_ANNUAL = [
 # ---------------------------------------------------------------------------
 # freshness-current-year — fails every Jan 1 until new tables load (intended)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("name", YEAR_KEYED_ANNUAL)
 def test_freshness_current_year(name):
@@ -42,11 +44,19 @@ def test_freshness_current_year(name):
 # provenance-complete
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("name", sorted(tt.TABLES))
 def test_provenance_complete(name):
     e = tt.TABLES[name]
-    for field in ("source", "source_url", "verified", "review", "jurisdiction",
-                  "kind", "description"):
+    for field in (
+        "source",
+        "source_url",
+        "verified",
+        "review",
+        "jurisdiction",
+        "kind",
+        "description",
+    ):
         assert e.get(field), f"{name}: missing provenance field '{field}'"
     assert e["kind"] in ("exact", "approximation", "stable_statute")
     assert e["review"] in ("annual-december", "annual-january", "legislative-watch")
@@ -56,8 +66,10 @@ def test_provenance_complete(name):
 # verified-recency — exact figures must be re-verified at least annually
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize(
-    "name", [n for n, e in tt.TABLES.items() if e["kind"] == "exact"])
+    "name", [n for n, e in tt.TABLES.items() if e["kind"] == "exact"]
+)
 def test_verified_recency(name):
     verified = datetime.date.fromisoformat(tt.TABLES[name]["verified"])
     age = (datetime.date.today() - verified).days
@@ -71,6 +83,7 @@ def test_verified_recency(name):
 # ledger-coverage — no ledger row, no rate ships
 # ---------------------------------------------------------------------------
 
+
 def _live_ledger_values():
     """Latest row per table:key (later rows supersede earlier)."""
     live = {}
@@ -83,9 +96,10 @@ def _live_ledger_values():
 def test_ledger_coverage(name):
     live = _live_ledger_values()
     for key, value in tt.iter_table_rows(name, tt.TABLES[name]):
-        assert (name, key) in live, (
-            f"{name}:{key} has no ledger row — no ledger row, no rate ships."
-        )
+        assert (
+            name,
+            key,
+        ) in live, f"{name}:{key} has no ledger row — no ledger row, no rate ships."
         assert live[(name, key)] == tt.canonical_value(value), (
             f"{name}:{key} registry value differs from its latest ledger row — "
             f"append a superseding row before changing the registry."
@@ -96,6 +110,7 @@ def test_ledger_coverage(name):
 # ledger-integrity — append-only by math
 # ---------------------------------------------------------------------------
 
+
 def test_ledger_integrity():
     rows = tt.load_ledger()
     assert rows, "ledger is missing or empty"
@@ -104,8 +119,9 @@ def test_ledger_integrity():
     known = set(ids)
     for r in rows:
         if r.get("supersedes"):
-            assert r["supersedes"] in known, (
-                f"{r['id']} supersedes unknown row {r['supersedes']}")
+            assert (
+                r["supersedes"] in known
+            ), f"{r['id']} supersedes unknown row {r['supersedes']}"
         datetime.date.fromisoformat(r["verified_date"])
         assert r["source"] and r["source_url"], f"{r['id']}: missing source"
     assert tt.verify_ledger_chain(rows), (
@@ -118,6 +134,7 @@ def test_ledger_integrity():
 # sanity-bounds
 # ---------------------------------------------------------------------------
 
+
 def _leaf_numbers(value):
     if isinstance(value, dict):
         for v in value.values():
@@ -129,8 +146,7 @@ def _leaf_numbers(value):
         yield float(value)
 
 
-@pytest.mark.parametrize(
-    "name", [n for n, e in tt.TABLES.items() if e.get("sanity")])
+@pytest.mark.parametrize("name", [n for n, e in tt.TABLES.items() if e.get("sanity")])
 def test_sanity_bounds(name):
     e = tt.TABLES[name]
     s = e["sanity"]
@@ -141,10 +157,14 @@ def test_sanity_bounds(name):
         assert all(x <= s["max"] for x in numbers), f"{name}: value above sanity max"
     if "max_yoy_pct" in s:
         years = tt.table_year_keys(e)
-        vals = e["values"] if all(isinstance(k, int) for k in e["values"]) \
+        vals = (
+            e["values"]
+            if all(isinstance(k, int) for k in e["values"])
             else e["values"].get("params", {})
+        )
         for a, b in zip(years, years[1:]):
-            xa = max(_leaf_numbers(vals[a])); xb = max(_leaf_numbers(vals[b]))
+            xa = max(_leaf_numbers(vals[a]))
+            xb = max(_leaf_numbers(vals[b]))
             if xa:
                 assert abs(xb - xa) / xa <= s["max_yoy_pct"], (
                     f"{name}: {a}->{b} moved more than "
@@ -162,6 +182,7 @@ def test_year_keys_plausible():
 # version-consistency
 # ---------------------------------------------------------------------------
 
+
 def test_version_consistency():
     newest = max(e["verified"] for e in tt.TABLES.values())
     assert tt.TAX_DATA_VERIFIED == newest, (
@@ -169,13 +190,17 @@ def test_version_consistency():
         f"verification date ({newest})"
     )
     version_year = int(tt.TAX_DATA_VERSION.split(".")[0])
-    assert any(version_year in tt.table_year_keys(e) for e in tt.TABLES.values()
-               if e.get("year_keyed")), "TAX_DATA_VERSION year not in any table"
+    assert any(
+        version_year in tt.table_year_keys(e)
+        for e in tt.TABLES.values()
+        if e.get("year_keyed")
+    ), "TAX_DATA_VERSION year not in any table"
 
 
 # ---------------------------------------------------------------------------
 # no-orphan-constants — year-keyed tax dicts must not regress into functions
 # ---------------------------------------------------------------------------
+
 
 def test_no_orphan_constants_in_server():
     tree = ast.parse(SERVER_PATH.read_text())
@@ -186,9 +211,12 @@ def test_no_orphan_constants_in_server():
         for node in ast.walk(func):
             if isinstance(node, ast.Dict):
                 year_keys = sum(
-                    1 for k in node.keys
-                    if isinstance(k, ast.Constant) and isinstance(k.value, int)
-                    and 2000 <= k.value <= 2100)
+                    1
+                    for k in node.keys
+                    if isinstance(k, ast.Constant)
+                    and isinstance(k.value, int)
+                    and 2000 <= k.value <= 2100
+                )
                 if year_keys >= 2:
                     offenders.append(f"{func.name}:{node.lineno}")
     assert not offenders, (
@@ -200,6 +228,7 @@ def test_no_orphan_constants_in_server():
 # ---------------------------------------------------------------------------
 # Helper behavior (fail-closed semantics)
 # ---------------------------------------------------------------------------
+
 
 def test_tax_value_raises_for_future_year():
     with pytest.raises(tt.TaxDataError) as exc:
@@ -233,21 +262,28 @@ def test_terminal_value_honored():
 # (this drifted 91 -> 101 -> 104 across three releases before this gate)
 # ---------------------------------------------------------------------------
 
+
 def test_tool_count_copy_matches_manifest():
     import re
+
     root = pathlib.Path(__file__).parent.parent
     manifest = json.loads((root / "mcpb/manifest.json").read_text())
     count = len(manifest["tools"])
 
     pattern = re.compile(r"\b(\d{2,3}) (?:AI |QuickBooks )?[Tt]ools\b")
     offenders = []
-    for path in list((root / "web/src").rglob("*.ts*")) + \
-            list((root / "web/src").rglob("*.md")) + \
-            list((root / "cowork-plugin").rglob("*.json")) + \
-            list((root / "cowork-plugin").rglob("*.md")) + \
-            [root / "web/public/llms.txt", root / "README.md",
-             root / "mcpb/manifest.json",
-             root / "mcpb/src/accountingqb/__init__.py"]:
+    for path in (
+        list((root / "web/src").rglob("*.ts*"))
+        + list((root / "web/src").rglob("*.md"))
+        + list((root / "cowork-plugin").rglob("*.json"))
+        + list((root / "cowork-plugin").rglob("*.md"))
+        + [
+            root / "web/public/llms.txt",
+            root / "README.md",
+            root / "mcpb/manifest.json",
+            root / "mcpb/src/accountingqb/__init__.py",
+        ]
+    ):
         if not path.is_file():
             continue
         for m in pattern.finditer(path.read_text(errors="ignore")):
@@ -255,6 +291,6 @@ def test_tool_count_copy_matches_manifest():
             # GST34 "lines 101..." style references aren't tool counts
             if n != count and n >= 25 and "line" not in m.group(0).lower():
                 offenders.append(f"{path.relative_to(root)}: '{m.group(0)}'")
-    assert not offenders, (
-        f"copy says a tool count != manifest ({count} tools): {offenders}"
-    )
+    assert (
+        not offenders
+    ), f"copy says a tool count != manifest ({count} tools): {offenders}"

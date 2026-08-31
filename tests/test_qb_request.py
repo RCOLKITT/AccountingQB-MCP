@@ -27,15 +27,23 @@ def test_401_then_200_retries_with_fresh_token(qb_ctx, monkeypatch):
     monkeypatch.setattr(qb_server, "QB_CLIENT_SECRET", "csecret")
 
     with respx.mock(assert_all_called=True) as router:
-        api = router.get(QUERY_URL).mock(side_effect=[
-            Response(401, json={"Fault": {"Error": [{"Message": "expired"}]}}),
-            Response(200, json={"QueryResponse": {"CompanyInfo": [{"CompanyName": "X"}]}}),
-        ])
+        api = router.get(QUERY_URL).mock(
+            side_effect=[
+                Response(401, json={"Fault": {"Error": [{"Message": "expired"}]}}),
+                Response(
+                    200, json={"QueryResponse": {"CompanyInfo": [{"CompanyName": "X"}]}}
+                ),
+            ]
+        )
         router.post(qb_server.AUTH_URL).mock(
-            return_value=Response(200, json={"access_token": "tok-2", "expires_in": 3600})
+            return_value=Response(
+                200, json={"access_token": "tok-2", "expires_in": 3600}
+            )
         )
 
-        result = asyncio.run(qb_server.qb_request("GET", "query", params={"query": "SELECT *"}))
+        result = asyncio.run(
+            qb_server.qb_request("GET", "query", params={"query": "SELECT *"})
+        )
 
     assert result == {"QueryResponse": {"CompanyInfo": [{"CompanyName": "X"}]}}
     # Second attempt must carry the refreshed token
@@ -48,7 +56,9 @@ def test_429_raises_friendly_rate_limit_error(qb_ctx):
     with respx.mock:
         respx.get(QUERY_URL).mock(return_value=Response(429, json={}))
         with pytest.raises(RuntimeError, match="rate limit reached"):
-            asyncio.run(qb_server.qb_request("GET", "query", params={"query": "SELECT *"}))
+            asyncio.run(
+                qb_server.qb_request("GET", "query", params={"query": "SELECT *"})
+            )
 
 
 def test_400_fault_raises_runtime_error_with_code_and_message(qb_ctx):
@@ -56,18 +66,22 @@ def test_400_fault_raises_runtime_error_with_code_and_message(qb_ctx):
     fault = {
         "Fault": {
             "type": "ValidationFault",
-            "Error": [{
-                "code": "2010",
-                "Message": "Invalid Reference Id",
-                "Detail": "Invalid Reference Id : Accounts element id 999 not found",
-            }],
+            "Error": [
+                {
+                    "code": "2010",
+                    "Message": "Invalid Reference Id",
+                    "Detail": "Invalid Reference Id : Accounts element id 999 not found",
+                }
+            ],
         },
         "time": "2026-07-09T00:00:00Z",
     }
     with respx.mock:
         respx.get(QUERY_URL).mock(return_value=Response(400, json=fault))
         with pytest.raises(RuntimeError) as exc_info:
-            asyncio.run(qb_server.qb_request("GET", "query", params={"query": "SELECT *"}))
+            asyncio.run(
+                qb_server.qb_request("GET", "query", params={"query": "SELECT *"})
+            )
 
     msg = str(exc_info.value)
     assert "QuickBooks error 2010" in msg
@@ -80,12 +94,14 @@ def test_6000_gst_hst_fault_includes_tax_code_guidance(qb_ctx):
     fault = {
         "Fault": {
             "type": "SystemFault",
-            "Error": [{
-                "code": "6000",
-                "Message": "A business validation error has occurred while processing your request",
-                "Detail": "Business Validation Error: When you use a GST/HST rate, "
-                          "you need to choose a sales tax code for each line item.",
-            }],
+            "Error": [
+                {
+                    "code": "6000",
+                    "Message": "A business validation error has occurred while processing your request",
+                    "Detail": "Business Validation Error: When you use a GST/HST rate, "
+                    "you need to choose a sales tax code for each line item.",
+                }
+            ],
         },
     }
     with respx.mock:
@@ -104,7 +120,10 @@ def test_6000_gst_hst_fault_includes_tax_code_guidance(qb_ctx):
 def test_non_fault_400_still_raises_http_error(qb_ctx):
     _prime_ctx(qb_ctx)
     import httpx
+
     with respx.mock:
         respx.get(QUERY_URL).mock(return_value=Response(400, text="not json"))
         with pytest.raises(httpx.HTTPStatusError):
-            asyncio.run(qb_server.qb_request("GET", "query", params={"query": "SELECT *"}))
+            asyncio.run(
+                qb_server.qb_request("GET", "query", params={"query": "SELECT *"})
+            )

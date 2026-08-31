@@ -41,7 +41,7 @@ export async function GET() {
           clerk_id: userId,
           email: clerkEmail,
         },
-        { onConflict: "clerk_id" }
+        { onConflict: "clerk_id" },
       )
       .select("id, email")
       .single();
@@ -88,7 +88,7 @@ export async function GET() {
           license_key: l.key,
           role: "owner",
         })),
-        { onConflict: "user_id,license_key" }
+        { onConflict: "user_id,license_key" },
       );
     }
 

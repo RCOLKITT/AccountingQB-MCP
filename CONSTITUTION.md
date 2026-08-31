@@ -182,6 +182,12 @@ These tools mutate a business's books of record.
 
 ## Git & Ops Invariants
 
+- **`main` is production. Never push to it directly.** This product reads and
+  writes real books; a merge to `main` deploys the web app (Vercel) and is the
+  source for desktop releases. Every change lands through a short-lived branch →
+  PR → green gates (pytest + secret-scan) → squash-merge. Branch protection
+  enforces this. Admin-merge is only for when CI runners are genuinely
+  unavailable ("not acquired"), and the PR says so — never to skip a real failure.
 - No force-push to main. No secrets, tokens, or books data in git — ever.
 - Schema source of truth: `web/supabase-schema.sql` mirrors live prod;
   changes ship as dated files in `web/migrations/` and are applied before
@@ -205,4 +211,10 @@ These tools mutate a business's books of record.
 
 ---
 
-_CONSTITUTION_VERSION: 1 — referenced from CLAUDE.md; loads in every session._
+This Constitution governs the money/books path and **wins over any general
+engineering standard** where they conflict (see VASPERA-SPINE.md §7); the conflict
+gets reported. The org engineering standard (gates, artifacts, infra) is
+VASPERA-SPINE.md at the repo root — this Constitution is the higher law here.
+
+_CONSTITUTION_VERSION: 2 — added branch/PR production discipline + VASPERA-SPINE
+reference (2026-08-28). Referenced from CLAUDE.md; loads in every session._

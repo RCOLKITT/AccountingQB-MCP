@@ -8,11 +8,13 @@ export async function GET() {
   return NextResponse.json({
     userId,
     sessionClaims,
-    user: user ? {
-      id: user.id,
-      email: user.emailAddresses[0]?.emailAddress,
-      publicMetadata: user.publicMetadata,
-      privateMetadata: user.privateMetadata,
-    } : null,
+    user: user
+      ? {
+          id: user.id,
+          email: user.emailAddresses[0]?.emailAddress,
+          publicMetadata: user.publicMetadata,
+          privateMetadata: user.privateMetadata,
+        }
+      : null,
   });
 }

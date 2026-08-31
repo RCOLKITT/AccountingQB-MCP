@@ -36,7 +36,7 @@ export function renderCampaignBody(c: CampaignContent): string {
 /** Full branded HTML for a campaign email to a specific recipient. */
 export function campaignEmail(
   c: CampaignContent,
-  recipientEmail: string
+  recipientEmail: string,
 ): { subject: string; html: string } {
   return {
     subject: c.subject,

@@ -9,10 +9,24 @@ from accountingqb.context import QBContext, set_ctx, reset_ctx, _default_ctx
 # Simulated broker DB (web /api/oauth/token): each license has ONLY its own
 # realm(s). License AAA never has a row for realmB, and vice-versa.
 _BROKER = {
-    "LK-AAA": [{"realmId": "realmA", "companyName": "A Co", "accessToken": "tokA",
-                "refreshToken": "rA", "expiresAt": "2099-01-01T00:00:00Z"}],
-    "LK-BBB": [{"realmId": "realmB", "companyName": "B Co", "accessToken": "tokB",
-                "refreshToken": "rB", "expiresAt": "2099-01-01T00:00:00Z"}],
+    "LK-AAA": [
+        {
+            "realmId": "realmA",
+            "companyName": "A Co",
+            "accessToken": "tokA",
+            "refreshToken": "rA",
+            "expiresAt": "2099-01-01T00:00:00Z",
+        }
+    ],
+    "LK-BBB": [
+        {
+            "realmId": "realmB",
+            "companyName": "B Co",
+            "accessToken": "tokB",
+            "refreshToken": "rB",
+            "expiresAt": "2099-01-01T00:00:00Z",
+        }
+    ],
 }
 
 

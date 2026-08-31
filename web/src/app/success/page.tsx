@@ -80,16 +80,33 @@ function SuccessContent() {
         {loading ? (
           <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-8">
             <div className="flex items-center justify-center gap-3 text-gray-400">
-              <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              <svg
+                className="h-5 w-5 animate-spin"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
               </svg>
               Generating your license key...
             </div>
           </div>
         ) : licenseKey ? (
           <div className="mt-8 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-8">
-            <p className="text-sm text-gray-400 uppercase tracking-wider">Your License Key</p>
+            <p className="text-sm text-gray-400 uppercase tracking-wider">
+              Your License Key
+            </p>
             <div className="mt-3 flex items-center justify-center gap-3">
               <code className="rounded-lg bg-black/40 px-4 py-3 text-lg font-mono text-cyan-400 tracking-wide">
                 {licenseKey}
@@ -105,14 +122,23 @@ function SuccessContent() {
             {email && (
               <p className="mt-3 text-sm text-gray-400">
                 Registered to <span className="text-gray-300">{email}</span>
-                {tier && <> — <span className="capitalize text-cyan-400">{tier}</span> plan</>}
+                {tier && (
+                  <>
+                    {" "}
+                    — <span className="capitalize text-cyan-400">
+                      {tier}
+                    </span>{" "}
+                    plan
+                  </>
+                )}
               </p>
             )}
           </div>
         ) : (
           <div className="mt-8 rounded-2xl border border-yellow-400/20 bg-yellow-400/5 p-8">
             <p className="text-gray-300">
-              Your license key is being generated. Check your email shortly, or contact support if you don&apos;t receive it within a few minutes.
+              Your license key is being generated. Check your email shortly, or
+              contact support if you don&apos;t receive it within a few minutes.
             </p>
           </div>
         )}
@@ -120,7 +146,9 @@ function SuccessContent() {
         {/* 3-Step Setup Flow */}
         {licenseKey && (
           <div className="mt-10 rounded-2xl border border-white/10 bg-white/5 p-8 text-left">
-            <h2 className="text-lg font-semibold text-center mb-6">Get Started in 3 Steps</h2>
+            <h2 className="text-lg font-semibold text-center mb-6">
+              Get Started in 3 Steps
+            </h2>
 
             {/* Progress indicators */}
             <div className="flex justify-center gap-2 mb-8">
@@ -132,8 +160,8 @@ function SuccessContent() {
                     currentStep === step
                       ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25"
                       : currentStep > step
-                      ? "bg-green-500 text-white"
-                      : "border border-white/20 text-gray-500"
+                        ? "bg-green-500 text-white"
+                        : "border border-white/20 text-gray-500"
                   }`}
                 >
                   {currentStep > step ? "✓" : step}
@@ -149,9 +177,12 @@ function SuccessContent() {
                     1
                   </span>
                   <div>
-                    <h3 className="font-semibold text-white">Install the Extension</h3>
+                    <h3 className="font-semibold text-white">
+                      Install the Extension
+                    </h3>
                     <p className="mt-1 text-sm text-gray-400">
-                      Follow our quick setup guide to add AccountingQB to Claude Desktop.
+                      Follow our quick setup guide to add AccountingQB to Claude
+                      Desktop.
                     </p>
                   </div>
                 </div>
@@ -189,9 +220,12 @@ function SuccessContent() {
                     2
                   </span>
                   <div>
-                    <h3 className="font-semibold text-white">Connect QuickBooks</h3>
+                    <h3 className="font-semibold text-white">
+                      Connect QuickBooks
+                    </h3>
                     <p className="mt-1 text-sm text-gray-400">
-                      Authorize AccountingQB to access your QuickBooks Online company. You can connect multiple companies.
+                      Authorize AccountingQB to access your QuickBooks Online
+                      company. You can connect multiple companies.
                     </p>
                   </div>
                 </div>
@@ -199,8 +233,13 @@ function SuccessContent() {
                   <div className="flex items-start gap-3">
                     <span className="text-green-400 text-lg">🔒</span>
                     <div className="text-sm text-gray-300">
-                      <p className="font-medium text-green-400">Your data stays secure</p>
-                      <p className="mt-1">OAuth tokens are stored securely. Your financial data flows directly between Claude and QuickBooks.</p>
+                      <p className="font-medium text-green-400">
+                        Your data stays secure
+                      </p>
+                      <p className="mt-1">
+                        OAuth tokens are stored securely. Your financial data
+                        flows directly between Claude and QuickBooks.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -235,14 +274,18 @@ function SuccessContent() {
                     ✓
                   </span>
                   <div>
-                    <h3 className="font-semibold text-white">You&apos;re All Set!</h3>
+                    <h3 className="font-semibold text-white">
+                      You&apos;re All Set!
+                    </h3>
                     <p className="mt-1 text-sm text-gray-400">
                       Open Claude Desktop and start talking to your books.
                     </p>
                   </div>
                 </div>
                 <div className="rounded-xl bg-white/[0.03] p-5 text-center">
-                  <p className="text-sm text-gray-400 mb-3">Try asking Claude:</p>
+                  <p className="text-sm text-gray-400 mb-3">
+                    Try asking Claude:
+                  </p>
                   <p className="text-lg italic text-cyan-400">
                     &quot;Show me my P&amp;L for last quarter&quot;
                   </p>
@@ -301,11 +344,13 @@ function SuccessContent() {
 
 export default function SuccessPage() {
   return (
-    <Suspense fallback={
-      <main className="min-h-screen bg-[#0a0e1a] text-white flex items-center justify-center">
-        <p className="text-gray-400">Loading...</p>
-      </main>
-    }>
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#0a0e1a] text-white flex items-center justify-center">
+          <p className="text-gray-400">Loading...</p>
+        </main>
+      }
+    >
       <SuccessContent />
     </Suspense>
   );

@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     if (!licenseKey) {
       return NextResponse.json(
         { error: "License key is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -53,14 +53,14 @@ export async function POST(req: NextRequest) {
     if (licenseError || !license) {
       return NextResponse.json(
         { error: "Invalid license key" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     if (license.status === "canceled" || license.status === "expired") {
       return NextResponse.json(
         { error: "License is no longer active", status: license.status },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
       console.error("Failed to fetch tokens:", tokensError);
       return NextResponse.json(
         { error: "Failed to fetch tokens" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
             status: license.status,
           },
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
     const refreshedTokens: OAuthTokenRow[] = [];
     for (const token of tokens as OAuthTokenRow[]) {
       refreshedTokens.push(
-        await refreshTokenIfNeeded(supabase, licenseKey, token)
+        await refreshTokenIfNeeded(supabase, licenseKey, token),
       );
     }
 
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
     console.error("Token endpoint error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -165,7 +165,7 @@ function sleep(ms: number): Promise<void> {
 async function refreshTokenIfNeeded(
   supabase: ReturnType<typeof getSupabase>,
   licenseKey: string,
-  token: OAuthTokenRow
+  token: OAuthTokenRow,
 ): Promise<OAuthTokenRow> {
   const expiresAt = new Date(token.token_expires_at);
 
@@ -178,12 +178,15 @@ async function refreshTokenIfNeeded(
   let claimed = true;
   const { data: claimResult, error: claimError } = await supabase.rpc(
     "claim_token_refresh",
-    { p_id: token.id }
+    { p_id: token.id },
   );
 
   if (claimError) {
     // Function missing or RPC failure — fall back to refreshing directly
-    console.error("claim_token_refresh RPC failed, refreshing without lock:", claimError);
+    console.error(
+      "claim_token_refresh RPC failed, refreshing without lock:",
+      claimError,
+    );
   } else {
     claimed = claimResult === true;
   }
@@ -220,7 +223,12 @@ async function refreshTokenIfNeeded(
       .eq("id", token.id);
 
     // Log failed token refresh
-    await logOAuthRefresh(licenseKey, token.realm_id, false, "Refresh request failed");
+    await logOAuthRefresh(
+      licenseKey,
+      token.realm_id,
+      false,
+      "Refresh request failed",
+    );
 
     return token;
   }
@@ -253,9 +261,7 @@ async function refreshTokenIfNeeded(
 /**
  * Refreshes an expired access token using the refresh token.
  */
-async function refreshAccessToken(token: {
-  refresh_token: string;
-}): Promise<{
+async function refreshAccessToken(token: { refresh_token: string }): Promise<{
   access_token: string;
   refresh_token: string;
   token_expires_at: string;
@@ -268,21 +274,26 @@ async function refreshAccessToken(token: {
     return null;
   }
 
-  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString(
+    "base64",
+  );
 
   try {
-    const res = await fetch("https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": `Basic ${basicAuth}`,
-        "Accept": "application/json",
+    const res = await fetch(
+      "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Basic ${basicAuth}`,
+          Accept: "application/json",
+        },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token: decryptToken(token.refresh_token),
+        }),
       },
-      body: new URLSearchParams({
-        grant_type: "refresh_token",
-        refresh_token: decryptToken(token.refresh_token),
-      }),
-    });
+    );
 
     if (!res.ok) {
       // Status only — never log the Intuit response body (avoids writing any
@@ -292,7 +303,9 @@ async function refreshAccessToken(token: {
     }
 
     const data = await res.json();
-    const expiresAt = new Date(Date.now() + (data.expires_in || 3600) * 1000).toISOString();
+    const expiresAt = new Date(
+      Date.now() + (data.expires_in || 3600) * 1000,
+    ).toISOString();
 
     return {
       access_token: data.access_token,

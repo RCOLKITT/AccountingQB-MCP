@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     if (existing?.key) {
       return NextResponse.redirect(
         `${baseUrl}/dashboard?key=${encodeURIComponent(existing.key)}`,
-        303
+        303,
       );
     }
   }
@@ -67,10 +67,19 @@ export async function GET(req: NextRequest) {
     const session = await getStripe().checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
+      // No card during the trial — the "no credit card required" promise made true.
+      // Checkout still completes and provisions the trialing license; Stripe just
+      // doesn't ask for a card while nothing is due.
+      payment_method_collection: "if_required",
       customer_email: email,
       ...(currency ? { currency } : {}),
       subscription_data: {
         trial_period_days: 14,
+        // If the trial ends and no card was added, cancel cleanly instead of leaving
+        // an unpayable open invoice — the user simply reverts to the free read-only tier.
+        trial_settings: {
+          end_behavior: { missing_payment_method: "cancel" },
+        },
         metadata: { tier },
       },
       line_items: [{ price: priceId, quantity: 1 }],
@@ -95,7 +104,7 @@ export async function GET(req: NextRequest) {
     console.error("Stripe checkout error:", message);
     return NextResponse.json(
       { error: "Failed to create checkout session" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

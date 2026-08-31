@@ -8,9 +8,13 @@ import accountingqb.tax_tables as tt
 
 
 def _inv(pid, state, amount, tax=0.0):
-    return {"Id": pid, "TxnDate": "2026-06-01", "TotalAmt": amount,
-            "ShipAddr": {"CountrySubDivisionCode": state},
-            "TxnTaxDetail": {"TotalTax": tax}}
+    return {
+        "Id": pid,
+        "TxnDate": "2026-06-01",
+        "TotalAmt": amount,
+        "ShipAddr": {"CountrySubDivisionCode": state},
+        "TxnTaxDetail": {"TotalTax": tax},
+    }
 
 
 def _patch(monkeypatch, invoices, refunds=None):
@@ -22,8 +26,12 @@ def _patch(monkeypatch, invoices, refunds=None):
         return {"QueryResponse": {}}  # Customer, SalesReceipt
 
     async def fake_region():
-        return {"region": "US", "subdivision": "", "home_currency": "USD",
-                "multicurrency": False}
+        return {
+            "region": "US",
+            "subdivision": "",
+            "home_currency": "USD",
+            "multicurrency": False,
+        }
 
     monkeypatch.setattr(s, "qb_query", fake_query)
     monkeypatch.setattr(s, "_get_region", fake_region)
@@ -38,12 +46,17 @@ def test_dataset_is_sourced_and_ledgered():
 
 
 def test_nexus_screen_buckets_states(monkeypatch):
-    _patch(monkeypatch, [
-        _inv("1", "CA", 600_000, 45_000),   # > $500k sales-only -> exposure
-        _inv("2", "TX", 450_000, 0),        # 90% of $500k -> approaching
-        _inv("3", "NV", 50_000, 3_000),     # < $100k -> below
-        _inv("4", "NY", 600_000, 40_000),   # $500k AND 100 txns; only 1 txn -> NOT met
-    ])
+    _patch(
+        monkeypatch,
+        [
+            _inv("1", "CA", 600_000, 45_000),  # > $500k sales-only -> exposure
+            _inv("2", "TX", 450_000, 0),  # 90% of $500k -> approaching
+            _inv("3", "NV", 50_000, 3_000),  # < $100k -> below
+            _inv(
+                "4", "NY", 600_000, 40_000
+            ),  # $500k AND 100 txns; only 1 txn -> NOT met
+        ],
+    )
     out = asyncio.run(s.qb_sales_tax_nexus("2026"))
     # framing: screening reference, sourced
     assert "not** a determination" in out and "verified" in out
@@ -66,14 +79,16 @@ def test_refunds_net_out_of_nexus(monkeypatch):
     # $600k CA sales, but a $200k customer refund -> net $400k, below the
     # $500k sales-only threshold. Without netting this would false-positive as
     # "likely nexus"; with netting it must drop to approaching, not exposure.
-    _patch(monkeypatch,
-           [_inv("1", "CA", 600_000, 45_000)],
-           refunds=[_inv("r1", "CA", 200_000, 15_000)])
+    _patch(
+        monkeypatch,
+        [_inv("1", "CA", 600_000, 45_000)],
+        refunds=[_inv("r1", "CA", 200_000, 15_000)],
+    )
     out = asyncio.run(s.qb_sales_tax_nexus("2026"))
     exposure_block = out.split("Approaching")[0]
-    assert "| CA " not in exposure_block          # no longer over threshold
+    assert "| CA " not in exposure_block  # no longer over threshold
     ca = [ln for ln in out.splitlines() if ln.startswith("| CA ")]
-    assert ca and "$400,000" in ca[0]             # net of the refund
+    assert ca and "$400,000" in ca[0]  # net of the refund
     # liability nets too: $45k collected - $15k refunded = $30k
     assert "$30,000" in out
 
@@ -83,8 +98,13 @@ def test_no_destination_state(monkeypatch):
         return {"QueryResponse": {}}
 
     async def fake_region():
-        return {"region": "US", "subdivision": "", "home_currency": "USD",
-                "multicurrency": False}
+        return {
+            "region": "US",
+            "subdivision": "",
+            "home_currency": "USD",
+            "multicurrency": False,
+        }
+
     monkeypatch.setattr(s, "qb_query", fake_query)
     monkeypatch.setattr(s, "_get_region", fake_region)
     out = asyncio.run(s.qb_sales_tax_nexus("2026"))

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     if (!licenseKey || !realmId) {
       return NextResponse.json(
         { error: "License key and realm ID are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     if (licenseError || !license) {
       return NextResponse.json(
         { error: "Invalid license key" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -51,18 +51,23 @@ export async function POST(req: NextRequest) {
         const clientSecret = process.env.QB_CLIENT_SECRET;
 
         if (clientId && clientSecret) {
-          const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+          const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString(
+            "base64",
+          );
 
-          await fetch("https://developer.api.intuit.com/v2/oauth2/tokens/revoke", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Basic ${basicAuth}`,
+          await fetch(
+            "https://developer.api.intuit.com/v2/oauth2/tokens/revoke",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Basic ${basicAuth}`,
+              },
+              body: JSON.stringify({
+                token: decryptToken(token.refresh_token),
+              }),
             },
-            body: JSON.stringify({
-              token: decryptToken(token.refresh_token),
-            }),
-          });
+          );
         }
       } catch {
         // Best effort — continue with deletion even if revoke fails
@@ -81,7 +86,7 @@ export async function POST(req: NextRequest) {
       await logOAuthDisconnect(licenseKey, realmId, false, deleteError.message);
       return NextResponse.json(
         { error: "Failed to disconnect company" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -93,7 +98,7 @@ export async function POST(req: NextRequest) {
     console.error("Revoke endpoint error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

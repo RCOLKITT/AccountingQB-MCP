@@ -73,7 +73,10 @@ export async function GET(req: NextRequest) {
         .select("id")
         .eq("license_key", license.key)
         .eq("email_type", "trial_warning_4day")
-        .gte("created_at", new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())
+        .gte(
+          "created_at",
+          new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+        )
         .single();
 
       if (!existing) {
@@ -91,7 +94,9 @@ export async function GET(req: NextRequest) {
         if (result.success) {
           results.fourDayWarnings++;
         } else {
-          results.errors.push(`4-day warning for ${license.key}: ${result.error}`);
+          results.errors.push(
+            `4-day warning for ${license.key}: ${result.error}`,
+          );
         }
       }
     }
@@ -112,7 +117,10 @@ export async function GET(req: NextRequest) {
         .select("id")
         .eq("license_key", license.key)
         .eq("email_type", "trial_warning_1day")
-        .gte("created_at", new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())
+        .gte(
+          "created_at",
+          new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+        )
         .single();
 
       if (!existing) {
@@ -130,7 +138,9 @@ export async function GET(req: NextRequest) {
         if (result.success) {
           results.oneDayWarnings++;
         } else {
-          results.errors.push(`1-day warning for ${license.key}: ${result.error}`);
+          results.errors.push(
+            `1-day warning for ${license.key}: ${result.error}`,
+          );
         }
       }
     }
@@ -174,7 +184,9 @@ export async function GET(req: NextRequest) {
         if (result.success) {
           results.expiredNotices++;
         } else {
-          results.errors.push(`Expired notice for ${license.key}: ${result.error}`);
+          results.errors.push(
+            `Expired notice for ${license.key}: ${result.error}`,
+          );
         }
       }
     }

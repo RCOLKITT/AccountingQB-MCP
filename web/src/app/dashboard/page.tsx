@@ -2,7 +2,13 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useUser, UserButton, SignInButton, SignedIn, SignedOut } from "@clerk/nextjs";
+import {
+  useUser,
+  UserButton,
+  SignInButton,
+  SignedIn,
+  SignedOut,
+} from "@clerk/nextjs";
 import { SetupPrompt } from "@/components/setup/SetupPrompt";
 
 interface Company {
@@ -47,7 +53,11 @@ function DashboardContent() {
 
   // Combined user - prefer Clerk, fall back to legacy
   const user = clerkUser
-    ? { id: clerkUser.id, email: clerkUser.primaryEmailAddress?.emailAddress || "", displayName: clerkUser.fullName }
+    ? {
+        id: clerkUser.id,
+        email: clerkUser.primaryEmailAddress?.emailAddress || "",
+        displayName: clerkUser.fullName,
+      }
     : legacyUser;
 
   // License state
@@ -132,7 +142,9 @@ function DashboardContent() {
 
   const fetchSetupStatus = async (licenseKey: string) => {
     try {
-      const res = await fetch(`/api/setup/verify?license_key=${encodeURIComponent(licenseKey)}`);
+      const res = await fetch(
+        `/api/setup/verify?license_key=${encodeURIComponent(licenseKey)}`,
+      );
       if (res.ok) {
         const data = await res.json();
         setSetupStatus(data.setup);
@@ -295,7 +307,8 @@ function DashboardContent() {
   }
 
   // Show license key input when not authenticated and no license selected
-  const showLegacyInput = !isSignedIn && !legacyUser && (legacyMode || keyParam) && !selectedLicense;
+  const showLegacyInput =
+    !isSignedIn && !legacyUser && (legacyMode || keyParam) && !selectedLicense;
 
   return (
     <main className="min-h-screen bg-[#0a0e1a] text-white">
@@ -316,7 +329,8 @@ function DashboardContent() {
               >
                 All 131 Tools
               </a>
-              {(clerkUser?.publicMetadata as { role?: string })?.role === "admin" && (
+              {(clerkUser?.publicMetadata as { role?: string })?.role ===
+                "admin" && (
                 <a
                   href="/admin"
                   className="text-sm text-cyan-400 hover:text-cyan-300 transition font-medium"
@@ -335,7 +349,9 @@ function DashboardContent() {
             <SignedOut>
               {legacyUser ? (
                 <>
-                  <span className="text-sm text-gray-400">{legacyUser.email}</span>
+                  <span className="text-sm text-gray-400">
+                    {legacyUser.email}
+                  </span>
                   <button
                     onClick={signOut}
                     disabled={signingOut}
@@ -405,13 +421,18 @@ function DashboardContent() {
         {/* No License State - for signed in users without a license */}
         {isSignedIn && !selectedLicense && !showLegacyInput && (
           <div className="mt-8 rounded-2xl border border-yellow-500/20 bg-yellow-500/5 p-8">
-            <h2 className="text-xl font-semibold text-white">No License Found</h2>
+            <h2 className="text-xl font-semibold text-white">
+              No License Found
+            </h2>
             <p className="mt-2 text-gray-400">
-              We couldn&apos;t find a license linked to your account ({clerkUser?.primaryEmailAddress?.emailAddress}).
+              We couldn&apos;t find a license linked to your account (
+              {clerkUser?.primaryEmailAddress?.emailAddress}).
             </p>
             <div className="mt-6 space-y-4">
               <div className="rounded-xl bg-white/5 p-4">
-                <p className="text-sm font-medium text-white mb-2">Already purchased?</p>
+                <p className="text-sm font-medium text-white mb-2">
+                  Already purchased?
+                </p>
                 <p className="text-sm text-gray-400 mb-3">
                   Enter your license key below to link it to your account:
                 </p>
@@ -487,24 +508,28 @@ function DashboardContent() {
             )}
 
             {/* Top Tools (only for authenticated users with usage) */}
-            {(isSignedIn || legacyUser) && stats && stats.topTools.length > 0 && (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-                <h2 className="text-lg font-semibold mb-4">Most Used Tools</h2>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {stats.topTools.slice(0, 6).map((tool) => (
-                    <div
-                      key={tool.rawName}
-                      className="flex items-center justify-between rounded-lg bg-white/[0.03] px-4 py-2"
-                    >
-                      <span className="text-gray-300">{tool.name}</span>
-                      <span className="text-sm text-gray-500">
-                        {tool.count}x
-                      </span>
-                    </div>
-                  ))}
+            {(isSignedIn || legacyUser) &&
+              stats &&
+              stats.topTools.length > 0 && (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                  <h2 className="text-lg font-semibold mb-4">
+                    Most Used Tools
+                  </h2>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {stats.topTools.slice(0, 6).map((tool) => (
+                      <div
+                        key={tool.rawName}
+                        className="flex items-center justify-between rounded-lg bg-white/[0.03] px-4 py-2"
+                      >
+                        <span className="text-gray-300">{tool.name}</span>
+                        <span className="text-sm text-gray-500">
+                          {tool.count}x
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {/* License Selector (for users with multiple licenses) */}
             {(isSignedIn || legacyUser) && licenses.length > 1 && (
@@ -529,37 +554,45 @@ function DashboardContent() {
             )}
 
             {/* Trial Banner (if trialing) */}
-            {selectedLicense.status === "trialing" && selectedLicense.trial_ends_at && (
-              <div className="rounded-2xl border border-blue-400/30 bg-blue-400/10 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">⏳</span>
-                    <div>
-                      <p className="font-medium text-white">
-                        {(() => {
-                          const daysLeft = Math.ceil(
-                            (new Date(selectedLicense.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-                          );
-                          if (daysLeft <= 0) return "Trial expired";
-                          if (daysLeft === 1) return "1 day left in trial";
-                          return `${daysLeft} days left in trial`;
-                        })()}
-                      </p>
-                      <p className="text-sm text-blue-300">
-                        Your trial ends on {new Date(selectedLicense.trial_ends_at).toLocaleDateString()}
-                      </p>
+            {selectedLicense.status === "trialing" &&
+              selectedLicense.trial_ends_at && (
+                <div className="rounded-2xl border border-blue-400/30 bg-blue-400/10 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">⏳</span>
+                      <div>
+                        <p className="font-medium text-white">
+                          {(() => {
+                            const daysLeft = Math.ceil(
+                              (new Date(
+                                selectedLicense.trial_ends_at,
+                              ).getTime() -
+                                Date.now()) /
+                                (1000 * 60 * 60 * 24),
+                            );
+                            if (daysLeft <= 0) return "Trial expired";
+                            if (daysLeft === 1) return "1 day left in trial";
+                            return `${daysLeft} days left in trial`;
+                          })()}
+                        </p>
+                        <p className="text-sm text-blue-300">
+                          Your trial ends on{" "}
+                          {new Date(
+                            selectedLicense.trial_ends_at,
+                          ).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
+                    <button
+                      onClick={openBillingPortal}
+                      disabled={portalLoading}
+                      className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold hover:bg-blue-600 transition disabled:opacity-50"
+                    >
+                      {portalLoading ? "..." : "Upgrade Now"}
+                    </button>
                   </div>
-                  <button
-                    onClick={openBillingPortal}
-                    disabled={portalLoading}
-                    className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold hover:bg-blue-600 transition disabled:opacity-50"
-                  >
-                    {portalLoading ? "..." : "Upgrade Now"}
-                  </button>
                 </div>
-              </div>
-            )}
+              )}
 
             {/* License Card */}
             <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-6">
@@ -590,8 +623,8 @@ function DashboardContent() {
                       selectedLicense.status === "active"
                         ? "bg-green-500/20 text-green-400"
                         : selectedLicense.status === "trialing"
-                        ? "bg-blue-500/20 text-blue-400"
-                        : "bg-red-500/20 text-red-400"
+                          ? "bg-blue-500/20 text-blue-400"
+                          : "bg-red-500/20 text-red-400"
                     }`}
                   >
                     {selectedLicense.status}
@@ -658,9 +691,12 @@ function DashboardContent() {
 
             {/* Billing & Subscription */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-              <h2 className="text-lg font-semibold mb-4">Billing & Subscription</h2>
+              <h2 className="text-lg font-semibold mb-4">
+                Billing & Subscription
+              </h2>
               <p className="text-sm text-gray-400 mb-4">
-                Manage your subscription, update payment method, view invoices, or cancel anytime.
+                Manage your subscription, update payment method, view invoices,
+                or cancel anytime.
               </p>
               <div className="flex flex-wrap gap-3">
                 <button

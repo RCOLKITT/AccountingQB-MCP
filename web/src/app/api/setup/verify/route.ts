@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     if (!licenseKey) {
       return NextResponse.json(
         { error: "Missing licenseKey" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -30,20 +30,23 @@ export async function POST(req: NextRequest) {
     if (licenseError || !license) {
       return NextResponse.json(
         { error: "Invalid license key" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     // Record the milestone
     const { error: milestoneError } = await supabase
       .from("user_milestones")
-      .upsert({
-        license_key: licenseKey,
-        milestone: "claude_configured",
-        completed_at: new Date().toISOString(),
-      }, {
-        onConflict: "license_key,milestone"
-      });
+      .upsert(
+        {
+          license_key: licenseKey,
+          milestone: "claude_configured",
+          completed_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "license_key,milestone",
+        },
+      );
 
     if (milestoneError) {
       console.error("Failed to record milestone:", milestoneError);
@@ -68,10 +71,11 @@ export async function POST(req: NextRequest) {
       setup: {
         claudeConfigured: true,
         qbConnected: hasQBConnected,
-        companies: tokens?.map(t => ({
-          realmId: t.realm_id,
-          name: t.company_name
-        })) || [],
+        companies:
+          tokens?.map((t) => ({
+            realmId: t.realm_id,
+            name: t.company_name,
+          })) || [],
       },
       nextStep: hasQBConnected
         ? "You're all set! Try asking: 'Show me my P&L for last quarter'"
@@ -81,7 +85,7 @@ export async function POST(req: NextRequest) {
     console.error("Setup verify error:", error);
     return NextResponse.json(
       { error: "Failed to verify setup" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -96,7 +100,7 @@ export async function GET(req: NextRequest) {
   if (!licenseKey) {
     return NextResponse.json(
       { error: "Missing license_key parameter" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -110,10 +114,7 @@ export async function GET(req: NextRequest) {
     .single();
 
   if (licenseError || !license) {
-    return NextResponse.json(
-      { error: "Invalid license key" },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "Invalid license key" }, { status: 404 });
   }
 
   // Check milestones
@@ -122,7 +123,8 @@ export async function GET(req: NextRequest) {
     .select("milestone, completed_at")
     .eq("license_key", licenseKey);
 
-  const claudeConfigured = milestones?.some(m => m.milestone === "claude_configured") || false;
+  const claudeConfigured =
+    milestones?.some((m) => m.milestone === "claude_configured") || false;
 
   // Check QB connection
   const { data: tokens } = await supabase
@@ -140,10 +142,11 @@ export async function GET(req: NextRequest) {
     setup: {
       claudeConfigured,
       qbConnected: hasQBConnected,
-      companies: tokens?.map(t => ({
-        realmId: t.realm_id,
-        name: t.company_name
-      })) || [],
+      companies:
+        tokens?.map((t) => ({
+          realmId: t.realm_id,
+          name: t.company_name,
+        })) || [],
     },
   });
 }

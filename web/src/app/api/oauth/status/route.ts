@@ -32,10 +32,12 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       connected,
-      companies: connected ? tokens.map(t => ({
-        realmId: t.realm_id,
-        companyName: t.company_name,
-      })) : [],
+      companies: connected
+        ? tokens.map((t) => ({
+            realmId: t.realm_id,
+            companyName: t.company_name,
+          }))
+        : [],
     });
   } catch (err) {
     console.error("OAuth status error:", err);

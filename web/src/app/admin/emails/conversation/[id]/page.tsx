@@ -19,7 +19,9 @@ interface Conversation {
   updated_at: string;
 }
 
-async function getConversation(id: string): Promise<{ conversation: Conversation; messages: Message[] } | null> {
+async function getConversation(
+  id: string,
+): Promise<{ conversation: Conversation; messages: Message[] } | null> {
   const supabase = getSupabase();
 
   const { data: conversation } = await supabase
@@ -45,7 +47,11 @@ async function getConversation(id: string): Promise<{ conversation: Conversation
   }
   if (!userEmail) {
     const meta = (conv.metadata || {}) as { email?: string };
-    userEmail = meta.email ?? (conv.anonymous_id ? `anon:${String(conv.anonymous_id).slice(0, 8)}` : null);
+    userEmail =
+      meta.email ??
+      (conv.anonymous_id
+        ? `anon:${String(conv.anonymous_id).slice(0, 8)}`
+        : null);
   }
 
   const { data: messages } = await supabase
@@ -81,9 +87,16 @@ export default async function ConversationPage({
   if (!data) {
     return (
       <div className="text-center py-12">
-        <h1 className="text-2xl font-bold text-white">Conversation Not Found</h1>
-        <p className="text-gray-400 mt-2">This conversation doesn&apos;t exist.</p>
-        <Link href="/admin/emails" className="text-cyan-400 hover:text-cyan-300 mt-4 inline-block">
+        <h1 className="text-2xl font-bold text-white">
+          Conversation Not Found
+        </h1>
+        <p className="text-gray-400 mt-2">
+          This conversation doesn&apos;t exist.
+        </p>
+        <Link
+          href="/admin/emails"
+          className="text-cyan-400 hover:text-cyan-300 mt-4 inline-block"
+        >
           ← Back to Emails
         </Link>
       </div>
@@ -96,10 +109,15 @@ export default async function ConversationPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <Link href="/admin/emails" className="text-sm text-cyan-400 hover:text-cyan-300">
+          <Link
+            href="/admin/emails"
+            className="text-sm text-cyan-400 hover:text-cyan-300"
+          >
             ← Back to Emails
           </Link>
-          <h1 className="text-2xl font-bold text-white mt-2">Support Conversation</h1>
+          <h1 className="text-2xl font-bold text-white mt-2">
+            Support Conversation
+          </h1>
         </div>
         <StatusBadge status={conversation.status} />
       </div>
@@ -109,7 +127,9 @@ export default async function ConversationPage({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
             <p className="text-gray-400">User Email</p>
-            <p className="text-white mt-1">{conversation.user_email || "Anonymous"}</p>
+            <p className="text-white mt-1">
+              {conversation.user_email || "Anonymous"}
+            </p>
           </div>
           <div>
             <p className="text-gray-400">License Key</p>
@@ -119,11 +139,15 @@ export default async function ConversationPage({
           </div>
           <div>
             <p className="text-gray-400">Created</p>
-            <p className="text-white mt-1">{formatDateTime(conversation.created_at)}</p>
+            <p className="text-white mt-1">
+              {formatDateTime(conversation.created_at)}
+            </p>
           </div>
           <div>
             <p className="text-gray-400">Last Update</p>
-            <p className="text-white mt-1">{formatDateTime(conversation.updated_at)}</p>
+            <p className="text-white mt-1">
+              {formatDateTime(conversation.updated_at)}
+            </p>
           </div>
         </div>
       </div>
@@ -153,7 +177,9 @@ export default async function ConversationPage({
                   {formatDateTime(message.created_at)}
                 </span>
               </div>
-              <p className="text-white whitespace-pre-wrap">{message.content}</p>
+              <p className="text-white whitespace-pre-wrap">
+                {message.content}
+              </p>
             </div>
           ))}
         </div>
@@ -170,7 +196,9 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`px-3 py-1 rounded-full text-sm font-medium border ${colors[status] || "bg-gray-500/10 text-gray-400 border-gray-500/20"}`}>
+    <span
+      className={`px-3 py-1 rounded-full text-sm font-medium border ${colors[status] || "bg-gray-500/10 text-gray-400 border-gray-500/20"}`}
+    >
       {status}
     </span>
   );

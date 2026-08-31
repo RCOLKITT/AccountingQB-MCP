@@ -40,7 +40,7 @@ export async function GET() {
     console.error("Public stats error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

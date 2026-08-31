@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   if (!clientId || !redirectUri || !codeChallenge || !licenseKey) {
     return oauthError(
       "invalid_request",
-      "client_id, redirect_uri, code_challenge and license_key are required"
+      "client_id, redirect_uri, code_challenge and license_key are required",
     );
   }
   // OAuth 2.1: PKCE S256 only.
@@ -66,7 +66,9 @@ export async function POST(req: NextRequest) {
   // Validate the client and the exact redirect URI.
   const { data: client } = await supabase
     .from("mcp_oauth_clients")
-    .select("client_id, client_secret_hash, client_name, redirect_uris, created_at")
+    .select(
+      "client_id, client_secret_hash, client_name, redirect_uris, created_at",
+    )
     .eq("client_id", clientId)
     .maybeSingle<McpOAuthClient>();
 
@@ -77,7 +79,10 @@ export async function POST(req: NextRequest) {
     ? client.redirect_uris
     : [];
   if (!registeredUris.includes(redirectUri)) {
-    return oauthError("invalid_request", "redirect_uri is not registered for this client");
+    return oauthError(
+      "invalid_request",
+      "redirect_uri is not registered for this client",
+    );
   }
 
   // Validate the license belongs to the signed-in user (same resolution as
@@ -111,7 +116,11 @@ export async function POST(req: NextRequest) {
     owned = !!license;
   }
   if (!owned) {
-    return oauthError("access_denied", "License does not belong to this user", 403);
+    return oauthError(
+      "access_denied",
+      "License does not belong to this user",
+      403,
+    );
   }
 
   // License must be usable (mirrors /api/oauth/token's status check).
@@ -120,7 +129,11 @@ export async function POST(req: NextRequest) {
     .select("key, status")
     .eq("key", licenseKey)
     .maybeSingle();
-  if (!license || license.status === "canceled" || license.status === "expired") {
+  if (
+    !license ||
+    license.status === "canceled" ||
+    license.status === "expired"
+  ) {
     return oauthError("access_denied", "License is not active", 403);
   }
 
@@ -150,6 +163,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json(
     { redirect: redirect.toString() },
-    { headers: { "Cache-Control": "no-store" } }
+    { headers: { "Cache-Control": "no-store" } },
   );
 }

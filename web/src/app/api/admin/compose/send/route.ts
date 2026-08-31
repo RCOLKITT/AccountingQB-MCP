@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { getSupabase } from "@/lib/supabase";
 import { sendEmail } from "@/lib/emails/send-email";
-import { campaignEmail, type CampaignContent } from "@/lib/emails/templates/campaign";
+import {
+  campaignEmail,
+  type CampaignContent,
+} from "@/lib/emails/templates/campaign";
 import { filterSuppressed } from "@/lib/emails/unsubscribe";
 
 // Send a composed marketing email. mode:
@@ -14,7 +17,9 @@ import { filterSuppressed } from "@/lib/emails/unsubscribe";
 
 const COHORTS = ["active", "trialing", "stuck", "canceled", "all"];
 
-async function resolveCohort(cohort: string): Promise<{ key: string; email: string }[]> {
+async function resolveCohort(
+  cohort: string,
+): Promise<{ key: string; email: string }[]> {
   const supabase = getSupabase();
   let q = supabase
     .from("licenses")
@@ -56,7 +61,8 @@ async function resolveCohort(cohort: string): Promise<{ key: string; email: stri
 
 export async function POST(req: NextRequest) {
   const user = await currentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if ((user.publicMetadata as { role?: string })?.role !== "admin")
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const adminEmail = user.emailAddresses[0]?.emailAddress || "";
@@ -72,17 +78,27 @@ export async function POST(req: NextRequest) {
   const mode = String(body.mode || "dryRun");
   const perHour = Math.max(1, Math.min(500, Number(body.perHour) || 60));
 
-  if (!content?.subject || !(content.paragraphs?.length))
-    return NextResponse.json({ error: "Draft needs a subject and body" }, { status: 400 });
+  if (!content?.subject || !content.paragraphs?.length)
+    return NextResponse.json(
+      { error: "Draft needs a subject and body" },
+      { status: 400 },
+    );
   if (!COHORTS.includes(cohort))
     return NextResponse.json({ error: "Invalid cohort" }, { status: 400 });
 
   // Test send → admin's own inbox, immediately.
   if (mode === "test") {
     if (!adminEmail)
-      return NextResponse.json({ error: "No admin email on file" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No admin email on file" },
+        { status: 400 },
+      );
     const { subject, html } = campaignEmail(content, adminEmail);
-    const r = await sendEmail({ to: adminEmail, subject: `[TEST] ${subject}`, html });
+    const r = await sendEmail({
+      to: adminEmail,
+      subject: `[TEST] ${subject}`,
+      html,
+    });
     return NextResponse.json({ test: true, to: adminEmail, ok: r.success });
   }
 
@@ -104,7 +120,10 @@ export async function POST(req: NextRequest) {
   if (mode !== "send")
     return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
   if (!eligible.length)
-    return NextResponse.json({ error: "No eligible recipients" }, { status: 400 });
+    return NextResponse.json(
+      { error: "No eligible recipients" },
+      { status: 400 },
+    );
 
   // Schedule throttled: spread scheduled_for so the cron sends ~perHour/hour.
   const supabase = getSupabase();
@@ -126,13 +145,15 @@ export async function POST(req: NextRequest) {
       console.error("Campaign schedule insert failed:", error);
       return NextResponse.json(
         { error: "Failed to schedule", scheduled },
-        { status: 500 }
+        { status: 500 },
       );
     }
     scheduled += chunk.length;
   }
 
-  console.log(`Campaign scheduled: ${scheduled} to '${cohort}' by ${adminEmail}`);
+  console.log(
+    `Campaign scheduled: ${scheduled} to '${cohort}' by ${adminEmail}`,
+  );
   return NextResponse.json({
     sent: true,
     scheduled,

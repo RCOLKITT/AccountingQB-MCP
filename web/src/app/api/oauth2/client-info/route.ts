@@ -9,7 +9,10 @@ import { getSupabase } from "@/lib/supabase";
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("client_id");
   if (!clientId) {
-    return NextResponse.json({ error: "client_id is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "client_id is required" },
+      { status: 400 },
+    );
   }
 
   const supabase = getSupabase();

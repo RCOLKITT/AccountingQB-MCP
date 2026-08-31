@@ -67,7 +67,7 @@ export function normalizeDays(raw: string | undefined): number {
 // plateau at Supabase's default 1000-row cap.
 async function fetchAllUsage(
   sb: ReturnType<typeof getSupabase>,
-  since: string
+  since: string,
 ): Promise<UsageRow[]> {
   const out: UsageRow[] = [];
   const PAGE = 1000;
@@ -90,7 +90,10 @@ export async function getUsageAnalytics(days: number): Promise<UsageAnalytics> {
   const since = new Date(Date.now() - days * 86400000).toISOString();
 
   const [{ data: licenses }, { data: tokens }, usage] = await Promise.all([
-    sb.from("licenses").select("key, email, tier, status, is_test").limit(50000),
+    sb
+      .from("licenses")
+      .select("key, email, tier, status, is_test")
+      .limit(50000),
     sb.from("oauth_tokens").select("license_key, company_name").limit(50000),
     fetchAllUsage(sb, since),
   ]);
@@ -99,7 +102,10 @@ export async function getUsageAnalytics(days: number): Promise<UsageAnalytics> {
   for (const l of (licenses as LicenseRow[]) || []) licByKey.set(l.key, l);
 
   const companyByKey = new Map<string, string>();
-  for (const t of (tokens as { license_key: string; company_name: string | null }[]) || []) {
+  for (const t of (tokens as {
+    license_key: string;
+    company_name: string | null;
+  }[]) || []) {
     if (t.company_name && !companyByKey.has(t.license_key)) {
       companyByKey.set(t.license_key, t.company_name);
     }
@@ -118,7 +124,11 @@ export async function getUsageAnalytics(days: number): Promise<UsageAnalytics> {
     const l = licByKey.get(r.license_key)!;
     const mins = r.time_saved_minutes || 0;
 
-    const t = toolAgg.get(r.tool_name) || { tool: r.tool_name, calls: 0, minutesSaved: 0 };
+    const t = toolAgg.get(r.tool_name) || {
+      tool: r.tool_name,
+      calls: 0,
+      minutesSaved: 0,
+    };
     t.calls += 1;
     t.minutesSaved += mins;
     toolAgg.set(r.tool_name, t);
@@ -153,7 +163,11 @@ export async function getUsageAnalytics(days: number): Promise<UsageAnalytics> {
 
   const tierMap = new Map<string, TierUsage>();
   for (const a of accounts) {
-    const tu = tierMap.get(a.tier) || { tier: a.tier, calls: 0, activeAccounts: 0 };
+    const tu = tierMap.get(a.tier) || {
+      tier: a.tier,
+      calls: 0,
+      activeAccounts: 0,
+    };
     tu.calls += a.calls;
     tu.activeAccounts += 1;
     tierMap.set(a.tier, tu);
@@ -167,7 +181,9 @@ export async function getUsageAnalytics(days: number): Promise<UsageAnalytics> {
     totalCalls,
     activeAccounts,
     hoursSaved: Math.round(minutes / 6) / 10, // one decimal
-    avgCallsPerAccount: activeAccounts ? Math.round((totalCalls / activeAccounts) * 10) / 10 : 0,
+    avgCallsPerAccount: activeAccounts
+      ? Math.round((totalCalls / activeAccounts) * 10) / 10
+      : 0,
     topTools,
     byTier: [...tierMap.values()].sort((x, y) => y.calls - x.calls),
     accounts,

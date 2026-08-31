@@ -20,7 +20,7 @@ def _fake_book(total_rows, entity="Invoice"):
         assert "STARTPOSITION" in query, "qb_query_all must add a cursor"
         pos = int(re.search(r"STARTPOSITION (\d+)", query).group(1))
         size = int(re.search(r"MAXRESULTS (\d+)", query).group(1))
-        page = rows[pos - 1: pos - 1 + size]
+        page = rows[pos - 1 : pos - 1 + size]
         return {"QueryResponse": {entity: page} if page else {}}
 
     return fake_query
@@ -58,7 +58,8 @@ def test_caller_startposition_is_stripped(monkeypatch):
     # Even if a caller pre-wrote a cursor, we page from the top over all rows.
     monkeypatch.setattr(s, "qb_query", _fake_book(1500))
     out = asyncio.run(
-        s.qb_query_all("SELECT * FROM Invoice STARTPOSITION 5 MAXRESULTS 500"))
+        s.qb_query_all("SELECT * FROM Invoice STARTPOSITION 5 MAXRESULTS 500")
+    )
     assert len(out["QueryResponse"]["Invoice"]) == 1500
 
 

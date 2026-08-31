@@ -17,8 +17,14 @@ QUERY_URL = f"{BASE}/query"
 PREFS_URL = f"{BASE}/preferences"
 INVOICE_URL = f"{BASE}/invoice"
 
-INVOICE_OK = {"Invoice": {"Id": "9", "DocNumber": "1001",
-                          "TotalAmt": 113.0, "DueDate": "2026-08-01"}}
+INVOICE_OK = {
+    "Invoice": {
+        "Id": "9",
+        "DocNumber": "1001",
+        "TotalAmt": 113.0,
+        "DueDate": "2026-08-01",
+    }
+}
 
 
 def _prime_ctx(ctx):
@@ -39,55 +45,115 @@ def _query_dispatcher(country="CA", province=None):
         if "FROM CompanyInfo" in q:
             return Response(200, json={"QueryResponse": {"CompanyInfo": [company]}})
         if "FROM TaxCode" in q:
-            return Response(200, json={"QueryResponse": {"TaxCode": [
-                {"Id": "3", "Name": "HST ON", "Active": True,
-                 "SalesTaxRateList": {"TaxRateDetail": [
-                     {"TaxRateRef": {"value": "7"}}]}},
-                {"Id": "4", "Name": "GST", "Active": True,
-                 "SalesTaxRateList": {"TaxRateDetail": [
-                     {"TaxRateRef": {"value": "8"}}]}},
-                {"Id": "5", "Name": "Exempt", "Active": True},
-            ]}})
+            return Response(
+                200,
+                json={
+                    "QueryResponse": {
+                        "TaxCode": [
+                            {
+                                "Id": "3",
+                                "Name": "HST ON",
+                                "Active": True,
+                                "SalesTaxRateList": {
+                                    "TaxRateDetail": [{"TaxRateRef": {"value": "7"}}]
+                                },
+                            },
+                            {
+                                "Id": "4",
+                                "Name": "GST",
+                                "Active": True,
+                                "SalesTaxRateList": {
+                                    "TaxRateDetail": [{"TaxRateRef": {"value": "8"}}]
+                                },
+                            },
+                            {"Id": "5", "Name": "Exempt", "Active": True},
+                        ]
+                    }
+                },
+            )
         if "FROM TaxRate" in q:
-            return Response(200, json={"QueryResponse": {"TaxRate": [
-                {"Id": "7", "Name": "HST ON", "RateValue": 13,
-                 "AgencyRef": {"value": "1"}},
-                {"Id": "8", "Name": "GST", "RateValue": 5,
-                 "AgencyRef": {"value": "1"}},
-            ]}})
+            return Response(
+                200,
+                json={
+                    "QueryResponse": {
+                        "TaxRate": [
+                            {
+                                "Id": "7",
+                                "Name": "HST ON",
+                                "RateValue": 13,
+                                "AgencyRef": {"value": "1"},
+                            },
+                            {
+                                "Id": "8",
+                                "Name": "GST",
+                                "RateValue": 5,
+                                "AgencyRef": {"value": "1"},
+                            },
+                        ]
+                    }
+                },
+            )
         if "FROM TaxAgency" in q:
-            return Response(200, json={"QueryResponse": {"TaxAgency": [
-                {"Id": "1", "DisplayName": "Canada Revenue Agency"}]}})
+            return Response(
+                200,
+                json={
+                    "QueryResponse": {
+                        "TaxAgency": [
+                            {"Id": "1", "DisplayName": "Canada Revenue Agency"}
+                        ]
+                    }
+                },
+            )
         if "FROM Customer" in q:
-            return Response(200, json={"QueryResponse": {"Customer": [
-                {"Id": "42", "DisplayName": "TechStart Inc"}]}})
+            return Response(
+                200,
+                json={
+                    "QueryResponse": {
+                        "Customer": [{"Id": "42", "DisplayName": "TechStart Inc"}]
+                    }
+                },
+            )
         return Response(200, json={"QueryResponse": {}})
+
     return handler
 
 
 def _prefs_response(partner_tax=False, currency="CAD"):
-    return Response(200, json={"Preferences": {
-        "TaxPrefs": {"PartnerTaxEnabled": partner_tax},
-        "CurrencyPrefs": {"MultiCurrencyEnabled": False,
-                          "HomeCurrency": {"value": currency}},
-    }})
+    return Response(
+        200,
+        json={
+            "Preferences": {
+                "TaxPrefs": {"PartnerTaxEnabled": partner_tax},
+                "CurrencyPrefs": {
+                    "MultiCurrencyEnabled": False,
+                    "HomeCurrency": {"value": currency},
+                },
+            }
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
 # (a) CA invoice: GlobalTaxCalculation + TaxCodeRef injected
 # ---------------------------------------------------------------------------
 
+
 def test_ca_invoice_sends_global_tax_and_tax_code_ref(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
         router.get(QUERY_URL).mock(side_effect=_query_dispatcher("CA"))
         router.get(PREFS_URL).mock(return_value=_prefs_response())
-        post = router.post(INVOICE_URL).mock(return_value=Response(200, json=INVOICE_OK))
+        post = router.post(INVOICE_URL).mock(
+            return_value=Response(200, json=INVOICE_OK)
+        )
 
-        result = asyncio.run(qb_server.qb_create_invoice(
-            "TechStart", '[{"description": "Consulting", "amount": 100}]',
-            tax_code="HST ON",
-        ))
+        result = asyncio.run(
+            qb_server.qb_create_invoice(
+                "TechStart",
+                '[{"description": "Consulting", "amount": 100}]',
+                tax_code="HST ON",
+            )
+        )
 
     assert "Invoice created" in result
     body = json.loads(post.calls[0].request.content)
@@ -100,14 +166,19 @@ def test_ca_invoice_tax_inclusive_and_per_line_override(qb_ctx):
     with respx.mock(assert_all_called=False) as router:
         router.get(QUERY_URL).mock(side_effect=_query_dispatcher("CA"))
         router.get(PREFS_URL).mock(return_value=_prefs_response())
-        post = router.post(INVOICE_URL).mock(return_value=Response(200, json=INVOICE_OK))
+        post = router.post(INVOICE_URL).mock(
+            return_value=Response(200, json=INVOICE_OK)
+        )
 
-        result = asyncio.run(qb_server.qb_create_invoice(
-            "TechStart",
-            '[{"description": "A", "amount": 100, "tax_code": "GST"},'
-            ' {"description": "B", "amount": 50}]',
-            tax_code="HST ON", tax_inclusive=True,
-        ))
+        result = asyncio.run(
+            qb_server.qb_create_invoice(
+                "TechStart",
+                '[{"description": "A", "amount": 100, "tax_code": "GST"},'
+                ' {"description": "B", "amount": 50}]',
+                tax_code="HST ON",
+                tax_inclusive=True,
+            )
+        )
 
     assert "Invoice created" in result
     body = json.loads(post.calls[0].request.content)
@@ -121,16 +192,24 @@ def test_ca_invoice_tax_inclusive_and_per_line_override(qb_ctx):
 # (b) US invoice: no GlobalTaxCalculation, no TaxCodeRef
 # ---------------------------------------------------------------------------
 
+
 def test_us_invoice_has_no_global_tax_fields(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
         router.get(QUERY_URL).mock(side_effect=_query_dispatcher("US"))
-        router.get(PREFS_URL).mock(return_value=_prefs_response(partner_tax=True, currency="USD"))
-        post = router.post(INVOICE_URL).mock(return_value=Response(200, json=INVOICE_OK))
+        router.get(PREFS_URL).mock(
+            return_value=_prefs_response(partner_tax=True, currency="USD")
+        )
+        post = router.post(INVOICE_URL).mock(
+            return_value=Response(200, json=INVOICE_OK)
+        )
 
-        result = asyncio.run(qb_server.qb_create_invoice(
-            "TechStart", '[{"description": "Consulting", "amount": 100}]',
-        ))
+        result = asyncio.run(
+            qb_server.qb_create_invoice(
+                "TechStart",
+                '[{"description": "Consulting", "amount": 100}]',
+            )
+        )
 
     assert "Invoice created" in result
     body = json.loads(post.calls[0].request.content)
@@ -142,16 +221,22 @@ def test_us_invoice_has_no_global_tax_fields(qb_ctx):
 # (c) CA invoice without any tax code: friendly error, no POST
 # ---------------------------------------------------------------------------
 
+
 def test_ca_invoice_without_tax_code_blocked_before_post(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
         router.get(QUERY_URL).mock(side_effect=_query_dispatcher("CA"))
         router.get(PREFS_URL).mock(return_value=_prefs_response())
-        post = router.post(INVOICE_URL).mock(return_value=Response(200, json=INVOICE_OK))
+        post = router.post(INVOICE_URL).mock(
+            return_value=Response(200, json=INVOICE_OK)
+        )
 
-        result = asyncio.run(qb_server.qb_create_invoice(
-            "TechStart", '[{"description": "Consulting", "amount": 100}]',
-        ))
+        result = asyncio.run(
+            qb_server.qb_create_invoice(
+                "TechStart",
+                '[{"description": "Consulting", "amount": 100}]',
+            )
+        )
 
     assert "requires a sales tax code" in result
     assert "qb_list_tax_codes" in result
@@ -161,6 +246,7 @@ def test_ca_invoice_without_tax_code_blocked_before_post(qb_ctx):
 # ---------------------------------------------------------------------------
 # (d) US-tax tools redirect for CA companies without running their queries
 # ---------------------------------------------------------------------------
+
 
 def test_schedule_c_redirects_for_ca_company(qb_ctx):
     _prime_ctx(qb_ctx)
@@ -180,6 +266,7 @@ def test_schedule_c_redirects_for_ca_company(qb_ctx):
 # ---------------------------------------------------------------------------
 # (e) _resolve_tax_code matching + not-found error
 # ---------------------------------------------------------------------------
+
 
 def test_resolve_tax_code_case_insensitive_and_by_id(qb_ctx):
     _prime_ctx(qb_ctx)
@@ -210,6 +297,7 @@ def test_resolve_tax_code_not_found_lists_available(qb_ctx):
 # Region detection & caching
 # ---------------------------------------------------------------------------
 
+
 def test_get_region_detects_ca_and_caches_per_realm(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
@@ -219,8 +307,12 @@ def test_get_region_detects_ca_and_caches_per_realm(qb_ctx):
         info1 = asyncio.run(qb_server._get_region())
         info2 = asyncio.run(qb_server._get_region())
 
-    assert info1 == {"region": "CA", "home_currency": "CAD", "multicurrency": False,
-                     "subdivision": ""}
+    assert info1 == {
+        "region": "CA",
+        "home_currency": "CAD",
+        "multicurrency": False,
+        "subdivision": "",
+    }
     assert info2 is info1  # served from region_cache
     assert query.call_count == 1
     assert qb_ctx.region_cache[REALM]["region"] == "CA"
@@ -241,7 +333,9 @@ def test_partner_tax_enabled_wins_over_missing_country(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
         router.get(QUERY_URL).mock(side_effect=_query_dispatcher(""))
-        router.get(PREFS_URL).mock(return_value=_prefs_response(partner_tax=True, currency="USD"))
+        router.get(PREFS_URL).mock(
+            return_value=_prefs_response(partner_tax=True, currency="USD")
+        )
 
         info = asyncio.run(qb_server._get_region())
 
@@ -251,6 +345,7 @@ def test_partner_tax_enabled_wins_over_missing_country(qb_ctx):
 # ---------------------------------------------------------------------------
 # Discovery tools
 # ---------------------------------------------------------------------------
+
 
 def test_qb_list_tax_codes_shows_rates_and_agency(qb_ctx):
     _prime_ctx(qb_ctx)
@@ -297,16 +392,25 @@ def test_qb_list_tax_rates_lists_rate_values(qb_ctx):
 
 PL_URL = f"{BASE}/reports/ProfitAndLoss"
 
-PL_100K = {"Rows": {"Row": [
-    {"Summary": {"ColData": [{"value": "Total Income"}, {"value": "100000.00"}]}},
-    {"Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "0.00"}]}},
-]}}
+PL_100K = {
+    "Rows": {
+        "Row": [
+            {
+                "Summary": {
+                    "ColData": [{"value": "Total Income"}, {"value": "100000.00"}]
+                }
+            },
+            {"Summary": {"ColData": [{"value": "Total Expenses"}, {"value": "0.00"}]}},
+        ]
+    }
+}
 
 
 def _us_router(router, province=None):
     router.get(QUERY_URL).mock(side_effect=_query_dispatcher("US", province=province))
     router.get(PREFS_URL).mock(
-        return_value=_prefs_response(partner_tax=True, currency="USD"))
+        return_value=_prefs_response(partner_tax=True, currency="USD")
+    )
     router.get(PL_URL).mock(return_value=Response(200, json=PL_100K))
 
 

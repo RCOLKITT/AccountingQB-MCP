@@ -33,7 +33,9 @@ export default function ChangelogPage() {
         >
           ← AccountingQB
         </a>
-        <h1 className="mt-6 text-4xl font-bold tracking-tight">What&rsquo;s New</h1>
+        <h1 className="mt-6 text-4xl font-bold tracking-tight">
+          What&rsquo;s New
+        </h1>
         <p className="mt-3 text-lg text-gray-400">
           New features and improvements in AccountingQB. Have an idea?{" "}
           <a
@@ -47,7 +49,10 @@ export default function ChangelogPage() {
 
         <div className="mt-14 space-y-14">
           {RELEASES.map((r) => (
-            <article key={r.version} className="relative border-l border-white/10 pl-8">
+            <article
+              key={r.version}
+              className="relative border-l border-white/10 pl-8"
+            >
               <div className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500" />
               <div className="flex flex-wrap items-center gap-3">
                 {r.tag && (
@@ -64,7 +69,9 @@ export default function ChangelogPage() {
                   {r.version.match(/^\d/) ? `v${r.version}` : r.version}
                 </span>
               </div>
-              <h2 className="mt-3 text-2xl font-semibold text-white">{r.title}</h2>
+              <h2 className="mt-3 text-2xl font-semibold text-white">
+                {r.title}
+              </h2>
               <p className="mt-2 text-gray-400 leading-relaxed">{r.summary}</p>
               <ul className="mt-4 space-y-2">
                 {r.highlights.map((h, i) => (

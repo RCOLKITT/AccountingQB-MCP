@@ -81,7 +81,7 @@ export function day3CheckinEmail(params: Day3CheckinEmailParams): {
     subject: `Need help setting up AccountingQB?`,
     html: emailWrapper(
       content,
-      `I noticed you haven't connected QuickBooks yet — can I help?`
+      `I noticed you haven't connected QuickBooks yet — can I help?`,
     ),
   };
 }

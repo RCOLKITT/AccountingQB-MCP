@@ -9,7 +9,7 @@ import { rescheduleTrialEmails } from "@/lib/emails/schedule-email";
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ key: string }> }
+  { params }: { params: Promise<{ key: string }> },
 ) {
   // Verify admin via Clerk
   const user = await currentUser();
@@ -30,7 +30,7 @@ export async function POST(
   if (!days || days < 1 || days > 365) {
     return NextResponse.json(
       { error: "Invalid extension period" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -52,7 +52,7 @@ export async function POST(
   if (license.status !== "trialing" && license.status !== "expired") {
     return NextResponse.json(
       { error: `Cannot extend a trial for a '${license.status}' license.` },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -64,7 +64,7 @@ export async function POST(
       ? new Date(license.trial_ends_at)
       : anchor;
   const newTrialEnd = new Date(
-    currentTrialEnd.getTime() + days * 24 * 60 * 60 * 1000
+    currentTrialEnd.getTime() + days * 24 * 60 * 60 * 1000,
   );
 
   // Update license
@@ -81,7 +81,7 @@ export async function POST(
     console.error("Failed to extend trial:", updateError);
     return NextResponse.json(
       { error: "Failed to extend trial" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -98,9 +98,7 @@ export async function POST(
   // Reschedule trial warning emails
   await rescheduleTrialEmails(key, license.email, license.tier, newTrialEnd);
 
-  console.log(
-    `Trial extended for ${key}: +${days} days by ${adminEmail}`
-  );
+  console.log(`Trial extended for ${key}: +${days} days by ${adminEmail}`);
 
   return NextResponse.json({
     success: true,

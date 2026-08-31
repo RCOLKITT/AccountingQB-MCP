@@ -11,7 +11,9 @@ function getRedis(): Redis {
     const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
     if (!url || !token) {
-      throw new Error("Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN");
+      throw new Error(
+        "Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN",
+      );
     }
 
     _redis = new Redis({ url, token });
@@ -80,6 +82,28 @@ export function getOAuth2RegisterLimiter(): Ratelimit {
   });
 }
 
+// Rate limiter for desktop-app download redirects: 60/min per IP (generous —
+// legitimate re-downloads/retries happen; just blocks abusive hammering).
+export function getDownloadLimiter(): Ratelimit {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(60, "1 m"),
+    prefix: "ratelimit:download",
+    analytics: true,
+  });
+}
+
+// Rate limiter for cross-app pairing (issue/redeem/status): 10/min per IP —
+// tight, since these gate account linking + secret release.
+export function getLinkLimiter(): Ratelimit {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(10, "1 m"),
+    prefix: "ratelimit:link",
+    analytics: true,
+  });
+}
+
 // Rate limiter for the OAuth2 token endpoint: 20 requests per minute per IP
 export function getOAuth2TokenLimiter(): Ratelimit {
   return new Ratelimit({
@@ -135,7 +159,7 @@ export function rateLimitResponse(reset: number): NextResponse {
         "Retry-After": String(retryAfter),
         "X-RateLimit-Reset": String(reset),
       },
-    }
+    },
   );
 }
 
@@ -144,5 +168,7 @@ export function rateLimitResponse(reset: number): NextResponse {
  * Returns false if Upstash is not configured, allowing graceful degradation.
  */
 export function isRateLimitingEnabled(): boolean {
-  return !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+  return !!(
+    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+  );
 }

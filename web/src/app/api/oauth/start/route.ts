@@ -24,8 +24,10 @@ export async function GET(req: NextRequest) {
 
   if (!clientId || !redirectUri) {
     return NextResponse.json(
-      { error: "OAuth not configured. Missing QB_CLIENT_ID or QB_REDIRECT_URI." },
-      { status: 500 }
+      {
+        error: "OAuth not configured. Missing QB_CLIENT_ID or QB_REDIRECT_URI.",
+      },
+      { status: 500 },
     );
   }
 
@@ -44,9 +46,7 @@ export async function GET(req: NextRequest) {
   const state = generateState();
   const statePayload = encodeStatePayload(state, licenseKey);
 
-  const scopes = [
-    "com.intuit.quickbooks.accounting",
-  ].join(" ");
+  const scopes = ["com.intuit.quickbooks.accounting"].join(" ");
 
   const authUrl = new URL("https://appcenter.intuit.com/connect/oauth2");
   authUrl.searchParams.set("client_id", clientId);

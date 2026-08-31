@@ -34,7 +34,8 @@ export default function AdminUsersPage() {
   const [inviteResult, setInviteResult] = useState<string | null>(null);
 
   // Cohorts the campaign endpoint supports
-  const campaignFilter = filter === "stuck" || filter === "canceled" ? filter : null;
+  const campaignFilter =
+    filter === "stuck" || filter === "canceled" ? filter : null;
 
   useEffect(() => {
     fetchUsers();
@@ -86,7 +87,7 @@ export default function AdminUsersPage() {
         setInviteResult(
           data.emailSent
             ? `✓ Invited ${inviteEmail.trim()} — ${inviteDays}-day ${inviteTier} trial emailed (key ${data.licenseKey}).`
-            : `License created (${data.licenseKey}) but email failed — share the key manually.`
+            : `License created (${data.licenseKey}) but email failed — share the key manually.`,
         );
         setInviteEmail("");
         fetchUsers();
@@ -121,12 +122,14 @@ export default function AdminUsersPage() {
       }
 
       if (!dryData.count) {
-        alert("No eligible recipients (users who already received this email are skipped).");
+        alert(
+          "No eligible recipients (users who already received this email are skipped).",
+        );
         return;
       }
 
       const confirmed = window.confirm(
-        `Send the re-engagement email to ${dryData.count} user${dryData.count === 1 ? "" : "s"} in the "${campaignFilter}" cohort?`
+        `Send the re-engagement email to ${dryData.count} user${dryData.count === 1 ? "" : "s"} in the "${campaignFilter}" cohort?`,
       );
       if (!confirmed) return;
 
@@ -141,7 +144,9 @@ export default function AdminUsersPage() {
       const data = await res.json();
 
       if (res.ok) {
-        alert(`Re-engagement email scheduled for ${data.scheduled} user${data.scheduled === 1 ? "" : "s"}.`);
+        alert(
+          `Re-engagement email scheduled for ${data.scheduled} user${data.scheduled === 1 ? "" : "s"}.`,
+        );
       } else {
         alert(data.error || "Failed to send campaign");
       }
@@ -263,13 +268,19 @@ export default function AdminUsersPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center text-gray-400">
+                  <td
+                    colSpan={9}
+                    className="px-6 py-8 text-center text-gray-400"
+                  >
                     Loading...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center text-gray-400">
+                  <td
+                    colSpan={9}
+                    className="px-6 py-8 text-center text-gray-400"
+                  >
                     No users found
                   </td>
                 </tr>
@@ -279,7 +290,9 @@ export default function AdminUsersPage() {
                     key={user.key}
                     className="border-b border-white/5 hover:bg-white/5"
                   >
-                    <td className="px-6 py-4 text-sm text-white">{user.email}</td>
+                    <td className="px-6 py-4 text-sm text-white">
+                      {user.email}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-400 font-mono text-xs">
                       {user.key.substring(0, 12)}...
                     </td>
@@ -307,7 +320,9 @@ export default function AdminUsersPage() {
                       {timeAgo(user.last_active)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-400">
-                      {user.trial_ends_at ? formatDate(user.trial_ends_at) : "—"}
+                      {user.trial_ends_at
+                        ? formatDate(user.trial_ends_at)
+                        : "—"}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-400">
                       {formatDate(user.created_at)}
@@ -339,7 +354,9 @@ function TierBadge({ tier }: { tier: string }) {
   };
 
   return (
-    <span className={`px-2 py-1 rounded text-xs font-medium ${colors[tier] || colors.solopreneur}`}>
+    <span
+      className={`px-2 py-1 rounded text-xs font-medium ${colors[tier] || colors.solopreneur}`}
+    >
       {tier}
     </span>
   );
@@ -354,7 +371,9 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`px-2 py-1 rounded text-xs font-medium ${colors[status] || colors.trialing}`}>
+    <span
+      className={`px-2 py-1 rounded text-xs font-medium ${colors[status] || colors.trialing}`}
+    >
       {status}
     </span>
   );

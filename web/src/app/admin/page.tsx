@@ -1,5 +1,11 @@
 import { getSupabase } from "@/lib/supabase";
+import { unstable_cache } from "next/cache";
 import Link from "next/link";
+
+// Admin dashboards don't need to be real-time to the second — cache the heavy
+// aggregate reads for 60s so clicking around the admin is instant instead of
+// re-running every query on every navigation.
+const ADMIN_CACHE_SECONDS = 60;
 
 interface Stats {
   totalUsers: number;
@@ -23,83 +29,69 @@ async function getStats(): Promise<Stats> {
   const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
 
-  // Get license counts by status. Exclude test/demo accounts (is_test) so these
-  // headline numbers match the Revenue/Funnel pages, which already filter them.
-  const { count: totalUsers } = await supabase
-    .from("licenses")
-    .select("*", { count: "exact", head: true })
-    .eq("is_test", false);
-
-  const { count: activeTrials } = await supabase
-    .from("licenses")
-    .select("*", { count: "exact", head: true })
-    .eq("is_test", false)
-    .eq("status", "trialing");
-
-  // "Paid" means an actually-billing subscription — matches the Revenue page's
-  // definition (active AND a Stripe subscription), not merely status='active'.
-  const { count: activeSubscriptions } = await supabase
-    .from("licenses")
-    .select("*", { count: "exact", head: true })
-    .eq("is_test", false)
-    .eq("status", "active")
-    .not("stripe_subscription_id", "is", null);
-
-  const { count: canceledSubscriptions } = await supabase
-    .from("licenses")
-    .select("*", { count: "exact", head: true })
-    .eq("is_test", false)
-    .in("status", ["canceled", "expired"]);
-
-  // Trials ending this week
-  const { count: trialsEndingThisWeek } = await supabase
-    .from("licenses")
-    .select("*", { count: "exact", head: true })
-    .eq("is_test", false)
-    .eq("status", "trialing")
-    .lte("trial_ends_at", oneWeekFromNow.toISOString())
-    .gte("trial_ends_at", now.toISOString());
-
-  // Stuck users: signed up > 3 days ago, no QB connected
-  const { data: oldTrials } = await supabase
-    .from("licenses")
-    .select("key")
-    .eq("is_test", false)
-    .eq("status", "trialing")
-    .lt("created_at", threeDaysAgo.toISOString());
-
-  let stuckUsers = 0;
-  if (oldTrials) {
-    for (const license of oldTrials) {
-      const { data: milestone } = await supabase
-        .from("user_milestones")
-        .select("id")
-        .eq("license_key", license.key)
-        .eq("milestone", "qb_connected")
-        .maybeSingle();
-
-      if (!milestone) {
-        stuckUsers++;
-      }
-    }
-  }
-
-  // Recent escalations (last 7 days)
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const { count: recentEscalations } = await supabase
-    .from("support_conversations")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "escalated")
-    .gte("updated_at", sevenDaysAgo.toISOString());
-
-  // Support health (last 30 days) from support_analytics — self-resolution and
-  // escalation rates + the topics driving contacts.
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const { data: supportRows } = await supabase
-    .from("support_analytics")
-    .select("topic, resolved_self, escalated, created_at")
-    .gte("created_at", thirtyDaysAgo.toISOString())
-    .limit(50000);
+  const lic = () =>
+    supabase
+      .from("licenses")
+      .select("*", { count: "exact", head: true })
+      .eq("is_test", false);
+
+  // Every headline metric is an independent query — run them in ONE parallel
+  // batch instead of a dozen sequential round-trips. Exclude test/demo accounts
+  // (is_test) so these match the Revenue/Funnel pages.
+  const [
+    { count: totalUsers },
+    { count: activeTrials },
+    // "Paid" = an actually-billing subscription (active AND a Stripe sub) — matches Revenue.
+    { count: activeSubscriptions },
+    { count: canceledSubscriptions },
+    { count: trialsEndingThisWeek },
+    { data: oldTrials },
+    { count: recentEscalations },
+    { data: supportRows },
+  ] = await Promise.all([
+    lic(),
+    lic().eq("status", "trialing"),
+    lic().eq("status", "active").not("stripe_subscription_id", "is", null),
+    lic().in("status", ["canceled", "expired"]),
+    lic()
+      .eq("status", "trialing")
+      .lte("trial_ends_at", oneWeekFromNow.toISOString())
+      .gte("trial_ends_at", now.toISOString()),
+    // Stuck-user candidates: trialing, signed up > 3 days ago.
+    supabase
+      .from("licenses")
+      .select("key")
+      .eq("is_test", false)
+      .eq("status", "trialing")
+      .lt("created_at", threeDaysAgo.toISOString()),
+    supabase
+      .from("support_conversations")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "escalated")
+      .gte("updated_at", sevenDaysAgo.toISOString()),
+    // Support health (last 30 days): self-resolution + escalation + top topics.
+    supabase
+      .from("support_analytics")
+      .select("topic, resolved_self, escalated, created_at")
+      .gte("created_at", thirtyDaysAgo.toISOString())
+      .limit(50000),
+  ]);
+
+  // Stuck users: of the old trials, how many have NOT hit qb_connected. ONE query
+  // over all candidate keys (was N+1: a query per trial), then a set difference.
+  let stuckUsers = 0;
+  const oldKeys = (oldTrials || []).map((l) => l.key as string);
+  if (oldKeys.length) {
+    const { data: connectedRows } = await supabase
+      .from("user_milestones")
+      .select("license_key")
+      .eq("milestone", "qb_connected")
+      .in("license_key", oldKeys);
+    const connected = new Set((connectedRows || []).map((m) => m.license_key));
+    stuckUsers = oldKeys.filter((k) => !connected.has(k)).length;
+  }
   const sup = (supportRows || []) as {
     topic: string;
     resolved_self: boolean;
@@ -154,24 +146,27 @@ async function getRecentUsers(): Promise<RecentUser[]> {
   return (data || []) as RecentUser[];
 }
 
+const getDashboardData = unstable_cache(
+  async () => Promise.all([getStats(), getRecentUsers()]),
+  ["admin-dashboard"],
+  { revalidate: ADMIN_CACHE_SECONDS },
+);
+
 export default async function AdminDashboard() {
-  const stats = await getStats();
-  const recentUsers = await getRecentUsers();
+  const [stats, recentUsers] = await getDashboardData();
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <p className="text-gray-400 mt-1">Overview of your AccountingQB users</p>
+        <p className="text-gray-400 mt-1">
+          Overview of your AccountingQB users
+        </p>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          label="Total Users"
-          value={stats.totalUsers}
-          color="cyan"
-        />
+        <StatCard label="Total Users" value={stats.totalUsers} color="cyan" />
         <StatCard
           label="Active Trials"
           value={stats.activeTrials}
@@ -217,11 +212,17 @@ export default async function AdminDashboard() {
       {/* Support health (30d) */}
       <div className="rounded-xl border border-white/10 bg-[#131a2e] p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white">Support health · 30d</h2>
-          <span className="text-xs text-gray-500">{stats.support.total} contacts</span>
+          <h2 className="text-sm font-semibold text-white">
+            Support health · 30d
+          </h2>
+          <span className="text-xs text-gray-500">
+            {stats.support.total} contacts
+          </span>
         </div>
         {stats.support.total === 0 ? (
-          <p className="text-sm text-gray-500">No support activity in the last 30 days.</p>
+          <p className="text-sm text-gray-500">
+            No support activity in the last 30 days.
+          </p>
         ) : (
           <div className="flex flex-wrap items-start gap-8">
             <div>
@@ -354,10 +355,25 @@ function AlertCard({
   href: string;
   color: string;
 }) {
-  const colorClasses: Record<string, { bg: string; text: string; border: string }> = {
-    yellow: { bg: "bg-yellow-500/10", text: "text-yellow-400", border: "border-yellow-500/20" },
-    orange: { bg: "bg-orange-500/10", text: "text-orange-400", border: "border-orange-500/20" },
-    red: { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20" },
+  const colorClasses: Record<
+    string,
+    { bg: string; text: string; border: string }
+  > = {
+    yellow: {
+      bg: "bg-yellow-500/10",
+      text: "text-yellow-400",
+      border: "border-yellow-500/20",
+    },
+    orange: {
+      bg: "bg-orange-500/10",
+      text: "text-orange-400",
+      border: "border-orange-500/20",
+    },
+    red: {
+      bg: "bg-red-500/10",
+      text: "text-red-400",
+      border: "border-red-500/20",
+    },
   };
 
   const c = colorClasses[color];
@@ -387,7 +403,9 @@ function TierBadge({ tier }: { tier: string }) {
   };
 
   return (
-    <span className={`px-2 py-1 rounded text-xs font-medium ${colors[tier] || colors.solopreneur}`}>
+    <span
+      className={`px-2 py-1 rounded text-xs font-medium ${colors[tier] || colors.solopreneur}`}
+    >
       {tier}
     </span>
   );
@@ -402,7 +420,9 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`px-2 py-1 rounded text-xs font-medium ${colors[status] || colors.trialing}`}>
+    <span
+      className={`px-2 py-1 rounded text-xs font-medium ${colors[status] || colors.trialing}`}
+    >
       {status}
     </span>
   );

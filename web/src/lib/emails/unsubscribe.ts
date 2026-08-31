@@ -6,7 +6,9 @@ import { getSupabase } from "@/lib/supabase";
 // only campaigns/marketing do (CAN-SPAM / CASL).
 
 const SECRET =
-  process.env.UNSUBSCRIBE_SECRET || process.env.CRON_SECRET || "dev-unsub-secret";
+  process.env.UNSUBSCRIBE_SECRET ||
+  process.env.CRON_SECRET ||
+  "dev-unsub-secret";
 
 function baseUrl(): string {
   return (
@@ -62,7 +64,7 @@ export async function filterSuppressed(emails: string[]): Promise<Set<string>> {
 export async function suppress(
   email: string,
   source: string,
-  reason?: string
+  reason?: string,
 ): Promise<void> {
   const supabase = getSupabase();
   await supabase.from("email_unsubscribes").upsert(
@@ -72,6 +74,6 @@ export async function suppress(
       source,
       reason: reason || null,
     },
-    { onConflict: "email" }
+    { onConflict: "email" },
   );
 }

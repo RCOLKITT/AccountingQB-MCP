@@ -42,14 +42,15 @@ export async function GET(req: NextRequest) {
   if (!licenseKey || !realmId || !Number.isInteger(taxYear)) {
     return NextResponse.json(
       { error: "licenseKey, realmId and taxYear are required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
   const v = await validateLicense(licenseKey);
-  if ("error" in v) return NextResponse.json({ error: v.error }, { status: v.status });
+  if ("error" in v)
+    return NextResponse.json({ error: v.error }, { status: v.status });
 
-  const { data } = await v.supabase!
-    .from("allocation_profiles")
+  const { data } = await v
+    .supabase!.from("allocation_profiles")
     .select("profile")
     .eq("license_key", licenseKey)
     .eq("realm_id", realmId)
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(
     { profile: data?.profile || null },
-    { headers: { "Cache-Control": "no-store" } }
+    { headers: { "Cache-Control": "no-store" } },
   );
 }
 
@@ -82,24 +83,38 @@ export async function POST(req: NextRequest) {
   if (!licenseKey || !realmId || !Number.isInteger(taxYear)) {
     return NextResponse.json(
       { error: "licenseKey, realmId and taxYear are required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
-  if (profile === null || typeof profile !== "object" || Array.isArray(profile)) {
-    return NextResponse.json({ error: "profile must be a JSON object" }, { status: 400 });
+  if (
+    profile === null ||
+    typeof profile !== "object" ||
+    Array.isArray(profile)
+  ) {
+    return NextResponse.json(
+      { error: "profile must be a JSON object" },
+      { status: 400 },
+    );
   }
   const v = await validateLicense(licenseKey);
-  if ("error" in v) return NextResponse.json({ error: v.error }, { status: v.status });
+  if ("error" in v)
+    return NextResponse.json({ error: v.error }, { status: v.status });
 
-  const { error } = await v.supabase!
-    .from("allocation_profiles")
-    .upsert(
-      { license_key: licenseKey, realm_id: realmId, tax_year: taxYear, profile },
-      { onConflict: "license_key,realm_id,tax_year" }
-    );
+  const { error } = await v.supabase!.from("allocation_profiles").upsert(
+    {
+      license_key: licenseKey,
+      realm_id: realmId,
+      tax_year: taxYear,
+      profile,
+    },
+    { onConflict: "license_key,realm_id,tax_year" },
+  );
   if (error) {
     console.error("allocation profile upsert failed:", error.code);
-    return NextResponse.json({ error: "Could not save profile" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Could not save profile" },
+      { status: 500 },
+    );
   }
   return NextResponse.json({ ok: true, profile });
 }

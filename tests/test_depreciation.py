@@ -25,26 +25,60 @@ def _prime_ctx(ctx):
 
 
 ACCOUNTS = [
-    {"Id": "50", "Name": "Company Vehicle", "FullyQualifiedName": "Company Vehicle",
-     "AccountType": "Fixed Asset", "AccountSubType": "Vehicles", "CurrentBalance": 90000.0},
-    {"Id": "51", "Name": "Hotels", "FullyQualifiedName": "Travel:Hotels",
-     "AccountType": "Expense", "AccountSubType": "Travel", "CurrentBalance": 0},
-    {"Id": "52", "Name": "Checking", "FullyQualifiedName": "Checking",
-     "AccountType": "Bank", "AccountSubType": "Checking", "CurrentBalance": 10000.0},
-    {"Id": "53", "Name": "Accumulated Depreciation - Company Vehicle",
-     "FullyQualifiedName": "Company Vehicle:Accumulated Depreciation - Company Vehicle",
-     "AccountType": "Fixed Asset", "AccountSubType": "AccumulatedDepreciation",
-     "CurrentBalance": 0},
-    {"Id": "54", "Name": "Depreciation Expense", "FullyQualifiedName": "Depreciation Expense",
-     "AccountType": "Expense", "AccountSubType": "Depreciation", "CurrentBalance": 0},
+    {
+        "Id": "50",
+        "Name": "Company Vehicle",
+        "FullyQualifiedName": "Company Vehicle",
+        "AccountType": "Fixed Asset",
+        "AccountSubType": "Vehicles",
+        "CurrentBalance": 90000.0,
+    },
+    {
+        "Id": "51",
+        "Name": "Hotels",
+        "FullyQualifiedName": "Travel:Hotels",
+        "AccountType": "Expense",
+        "AccountSubType": "Travel",
+        "CurrentBalance": 0,
+    },
+    {
+        "Id": "52",
+        "Name": "Checking",
+        "FullyQualifiedName": "Checking",
+        "AccountType": "Bank",
+        "AccountSubType": "Checking",
+        "CurrentBalance": 10000.0,
+    },
+    {
+        "Id": "53",
+        "Name": "Accumulated Depreciation - Company Vehicle",
+        "FullyQualifiedName": "Company Vehicle:Accumulated Depreciation - Company Vehicle",
+        "AccountType": "Fixed Asset",
+        "AccountSubType": "AccumulatedDepreciation",
+        "CurrentBalance": 0,
+    },
+    {
+        "Id": "54",
+        "Name": "Depreciation Expense",
+        "FullyQualifiedName": "Depreciation Expense",
+        "AccountType": "Expense",
+        "AccountSubType": "Depreciation",
+        "CurrentBalance": 0,
+    },
 ]
 
 
 def _us_dispatcher(request):
     q = request.url.params.get("query", "")
     if "FROM CompanyInfo" in q:
-        return Response(200, json={"QueryResponse": {"CompanyInfo": [
-            {"CompanyName": "Test Co", "Country": "US"}]}})
+        return Response(
+            200,
+            json={
+                "QueryResponse": {
+                    "CompanyInfo": [{"CompanyName": "Test Co", "Country": "US"}]
+                }
+            },
+        )
     if "FROM Account" in q:
         if "FullyQualifiedName = " in q:
             wanted = q.split("FullyQualifiedName = '")[1].split("'")[0]
@@ -63,16 +97,26 @@ def _us_dispatcher(request):
 
 def _us_router(router):
     router.get(QUERY_URL).mock(side_effect=_us_dispatcher)
-    router.get(PREFS_URL).mock(return_value=Response(200, json={"Preferences": {
-        "TaxPrefs": {"PartnerTaxEnabled": True},
-        "CurrencyPrefs": {"MultiCurrencyEnabled": False,
-                          "HomeCurrency": {"value": "USD"}},
-    }}))
+    router.get(PREFS_URL).mock(
+        return_value=Response(
+            200,
+            json={
+                "Preferences": {
+                    "TaxPrefs": {"PartnerTaxEnabled": True},
+                    "CurrencyPrefs": {
+                        "MultiCurrencyEnabled": False,
+                        "HomeCurrency": {"value": "USD"},
+                    },
+                }
+            },
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
 # Bonus depreciation — OBBBA vs TCJA phase-down
 # ---------------------------------------------------------------------------
+
 
 def test_vehicle_bonus_100_pct_obbba_acquisition(qb_ctx):
     # Heavy SUV acquired after 1/19/2025 -> permanent 100% bonus (the
@@ -80,9 +124,15 @@ def test_vehicle_bonus_100_pct_obbba_acquisition(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
         _us_router(router)
-        result = asyncio.run(qb_server.qb_vehicle_depreciation_calculator(
-            purchase_price=100000, purchase_date="2026-03-01",
-            business_use_pct=1.0, vehicle_weight_lbs=7000, tax_year="2026"))
+        result = asyncio.run(
+            qb_server.qb_vehicle_depreciation_calculator(
+                purchase_price=100000,
+                purchase_date="2026-03-01",
+                business_use_pct=1.0,
+                vehicle_weight_lbs=7000,
+                tax_year="2026",
+            )
+        )
 
     assert "permanent under OBBBA" in result
     # 2026 SUV cap 32,000; remainder 68,000 fully bonused; MACRS yr1 = 0
@@ -96,9 +146,15 @@ def test_vehicle_bonus_phase_down_pre_obbba_acquisition(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
         _us_router(router)
-        result = asyncio.run(qb_server.qb_vehicle_depreciation_calculator(
-            purchase_price=100000, purchase_date="2025-01-10",
-            business_use_pct=1.0, vehicle_weight_lbs=7000, tax_year="2025"))
+        result = asyncio.run(
+            qb_server.qb_vehicle_depreciation_calculator(
+                purchase_price=100000,
+                purchase_date="2025-01-10",
+                business_use_pct=1.0,
+                vehicle_weight_lbs=7000,
+                tax_year="2025",
+            )
+        )
 
     assert "TCJA phase-down" in result
     assert "40%" in result
@@ -109,9 +165,15 @@ def test_vehicle_50_pct_use_gate_no_179_no_bonus(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
         _us_router(router)
-        result = asyncio.run(qb_server.qb_vehicle_depreciation_calculator(
-            purchase_price=100000, purchase_date="2026-03-01",
-            business_use_pct=0.5, vehicle_weight_lbs=7000, tax_year="2026"))
+        result = asyncio.run(
+            qb_server.qb_vehicle_depreciation_calculator(
+                purchase_price=100000,
+                purchase_date="2026-03-01",
+                business_use_pct=0.5,
+                vehicle_weight_lbs=7000,
+                tax_year="2026",
+            )
+        )
 
     assert "not more than 50%" in result
     assert "Straight-line" in result
@@ -122,9 +184,15 @@ def test_standard_vehicle_280f_caps_2026(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
         _us_router(router)
-        result = asyncio.run(qb_server.qb_vehicle_depreciation_calculator(
-            purchase_price=80000, purchase_date="2026-03-01",
-            business_use_pct=1.0, vehicle_weight_lbs=4500, tax_year="2026"))
+        result = asyncio.run(
+            qb_server.qb_vehicle_depreciation_calculator(
+                purchase_price=80000,
+                purchase_date="2026-03-01",
+                business_use_pct=1.0,
+                vehicle_weight_lbs=4500,
+                tax_year="2026",
+            )
+        )
 
     assert "$20,300.00" in result  # 2026 §280F yr1 cap with bonus
     assert "§280F" in result
@@ -134,12 +202,12 @@ def test_standard_vehicle_280f_caps_2026(qb_ctx):
 # §195 startup costs
 # ---------------------------------------------------------------------------
 
+
 def test_startup_costs_under_50k(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
         _us_router(router)
-        result = asyncio.run(qb_server.qb_startup_cost_analysis(
-            30000, "2026-07-01"))
+        result = asyncio.run(qb_server.qb_startup_cost_analysis(30000, "2026-07-01"))
 
     # $5,000 immediate; $25,000/180 = $138.89/mo x 6 months = $833.33
     assert "Immediate deduction: **$5,000.00**" in result
@@ -164,17 +232,24 @@ def test_startup_costs_phaseout(qb_ctx):
 # JE mechanics + API fixes
 # ---------------------------------------------------------------------------
 
+
 def test_je_accepts_fully_qualified_account_name(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
         _us_router(router)
-        post = router.post(JE_URL).mock(return_value=Response(200, json={
-            "JournalEntry": {"Id": "77", "TotalAmt": 100.0}}))
+        post = router.post(JE_URL).mock(
+            return_value=Response(
+                200, json={"JournalEntry": {"Id": "77", "TotalAmt": 100.0}}
+            )
+        )
 
-        result = asyncio.run(qb_server.qb_create_journal_entry(
-            "2026-06-30",
-            '[{"account_name": "Travel:Hotels", "amount": 100, "type": "Debit"},'
-            ' {"account_name": "Checking", "amount": 100, "type": "Credit"}]'))
+        result = asyncio.run(
+            qb_server.qb_create_journal_entry(
+                "2026-06-30",
+                '[{"account_name": "Travel:Hotels", "amount": 100, "type": "Debit"},'
+                ' {"account_name": "Checking", "amount": 100, "type": "Credit"}]',
+            )
+        )
 
     assert "Journal entry created" in result
     body = json.loads(post.calls[0].request.content)
@@ -187,11 +262,14 @@ def test_je_blocks_depreciation_credit_to_asset(qb_ctx):
         _us_router(router)
         post = router.post(JE_URL).mock(return_value=Response(200, json={}))
 
-        result = asyncio.run(qb_server.qb_create_journal_entry(
-            "2026-06-30",
-            '[{"account_name": "Depreciation Expense", "amount": 5000, "type": "Debit"},'
-            ' {"account_name": "Company Vehicle", "amount": 5000, "type": "Credit",'
-            '  "description": "Annual depreciation"}]'))
+        result = asyncio.run(
+            qb_server.qb_create_journal_entry(
+                "2026-06-30",
+                '[{"account_name": "Depreciation Expense", "amount": 5000, "type": "Debit"},'
+                ' {"account_name": "Company Vehicle", "amount": 5000, "type": "Credit",'
+                '  "description": "Annual depreciation"}]',
+            )
+        )
 
     assert "qb_record_depreciation" in result
     assert "cost basis" in result
@@ -202,16 +280,21 @@ def test_record_depreciation_uses_contra_account(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
         _us_router(router)
-        post = router.post(JE_URL).mock(return_value=Response(200, json={
-            "JournalEntry": {"Id": "78"}}))
+        post = router.post(JE_URL).mock(
+            return_value=Response(200, json={"JournalEntry": {"Id": "78"}})
+        )
 
-        result = asyncio.run(qb_server.qb_record_depreciation(
-            "Company Vehicle", 5000, "2026-12-31"))
+        result = asyncio.run(
+            qb_server.qb_record_depreciation("Company Vehicle", 5000, "2026-12-31")
+        )
 
     assert "Depreciation recorded" in result
     body = json.loads(post.calls[0].request.content)
-    credit = [l for l in body["Line"]
-              if l["JournalEntryLineDetail"]["PostingType"] == "Credit"][0]
+    credit = [
+        l
+        for l in body["Line"]
+        if l["JournalEntryLineDetail"]["PostingType"] == "Credit"
+    ][0]
     # Credits the AccumulatedDepreciation contra (Id 53), not the asset (50)
     assert credit["JournalEntryLineDetail"]["AccountRef"]["value"] == "53"
     assert "cost basis untouched" in result
@@ -219,13 +302,21 @@ def test_record_depreciation_uses_contra_account(qb_ctx):
 
 def test_record_depreciation_requires_cost_basis(qb_ctx):
     _prime_ctx(qb_ctx)
-    zero_basis = [dict(a, CurrentBalance=0.0) if a["Id"] == "50" else a for a in ACCOUNTS]
+    zero_basis = [
+        dict(a, CurrentBalance=0.0) if a["Id"] == "50" else a for a in ACCOUNTS
+    ]
 
     def dispatcher(request):
         q = request.url.params.get("query", "")
         if "FROM CompanyInfo" in q:
-            return Response(200, json={"QueryResponse": {"CompanyInfo": [
-                {"CompanyName": "Test Co", "Country": "US"}]}})
+            return Response(
+                200,
+                json={
+                    "QueryResponse": {
+                        "CompanyInfo": [{"CompanyName": "Test Co", "Country": "US"}]
+                    }
+                },
+            )
         if "FROM Account" in q:
             if "FullyQualifiedName = " in q:
                 wanted = q.split("FullyQualifiedName = '")[1].split("'")[0]
@@ -243,8 +334,9 @@ def test_record_depreciation_requires_cost_basis(qb_ctx):
 
     with respx.mock(assert_all_called=False) as router:
         router.get(QUERY_URL).mock(side_effect=dispatcher)
-        result = asyncio.run(qb_server.qb_record_depreciation(
-            "Company Vehicle", 5000, "2026-12-31"))
+        result = asyncio.run(
+            qb_server.qb_record_depreciation("Company Vehicle", 5000, "2026-12-31")
+        )
 
     assert "no cost basis" in result
 
@@ -253,8 +345,10 @@ def test_qb_read_lowercases_entity_path(qb_ctx):
     _prime_ctx(qb_ctx)
     with respx.mock(assert_all_called=False) as router:
         route = router.get(f"{BASE}/journalentry/9").mock(
-            return_value=Response(200, json={"JournalEntry": {"Id": "9",
-                                                              "SyncToken": "0"}}))
+            return_value=Response(
+                200, json={"JournalEntry": {"Id": "9", "SyncToken": "0"}}
+            )
+        )
         result = asyncio.run(qb_server.qb_read("JournalEntry", "9"))
 
     assert route.called
@@ -274,6 +368,7 @@ def test_1099_report_runs_in_demo_and_carries_footer(qb_ctx):
 # ---------------------------------------------------------------------------
 # v3.5 CPA workbook tools
 # ---------------------------------------------------------------------------
+
 
 def _demo_ctx(qb_ctx):
     _prime_ctx(qb_ctx)
@@ -326,12 +421,25 @@ def test_owner_draws_demo(qb_ctx):
 def test_comparative_math_with_mocked_periods(qb_ctx):
     # Non-demo: two distinct mocked report periods -> exact delta math
     _prime_ctx(qb_ctx)
+
     def reports(request):
         start = request.url.params.get("start_date", "")
         val = "1000.00" if start.startswith("2026") else "500.00"
-        return Response(200, json={"Rows": {"Row": [
-            {"Summary": {"ColData": [{"value": "Total Income"}, {"value": val}]}},
-        ]}})
+        return Response(
+            200,
+            json={
+                "Rows": {
+                    "Row": [
+                        {
+                            "Summary": {
+                                "ColData": [{"value": "Total Income"}, {"value": val}]
+                            }
+                        },
+                    ]
+                }
+            },
+        )
+
     with respx.mock(assert_all_called=False) as router:
         router.get(f"{BASE}/reports/ProfitAndLoss").mock(side_effect=reports)
         result = asyncio.run(qb_server.qb_comparative_statements("pl", 2026))

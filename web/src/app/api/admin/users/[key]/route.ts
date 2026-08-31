@@ -8,7 +8,7 @@ import { currentUser } from "@clerk/nextjs/server";
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ key: string }> }
+  { params }: { params: Promise<{ key: string }> },
 ) {
   // Verify admin via Clerk
   const user = await currentUser();
@@ -71,10 +71,17 @@ export async function GET(
     .eq("license_key", key)
     .order("invoked_at", { ascending: false });
 
-  const usageMap = new Map<string, { tool: string; calls: number; minutes: number; last: string }>();
+  const usageMap = new Map<
+    string,
+    { tool: string; calls: number; minutes: number; last: string }
+  >();
   let totalCalls = 0;
   let totalMinutes = 0;
-  for (const r of (usageRows as { tool_name: string; time_saved_minutes: number | null; invoked_at: string }[]) || []) {
+  for (const r of (usageRows as {
+    tool_name: string;
+    time_saved_minutes: number | null;
+    invoked_at: string;
+  }[]) || []) {
     const mins = r.time_saved_minutes || 0;
     totalCalls += 1;
     totalMinutes += mins;
@@ -83,7 +90,12 @@ export async function GET(
       cur.calls += 1;
       cur.minutes += mins;
     } else {
-      usageMap.set(r.tool_name, { tool: r.tool_name, calls: 1, minutes: mins, last: r.invoked_at });
+      usageMap.set(r.tool_name, {
+        tool: r.tool_name,
+        calls: 1,
+        minutes: mins,
+        last: r.invoked_at,
+      });
     }
   }
   const toolUsage = [...usageMap.values()].sort((a, b) => b.calls - a.calls);
@@ -104,7 +116,10 @@ export async function GET(
       emails: emails || [],
       trial_extensions: trialExtensions || [],
       tool_usage: toolUsage,
-      usage_totals: { calls: totalCalls, hours: Math.round(totalMinutes / 6) / 10 },
+      usage_totals: {
+        calls: totalCalls,
+        hours: Math.round(totalMinutes / 6) / 10,
+      },
       activity: activity || [],
     },
   });

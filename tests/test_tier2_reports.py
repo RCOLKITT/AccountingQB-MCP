@@ -8,23 +8,45 @@ import accountingqb.server as s
 
 
 def _report(cols, rows_data):
-    return {"Header": {"StartPeriod": "2026-01-01", "EndPeriod": "2026-12-31"},
-            "Columns": {"Column": [{"ColTitle": c} for c in cols]},
-            "Rows": {"Row": [{"ColData": [{"value": v} for v in r]} for r in rows_data]}}
+    return {
+        "Header": {"StartPeriod": "2026-01-01", "EndPeriod": "2026-12-31"},
+        "Columns": {"Column": [{"ColTitle": c} for c in cols]},
+        "Rows": {"Row": [{"ColData": [{"value": v} for v in r]} for r in rows_data]},
+    }
 
 
 # ---- entity-list tools -----------------------------------------------------
 
+
 def test_list_classes_and_departments(monkeypatch):
     async def fake_all(q, **kw):
         if "FROM Class" in q:
-            return {"QueryResponse": {"Class": [
-                {"Name": "Retail", "FullyQualifiedName": "Retail", "Active": True},
-                {"Name": "Wholesale", "FullyQualifiedName": "Wholesale", "Active": False}]}}
+            return {
+                "QueryResponse": {
+                    "Class": [
+                        {
+                            "Name": "Retail",
+                            "FullyQualifiedName": "Retail",
+                            "Active": True,
+                        },
+                        {
+                            "Name": "Wholesale",
+                            "FullyQualifiedName": "Wholesale",
+                            "Active": False,
+                        },
+                    ]
+                }
+            }
         if "FROM Department" in q:
-            return {"QueryResponse": {"Department": [
-                {"Name": "East", "FullyQualifiedName": "East", "Active": True}]}}
+            return {
+                "QueryResponse": {
+                    "Department": [
+                        {"Name": "East", "FullyQualifiedName": "East", "Active": True}
+                    ]
+                }
+            }
         return {"QueryResponse": {}}
+
     monkeypatch.setattr(s, "qb_query_all", fake_all)
 
     out_c = asyncio.run(s.qb_list_classes())
@@ -36,12 +58,14 @@ def test_list_classes_and_departments(monkeypatch):
 def test_list_classes_empty_is_friendly(monkeypatch):
     async def fake_all(q, **kw):
         return {"QueryResponse": {}}
+
     monkeypatch.setattr(s, "qb_query_all", fake_all)
     out = asyncio.run(s.qb_list_classes())
     assert "No classes found" in out and "class tracking" in out
 
 
 # ---- dimension + inventory reports: endpoint wiring ------------------------
+
 
 def _capture(monkeypatch, report):
     seen = {}
@@ -50,6 +74,7 @@ def _capture(monkeypatch, report):
         seen["endpoint"] = endpoint
         seen["params"] = params or {}
         return report
+
     monkeypatch.setattr(s, "qb_request", fake_request)
     return seen
 
@@ -58,9 +83,18 @@ def test_dimension_reports_use_exact_endpoint_names(monkeypatch):
     rep = _report(["", "Retail", "Total"], [["Design income", "1,000.00", "1,000.00"]])
     seen = _capture(monkeypatch, rep)
     cases = [
-        (lambda: s.qb_sales_by_class("2026-01-01", "2026-12-31"), "reports/SalesByClassSummary"),
-        (lambda: s.qb_sales_by_department("2026-01-01", "2026-12-31"), "reports/SalesByDepartment"),
-        (lambda: s.qb_inventory_valuation("2026-06-30"), "reports/InventoryValuationSummary"),
+        (
+            lambda: s.qb_sales_by_class("2026-01-01", "2026-12-31"),
+            "reports/SalesByClassSummary",
+        ),
+        (
+            lambda: s.qb_sales_by_department("2026-01-01", "2026-12-31"),
+            "reports/SalesByDepartment",
+        ),
+        (
+            lambda: s.qb_inventory_valuation("2026-06-30"),
+            "reports/InventoryValuationSummary",
+        ),
     ]
     for call, expected in cases:
         asyncio.run(call())
@@ -68,8 +102,10 @@ def test_dimension_reports_use_exact_endpoint_names(monkeypatch):
 
 
 def test_sales_by_class_renders_all_columns(monkeypatch):
-    rep = _report(["", "Retail", "Wholesale", "Total"],
-                  [["Design income", "1,000.00", "500.00", "1,500.00"]])
+    rep = _report(
+        ["", "Retail", "Wholesale", "Total"],
+        [["Design income", "1,000.00", "500.00", "1,500.00"]],
+    )
     _capture(monkeypatch, rep)
     out = asyncio.run(s.qb_sales_by_class("2026-01-01", "2026-12-31"))
     assert "| Retail | Wholesale | Total |" in out

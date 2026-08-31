@@ -39,7 +39,7 @@ export function reengagementEmail(params: ReengagementEmailParams): {
     subject: `Your AccountingQB license is ready — 2 minutes to your first report`,
     html: emailWrapper(
       content,
-      "Your license is active — finish setup in 2 minutes"
+      "Your license is active — finish setup in 2 minutes",
     ),
   };
 }
