@@ -10,8 +10,8 @@ Usage: python3 scripts/append-tax-ledger.py [--dry-run]
 
 import hashlib
 import json
-import sys
 import pathlib
+import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "mcpb" / "src"))

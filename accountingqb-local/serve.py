@@ -54,6 +54,8 @@ else:
 
 import httpx  # noqa: E402
 import uvicorn  # noqa: E402
+from accountingqb import server as qb  # noqa: E402  (the connector: mcp, tools, tokens)
+from accountingqb.context import get_ctx  # noqa: E402
 from starlette.applications import Starlette  # noqa: E402
 from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
 from starlette.requests import Request  # noqa: E402
@@ -65,9 +67,6 @@ from starlette.responses import (  # noqa: E402
     Response,
 )
 from starlette.routing import Route  # noqa: E402
-
-from accountingqb import server as qb  # noqa: E402  (the connector: mcp, tools, tokens)
-from accountingqb.context import get_ctx  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Config / local state (mirrors Hearth's ~/.hearth pattern)
@@ -1204,6 +1203,7 @@ async def export_xlsx(req: Request) -> Response:
         return JSONResponse({"error": "bad json"}, status_code=400)
     try:
         import io
+
         from openpyxl import Workbook
         from openpyxl.styles import Alignment, Font
         from openpyxl.utils import get_column_letter
