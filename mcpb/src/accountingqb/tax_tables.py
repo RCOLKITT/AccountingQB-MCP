@@ -145,7 +145,10 @@ _US_STATE_TAX = {
     "PA": (0.0307, "flat"),
     "UT": (0.045, "flat"),
     "AL": (0.05, "progressive_approx"),
-    "AR": (0.039, "progressive_approx"),
+    "AR": (
+        0.037,
+        "progressive_approx",
+    ),  # top rate 3.7% retroactive Jan 1, 2026 (was 3.9%; SB 1 signed 2026-05-06)
     "CA": (0.093, "progressive_approx"),
     "CT": (0.055, "progressive_approx"),
     "DE": (0.055, "progressive_approx"),
@@ -174,7 +177,10 @@ _US_STATE_TAX = {
     ),  # top rate 4.5% effective Jan 1, 2026 (was 4.75%)
     "OR": (0.0875, "progressive_approx"),
     "RI": (0.0475, "progressive_approx"),
-    "SC": (0.062, "progressive_approx"),
+    "SC": (
+        0.0521,
+        "progressive_approx",
+    ),  # H.4216 signed 2026-04-16: 1.99% ≤$30K / 5.21% >$30K, effective 2026-01-01 (was 6.2%)
     "VA": (0.0575, "progressive_approx"),
     "VT": (0.066, "progressive_approx"),
     "WI": (0.053, "progressive_approx"),
@@ -831,9 +837,9 @@ TABLES: dict = {
         jurisdiction="US-state",
         kind="approximation",
         description="State income tax on SE income (flat statutory or effective approx)",
-        source="Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01)",
+        source="Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01); AR SB 1 (signed 2026-05-06, top rate 3.7% retroactive 2026-01-01); SC H.4216 (signed 2026-04-16, 1.99%/$30K / 5.21% above, effective 2026-01-01)",
         source_url="https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
-        verified="2026-07-13",
+        verified="2026-08-01",
         review="annual-january",
         sanity={"min": 0.0, "max": 1.0},
     ),
