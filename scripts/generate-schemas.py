@@ -6,9 +6,7 @@ and update manifest.json with the schemas.
 
 import ast
 import json
-import re
 from pathlib import Path
-from typing import Any
 
 # Paths
 SCRIPT_DIR = Path(__file__).parent

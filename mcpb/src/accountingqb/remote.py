@@ -482,6 +482,7 @@ def create_app():
     # SDK's version-dependent default (which changed under us and caused an
     # outage). Override with MCP_ALLOWED_HOSTS (comma-separated) if needed.
     from urllib.parse import urlparse  # noqa: PLC0415
+
     from mcp.server.transport_security import TransportSecuritySettings  # noqa: PLC0415
 
     _host = urlparse(RESOURCE_URL).netloc or "mcp.accountingqb.com"

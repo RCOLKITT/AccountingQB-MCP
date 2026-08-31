@@ -28,7 +28,7 @@ inferred from code and needs a live check (that check is itself the gap).
 |------|--------|---------|-------|
 | Typecheck (web) | 🟢 | `cd web && npx tsc --noEmit` | **In CI (blocking)** — `web-checks` job |
 | Typecheck (py) | N/A | — | Python; type hints present, no mypy gate (optional) |
-| Lint | 🟡 | `ruff check` in CI (report-only) | Python ruff runs VISIBLE (~144 issues) — cleanup = **Gap G9**; ESLint not configured = **Gap G9** |
+| Lint | 🟡 | `ruff check` (py, BLOCKING) | Python ruff curated to correctness (F+I) and **BLOCKING** in `pytest` — found + fixed a real `NameError` (F821) + dead fetches. ESLint (web) still unconfigured = remaining **Gap G9**. |
 | Format | 🟢 | `prettier --check` (web) + `black --check` (py), both in CI | **BLOCKING** — G10 done: 139 web files reformatted + prettier gate in `web-checks`; 43 py files reformatted + `black --check` in the `pytest` job. |
 | Tests (py) | 🟢 | `python3 -m pytest tests/ -q` | **412 pass**; in CI (`tests.yml`) |
 | Tests (web) | 🔴 | (none) | **Gap G11:** no web unit/e2e suite |
@@ -48,7 +48,10 @@ Closed **G10** (format gate blocking): one-time `prettier --write` (139 web file
 (43 py files), then flipped both to blocking — prettier in `web-checks`, `black --check` in the
 `pytest` job, each with a pinned config (`.prettierrc.json`, `[tool.black]`). Also shipped desktop
 **auto-update** (Tauri v2 updater, signed, + in-app What's new) and its **signed release pipeline**
-(latest.json + beta prerelease lane). Remaining format/lint work: **G9** (ruff ~144 + ESLint).
+(latest.json + beta prerelease lane). **G9 python half**: ruff curated to correctness (F+I) and made
+blocking — the gate immediately paid for itself, catching a real `NameError` (`acct_list` undefined
+in the create-bill success message, F821) plus several dead fetches/assignments. Remaining: **G9
+ESLint** (web; `next lint` is deprecated → needs migration to the ESLint CLI, its own decision).
 
 ## Declared gaps (with rough cost to close)
 
@@ -66,8 +69,9 @@ Closed **G10** (format gate blocking): one-time `prettier --write` (139 web file
 7. **G7 dependency audit** — `pip-audit` now runs report-only in CI (`quality-report`); add `npm audit`
    and triage/document exceptions to make it blocking. *~2h remaining.*
 8. ~~**G8 web typecheck in CI**~~ — DONE: `web-checks` job runs `tsc --noEmit` (blocking).
-9. **G9 lint gate** — ruff runs report-only in CI (~144 issues to clear); ESLint (web) not yet
-   configured. Fix the ruff findings + add ESLint, then make blocking. *~3-4h.*
+9. **G9 lint gate** — PYTHON HALF DONE: ruff curated to correctness (F+I), cleared, and **blocking**
+   in `pytest` (caught a real F821 `NameError` + dead fetches). REMAINING: ESLint (web) — `next lint`
+   is deprecated, so migrate to the ESLint CLI, pick a ruleset, clear + gate. *~2-3h.*
 10. ~~**G10 format gate**~~ — DONE: one-time `prettier --write` (139 web files) + `black` (43 py
     files), both now blocking in CI with pinned configs (prettier in `web-checks`, `black --check`
     in `pytest`).

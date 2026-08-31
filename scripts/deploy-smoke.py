@@ -78,8 +78,9 @@ def check_version(host: str, expect: str) -> bool:
 
 
 def _mint_jwt(secret: str) -> str:
+    from datetime import datetime, timedelta, timezone
+
     import jwt as pyjwt  # PyJWT
-    from datetime import datetime, timezone, timedelta
 
     now = datetime.now(timezone.utc)
     return pyjwt.encode(

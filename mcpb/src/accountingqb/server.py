@@ -10,141 +10,140 @@ cash flow, general ledger, AP/AR aging, trial balance), and entity management
 Built with FastMCP using flat parameters (required for Claude Desktop compatibility).
 """
 
-import os
-import sys
-import json
-import time
 import asyncio
-import hashlib
-import logging
 import functools
-import httpx
+import json
+import logging
+import os
+import time
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 from pathlib import Path
+from typing import Optional
+
+import httpx
 from mcp.server.fastmcp import FastMCP
 
 try:
-    from .context import QBContext, get_ctx, set_ctx, reset_ctx, _default_ctx
     from . import tax_tables as _tt
+    from .context import QBContext, _default_ctx, get_ctx
     from .tax_tables import (  # noqa: F401 — the tax-data registry (L2)
-        TAX_DATA_VERSION,
-        TAX_DATA_VERIFIED,
-        TABLES,
-        TaxDataError,
-        tax_value,
-        tax_value_or_latest,
-        tax_data_footer,
-        load_ledger,
-        verify_ledger_chain,
-        _US_STATE_TAX,
-        _FED_BRACKETS,
-        _RATES,
-        _SS_WAGE_BASE,
-        _SE_NET_EARNINGS_FACTOR,
-        _SE_SS_RATE,
-        _SE_MEDICARE_RATE,
-        _TCJA_PHASE_DOWN,
-        _SUV_179_CAP,
         _280F_LIMITS,
-        _MACRS_5YR,
-        _SEC_179_LIMITS,
-        _SEC_195,
-        _HOME_OFFICE_SIMPLIFIED,
-        _STD_MILEAGE_CENTS,
-        _RETIREMENT_LIMITS,
         _1099_NEC_THRESHOLD,
-        _GST_QUICK_METHOD_LIMIT,
-        _GST_QUICK_METHOD_CREDIT_BASE,
-        _MEALS_ITC_FACTOR,
-        _GST_WORKPAPER_FOOTER,
-        _CA_SALES_TAX_REGIME,
+        _AII_FIRST_YEAR_FACTOR,
+        _AII_START_YEAR,
+        _CA_BPA_APPROX,
+        _CA_FED_BRACKETS_APPROX,
+        _CA_PROV_FLAT_APPROX,
         _CA_PROVINCIAL_AGENCY_HINTS,
-        _ca_regime,
-        _ca_regime_describe,
-        _ca_agency_is_provincial,
-        classify_account,
-        line_limitation,
-        is_home_office_account,
-        is_home_office_subtype,
-        _SYSTEM_EQUITY_SUBTYPES,
+        _CA_SALES_TAX_REGIME,
         _CCA_CLASSES,
         _CLASS_10_1_CEILING,
         _CLASS_54_ZEV_CEILING,
-        _AII_START_YEAR,
-        _AII_FIRST_YEAR_FACTOR,
-        _T4A_ADMIN_THRESHOLD,
-        _CPP_PARAMS,
-        _CPP_BASIC_EXEMPTION,
-        _CPP_RATE_SELF,
         _CPP2_RATE_SELF,
-        _CA_FED_BRACKETS_APPROX,
-        _CA_BPA_APPROX,
-        _CA_PROV_FLAT_APPROX,
+        _CPP_BASIC_EXEMPTION,
+        _CPP_PARAMS,
+        _CPP_RATE_SELF,
         _CRA_INSTALMENT_DATES,
         _CRA_INSTALMENT_THRESHOLD,
+        _FED_BRACKETS,
+        _GST_QUICK_METHOD_CREDIT_BASE,
+        _GST_QUICK_METHOD_LIMIT,
+        _GST_WORKPAPER_FOOTER,
+        _HOME_OFFICE_SIMPLIFIED,
+        _MACRS_5YR,
+        _MEALS_ITC_FACTOR,
         _QUICK_METHOD_REMITTANCE,
+        _RATES,
+        _RETIREMENT_LIMITS,
+        _SE_MEDICARE_RATE,
+        _SE_NET_EARNINGS_FACTOR,
+        _SE_SS_RATE,
+        _SEC_179_LIMITS,
+        _SEC_195,
+        _SS_WAGE_BASE,
+        _STD_MILEAGE_CENTS,
+        _SUV_179_CAP,
+        _SYSTEM_EQUITY_SUBTYPES,
+        _T4A_ADMIN_THRESHOLD,
+        _TCJA_PHASE_DOWN,
+        _US_STATE_TAX,
+        TABLES,
+        TAX_DATA_VERIFIED,
+        TAX_DATA_VERSION,
+        TaxDataError,
+        _ca_agency_is_provincial,
+        _ca_regime,
+        _ca_regime_describe,
+        classify_account,
+        is_home_office_account,
+        is_home_office_subtype,
+        line_limitation,
+        load_ledger,
+        tax_data_footer,
+        tax_value,
+        tax_value_or_latest,
+        verify_ledger_chain,
     )
 except ImportError:  # pragma: no cover — direct script execution (no package)
-    from context import QBContext, get_ctx, set_ctx, reset_ctx, _default_ctx
     import tax_tables as _tt
+    from context import QBContext, _default_ctx, get_ctx
     from tax_tables import (  # noqa: F401
-        TAX_DATA_VERSION,
-        TAX_DATA_VERIFIED,
-        TABLES,
-        TaxDataError,
-        tax_value,
-        tax_value_or_latest,
-        tax_data_footer,
-        load_ledger,
-        verify_ledger_chain,
-        _US_STATE_TAX,
-        _FED_BRACKETS,
-        _RATES,
-        _SS_WAGE_BASE,
-        _SE_NET_EARNINGS_FACTOR,
-        _SE_SS_RATE,
-        _SE_MEDICARE_RATE,
-        _TCJA_PHASE_DOWN,
-        _SUV_179_CAP,
         _280F_LIMITS,
-        _MACRS_5YR,
-        _SEC_179_LIMITS,
-        _SEC_195,
-        _HOME_OFFICE_SIMPLIFIED,
-        _STD_MILEAGE_CENTS,
-        _RETIREMENT_LIMITS,
         _1099_NEC_THRESHOLD,
-        _GST_QUICK_METHOD_LIMIT,
-        _GST_QUICK_METHOD_CREDIT_BASE,
-        _MEALS_ITC_FACTOR,
-        _GST_WORKPAPER_FOOTER,
-        _CA_SALES_TAX_REGIME,
+        _AII_FIRST_YEAR_FACTOR,
+        _AII_START_YEAR,
+        _CA_BPA_APPROX,
+        _CA_FED_BRACKETS_APPROX,
+        _CA_PROV_FLAT_APPROX,
         _CA_PROVINCIAL_AGENCY_HINTS,
-        _ca_regime,
-        _ca_regime_describe,
-        _ca_agency_is_provincial,
-        classify_account,
-        line_limitation,
-        is_home_office_account,
-        is_home_office_subtype,
-        _SYSTEM_EQUITY_SUBTYPES,
+        _CA_SALES_TAX_REGIME,
         _CCA_CLASSES,
         _CLASS_10_1_CEILING,
         _CLASS_54_ZEV_CEILING,
-        _AII_START_YEAR,
-        _AII_FIRST_YEAR_FACTOR,
-        _T4A_ADMIN_THRESHOLD,
-        _CPP_PARAMS,
-        _CPP_BASIC_EXEMPTION,
-        _CPP_RATE_SELF,
         _CPP2_RATE_SELF,
-        _CA_FED_BRACKETS_APPROX,
-        _CA_BPA_APPROX,
-        _CA_PROV_FLAT_APPROX,
+        _CPP_BASIC_EXEMPTION,
+        _CPP_PARAMS,
+        _CPP_RATE_SELF,
         _CRA_INSTALMENT_DATES,
         _CRA_INSTALMENT_THRESHOLD,
+        _FED_BRACKETS,
+        _GST_QUICK_METHOD_CREDIT_BASE,
+        _GST_QUICK_METHOD_LIMIT,
+        _GST_WORKPAPER_FOOTER,
+        _HOME_OFFICE_SIMPLIFIED,
+        _MACRS_5YR,
+        _MEALS_ITC_FACTOR,
         _QUICK_METHOD_REMITTANCE,
+        _RATES,
+        _RETIREMENT_LIMITS,
+        _SE_MEDICARE_RATE,
+        _SE_NET_EARNINGS_FACTOR,
+        _SE_SS_RATE,
+        _SEC_179_LIMITS,
+        _SEC_195,
+        _SS_WAGE_BASE,
+        _STD_MILEAGE_CENTS,
+        _SUV_179_CAP,
+        _SYSTEM_EQUITY_SUBTYPES,
+        _T4A_ADMIN_THRESHOLD,
+        _TCJA_PHASE_DOWN,
+        _US_STATE_TAX,
+        TABLES,
+        TAX_DATA_VERIFIED,
+        TAX_DATA_VERSION,
+        TaxDataError,
+        _ca_agency_is_provincial,
+        _ca_regime,
+        _ca_regime_describe,
+        classify_account,
+        is_home_office_account,
+        is_home_office_subtype,
+        line_limitation,
+        load_ledger,
+        tax_data_footer,
+        tax_value,
+        tax_value_or_latest,
+        verify_ledger_chain,
     )
 
 mcp = FastMCP("quickbooks")
@@ -202,7 +201,8 @@ def _get_or_create_key() -> bytes:
         key = Fernet.generate_key()
     except ImportError:
         # Fallback: base64-encoded random bytes (still Fernet-compatible)
-        import base64, secrets
+        import base64
+        import secrets
 
         key = base64.urlsafe_b64encode(secrets.token_bytes(32))
     try:
@@ -2369,7 +2369,7 @@ async def qb_list_companies() -> str:
         lines.append(f"{i + 1}. **{name}**{current}")
         lines.append(f"   - Realm ID: `{company['realmId']}`")
 
-    lines.append(f"\n*Use `qb_switch_company` to switch between companies.*")
+    lines.append("\n*Use `qb_switch_company` to switch between companies.*")
     return "\n".join(lines)
 
 
@@ -3271,7 +3271,7 @@ async def qb_expense_summary(start_date: str = "", end_date: str = "") -> str:
     for cat in sorted(categories, key=categories.get, reverse=True):
         lines.append(f"- **{cat}**: {fmt(categories[cat])}")
 
-    lines.append(f"\n### Top Vendors")
+    lines.append("\n### Top Vendors")
     for v in sorted(vendor_totals, key=vendor_totals.get, reverse=True)[:20]:
         lines.append(f"- {v}: {fmt(vendor_totals[v])}")
 
@@ -4155,7 +4155,7 @@ async def qb_stripe_reconcile(
         )
 
     # Tie-out
-    out.append(f"\n### Tie-out")
+    out.append("\n### Tie-out")
     out.append(
         f"- Projected Stripe Clearing balance: {fmt(projected_clearing)} "
         f"(prior {fmt(prior_clearing)} as of {prior_end} + net change "
@@ -4271,7 +4271,7 @@ async def qb_stripe_reconcile(
             else:
                 manual_hits.append(je.get("Id"))
 
-    out.append(f"\n### Account mapping")
+    out.append("\n### Account mapping")
     out.extend(map_notes)
 
     out.append(f"\n### Proposed journal entry — {period}")
@@ -4312,7 +4312,7 @@ async def qb_stripe_reconcile(
             blockers.append("unresolved account(s)")
         tail = f" — resolve first: {', '.join(blockers)}." if blockers else "."
         out.append(
-            f"\n*Dry run — nothing posted. Re-run with dry_run=false to post"
+            "\n*Dry run — nothing posted. Re-run with dry_run=false to post"
             + tail
             + "*"
         )
@@ -5676,7 +5676,7 @@ def _render_schedule_c_expenses(
     method = T["home_method"]
     ho_allowed = T["home_allowed"]
     ho_carry = T["ho_carry"]
-    ho_personal = ho_pending = 0.0
+    ho_personal = 0.0
     if method == "simplified" and ho.get("office_sqft"):
         sqft = min(float(ho["office_sqft"]), _HOME_OFFICE_SIMPLIFIED["max_sqft"])
         lines.append(f"\n**{L['home_line']} — simplified: {fmt(ho_allowed)}**")
@@ -5715,7 +5715,6 @@ def _render_schedule_c_expenses(
                 "(can't create/increase a loss)"
             )
     elif home_indirect_total > 0.005:
-        ho_pending = home_indirect_total
         lines.append(
             f"\n**{L['home_line'].split('(')[0].strip()}: not computed** — "
             f"{fmt(home_indirect_total)} of home-flagged expenses have no "
@@ -6705,7 +6704,6 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
             acct, err = await _resolve_account(entry.get("account_name", ""))
             if err:
                 return f"Journal line {i}: {err}"
-        acct_name = acct.get("Name", "")
 
         # Depreciation must credit an Accumulated Depreciation contra
         # account — crediting the asset itself corrupts its cost basis.
@@ -7577,7 +7575,7 @@ async def qb_batch_create_expenses(expenses_json: str, tax_code: str = "") -> st
         except Exception as e:
             errors.append(f"#{i+1}: ❌ {exp.get('vendor_name', '?')} — {str(e)}")
 
-    lines = [f"## Batch Expense Creation Results\n"]
+    lines = ["## Batch Expense Creation Results\n"]
     lines.append(f"**Succeeded:** {len(results)} | **Failed:** {len(errors)}\n")
     if results:
         lines.append("### Created:")
@@ -7691,7 +7689,7 @@ async def qb_batch_create_bills(bills_json: str, tax_code: str = "") -> str:
         except Exception as e:
             errors.append(f"#{i+1}: ❌ {bill.get('vendor_name', '?')} — {str(e)}")
 
-    lines = [f"## Batch Bill Creation Results\n"]
+    lines = ["## Batch Bill Creation Results\n"]
     lines.append(f"**Succeeded:** {len(results)} | **Failed:** {len(errors)}\n")
     if results:
         lines.append("### Created:")
@@ -8186,7 +8184,7 @@ async def qb_estimate_quarterly_tax(
         "are statutory; progressive states use a rough effective rate.*"
     )
 
-    lines.append(f"\n### Quarterly Due Dates:")
+    lines.append("\n### Quarterly Due Dates:")
     for q, due in quarter_due.items():
         status = (
             "✅ Past"
@@ -8197,7 +8195,7 @@ async def qb_estimate_quarterly_tax(
 
     if net_income <= 0:
         lines.append(
-            f"\n📋 **Note:** With a net loss, no estimated payments are due. You may carry forward this NOL."
+            "\n📋 **Note:** With a net loss, no estimated payments are due. You may carry forward this NOL."
         )
 
     return "\n".join(lines) + tax_data_footer(year)
@@ -8359,7 +8357,7 @@ async def qb_deduction_finder(tax_year: str = "") -> str:
                 "deduction": "Vehicle Expenses (Standard Mileage or Actual)",
                 "status": "🟡 CONSIDER",
                 "details": (
-                    f"No vehicle account found. Standard mileage: "
+                    "No vehicle account found. Standard mileage: "
                     + ", ".join(
                         f"{c}¢/mile ({y})"
                         for y, c in sorted(_STD_MILEAGE_CENTS.items())
@@ -8753,7 +8751,7 @@ async def qb_match_invoices_to_transactions(
         else:
             unmatched_invoices.append(inv)
 
-    lines = [f"## Invoice Matching Results\n"]
+    lines = ["## Invoice Matching Results\n"]
     lines.append(
         f"**Matched:** {len(matched)} | **Unmatched:** {len(unmatched_invoices)} | **Total invoices:** {len(invoices)}\n"
     )
@@ -8819,7 +8817,7 @@ async def qb_inactivate_account(account_name: str) -> str:
     if "AccountSubType" in acct:
         body["AccountSubType"] = acct["AccountSubType"]
 
-    result = await qb_request("POST", "account", json_body=body)
+    await qb_request("POST", "account", json_body=body)
     return f"✅ Account '{account_name}' (ID: {acct['Id']}) has been inactivated."
 
 
@@ -8972,7 +8970,7 @@ async def qb_create_bill(
     return (
         f"✅ Created bill #{bill.get('Id')}\n"
         f"  Vendor: {vendor_name} | Amount: {fmt(amount)} | Due: {due_date}\n"
-        f"  Category: {acct_list[0]['Name']}"
+        f"  Category: {acct['Name']}"
     )
 
 
@@ -9114,7 +9112,7 @@ async def qb_fiscal_year_close_checklist(tax_year: str = "2024") -> str:
 
     # 2. Check for open invoices
     open_invoices = await qb_query(
-        f"SELECT * FROM Invoice WHERE Balance > '0' MAXRESULTS 100"
+        "SELECT * FROM Invoice WHERE Balance > '0' MAXRESULTS 100"
     )
     inv_list = open_invoices.get("QueryResponse", {}).get("Invoice", [])
     open_balance = sum(float(i.get("Balance", 0)) for i in inv_list)
@@ -9189,7 +9187,7 @@ async def qb_fiscal_year_close_checklist(tax_year: str = "2024") -> str:
     for c in checks:
         lines.append(c)
 
-    lines.append(f"\n### Recommended Next Steps:")
+    lines.append("\n### Recommended Next Steps:")
     lines.append("1. Resolve any 🔴 items immediately")
     lines.append("2. Address 🟡 items before filing taxes")
     lines.append("3. Run `qb_schedule_c` for Schedule C line mapping")
@@ -9234,7 +9232,6 @@ async def qb_upload_receipt(
         file_data = file_resp.content
 
     # Upload as multipart
-    import io
 
     boundary = "----QuickBooksAttachment"
     metadata = json.dumps(
@@ -9506,7 +9503,8 @@ async def qb_change_audit_trail(since_date: str = "", entities: str = "") -> str
     I last closed this period." since_date: YYYY-MM-DD (default: 7 days ago;
     QuickBooks allows up to ~31 days back). entities: comma-separated (default:
     the common transaction types)."""
-    from datetime import date as _d, timedelta as _td
+    from datetime import date as _d
+    from datetime import timedelta as _td
 
     since = since_date[:10] if since_date else (_d.today() - _td(days=7)).isoformat()
     ent = entities.strip() or (
@@ -9624,7 +9622,6 @@ async def qb_list_recurring_transactions(max_results: int = 50) -> str:
 
 import logging
 import re
-from functools import wraps
 
 # Configure audit logger — writes to file for compliance trail
 _audit_logger = logging.getLogger("qb_audit")
@@ -9880,7 +9877,7 @@ async def qb_batch_create_journal_entries(entries_json: str) -> str:
         except Exception as e:
             errors.append(f"Entry {i+1}: {str(e)}")
 
-    output = [f"## Batch Journal Entry Results\n"]
+    output = ["## Batch Journal Entry Results\n"]
     if results:
         output.append(f"**Created: {len(results)} journal entries**")
         output.extend(results)
@@ -9945,7 +9942,7 @@ async def qb_home_office_calculator(
     lines = [
         f"## Home Office Deduction — {tax_year} (Form 8829)\n",
         f"**Business Use Percentage:** {office_sqft:.0f} sq ft / {home_sqft:.0f} sq ft = **{biz_pct_display}**\n",
-        f"### Deduction Breakdown",
+        "### Deduction Breakdown",
     ]
     for category, amount in deductions.items():
         if amount > 0:
@@ -9959,14 +9956,14 @@ async def qb_home_office_calculator(
     lines.extend(
         [
             f"\n### **TOTAL HOME OFFICE DEDUCTION (actual / Form 8829): {fmt(total)}**",
-            f"\n### Calculation Details",
+            "\n### Calculation Details",
             f"  Building value: {fmt(building_value)} (home {fmt(home_value)} - land {fmt(land_value)})",
             f"  Annual depreciation: {fmt(annual_depreciation)} ({fmt(building_value)} / {depreciation_years:.0f} years)",
             f"  Business %: {biz_pct_display}",
-            f"\n### Schedule C Mapping",
-            f"  Line 18 (Office expense): $0 — using Form 8829 instead",
+            "\n### Schedule C Mapping",
+            "  Line 18 (Office expense): $0 — using Form 8829 instead",
             f"  Line 30 (Business use of home): **{fmt(total)}** — attach Form 8829",
-            f"\n### Simplified vs. actual",
+            "\n### Simplified vs. actual",
             f"  - **Simplified:** {min(office_sqft, _HOME_OFFICE_SIMPLIFIED['max_sqft']):.0f} sq ft × $5 "
             f"(max {_HOME_OFFICE_SIMPLIFIED['max_sqft']}) = **{fmt(simplified)}** — no depreciation, no "
             "recapture, and any excess over your net profit is LOST (Pub 587, no carryover)",
@@ -10064,14 +10061,14 @@ async def qb_vehicle_depreciation_calculator(
         sl_yr1 = biz_basis / 5 / 2  # ADS 5-yr straight line, half-year convention
         lines.extend(
             [
-                f"\n### ⚠️ Business use is not more than 50%",
-                f"  Listed-property rules (§280F(b)) disallow Section 179 AND bonus",
-                f"  depreciation at ≤50% business use. Straight-line (ADS, 5-year,",
-                f"  half-year convention) applies:",
+                "\n### ⚠️ Business use is not more than 50%",
+                "  Listed-property rules (§280F(b)) disallow Section 179 AND bonus",
+                "  depreciation at ≤50% business use. Straight-line (ADS, 5-year,",
+                "  half-year convention) applies:",
                 f"  Year 1: **{fmt(sl_yr1)}**  |  Years 2–5: {fmt(biz_basis / 5)}/yr  |  Year 6: {fmt(sl_yr1)}",
-                f"\n*If business use later exceeds 50%, regular MACRS becomes available "
-                f"prospectively; if it drops to ≤50% after claiming §179/bonus, recapture applies.*",
-                f"\n*⚠️ CPA should verify. Mileage log required to support business use percentage.*",
+                "\n*If business use later exceeds 50%, regular MACRS becomes available "
+                "prospectively; if it drops to ≤50% after claiming §179/bonus, recapture applies.*",
+                "\n*⚠️ CPA should verify. Mileage log required to support business use percentage.*",
             ]
         )
         _audit_log(
@@ -10116,15 +10113,15 @@ async def qb_vehicle_depreciation_calculator(
 
         lines.extend(
             [
-                f"\n### First-Year Deduction Breakdown",
+                "\n### First-Year Deduction Breakdown",
                 f"  Section 179: **{fmt(sec179)}** (heavy SUV cap: {fmt(sec179_limit)})",
                 f"  Bonus depreciation: **{fmt(bonus)}** ({bonus_note})",
                 f"  MACRS Year 1 (20%): **{fmt(macrs_yr1)}**",
                 f"  **TOTAL FIRST-YEAR DEDUCTION: {fmt(total_yr1)}**",
-                f"\n  §179 also requires an active trade or business with sufficient",
-                f"  taxable income (the deduction can't create a business loss;",
-                f"  bonus depreciation can).",
-                f"\n### Remaining MACRS Schedule (5-year property)",
+                "\n  §179 also requires an active trade or business with sufficient",
+                "  taxable income (the deduction can't create a business loss;",
+                "  bonus depreciation can).",
+                "\n### Remaining MACRS Schedule (5-year property)",
             ]
         )
 
@@ -10152,7 +10149,7 @@ async def qb_vehicle_depreciation_calculator(
 
         lines.extend(
             [
-                f"\n### Standard Vehicle (≤ 6,000 lbs GVWR) — §280F caps",
+                "\n### Standard Vehicle (≤ 6,000 lbs GVWR) — §280F caps",
                 f"  Bonus depreciation: {bonus_note}",
                 f"  Year 1: **{fmt(yr1_deduction)}** (cap: {fmt(yr1_cap)}"
                 f"{' with bonus' if bonus_rate > 0 else ' without bonus'})",
@@ -10167,13 +10164,13 @@ async def qb_vehicle_depreciation_calculator(
 
     lines.extend(
         [
-            f"\n### Schedule C Mapping",
-            f"  Line 13 (Depreciation / Form 4562): report vehicle depreciation",
-            f"\n*To put this on the books, use qb_record_depreciation — it credits an "
-            f"Accumulated Depreciation contra account, never the asset itself.*",
-            f"\n*⚠️ CPA should verify: bonus eligibility (acquisition vs. placed-in-service "
-            f"dates), Section 179 limits, and business use substantiation.*",
-            f"*Mileage log required to support business use percentage.*",
+            "\n### Schedule C Mapping",
+            "  Line 13 (Depreciation / Form 4562): report vehicle depreciation",
+            "\n*To put this on the books, use qb_record_depreciation — it credits an "
+            "Accumulated Depreciation contra account, never the asset itself.*",
+            "\n*⚠️ CPA should verify: bonus eligibility (acquisition vs. placed-in-service "
+            "dates), Section 179 limits, and business use substantiation.*",
+            "*Mileage log required to support business use percentage.*",
         ]
     )
 
@@ -10236,7 +10233,7 @@ async def qb_startup_cost_analysis(
         lines.append(
             f"  Immediate deduction: **{fmt(immediate)}**"
             + (
-                f" (reduced — costs exceed $50,000)"
+                " (reduced — costs exceed $50,000)"
                 if total_startup_costs > 50_000
                 else ""
             )
@@ -10254,15 +10251,15 @@ async def qb_startup_cost_analysis(
     lines.append(f"  **Total {year} deduction: {fmt(total_ded)}**")
     lines.extend(
         [
-            f"\n### Ongoing",
+            "\n### Ongoing",
             f"  Amortizable balance: {fmt(amortizable)} over 180 months "
             f"({fmt(monthly * 12)}/full year) beginning {c_year}-{c_month:02d}.",
-            f"\n*Schedule C: immediate portion on line 27a (other expenses); "
-            f"amortization via Form 4562 Part VI. Costs paid before commencement "
-            f"are capitalized until the business starts — the commencement date, "
-            f"not the payment date, starts the clock.*",
-            f"\n*⚠️ Organizational costs (entity formation) have a separate, "
-            f"parallel $5,000/§248 allowance. CPA should verify.*",
+            "\n*Schedule C: immediate portion on line 27a (other expenses); "
+            "amortization via Form 4562 Part VI. Costs paid before commencement "
+            "are capitalized until the business starts — the commencement date, "
+            "not the payment date, starts the clock.*",
+            "\n*⚠️ Organizational costs (entity formation) have a separate, "
+            "parallel $5,000/§248 allowance. CPA should verify.*",
         ]
     )
     _audit_log("STARTUP_COST_ANALYSIS", f"total={fmt(total_startup_costs)} year={year}")
@@ -10284,7 +10281,7 @@ async def qb_list_journal_entries_by_memo(
     search_text = _sanitize_input(search_text, "search_text")
 
     # QB query doesn't support LIKE on PrivateNote, so we fetch all and filter
-    result = await qb_query_all(f"SELECT * FROM JournalEntry MAXRESULTS 500")
+    result = await qb_query_all("SELECT * FROM JournalEntry MAXRESULTS 500")
     all_jes = result.get("QueryResponse", {}).get("JournalEntry", [])
 
     if not all_jes:
@@ -10498,7 +10495,7 @@ async def qb_account_transactions(
         vendor_counts[t["vendor"]] += 1
 
     if len(vendor_totals) > 1:
-        lines.append(f"\n### By Vendor")
+        lines.append("\n### By Vendor")
         for vendor, total in vendor_totals.most_common(15):
             lines.append(f"  {vendor}: {fmt(total)} ({vendor_counts[vendor]} txns)")
 
@@ -10560,7 +10557,7 @@ async def qb_schedule_c_detailed(tax_year: str = "2025") -> str:
     lines = [
         f"## Schedule C Detail — {tax_year}\n",
         *([f"**{company_name}**"] if company_name else []),
-        f"**EIN:** Check QB Company Info",
+        "**EIN:** Check QB Company Info",
         f"**Period:** {start} to {end}\n",
         f"**Line 1 — Gross receipts or sales: {fmt(gross_receipts)}**",
         *(
@@ -10783,7 +10780,7 @@ async def qb_transaction_detail(entity_type: str, entity_id: str) -> str:
     # Metadata
     meta = entity_data.get("MetaData", {})
     if meta:
-        lines.append(f"\n### Metadata")
+        lines.append("\n### Metadata")
         lines.append(f"  Created: {meta.get('CreateTime', '?')}")
         lines.append(f"  Updated: {meta.get('LastUpdatedTime', '?')}")
     lines.append(f"  SyncToken: {entity_data.get('SyncToken', '?')}")
@@ -10833,9 +10830,7 @@ async def qb_delete_journal_entry(journal_entry_id: str, confirm: bool = False) 
 
     # QB delete: POST with ?operation=delete
     delete_body = {"Id": journal_entry_id, "SyncToken": je["SyncToken"]}
-    result = await qb_request(
-        "POST", "journalentry?operation=delete", json_body=delete_body
-    )
+    await qb_request("POST", "journalentry?operation=delete", json_body=delete_body)
 
     _audit_log(
         "DELETE_JE_DONE", f"id={journal_entry_id} memo={je.get('PrivateNote', '')[:50]}"
@@ -10881,12 +10876,6 @@ async def qb_1099_contractor_report(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )
     purchases = purchase_result.get("QueryResponse", {}).get("Purchase", [])
-
-    # Get all bill payments for the year
-    billpay_result = await qb_query_all(
-        f"SELECT * FROM BillPayment WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
-    )
-    bill_payments = billpay_result.get("QueryResponse", {}).get("BillPayment", [])
 
     # Get all bills for the year (for bill-based payments)
     bill_result = await qb_query_all(
@@ -11018,8 +11007,8 @@ async def qb_1099_contractor_report(
 
     lines.extend(
         [
-            f"---",
-            f"### Summary",
+            "---",
+            "### Summary",
             f"  Reportable (1099-flagged) payments: {fmt(grand_total)}",
             f"  Vendors requiring 1099-NEC: {len(reportable)}",
             f"  Missing TIN: {missing_tin}",
@@ -11039,7 +11028,7 @@ async def qb_1099_contractor_report(
                 f"  - Collect mailing address from {missing_addr} flagged vendor(s)"
             )
         lines.append(f"  - 1099-NEC filing deadline: January 31, {int(tax_year)+1}")
-        lines.append(f"  - Use IRS FIRE system or approved e-file provider")
+        lines.append("  - Use IRS FIRE system or approved e-file provider")
 
     _audit_log(
         "1099_REPORT",
@@ -11488,7 +11477,6 @@ async def qb_anomaly_detection(
     # 2. Duplicate detection (same vendor + similar amount within 3 days)
     # Skip equity transactions — CC payment on credit card + bank debit are two
     # legs of the same transfer, not duplicates.
-    from datetime import timedelta
 
     non_equity_txns = [t for t in all_txns if not t["is_equity"]]
     sorted_txns = sorted(non_equity_txns, key=lambda x: (x["vendor"], x["date"]))
@@ -11595,7 +11583,7 @@ async def qb_anomaly_detection(
     unique_anomalies.sort(key=lambda x: sev_order.get(x["severity"], 3))
 
     lines = [
-        f"## Transaction Anomaly Report",
+        "## Transaction Anomaly Report",
         f"**Period:** {start_date} to {end_date}",
         f"**Total Transactions:** {len(all_txns)} ({equity_count} owner/equity transfers excluded from checks)",
         f"**Business Transactions Analyzed:** {len(biz_txns)}"
@@ -11607,7 +11595,7 @@ async def qb_anomaly_detection(
         ),
         f"**Sensitivity:** {sensitivity} (z-score threshold: {z_limit})",
         f"**Anomalies Found:** {len(unique_anomalies)}\n",
-        f"### Statistics (business transactions only)",
+        "### Statistics (business transactions only)",
         f"  Mean transaction: {fmt(mean_amt)}",
         f"  Median transaction: {fmt(median_amt)}",
         f"  Std deviation: {fmt(stdev_amt)}",
@@ -12045,12 +12033,12 @@ async def qb_sales_tax_summary(start_date: str = "", end_date: str = "") -> str:
                 tax_by_rate[key]["tax_collected"] += tax_charged * sign
 
     lines = ca_note + [
-        f"## Sales Tax Summary",
+        "## Sales Tax Summary",
         f"**Period:** {start_date} to {end_date}",
         f"**Invoices:** {len(invoices)} | **Sales Receipts:** {len(sales_receipts)}"
         + (f" | **Refunds (netted):** {len(refunds)}" if refunds else "")
         + "\n",
-        f"### Totals",
+        "### Totals",
         f"  Gross Sales: {fmt(total_gross)}",
         f"  Taxable Sales: {fmt(total_taxable)}",
         f"  Tax-Exempt Sales: {fmt(total_exempt)}",
@@ -12058,7 +12046,7 @@ async def qb_sales_tax_summary(start_date: str = "", end_date: str = "") -> str:
     ]
 
     if tax_by_rate:
-        lines.append(f"### Tax Breakdown by Rate")
+        lines.append("### Tax Breakdown by Rate")
         for name, info in sorted(tax_by_rate.items()):
             lines.append(f"  **{name}** ({info['rate']}%) — Agency: {info['agency']}")
             lines.append(
@@ -12075,9 +12063,9 @@ async def qb_sales_tax_summary(start_date: str = "", end_date: str = "") -> str:
 
     lines.extend(
         [
-            f"\n---",
-            f"*Note: Verify totals against QB Sales Tax Liability report before filing.*",
-            f"*File frequency depends on your state registration.*",
+            "\n---",
+            "*Note: Verify totals against QB Sales Tax Liability report before filing.*",
+            "*File frequency depends on your state registration.*",
         ]
     )
 
@@ -12387,8 +12375,8 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
     months_forward = max(1, min(24, months_forward))
     base_months = max(3, min(12, base_months))
 
-    from datetime import timedelta
     from collections import defaultdict
+    from datetime import timedelta
 
     today = datetime.now()
     start = (today - timedelta(days=base_months * 30)).strftime("%Y-%m-%d")
@@ -12498,15 +12486,15 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
 
     # Project forward
     lines = [
-        f"## Cash Flow Forecast",
+        "## Cash Flow Forecast",
         f"**Based on:** Last {base_months} months of data",
         f"**Projecting:** {months_forward} months forward\n",
-        f"### Current Position",
+        "### Current Position",
         f"  Cash on hand: {fmt(current_cash)}",
         f"  Avg monthly income: {fmt(avg_income)}",
         f"  Avg monthly expenses: {fmt(avg_expenses)}",
         f"  Net monthly: {fmt(avg_income - avg_expenses)}\n",
-        f"### Monthly Projections",
+        "### Monthly Projections",
         f"{'Month':<15} {'Income':>12} {'Expenses':>12} {'Net':>12} {'Balance':>14}",
         f"{'-'*65}",
     ]
@@ -12529,7 +12517,7 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
     lines.extend(
         [
             "",
-            f"### Runway Analysis",
+            "### Runway Analysis",
         ]
     )
 
@@ -12540,9 +12528,9 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
             runway_months = current_cash / burn
             lines.append(f"  **Runway:** {runway_months:.1f} months")
             if runway_months < 6:
-                lines.append(f"  🔴 **CRITICAL:** Less than 6 months of runway")
+                lines.append("  🔴 **CRITICAL:** Less than 6 months of runway")
             elif runway_months < 12:
-                lines.append(f"  🟡 **CAUTION:** Less than 12 months of runway")
+                lines.append("  🟡 **CAUTION:** Less than 12 months of runway")
         else:
             lines.append(
                 f"  🔴 **No runway** — cash balance is {fmt(current_cash)} "
@@ -12552,11 +12540,11 @@ async def qb_cash_flow_forecast(months_forward: int = 6, base_months: int = 6) -
         lines.append(
             f"  ✅ **Positive cash flow:** {fmt(avg_income - avg_expenses)}/month"
         )
-        lines.append(f"  Cash position growing — no runway concerns")
+        lines.append("  Cash position growing — no runway concerns")
     else:
-        lines.append(f"  Break-even: income ≈ expenses")
+        lines.append("  Break-even: income ≈ expenses")
 
-    lines.append(f"\n*Forecast assumes constant rates. Actual results will vary.*")
+    lines.append("\n*Forecast assumes constant rates. Actual results will vary.*")
 
     _audit_log(
         "CASH_FLOW_FORECAST",
@@ -12655,7 +12643,7 @@ async def qb_profit_margin_analysis(
             f"*COGS distributed proportionally to revenue (total COGS: {fmt(total_cogs)})*\n"
         )
     else:
-        lines.append(f"*No COGS tracked — margins show gross revenue only*\n")
+        lines.append("*No COGS tracked — margins show gross revenue only*\n")
 
     lines.append(
         f"{'Name':<30} {'Revenue':>12} {'COGS':>12} {'Margin':>12} {'%':>8} {'Txns':>6}"
@@ -12719,10 +12707,6 @@ async def qb_budget_vs_actual(fiscal_year: str = "2025") -> str:
             f"  3. Enter budget amounts by account/month\n"
             f"  4. Run this tool again"
         )
-
-    # Get actual P&L
-    params = {"start_date": start, "end_date": end, "summarize_by": "Total"}
-    pl_result = await qb_request("GET", "reports/ProfitAndLoss", params=params)
 
     # Get Budget Summary report
     budget_params = {"start_date": start, "end_date": end, "summarize_by": "Total"}
@@ -12892,7 +12876,7 @@ async def qb_list_estimates(
 
     lines.append(f"---\n**Total:** {fmt(total)}")
     lines.append(
-        f"\nUse qb_convert_estimate_to_invoice to convert an accepted estimate."
+        "\nUse qb_convert_estimate_to_invoice to convert an accepted estimate."
     )
     return "\n".join(lines)
 
@@ -13232,7 +13216,7 @@ async def qb_books_health_audit(tax_year: str = "2025") -> str:
     lines.append(
         f"\n**Summary:** {len(issues)} critical issues, {len(warnings)} warnings, {len(passed)} passed checks."
     )
-    lines.append(f"*Fix all critical issues before sending books to your accountant.*")
+    lines.append("*Fix all critical issues before sending books to your accountant.*")
 
     _audit_log(
         "BOOKS_HEALTH_AUDIT",
@@ -13622,7 +13606,7 @@ async def qb_unknown_vendor_report(
     from collections import defaultdict
 
     lines = [
-        f"## Unknown Vendor Report",
+        "## Unknown Vendor Report",
         f"**Total:** {total_unknown} transactions with unknown/missing vendors",
         f"**Fixable (active accounts):** {len(active_unknown)}",
         f"**Unfixable (deleted accounts):** {len(deleted_unknown)} ⚠️",
@@ -13760,7 +13744,7 @@ async def qb_bulk_update_vendor(transaction_ids: str, vendor_name: str) -> str:
             errors.append(f"ID {txn_id}: {str(e)[:60]}")
 
     lines = [
-        f"## Bulk Vendor Update Results",
+        "## Bulk Vendor Update Results",
         f"**Vendor:** {vendor_name}",
         f"**Attempted:** {len(ids)} transactions",
         f"**Succeeded:** {success}",
@@ -13861,7 +13845,7 @@ async def qb_bulk_update_vendors_multi(vendor_mapping: str) -> str:
         results_by_vendor[vendor_name] = {"success": v_success, "failed": len(v_errors)}
 
     lines = [
-        f"## Multi-Vendor Bulk Update Results",
+        "## Multi-Vendor Bulk Update Results",
         f"**Vendors processed:** {len(mapping)}",
         f"**Total succeeded:** {total_success}",
         f"**Total failed:** {len(total_errors)}\n",
@@ -13875,7 +13859,7 @@ async def qb_bulk_update_vendors_multi(vendor_mapping: str) -> str:
         )
 
     if total_errors:
-        lines.append(f"\n### Errors")
+        lines.append("\n### Errors")
         for e in total_errors[:20]:
             lines.append(f"  • {e}")
 
@@ -14096,16 +14080,16 @@ async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
         + checklist
         + [
             "",
-            f"---",
+            "---",
             f"**Blockers:** {blockers} | **Warnings:** {warnings_count}",
         ]
     )
 
     if blockers > 0:
-        lines.append(f"\n*Resolve all 🔴 items before closing the month.*")
+        lines.append("\n*Resolve all 🔴 items before closing the month.*")
     else:
         lines.append(
-            f"\n*Month looks clean. Review 🟡 warnings and confirm bank reconciliation.*"
+            "\n*Month looks clean. Review 🟡 warnings and confirm bank reconciliation.*"
         )
 
     _audit_log(
@@ -14778,7 +14762,7 @@ async def qb_gst_hst_return(
     regime = _ca_regime(prov)
 
     lines = [
-        f"## GST/HST Return Workpaper (GST34)",
+        "## GST/HST Return Workpaper (GST34)",
         f"**Filing period:** {start_date} to {end_date}",
     ]
     if regime:

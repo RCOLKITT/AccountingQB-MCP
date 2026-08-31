@@ -41,3 +41,15 @@ accountingqb = "server:main"
 [tool.black]
 line-length = 88
 target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+# Correctness-only gate (spine G9): pyflakes (unused imports/vars, undefined names,
+# empty f-strings) + import ordering. The opinionated rules ruff enables by wider
+# selection — blind-except (BLE001), tz-naive datetimes (DTZ), dict()-vs-{} (C408),
+# implicit str-concat (ISC), loop-var-capture (B023) — are deliberately NOT enforced;
+# they're taste or need case-by-case review. See SPINE-STATUS G9.
+select = ["F", "I"]
