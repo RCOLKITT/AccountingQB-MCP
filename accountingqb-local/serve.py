@@ -649,11 +649,18 @@ async def mcp_call(req: Request) -> JSONResponse:
         return JSONResponse(
             {"isError": True, "error": "missing 'tool'"}, status_code=400
         )
-    # Integration dialect: the three contract tools return structured JSON for Coffer,
-    # but ONLY when an identity-verified pairing exists AND the caller presents its secret.
-    # No pairing / wrong secret → inert (this is the cross-user contamination guard).
+    # Integration dialect: the three Coffer-contract tools return structured JSON —
+    # but only to a caller that PRESENTS the pairing secret (Coffer always does).
+    # Dialect is selected by authentication: no secret presented → this is the app's
+    # own UI (or a plain MCP client) and the call falls through to the normal tool
+    # below, so the Tax tab etc. keep working whether or not a pairing exists.
+    # A presented-but-wrong/stale secret is still refused (cross-user contamination
+    # guard), and the write tool stays behind the confirmed:true gate either way.
     handler = INTEGRATION_HANDLERS.get(name)
-    if handler is not None:
+    presented = req.headers.get("x-aqb-pairing") or (
+        args.get("pairing_secret") if isinstance(args, dict) else None
+    )
+    if handler is not None and presented is not None:
         pairing = _load_pairing()
         if not pairing.get("pairing_secret"):
             return JSONResponse(
@@ -663,12 +670,7 @@ async def mcp_call(req: Request) -> JSONResponse:
                 },
                 status_code=403,
             )
-        presented = req.headers.get("x-aqb-pairing") or (
-            args.get("pairing_secret") if isinstance(args, dict) else None
-        )
-        if not presented or not secrets.compare_digest(
-            str(presented), str(pairing["pairing_secret"])
-        ):
+        if not secrets.compare_digest(str(presented), str(pairing["pairing_secret"])):
             return JSONResponse(
                 {"error": "invalid or missing pairing secret"}, status_code=403
             )
