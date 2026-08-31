@@ -15,8 +15,8 @@ import json
 import pathlib
 import re
 
-TAX_DATA_VERSION = "2026.6"  # bumped by every approved rates PR
-TAX_DATA_VERIFIED = "2026-08-03"  # date of the last full verification sweep
+TAX_DATA_VERSION = "2026.7"  # bumped by every approved rates PR
+TAX_DATA_VERIFIED = "2026-08-31"  # date of the last full verification sweep
 
 
 class TaxDataError(ValueError):
@@ -103,6 +103,10 @@ _RETIREMENT_LIMITS = {
 # 1099-NEC/MISC reporting threshold per payee (OBBBA: $2,000 for payments
 # made on/after Jan 1 2026, inflation-indexed after; $600 before)
 _1099_NEC_THRESHOLD = {2025: 600.0, 2026: 2_000.0}
+
+# 1099-MISC box 2 (royalties) reports at $10 — IRC §6050N, a DIFFERENT statute
+# from the §6041 general threshold; OBBBA §70433 did not amend §6050N.
+_1099_ROYALTY_THRESHOLD = {2025: 10.0, 2026: 10.0}
 
 
 # =========================================================================
@@ -969,6 +973,18 @@ TABLES: dict = {
         verified="2026-07-12",
         review="legislative-watch",
         sanity={"min": 0, "max": 10_000},
+    ),
+    "ROYALTY_1099_THRESHOLD": dict(
+        values=_1099_ROYALTY_THRESHOLD,
+        year_keyed=True,
+        jurisdiction="US-federal",
+        kind="stable_statute",
+        description="1099-MISC box 2 (royalties) reporting threshold per payee",
+        source="IRC §6050N ($10); Instructions for Forms 1099-MISC/NEC. OBBBA §70433 amended §6041, not §6050N",
+        source_url="https://www.irs.gov/instructions/i1099mec",
+        verified="2026-08-31",
+        review="legislative-watch",
+        sanity={"min": 0, "max": 1_000},
     ),
     "CA_SALES_TAX_REGIME": dict(
         values=_CA_SALES_TAX_REGIME,
