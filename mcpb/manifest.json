@@ -1272,6 +1272,11 @@
             "description": "Home Office Accounts Json",
             "default": ""
           },
+          "nec_1099_accounts_json": {
+            "type": "string",
+            "description": "Nec 1099 Accounts Json",
+            "default": ""
+          },
           "source": {
             "type": "string",
             "description": "Source",

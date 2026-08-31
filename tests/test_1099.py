@@ -227,3 +227,119 @@ def test_bill_payment_traced_to_bill_accounts(monkeypatch):
     assert "Contract Labor: $5,000.00" in out
     assert "Reimbursements: $2,000.00" in out
     assert "unresolved" not in out.lower()
+
+
+def test_allocation_profile_sets_1099_map(monkeypatch):
+    # The 1099 box→account map is set through qb_allocation_profile (QBO doesn't
+    # expose its own mapping via the API) and persists in the taxpayer profile.
+    saved = {}
+
+    async def fake_save(year, profile):
+        saved.clear()
+        saved.update(profile)
+        return True
+
+    async def fake_get(year):
+        return dict(saved)
+
+    async def fake_chart():
+        return {}  # skip chart-name validation
+
+    monkeypatch.setattr(s, "_save_allocation_profile", fake_save)
+    monkeypatch.setattr(s, "_get_allocation_profile", fake_get)
+    monkeypatch.setattr(s, "_account_subtype_map", fake_chart)
+    out = asyncio.run(
+        s.qb_allocation_profile(
+            tax_year=2025,
+            nec_1099_accounts_json='{"Contract Labor": "box1", "Reimbursements": "exclude"}',
+        )
+    )
+    assert "saved" in out.lower()
+    assert saved["nec_1099_accounts"]["Contract Labor"] == "box1"
+    assert saved["nec_1099_accounts"]["Reimbursements"] == "exclude"
+    assert "1099-NEC account mapping" in out  # rendered in the profile view
+    # A bad treatment value is rejected, not silently stored.
+    bad = asyncio.run(
+        s.qb_allocation_profile(tax_year=2025, nec_1099_accounts_json='{"Foo": "box9"}')
+    )
+    assert "box1" in bad and "exclude" in bad  # error names the valid values
+
+
+def test_report_counts_only_box1_when_mapped(monkeypatch):
+    # With a mapping, the reportable total is the box-1 (comp) portion only; the
+    # excluded reimbursement is shown but NOT counted.
+    vendors = [
+        {
+            "Id": "1",
+            "DisplayName": "Contractor Jane",
+            "Vendor1099": True,
+            "TaxIdentifier": "12-3456789",
+            "BillAddr": {"Line1": "1 St", "City": "X"},
+        }
+    ]
+    bill = {
+        "Id": "301",
+        "TotalAmt": 7000.0,
+        "VendorRef": {"value": "1"},
+        "Line": [
+            {
+                "Amount": 5000.0,
+                "DetailType": "AccountBasedExpenseLineDetail",
+                "AccountBasedExpenseLineDetail": {
+                    "AccountRef": {"name": "Contract Labor"}
+                },
+            },
+            {
+                "Amount": 2000.0,
+                "DetailType": "AccountBasedExpenseLineDetail",
+                "AccountBasedExpenseLineDetail": {
+                    "AccountRef": {"name": "Reimbursements"}
+                },
+            },
+        ],
+    }
+    bill_payments = [
+        {
+            "VendorRef": {"value": "1"},
+            "TotalAmt": 7000.0,
+            "PayType": "Check",
+            "Line": [
+                {"Amount": 7000.0, "LinkedTxn": [{"TxnId": "301", "TxnType": "Bill"}]}
+            ],
+        }
+    ]
+
+    async def fake_query(q, **kw):
+        if "FROM Vendor" in q:
+            return {"QueryResponse": {"Vendor": vendors}}
+        if "FROM BillPayment" in q:
+            return {"QueryResponse": {"BillPayment": bill_payments}}
+        if "FROM Bill WHERE Id IN" in q:
+            return {"QueryResponse": {"Bill": [bill]}}
+        return {"QueryResponse": {}}
+
+    async def fake_region():
+        return {
+            "region": "US",
+            "subdivision": "",
+            "home_currency": "USD",
+            "multicurrency": False,
+        }
+
+    async def fake_profile(year):
+        return {
+            "nec_1099_accounts": {
+                "Contract Labor": "box1",
+                "Reimbursements": "exclude",
+            }
+        }
+
+    monkeypatch.setattr(s, "qb_query", fake_query)
+    monkeypatch.setattr(s, "_get_region", fake_region)
+    monkeypatch.setattr(s, "_get_allocation_profile", fake_profile)
+    out = asyncio.run(s.qb_1099_contractor_report("2025"))
+    assert "Account mapping ACTIVE" in out
+    assert "1099-NEC box 1: $5,000.00" in out  # only the comp portion
+    assert "Reportable (1099-flagged) payments: $5,000.00" in out  # not $7,000
+    assert "$7,000.00 paid" in out  # full amount still shown for context
+    assert "(excluded)" in out  # reimbursement tagged, not counted

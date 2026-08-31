@@ -6003,6 +6003,12 @@ def _fmt_allocation_profile(year: int, p: dict) -> str:
         for name, cfg in acc.items():
             note = f" — {cfg.get('basis_note')}" if cfg.get("basis_note") else ""
             lines.append(f"  - {name}: {cfg.get('percentage', 0) * 100:.0f}%{note}")
+    nec = p.get("nec_1099_accounts") or {}
+    if nec:
+        lines.append("- **1099-NEC account mapping:**")
+        for name, box in sorted(nec.items()):
+            label = "box 1 (comp)" if box == "box1" else "excluded"
+            lines.append(f"  - {name}: {label}")
     prov = p.get("provenance") or {}
     if prov:
         lines.append(
@@ -6028,6 +6034,7 @@ async def qb_allocation_profile(
     total_miles: float = 0,
     account_allocations_json: str = "",
     home_office_accounts_json: str = "",
+    nec_1099_accounts_json: str = "",
     source: str = "",
 ) -> str:
     """Get or set this company's TAXPAYER allocation profile for a tax year — the
@@ -6041,8 +6048,13 @@ async def qb_allocation_profile(
     {"Internet & TV": 0.6} or {"Internet & TV": {"percentage":0.6,"basis_note":".."}}),
     and/or home_office_accounts_json (a JSON array of account names to route to the
     home-office form, e.g. ["Electricity"] — for home utilities not under a 'Home
-    office' parent). source documents the basis (e.g. 'CPA Form 8829 TY2025'). These
-    are per-realm taxpayer inputs, stored outside the statutory tax ledger."""
+    office' parent), and/or nec_1099_accounts_json (a JSON object mapping expense
+    accounts to their 1099-NEC treatment, e.g. {"Contract Labor": "box1",
+    "Reimbursements": "exclude"} — "box1" = nonemployee compensation counted on the
+    1099-NEC report; "exclude" = not reportable. QuickBooks doesn't expose its 1099
+    box mapping via the API, so this is how qb_1099_contractor_report knows which
+    accounts are comp). source documents the basis (e.g. 'CPA Form 8829 TY2025').
+    These are per-realm taxpayer inputs, stored outside the statutory tax ledger."""
     from datetime import datetime, timezone
 
     year = int(tax_year) or datetime.now(timezone.utc).year
@@ -6053,6 +6065,7 @@ async def qb_allocation_profile(
         or vehicle_method
         or account_allocations_json
         or home_office_accounts_json
+        or nec_1099_accounts_json
         or business_miles
         or total_miles
     )
@@ -6141,6 +6154,28 @@ async def qb_allocation_profile(
         ho = dict(profile.get("home_office") or {})
         ho["accounts"] = sorted(set(names))
         profile["home_office"] = ho
+
+    if nec_1099_accounts_json:
+        try:
+            raw = json.loads(nec_1099_accounts_json)
+            assert isinstance(raw, dict)
+        except Exception:
+            return (
+                "nec_1099_accounts_json must be a JSON object like "
+                '{"Contract Labor": "box1", "Reimbursements": "exclude"}.'
+            )
+        chart = await _account_subtype_map()
+        mapping = dict(profile.get("nec_1099_accounts") or {})
+        for name, box in raw.items():
+            box = str(box).lower().strip()
+            if box not in ("box1", "exclude"):
+                return f"1099 treatment for '{name}' must be 'box1' or 'exclude' (got '{box}')."
+            if chart and name not in chart:
+                warnings.append(
+                    f"'{name}' is not an account in this chart — check the name."
+                )
+            mapping[name] = box
+        profile["nec_1099_accounts"] = mapping
 
     ctx = get_ctx()
     profile["provenance"] = {
@@ -11012,6 +11047,26 @@ async def qb_1099_contractor_report(
             _add(vid, "(unresolved bill)", float(bp.get("TotalAmt", 0) or 0))
         vendor_map[vid]["payment_count"] += 1
 
+    # 1099 box mapping: if the company designated which accounts are box-1 comp (via
+    # qb_allocation_profile's nec_1099_accounts_json), the reportable amount is the comp
+    # portion only — reimbursements/goods ("exclude") and still-unmapped accounts are
+    # shown but NOT counted (we never guess that an account is compensation). Without a
+    # mapping, the whole non-card total is provisional and the breakdown is shown so the
+    # filer can designate accounts.
+    nec_map = (await _get_allocation_profile(tax_year)).get("nec_1099_accounts") or {}
+    for info in vendor_map.values():
+        box1 = excluded = unmapped = 0.0
+        for acct, amt in info["by_account"].items():
+            box = nec_map.get(acct)
+            if box == "box1":
+                box1 += amt
+            elif box == "exclude":
+                excluded += amt
+            else:
+                unmapped += amt
+        info["box1"], info["excluded"], info["unmapped"] = box1, excluded, unmapped
+        info["reportable_amount"] = box1 if nec_map else info["total_paid"]
+
     # 1099-NEC applies ONLY to vendors the business marked "Track payments for
     # 1099" in QuickBooks (the Vendor1099 flag). Filtering by dollar amount
     # alone wrongly swept in banks and credit-card/loan payments, SaaS
@@ -11020,11 +11075,11 @@ async def qb_1099_contractor_report(
     any_flagged = any(info["vendor1099"] for info in vendor_map.values())
     reportable, review = [], []
     for info in vendor_map.values():
-        if info["total_paid"] < threshold:
+        if info["reportable_amount"] < threshold:
             continue
         (reportable if info["vendor1099"] else review).append(info)
-    reportable.sort(key=lambda x: x["total_paid"], reverse=True)
-    review.sort(key=lambda x: x["total_paid"], reverse=True)
+    reportable.sort(key=lambda x: x["reportable_amount"], reverse=True)
+    review.sort(key=lambda x: x["reportable_amount"], reverse=True)
 
     lines = [
         f"## 1099-NEC Contractor Report — {tax_year}",
@@ -11033,10 +11088,18 @@ async def qb_1099_contractor_report(
         f"**Basis:** cash — amounts **paid** in {tax_year} (checks/cash + bill "
         "payments). Card payments are excluded (those are reported on 1099-K by the "
         "processor).",
-        "**Workpaper, not a filing:** each contractor’s payments are broken out by "
-        "expense account below (comp vs reimbursements/goods). A filing counts only "
-        "the accounts mapped to 1099 boxes — review the breakdown and verify against "
-        "QuickBooks’ 1099 wizard before filing.",
+        (
+            "**Account mapping ACTIVE:** the reportable total counts only accounts you "
+            "designated **box 1** (nonemployee comp). Excluded and still-unmapped "
+            "accounts are shown per contractor but **not counted** — map any that are "
+            "comp with qb_allocation_profile."
+            if nec_map
+            else "**Workpaper, not a filing:** each contractor’s payments are broken "
+            "out by expense account below (comp vs reimbursements/goods). No 1099 "
+            "account mapping is set, so this counts ALL non-card payments — designate "
+            "box-1 accounts with qb_allocation_profile (nec_1099_accounts_json), or "
+            "verify against QuickBooks’ 1099 wizard, before filing."
+        ),
         f"**Reportable vendors:** {len(reportable)}\n",
     ]
 
@@ -11046,22 +11109,41 @@ async def qb_1099_contractor_report(
 
     if reportable:
         for i, v in enumerate(reportable, 1):
-            grand_total += v["total_paid"]
+            grand_total += v["reportable_amount"]
             if not v["tin"]:
                 missing_tin += 1
             if not v["address"]:
                 missing_addr += 1
             tin_status = "✅ On file" if v["tin"] else "⚠️ MISSING"
             lines.append(f"### {i}. {v['name']}")
-            lines.append(
-                f"  **Total Paid:** {fmt(v['total_paid'])} ({v['payment_count']} payments)"
-            )
+            if nec_map:
+                lines.append(
+                    f"  **1099-NEC box 1: {fmt(v['reportable_amount'])}** "
+                    f"(of {fmt(v['total_paid'])} paid, {v['payment_count']} payments)"
+                )
+            else:
+                lines.append(
+                    f"  **Total Paid:** {fmt(v['total_paid'])} ({v['payment_count']} payments)"
+                )
             # Per-account breakdown so a filer can see comp vs reimbursements/goods and
             # decide what's box-1 reportable (QBO doesn't expose the box→account map).
             for acct, amt in sorted(
                 v["by_account"].items(), key=lambda kv: kv[1], reverse=True
             ):
-                lines.append(f"    - {acct}: {fmt(amt)}")
+                tag = ""
+                if nec_map:
+                    box = nec_map.get(acct)
+                    tag = (
+                        "  ✓ box 1"
+                        if box == "box1"
+                        else "  (excluded)" if box == "exclude" else "  ⚠️ unmapped"
+                    )
+                lines.append(f"    - {acct}: {fmt(amt)}{tag}")
+            if nec_map and v["unmapped"] > 0.005:
+                lines.append(
+                    f"  ⚠️ {fmt(v['unmapped'])} in unmapped accounts is NOT counted — "
+                    "map any that are compensation with qb_allocation_profile."
+                )
             lines.append(f"  **TIN Status:** {tin_status}")
             if v["company"]:
                 lines.append(f"  **Company:** {v['company']}")
