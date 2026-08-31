@@ -42,7 +42,7 @@ export function getKBTopics(): string[] {
   return [
     "Installation & Setup (remote connector, desktop extension, Claude Desktop config, uv, license key)",
     "QuickBooks OAuth & Connection (authorization, token refresh, multiple companies)",
-    "131 QuickBooks Tools (reports, transactions, US & Canadian tax prep, smart features)",
+    "132 QuickBooks Tools (reports, transactions, US & Canadian tax prep, smart features)",
     "Common Issues & Troubleshooting (errors, fixes, FAQ)",
     "Account & Billing (pricing, plans, cancel, refunds)",
   ];

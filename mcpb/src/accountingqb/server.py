@@ -6005,9 +6005,14 @@ def _fmt_allocation_profile(year: int, p: dict) -> str:
             lines.append(f"  - {name}: {cfg.get('percentage', 0) * 100:.0f}%{note}")
     nec = p.get("nec_1099_accounts") or {}
     if nec:
-        lines.append("- **1099-NEC account mapping:**")
+        lines.append("- **1099 account mapping (NEC + MISC):**")
         for name, box in sorted(nec.items()):
-            label = "box 1 (comp)" if box == "box1" else "excluded"
+            if box == "box1":
+                label = "NEC box 1 (comp)"
+            elif box == "exclude":
+                label = "excluded"
+            else:
+                label = "MISC " + _MISC_1099_BOXES.get(box, (box,))[0]
             lines.append(f"  - {name}: {label}")
     prov = p.get("provenance") or {}
     if prov:
@@ -6049,12 +6054,14 @@ async def qb_allocation_profile(
     and/or home_office_accounts_json (a JSON array of account names to route to the
     home-office form, e.g. ["Electricity"] — for home utilities not under a 'Home
     office' parent), and/or nec_1099_accounts_json (a JSON object mapping expense
-    accounts to their 1099-NEC treatment, e.g. {"Contract Labor": "box1",
-    "Reimbursements": "exclude"} — "box1" = nonemployee compensation counted on the
-    1099-NEC report; "exclude" = not reportable. QuickBooks doesn't expose its 1099
-    box mapping via the API, so this is how qb_1099_contractor_report knows which
-    accounts are comp). source documents the basis (e.g. 'CPA Form 8829 TY2025').
-    These are per-realm taxpayer inputs, stored outside the statutory tax ledger."""
+    accounts to their 1099 treatment, e.g. {"Contract Labor": "box1",
+    "Rent - Equipment": "misc_rents", "Reimbursements": "exclude"} — "box1" =
+    nonemployee comp on the 1099-NEC report; misc_rents/misc_royalties/misc_other/
+    misc_medical/misc_attorney = the matching 1099-MISC box; "exclude" = not
+    reportable. QuickBooks doesn't expose its 1099 box mapping via the API, so this
+    is how the 1099 reports know which accounts count). source documents the basis
+    (e.g. 'CPA Form 8829 TY2025'). These are per-realm taxpayer inputs, stored
+    outside the statutory tax ledger."""
     from datetime import datetime, timezone
 
     year = int(tax_year) or datetime.now(timezone.utc).year
@@ -6166,10 +6173,14 @@ async def qb_allocation_profile(
             )
         chart = await _account_subtype_map()
         mapping = dict(profile.get("nec_1099_accounts") or {})
+        valid_boxes = ("box1", "exclude") + tuple(_MISC_1099_BOXES)
         for name, box in raw.items():
             box = str(box).lower().strip()
-            if box not in ("box1", "exclude"):
-                return f"1099 treatment for '{name}' must be 'box1' or 'exclude' (got '{box}')."
+            if box not in valid_boxes:
+                return (
+                    f"1099 treatment for '{name}' must be one of "
+                    f"{', '.join(valid_boxes)} (got '{box}')."
+                )
             if chart and name not in chart:
                 warnings.append(
                     f"'{name}' is not an account in this chart — check the name."
@@ -10879,50 +10890,36 @@ async def qb_delete_journal_entry(journal_entry_id: str, confirm: bool = False) 
 # ===================================================================
 
 
-@mcp.tool(annotations={"readOnlyHint": True})
-@require_region("US", "Use qb_t4a_contractor_report.")
-async def qb_1099_contractor_report(
-    tax_year: str = "2025", threshold: float = 0.0
-) -> str:
-    """Generate 1099-NEC contractor reporting data for a tax year.
-    Lists all vendors paid at or above the IRS reporting threshold via
-    non-employee compensation ($600 through 2025; $2,000 from 2026 under
-    OBBBA, auto-selected by tax_year). Shows vendor name, total paid, TIN
-    status, and address. tax_year: YYYY. threshold: optional override."""
-    start = f"{tax_year}-01-01"
-    end = f"{tax_year}-12-31"
-    if not threshold:
-        try:
-            threshold, _t_note = tax_value_or_latest(
-                "NEC_1099_THRESHOLD", int(tax_year)
-            )
-        except TaxDataError as e:
-            return str(e)
-    threshold = _validate_amount(threshold, "threshold")
+async def _tally_1099_payments(start: str, end: str) -> "dict | None":
+    """Cash-basis, card-excluded, account-attributed payment tally shared by the
+    1099-NEC and 1099-MISC reports. Returns {vendor_id: {name, company, tin,
+    vendor1099, email, address, total_paid, payment_count, by_account}} or None
+    when the company has no vendors.
 
-    # Get all vendors
+    Basis rules (both forms, §6041/§6050N + 1099-K coordination):
+    - CASH basis: what was PAID in the window — Purchase txns + BillPayment txns,
+      never accrual Bill obligations (those mis-time and include unpaid bills).
+    - Card/third-party-network payments are EXCLUDED (the processor reports them
+      on 1099-K; counting them here would double-report).
+    - Every dollar is attributed to an expense account: Purchases by their lines,
+      BillPayments by tracing LinkedTxn to the paid Bill and splitting across its
+      account lines (proportionally for partial payments). Untraceable dollars go
+      to an explicit "(unresolved bill)" bucket — never silently dropped."""
     vendor_result = await qb_query_all("SELECT * FROM Vendor MAXRESULTS 500")
     vendors = vendor_result.get("QueryResponse", {}).get("Vendor", [])
     if not vendors:
-        return "No vendors found."
+        return None
 
-    # Get all purchases for the year
     purchase_result = await qb_query_all(
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )
     purchases = purchase_result.get("QueryResponse", {}).get("Purchase", [])
 
-    # Get bill payments made during the year (the actual cash paid against bills).
-    # 1099-NEC is CASH basis — it reports what was PAID in the year, so we count
-    # BillPayment transactions, not Bill (accrual) obligations. Counting bills would
-    # (a) include unpaid bills, (b) miss a prior-year bill paid this year, and
-    # (c) mis-time a this-year bill paid next year. Payments are the truth.
     billpay_result = await qb_query_all(
         f"SELECT * FROM BillPayment WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )
     bill_payments = billpay_result.get("QueryResponse", {}).get("BillPayment", [])
 
-    # Build vendor lookup
     vendor_map = {}
     for v in vendors:
         vid = v.get("Id", "")
@@ -11047,6 +11044,34 @@ async def qb_1099_contractor_report(
             _add(vid, "(unresolved bill)", float(bp.get("TotalAmt", 0) or 0))
         vendor_map[vid]["payment_count"] += 1
 
+    return vendor_map
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "Use qb_t4a_contractor_report.")
+async def qb_1099_contractor_report(
+    tax_year: str = "2025", threshold: float = 0.0
+) -> str:
+    """Generate 1099-NEC contractor reporting data for a tax year.
+    Lists all vendors paid at or above the IRS reporting threshold via
+    non-employee compensation ($600 through 2025; $2,000 from 2026 under
+    OBBBA, auto-selected by tax_year). Shows vendor name, total paid, TIN
+    status, and address. tax_year: YYYY. threshold: optional override."""
+    start = f"{tax_year}-01-01"
+    end = f"{tax_year}-12-31"
+    if not threshold:
+        try:
+            threshold, _t_note = tax_value_or_latest(
+                "NEC_1099_THRESHOLD", int(tax_year)
+            )
+        except TaxDataError as e:
+            return str(e)
+    threshold = _validate_amount(threshold, "threshold")
+
+    vendor_map = await _tally_1099_payments(start, end)
+    if vendor_map is None:
+        return "No vendors found."
+
     # 1099 box mapping: if the company designated which accounts are box-1 comp (via
     # qb_allocation_profile's nec_1099_accounts_json), the reportable amount is the comp
     # portion only — reimbursements/goods ("exclude") and still-unmapped accounts are
@@ -11060,7 +11085,7 @@ async def qb_1099_contractor_report(
             box = nec_map.get(acct)
             if box == "box1":
                 box1 += amt
-            elif box == "exclude":
+            elif box:  # "exclude" or a misc_* box — mapped, just not NEC comp
                 excluded += amt
             else:
                 unmapped += amt
@@ -11133,11 +11158,14 @@ async def qb_1099_contractor_report(
                 tag = ""
                 if nec_map:
                     box = nec_map.get(acct)
-                    tag = (
-                        "  ✓ box 1"
-                        if box == "box1"
-                        else "  (excluded)" if box == "exclude" else "  ⚠️ unmapped"
-                    )
+                    if box == "box1":
+                        tag = "  ✓ box 1"
+                    elif box == "exclude":
+                        tag = "  (excluded)"
+                    elif box:  # a misc_* designation — reported on the other form
+                        tag = "  (→ 1099-MISC)"
+                    else:
+                        tag = "  ⚠️ unmapped"
                 lines.append(f"    - {acct}: {fmt(amt)}{tag}")
             if nec_map and v["unmapped"] > 0.005:
                 lines.append(
@@ -11214,6 +11242,171 @@ async def qb_1099_contractor_report(
 
     _audit_log(
         "1099_REPORT",
+        f"year={tax_year} reportable={len(reportable)} total={fmt(grand_total)}",
+    )
+    return "\n".join(lines) + tax_data_footer(int(tax_year))
+
+
+# 1099-MISC boxes we support, keyed by the account-mapping value set in
+# qb_allocation_profile (nec_1099_accounts_json). "royalty" boxes use the $10
+# §6050N threshold; "general" boxes use the §6041 threshold ($600/$2,000-OBBBA).
+_MISC_1099_BOXES = {
+    "misc_rents": ("Box 1 — Rents", "general"),
+    "misc_royalties": ("Box 2 — Royalties", "royalty"),
+    "misc_other": ("Box 3 — Other income", "general"),
+    "misc_medical": ("Box 6 — Medical and health care payments", "general"),
+    "misc_attorney": ("Box 10 — Gross proceeds paid to an attorney", "general"),
+}
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "Use qb_t4a_contractor_report.")
+async def qb_1099_misc_report(tax_year: str = "2025") -> str:
+    """Generate 1099-MISC reporting data for a tax year — rents (box 1),
+    royalties (box 2, $10 threshold), other income (box 3), medical payments
+    (box 6), and gross proceeds to attorneys (box 10). Cash basis, card payments
+    excluded (1099-K), amounts attributed per expense account. Requires the
+    account→box mapping set via qb_allocation_profile (nec_1099_accounts_json
+    with values misc_rents / misc_royalties / misc_other / misc_medical /
+    misc_attorney) — QuickBooks doesn't expose its box map and we never guess
+    which accounts are rents or royalties. tax_year: YYYY."""
+    start = f"{tax_year}-01-01"
+    end = f"{tax_year}-12-31"
+    try:
+        general_thr, _n1 = tax_value_or_latest("NEC_1099_THRESHOLD", int(tax_year))
+        royalty_thr, _n2 = tax_value_or_latest("ROYALTY_1099_THRESHOLD", int(tax_year))
+    except TaxDataError as e:
+        return str(e)
+
+    box_map = (await _get_allocation_profile(tax_year)).get("nec_1099_accounts") or {}
+    misc_accounts = {a: b for a, b in box_map.items() if b in _MISC_1099_BOXES}
+    if not misc_accounts:
+        return (
+            f"## 1099-MISC Report — {tax_year}\n\n"
+            "No accounts are mapped to 1099-MISC boxes yet, and QuickBooks does not "
+            "expose its own box mapping through the API — so there is nothing this "
+            "report can count without guessing (which it never does).\n\n"
+            "Map the relevant expense accounts with qb_allocation_profile, e.g.:\n"
+            '  nec_1099_accounts_json = {"Rent - Equipment": "misc_rents", '
+            '"Royalty Payments": "misc_royalties"}\n\n'
+            "Supported designations: misc_rents (box 1), misc_royalties (box 2, $10 "
+            "threshold), misc_other (box 3), misc_medical (box 6), misc_attorney "
+            "(box 10). Then re-run this report."
+        ) + tax_data_footer(int(tax_year))
+
+    vendor_map = await _tally_1099_payments(start, end)
+    if vendor_map is None:
+        return "No vendors found."
+
+    def _thr(box_key):
+        return royalty_thr if _MISC_1099_BOXES[box_key][1] == "royalty" else general_thr
+
+    for info in vendor_map.values():
+        boxes: dict = {}
+        for acct, amt in info["by_account"].items():
+            b = misc_accounts.get(acct)
+            if b:
+                boxes[b] = boxes.get(b, 0.0) + amt
+        info["misc_boxes"] = boxes
+        info["misc_total"] = sum(boxes.values())
+        info["misc_reportable"] = any(amt >= _thr(b) for b, amt in boxes.items())
+
+    reportable = [
+        v for v in vendor_map.values() if v["vendor1099"] and v["misc_reportable"]
+    ]
+    review = [
+        v for v in vendor_map.values() if not v["vendor1099"] and v["misc_reportable"]
+    ]
+    reportable.sort(key=lambda x: x["misc_total"], reverse=True)
+    review.sort(key=lambda x: x["misc_total"], reverse=True)
+
+    lines = [
+        f"## 1099-MISC Report — {tax_year}",
+        f"**Thresholds:** {fmt(general_thr)} per box (§6041) · royalties "
+        f"{fmt(royalty_thr)} (§6050N)",
+        f"**Basis:** cash — amounts **paid** in {tax_year} (checks/cash + bill "
+        "payments). Card payments are excluded (those are reported on 1099-K by the "
+        "processor).",
+        "**Counted accounts:** only those you mapped to MISC boxes via "
+        "qb_allocation_profile — "
+        + ", ".join(
+            f"{a} → {_MISC_1099_BOXES[b][0].split('—')[0].strip()}"
+            for a, b in sorted(misc_accounts.items())
+        )
+        + ". Unmapped accounts are never guessed.",
+        f"**Reportable vendors:** {len(reportable)}\n",
+    ]
+
+    grand_total = 0.0
+    box_totals: dict = {}
+    missing_tin = missing_addr = 0
+    for i, v in enumerate(reportable, 1):
+        grand_total += v["misc_total"]
+        if not v["tin"]:
+            missing_tin += 1
+        if not v["address"]:
+            missing_addr += 1
+        lines.append(f"### {i}. {v['name']}")
+        for b, amt in sorted(
+            v["misc_boxes"].items(), key=lambda kv: kv[1], reverse=True
+        ):
+            met = "" if amt >= _thr(b) else "  (under threshold — not required)"
+            lines.append(f"  **{_MISC_1099_BOXES[b][0]}:** {fmt(amt)}{met}")
+            box_totals[b] = box_totals.get(b, 0.0) + amt
+        lines.append(
+            "  **TIN Status:** " + ("✅ On file" if v["tin"] else "⚠️ MISSING")
+        )
+        if v["company"]:
+            lines.append(f"  **Company:** {v['company']}")
+        lines.append(
+            "  **Address:** "
+            + (v["address"] or "⚠️ MISSING — needed for 1099-MISC filing")
+        )
+        lines.append("")
+    if not reportable:
+        lines.append(
+            "No 1099-flagged vendor reached a MISC box threshold this year. "
+            "(Vendors must be marked “Track payments for 1099” in QuickBooks to be "
+            "counted — including corporations for boxes 6 and 10, which are "
+            "reportable even to corporations.)\n"
+        )
+
+    if review:
+        lines.append("---")
+        lines.append(f"### Not marked for 1099 — review ({len(review)})")
+        lines.append(
+            "*These vendors were paid over a MISC threshold in MISC-mapped accounts "
+            "but aren’t flagged “Track payments for 1099” in QuickBooks, so they are "
+            "**not counted above**. Note: medical (box 6) and attorney gross proceeds "
+            "(box 10) are reportable **even to corporations** — if any of these "
+            "should receive a 1099-MISC, flag them in QuickBooks and re-run.*\n"
+        )
+        for v in review[:20]:
+            det = ", ".join(
+                f"{_MISC_1099_BOXES[b][0].split('—')[0].strip()} {fmt(amt)}"
+                for b, amt in sorted(v["misc_boxes"].items())
+            )
+            lines.append(f"  - {v['name']}: {det}")
+        lines.append("")
+
+    lines.extend(["---", "### Summary"])
+    for b, amt in sorted(box_totals.items()):
+        lines.append(f"  {_MISC_1099_BOXES[b][0]}: {fmt(amt)}")
+    lines.extend(
+        [
+            f"  Total reportable (flagged vendors): {fmt(grand_total)}",
+            f"  Vendors requiring 1099-MISC: {len(reportable)}",
+            f"  Missing TIN: {missing_tin} · Missing address: {missing_addr}",
+            "",
+            "**Deadlines:** recipient copies Jan 31 (Feb 15 for box 10); IRS filing "
+            f"Feb 28 {int(tax_year) + 1} on paper / Mar 31 {int(tax_year) + 1} e-file.",
+            "**Workpaper, not a filing** — verify the box mapping and amounts against "
+            "QuickBooks’ 1099 wizard and the Form 1099-MISC instructions before filing.",
+        ]
+    )
+
+    _audit_log(
+        "1099_MISC_REPORT",
         f"year={tax_year} reportable={len(reportable)} total={fmt(grand_total)}",
     )
     return "\n".join(lines) + tax_data_footer(int(tax_year))
