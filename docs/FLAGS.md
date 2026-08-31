@@ -10,7 +10,7 @@ real behavior drifts from its designed state, that's a bug — fix the code or u
 | Region gating | Every jurisdiction-specific tool refuses the wrong region (US↔CA) | `_get_region` / `require_region` (server.py) | Tax |
 | License gating | Licensed tools require an active/trialing license | `require_license` (server.py), web license routes | Platform |
 | Chat read-only allowlist | `/chat` agentic loop exposes ONLY read-only tools (never a write) | `_CHAT_ALLOW` / `_anthropic_tools()` (serve.py) | Platform |
-| Coffer pairing gate | Integration `/mcp` tools inert until an identity-verified pairing exists | `_load_pairing` + `x-aqb-pairing` (serve.py) | Platform |
+| Coffer pairing gate | The Coffer structured dialect on the 3 contract tools requires the identity-verified pairing secret; a secret-less call gets the normal (confirm-gated) tool, so the app's own UI is never locked out | `_load_pairing` + `x-aqb-pairing` (serve.py `mcp_call`) | Platform |
 | `MCP_JWT_SECRET` fail-closed | Remote connector refuses all requests if unset | `remote.py` | Platform |
 | `TOKEN_ENCRYPTION_KEY` fail-closed | Production refuses to run without it | server.py / web | Platform |
 | Branch protection | `main` requires PR + pytest + secret-scan + theater + web-checks | GitHub settings | Owner |

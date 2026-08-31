@@ -333,9 +333,14 @@ def paired(monkeypatch):
 # --- pairing gate (cross-user contamination guard) ---
 
 
-def test_integration_inert_until_paired(client, monkeypatch):
+def test_integration_dialect_requires_pairing(client, monkeypatch):
+    # A caller PRESENTING a secret wants the Coffer dialect — refused when unpaired.
     monkeypatch.setattr(serve, "_load_pairing", lambda: {})
-    r = client.post("/mcp", json={"tool": "qb_owner_draws", "args": {"year": 2026}})
+    r = client.post(
+        "/mcp",
+        json={"tool": "qb_owner_draws", "args": {"year": 2026}},
+        headers={"X-AQB-Pairing": "anything"},
+    )
     assert r.status_code == 403 and r.json().get("needs") == "pairing"
 
 
@@ -346,6 +351,30 @@ def test_integration_rejects_wrong_secret(client, paired):
         headers={"X-AQB-Pairing": "wrong"},
     )
     assert r.status_code == 403
+
+
+def test_contract_tools_stay_usable_by_the_app_itself(client, paired, monkeypatch):
+    # Regression (maiden-voyage bug): once a Coffer pairing existed, the app's OWN
+    # Tax tab broke — the integration handler shadowed qb_estimate_quarterly_tax on
+    # /mcp and demanded a pairing secret the UI doesn't have. Dialect is selected by
+    # authentication: a secret-less call must fall through to the normal tool.
+    monkeypatch.setattr(
+        serve, "call_tool", _fake_call_tool({"qb_estimate_quarterly_tax": _ESTIMATE_MD})
+    )
+    r = client.post(
+        "/mcp", json={"tool": "qb_estimate_quarterly_tax", "args": {"tax_year": 2026}}
+    )
+    assert r.status_code == 200
+    d = r.json()
+    assert "error" not in d and "needs" not in d
+    assert "2,500" in d.get("result", "")  # normal markdown dialect, not Coffer JSON
+
+    # And the same when NO pairing exists at all (user who never touched Coffer).
+    monkeypatch.setattr(serve, "_load_pairing", lambda: {})
+    r2 = client.post(
+        "/mcp", json={"tool": "qb_estimate_quarterly_tax", "args": {"tax_year": 2026}}
+    )
+    assert r2.status_code == 200 and "result" in r2.json()
 
 
 def test_whoami(client):
