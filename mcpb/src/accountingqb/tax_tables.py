@@ -145,7 +145,10 @@ _US_STATE_TAX = {
     "PA": (0.0307, "flat"),
     "UT": (0.045, "flat"),
     "AL": (0.05, "progressive_approx"),
-    "AR": (0.037, "progressive_approx"),  # top rate 3.7% retroactive Jan 1, 2026 (was 3.9%; SB 1 signed 2026-05-06)
+    "AR": (
+        0.037,
+        "progressive_approx",
+    ),  # top rate 3.7% retroactive Jan 1, 2026 (was 3.9%; SB 1 signed 2026-05-06)
     "CA": (0.093, "progressive_approx"),
     "CT": (0.055, "progressive_approx"),
     "DE": (0.055, "progressive_approx"),
@@ -174,7 +177,10 @@ _US_STATE_TAX = {
     ),  # top rate 4.5% effective Jan 1, 2026 (was 4.75%)
     "OR": (0.0875, "progressive_approx"),
     "RI": (0.0475, "progressive_approx"),
-    "SC": (0.0521, "progressive_approx"),  # H.4216 signed 2026-04-16: 1.99% ≤$30K / 5.21% >$30K, effective 2026-01-01 (was 6.2%)
+    "SC": (
+        0.0521,
+        "progressive_approx",
+    ),  # H.4216 signed 2026-04-16: 1.99% ≤$30K / 5.21% >$30K, effective 2026-01-01 (was 6.2%)
     "VA": (0.0575, "progressive_approx"),
     "VT": (0.066, "progressive_approx"),
     "WI": (0.053, "progressive_approx"),
