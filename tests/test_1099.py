@@ -102,3 +102,55 @@ def test_empty_state_when_nothing_flagged(monkeypatch):
     out = asyncio.run(s.qb_1099_contractor_report("2025"))
     assert "**Reportable vendors:** 0" in out
     assert "Track payments for 1099" in out  # guidance to flag contractors
+
+
+def test_cash_basis_and_card_exclusion(monkeypatch):
+    # 1099-NEC is cash-basis and excludes card payments. Contractor Jane, flagged,
+    # in 2025:  $3,000 check purchase (counts) + $2,000 credit-card purchase
+    # (EXCLUDED → 1099-K) + $4,000 bill payment by check (counts). A $9,000 unpaid
+    # Bill must NOT count — the tool now totals payments, not accrual obligations.
+    vendors = [
+        {
+            "Id": "1",
+            "DisplayName": "Contractor Jane",
+            "Vendor1099": True,
+            "TaxIdentifier": "12-3456789",
+            "BillAddr": {"Line1": "1 St", "City": "X"},
+        }
+    ]
+    purchases = [
+        {"EntityRef": {"value": "1"}, "TotalAmt": 3000.0, "PaymentType": "Check"},
+        {"EntityRef": {"value": "1"}, "TotalAmt": 2000.0, "PaymentType": "CreditCard"},
+    ]
+    bill_payments = [
+        {"VendorRef": {"value": "1"}, "TotalAmt": 4000.0, "PayType": "Check"},
+    ]
+
+    async def fake_query(q, **kw):
+        if "FROM Vendor" in q:
+            return {"QueryResponse": {"Vendor": vendors}}
+        if "FROM Purchase" in q:
+            return {"QueryResponse": {"Purchase": purchases}}
+        if "FROM BillPayment" in q:  # check before "FROM Bill" (substring)
+            return {"QueryResponse": {"BillPayment": bill_payments}}
+        return {"QueryResponse": {}}
+
+    async def fake_region():
+        return {
+            "region": "US",
+            "subdivision": "",
+            "home_currency": "USD",
+            "multicurrency": False,
+        }
+
+    monkeypatch.setattr(s, "qb_query", fake_query)
+    monkeypatch.setattr(s, "_get_region", fake_region)
+    out = asyncio.run(s.qb_1099_contractor_report("2025"))
+    # $3,000 check + $4,000 bill payment = $7,000; card ($2k) + any bill excluded.
+    assert "$7,000" in out
+    assert "$9,000" not in out  # accrual bill never counted
+    assert "$11,000" not in out and "$16,000" not in out  # not summing card/bill
+    assert "2 payments" in out  # the check purchase + the bill payment only
+    # Honest workpaper framing.
+    assert "Card payments are excluded" in out
+    assert "Workpaper, not a filing" in out

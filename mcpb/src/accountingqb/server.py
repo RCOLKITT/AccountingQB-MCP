@@ -10877,11 +10877,15 @@ async def qb_1099_contractor_report(
     )
     purchases = purchase_result.get("QueryResponse", {}).get("Purchase", [])
 
-    # Get all bills for the year (for bill-based payments)
-    bill_result = await qb_query_all(
-        f"SELECT * FROM Bill WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
+    # Get bill payments made during the year (the actual cash paid against bills).
+    # 1099-NEC is CASH basis — it reports what was PAID in the year, so we count
+    # BillPayment transactions, not Bill (accrual) obligations. Counting bills would
+    # (a) include unpaid bills, (b) miss a prior-year bill paid this year, and
+    # (c) mis-time a this-year bill paid next year. Payments are the truth.
+    billpay_result = await qb_query_all(
+        f"SELECT * FROM BillPayment WHERE TxnDate >= '{start}' AND TxnDate <= '{end}' MAXRESULTS 1000"
     )
-    bills = bill_result.get("QueryResponse", {}).get("Bill", [])
+    bill_payments = billpay_result.get("QueryResponse", {}).get("BillPayment", [])
 
     # Build vendor lookup
     vendor_map = {}
@@ -10907,22 +10911,28 @@ async def qb_1099_contractor_report(
             ]
             vendor_map[vid]["address"] = ", ".join(p for p in parts if p)
 
-    # Tally from purchases (direct payments)
+    # 1099-NEC EXCLUDES payments made by credit/debit card or third-party network
+    # (PayPal, etc.) — the card processor reports those on 1099-K, so counting them
+    # here would double-report. QuickBooks' own 1099 wizard drops them the same way.
+    def _is_card(txn):
+        return (txn.get("PaymentType") or txn.get("PayType") or "") == "CreditCard"
+
+    # Tally direct payments (Purchase = check/cash/expense), excluding card payments.
     for p in purchases:
-        entity_ref = p.get("EntityRef", {})
-        vid = entity_ref.get("value", "")
+        if _is_card(p):
+            continue
+        vid = p.get("EntityRef", {}).get("value", "")
         if vid in vendor_map:
-            amount = float(p.get("TotalAmt", 0))
-            vendor_map[vid]["total_paid"] += amount
+            vendor_map[vid]["total_paid"] += float(p.get("TotalAmt", 0))
             vendor_map[vid]["payment_count"] += 1
 
-    # Tally from bills
-    for b in bills:
-        entity_ref = b.get("VendorRef", {})
-        vid = entity_ref.get("value", "")
+    # Tally bill payments (cash paid against bills), excluding card payments.
+    for bp in bill_payments:
+        if _is_card(bp):
+            continue
+        vid = bp.get("VendorRef", {}).get("value", "")
         if vid in vendor_map:
-            amount = float(b.get("TotalAmt", 0))
-            vendor_map[vid]["total_paid"] += amount
+            vendor_map[vid]["total_paid"] += float(bp.get("TotalAmt", 0))
             vendor_map[vid]["payment_count"] += 1
 
     # 1099-NEC applies ONLY to vendors the business marked "Track payments for
@@ -10943,6 +10953,13 @@ async def qb_1099_contractor_report(
         f"## 1099-NEC Contractor Report — {tax_year}",
         f"**Threshold:** {fmt(threshold)} · reportable = vendors marked "
         "“Track payments for 1099” in QuickBooks",
+        f"**Basis:** cash — amounts **paid** in {tax_year} (checks/cash + bill "
+        "payments). Card payments are excluded (those are reported on 1099-K by the "
+        "processor).",
+        "**Workpaper, not a filing:** this totals all non-card payments to flagged "
+        "vendors. A filing also filters by the accounts you mapped to 1099 boxes "
+        "(box-1 comp vs reimbursements/goods) — verify against QuickBooks’ 1099 "
+        "wizard before filing.",
         f"**Reportable vendors:** {len(reportable)}\n",
     ]
 
