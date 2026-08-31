@@ -10900,6 +10900,7 @@ async def qb_1099_contractor_report(
             "address": "",
             "total_paid": 0.0,
             "payment_count": 0,
+            "by_account": {},  # {expense account name -> amount paid} (1099-box review)
         }
         addr = v.get("BillAddr", {})
         if addr:
@@ -10917,23 +10918,99 @@ async def qb_1099_contractor_report(
     def _is_card(txn):
         return (txn.get("PaymentType") or txn.get("PayType") or "") == "CreditCard"
 
-    # Tally direct payments (Purchase = check/cash/expense), excluding card payments.
+    def _account_splits(txn):
+        """[(account_name, amount)] for a Purchase/Bill's expense distribution.
+        Uses the account-based expense lines; falls back to the txn's top-level
+        AccountRef for the whole TotalAmt when there are no such lines (e.g. a
+        single-account check)."""
+        splits = []
+        for line in txn.get("Line", []) or []:
+            d = line.get("AccountBasedExpenseLineDetail")
+            if d:
+                acct = (
+                    d.get("AccountRef", {}).get("name", "") or "(unspecified account)"
+                )
+                splits.append((acct, float(line.get("Amount", 0) or 0)))
+        if not splits:
+            acct = txn.get("AccountRef", {}).get("name", "") or "(unspecified account)"
+            splits.append((acct, float(txn.get("TotalAmt", 0) or 0)))
+        return splits
+
+    # A bill payment carries no expense accounts of its own — its lines are LinkedTxn
+    # pointers to the Bill(s) it pays. To attribute a payment to the right accounts we
+    # fetch those bills and split each applied amount across the bill's account lines
+    # (proportionally, so a partial payment maps correctly).
+    linked_bill_ids = set()
+    for bp in bill_payments:
+        if _is_card(bp):
+            continue
+        for ln in bp.get("Line", []) or []:
+            for lt in ln.get("LinkedTxn", []) or []:
+                if lt.get("TxnType") == "Bill" and lt.get("TxnId"):
+                    linked_bill_ids.add(str(lt["TxnId"]))
+
+    bills_by_id = {}
+    ids = sorted(linked_bill_ids)
+    for i in range(0, len(ids), 40):  # batch IN() queries; bills may predate the year
+        quoted = ",".join(f"'{x}'" for x in ids[i : i + 40])
+        resp = await qb_query_all(f"SELECT * FROM Bill WHERE Id IN ({quoted})")
+        for b in resp.get("QueryResponse", {}).get("Bill", []):
+            bills_by_id[str(b.get("Id"))] = b
+
+    def _bill_payment_splits(bill_id, applied):
+        """Distribute an applied bill-payment amount across the bill's expense
+        accounts. Unknown/zero-total bills fall to an explicit review bucket so no
+        dollar is silently dropped."""
+        bill = bills_by_id.get(str(bill_id))
+        if not bill:
+            return [("(unresolved bill)", applied)]
+        splits = _account_splits(bill)
+        total = sum(a for _, a in splits)
+        if total <= 0:
+            return [("(unresolved bill)", applied)]
+        return [(acct, applied * (amt / total)) for acct, amt in splits]
+
+    def _add(vid, acct, amt):
+        vm = vendor_map[vid]
+        vm["total_paid"] += amt
+        vm["by_account"][acct] = vm["by_account"].get(acct, 0.0) + amt
+
+    # Direct payments (Purchase = check/cash/expense), by expense account.
     for p in purchases:
         if _is_card(p):
             continue
         vid = p.get("EntityRef", {}).get("value", "")
-        if vid in vendor_map:
-            vendor_map[vid]["total_paid"] += float(p.get("TotalAmt", 0))
-            vendor_map[vid]["payment_count"] += 1
+        if vid not in vendor_map:
+            continue
+        for acct, amt in _account_splits(p):
+            _add(vid, acct, amt)
+        vendor_map[vid]["payment_count"] += 1
 
-    # Tally bill payments (cash paid against bills), excluding card payments.
+    # Bill payments, traced to the accounts on the bills they paid.
     for bp in bill_payments:
         if _is_card(bp):
             continue
         vid = bp.get("VendorRef", {}).get("value", "")
-        if vid in vendor_map:
-            vendor_map[vid]["total_paid"] += float(bp.get("TotalAmt", 0))
-            vendor_map[vid]["payment_count"] += 1
+        if vid not in vendor_map:
+            continue
+        applied_any = False
+        for ln in bp.get("Line", []) or []:
+            amt = float(ln.get("Amount", 0) or 0)
+            bill_id = next(
+                (
+                    lt.get("TxnId")
+                    for lt in ln.get("LinkedTxn", []) or []
+                    if lt.get("TxnType") == "Bill"
+                ),
+                None,
+            )
+            if bill_id:
+                applied_any = True
+                for acct, a in _bill_payment_splits(bill_id, amt):
+                    _add(vid, acct, a)
+        if not applied_any:  # a payment we couldn't trace to a bill — don't drop it
+            _add(vid, "(unresolved bill)", float(bp.get("TotalAmt", 0) or 0))
+        vendor_map[vid]["payment_count"] += 1
 
     # 1099-NEC applies ONLY to vendors the business marked "Track payments for
     # 1099" in QuickBooks (the Vendor1099 flag). Filtering by dollar amount
@@ -10956,10 +11033,10 @@ async def qb_1099_contractor_report(
         f"**Basis:** cash — amounts **paid** in {tax_year} (checks/cash + bill "
         "payments). Card payments are excluded (those are reported on 1099-K by the "
         "processor).",
-        "**Workpaper, not a filing:** this totals all non-card payments to flagged "
-        "vendors. A filing also filters by the accounts you mapped to 1099 boxes "
-        "(box-1 comp vs reimbursements/goods) — verify against QuickBooks’ 1099 "
-        "wizard before filing.",
+        "**Workpaper, not a filing:** each contractor’s payments are broken out by "
+        "expense account below (comp vs reimbursements/goods). A filing counts only "
+        "the accounts mapped to 1099 boxes — review the breakdown and verify against "
+        "QuickBooks’ 1099 wizard before filing.",
         f"**Reportable vendors:** {len(reportable)}\n",
     ]
 
@@ -10979,6 +11056,12 @@ async def qb_1099_contractor_report(
             lines.append(
                 f"  **Total Paid:** {fmt(v['total_paid'])} ({v['payment_count']} payments)"
             )
+            # Per-account breakdown so a filer can see comp vs reimbursements/goods and
+            # decide what's box-1 reportable (QBO doesn't expose the box→account map).
+            for acct, amt in sorted(
+                v["by_account"].items(), key=lambda kv: kv[1], reverse=True
+            ):
+                lines.append(f"    - {acct}: {fmt(amt)}")
             lines.append(f"  **TIN Status:** {tin_status}")
             if v["company"]:
                 lines.append(f"  **Company:** {v['company']}")

@@ -154,3 +154,76 @@ def test_cash_basis_and_card_exclusion(monkeypatch):
     # Honest workpaper framing.
     assert "Card payments are excluded" in out
     assert "Workpaper, not a filing" in out
+
+
+def test_bill_payment_traced_to_bill_accounts(monkeypatch):
+    # A contractor is paid through the AP workflow: a $7,000 bill split across two
+    # accounts (Contract Labor $5,000 + Reimbursements $2,000), paid in full by a
+    # check BillPayment in 2025. The report must trace the payment back to the bill
+    # and break the total out BY ACCOUNT (QBO puts no accounts on the payment itself).
+    vendors = [
+        {
+            "Id": "1",
+            "DisplayName": "Contractor Jane",
+            "Vendor1099": True,
+            "TaxIdentifier": "12-3456789",
+            "BillAddr": {"Line1": "1 St", "City": "X"},
+        }
+    ]
+    bill = {
+        "Id": "301",
+        "TotalAmt": 7000.0,
+        "VendorRef": {"value": "1"},
+        "Line": [
+            {
+                "Amount": 5000.0,
+                "DetailType": "AccountBasedExpenseLineDetail",
+                "AccountBasedExpenseLineDetail": {
+                    "AccountRef": {"name": "Contract Labor"}
+                },
+            },
+            {
+                "Amount": 2000.0,
+                "DetailType": "AccountBasedExpenseLineDetail",
+                "AccountBasedExpenseLineDetail": {
+                    "AccountRef": {"name": "Reimbursements"}
+                },
+            },
+        ],
+    }
+    bill_payments = [
+        {
+            "VendorRef": {"value": "1"},
+            "TotalAmt": 7000.0,
+            "PayType": "Check",
+            "Line": [
+                {"Amount": 7000.0, "LinkedTxn": [{"TxnId": "301", "TxnType": "Bill"}]}
+            ],
+        }
+    ]
+
+    async def fake_query(q, **kw):
+        if "FROM Vendor" in q:
+            return {"QueryResponse": {"Vendor": vendors}}
+        if "FROM BillPayment" in q:  # before "FROM Bill" (substring)
+            return {"QueryResponse": {"BillPayment": bill_payments}}
+        if "FROM Bill WHERE Id IN" in q:  # the traced-bill fetch
+            return {"QueryResponse": {"Bill": [bill]}}
+        return {"QueryResponse": {}}
+
+    async def fake_region():
+        return {
+            "region": "US",
+            "subdivision": "",
+            "home_currency": "USD",
+            "multicurrency": False,
+        }
+
+    monkeypatch.setattr(s, "qb_query", fake_query)
+    monkeypatch.setattr(s, "_get_region", fake_region)
+    out = asyncio.run(s.qb_1099_contractor_report("2025"))
+    assert "$7,000" in out  # full amount attributed
+    # broken out by the bill's accounts, not lumped as "unresolved"
+    assert "Contract Labor: $5,000.00" in out
+    assert "Reimbursements: $2,000.00" in out
+    assert "unresolved" not in out.lower()
