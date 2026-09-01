@@ -724,8 +724,30 @@ function DashboardContent() {
               <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
               <div className="grid gap-3 sm:grid-cols-2">
                 <a
-                  href={`/setup-wizard?key=${encodeURIComponent(selectedLicense.key)}`}
+                  href={`/api/download/macos?key=${encodeURIComponent(selectedLicense.key)}`}
                   className="rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-600/10 border border-cyan-500/20 p-4 hover:border-cyan-500/40 transition"
+                >
+                  <p className="font-medium text-white">
+                    Download the desktop app — macOS
+                  </p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Your books on your machine; updates itself from here on
+                  </p>
+                </a>
+                <a
+                  href={`/api/download/windows?key=${encodeURIComponent(selectedLicense.key)}`}
+                  className="rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-600/10 border border-cyan-500/20 p-4 hover:border-cyan-500/40 transition"
+                >
+                  <p className="font-medium text-white">
+                    Download the desktop app — Windows
+                  </p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Signed installer; auto-updates after install
+                  </p>
+                </a>
+                <a
+                  href={`/setup-wizard?key=${encodeURIComponent(selectedLicense.key)}`}
+                  className="rounded-xl bg-white/[0.03] border border-white/10 p-4 hover:border-white/20 transition"
                 >
                   <p className="font-medium text-white">Setup Guide</p>
                   <p className="text-sm text-gray-400 mt-1">
