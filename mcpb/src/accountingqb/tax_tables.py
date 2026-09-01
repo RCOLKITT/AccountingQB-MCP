@@ -149,7 +149,10 @@ _US_STATE_TAX = {
     "PA": (0.0307, "flat"),
     "UT": (0.045, "flat"),
     "AL": (0.05, "progressive_approx"),
-    "AR": (0.037, "progressive_approx"),  # HB 1001 + SB 1 signed 2026-05-06, top rate 3.7% retroactive Jan 1, 2026
+    "AR": (
+        0.037,
+        "progressive_approx",
+    ),  # HB 1001 + SB 1 signed 2026-05-06, top rate 3.7% retroactive Jan 1, 2026
     "CA": (0.093, "progressive_approx"),
     "CT": (0.055, "progressive_approx"),
     "DE": (0.055, "progressive_approx"),
