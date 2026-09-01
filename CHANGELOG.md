@@ -5,11 +5,18 @@ shown in-app once, right after the app updates itself. Keep entries short and wr
 for the person using the app — not for engineers. One `## <version> — <date>` heading
 per release; the app parses these headings.
 
-## 0.2.0 — 2026-08-30
+## 0.2.0 — 2026-08-31
 
 - **The app now updates itself.** When we ship a new version, AccountingQB downloads
   and installs it in the background and switches over next time you open it — no more
   re-downloading from the website.
+- **More accurate 1099s — and 1099-MISC is new.** The 1099-NEC contractor report now
+  counts what you actually **paid** (not unpaid bills), leaves out card payments (your
+  card processor reports those), shows each contractor's payments broken out by
+  account, and lets you designate exactly which accounts are compensation. Plus a new
+  1099-MISC report for rents, royalties, and other reportable payments.
+- **Fixed: the Tax tab's quarterly estimate** showed a pairing error once Coffer was
+  linked. It now works whether or not you use Coffer.
 - **Client Package reports.** Build a branded PDF (and a real multi-sheet Excel) of a
   client's financials — Profit & Loss, Balance Sheet, and A/R & A/P aging — with a
   prior-year comparison column, an AI-drafted management note you can edit, and the
