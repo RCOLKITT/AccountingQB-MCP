@@ -11514,6 +11514,393 @@ async def qb_1099_misc_report(tax_year: str = "2025") -> str:
     return "\n".join(lines) + tax_data_footer(int(tax_year))
 
 
+def _extract_pl_section_accounts(pl_result: dict, header_match: str) -> dict:
+    """{account_name: amount} for ONE P&L section (header contains header_match,
+    case-insensitive) — the same parent-residual walk as
+    _extract_pl_expense_accounts, kept separate so the Schedule C path is
+    untouched. Used by the 1120-S workpaper for Income / Other Income / COGS."""
+    out: dict = {}
+
+    def walk(rows, parent_path=""):
+        total = 0.0
+        for section in rows or []:
+            nested = section.get("Rows", {}).get("Row", [])
+            col = section.get("ColData", [])
+            if nested:
+                hdr = section.get("Header", {}).get("ColData", [{}]) or [{}]
+                name = hdr[0].get("value", "")
+                this_path = f"{parent_path}:{name}" if parent_path and name else name
+                children_sum = walk(nested, this_path)
+                summ = section.get("Summary", {}).get("ColData", [])
+                try:
+                    grp_total = (
+                        float(summ[-1].get("value", "0") or 0)
+                        if len(summ) >= 2
+                        else children_sum
+                    )
+                except (ValueError, TypeError):
+                    grp_total = children_sum
+                residual = round(grp_total - children_sum, 2)
+                if name and abs(residual) > 0.005:
+                    out[this_path] = out.get(this_path, 0.0) + residual
+                total += grp_total
+            elif len(col) >= 2:
+                name = col[0].get("value", "")
+                key = f"{parent_path}:{name}" if parent_path and name else name
+                try:
+                    val = float(col[-1].get("value", "0") or 0)
+                except (ValueError, TypeError):
+                    val = 0.0
+                if name and val != 0:
+                    out[key] = out.get(key, 0.0) + val
+                total += val
+        return round(total, 2)
+
+    want = header_match.lower()
+    for section in pl_result.get("Rows", {}).get("Row", []):
+        header = (section.get("Header", {}).get("ColData") or [{}])[0].get("value", "")
+        if header.lower() == want:
+            walk(section.get("Rows", {}).get("Row", []))
+    return out
+
+
+async def _gl_net_activity(acct: dict, start: str, end: str):
+    """Net GeneralLedger activity for one account over a window, or None when the
+    amount column can't be identified (never risk a wrong figure — the caller
+    reports 'could not compute' instead)."""
+    report = await qb_request(
+        "GET",
+        "reports/GeneralLedger",
+        params={"start_date": start, "end_date": end, "account": acct.get("Id")},
+    )
+    if (report or {}).get("Columns", {}).get("Column"):
+        amount_idx = _gl_col_index(report, _GL_AMOUNT_KEYS, avoid=_GL_BALANCE_KEYS)
+        if amount_idx is None:
+            return None
+    else:
+        amount_idx = -1
+    total = 0.0
+
+    def collect(sections):
+        nonlocal total
+        for s in sections or []:
+            hdr = (s.get("Header", {}).get("ColData") or [{}])[0].get("value", "")
+            nested = s.get("Rows", {}).get("Row", [])
+            if hdr == acct.get("Name") and nested:
+                for leaf in nested:
+                    cd = leaf.get("ColData", [])
+                    if len(cd) > abs(amount_idx):
+                        try:
+                            total += float(cd[amount_idx].get("value", "") or 0)
+                        except (ValueError, TypeError):
+                            pass
+            elif nested:
+                collect(nested)
+
+    collect(report.get("Rows", {}).get("Row", []))
+    return round(total, 2)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "Canadian corporations file a T2 — not yet supported.")
+async def qb_form_1120s_summary(tax_year: str = "2025") -> str:
+    """Form 1120-S (S corporation) book-to-tax WORKPAPER for a tax year: page-1
+    ordinary income arranged from the books, separately-stated Schedule K items
+    pulled out (interest, dividends, charitable, tax-exempt), a Schedule M-1
+    book→tax reconciliation with a proven tie-out, a per-shareholder K-1 summary
+    from declared ownership, and a reasonable-compensation advisory. Requires the
+    entity declaration (qb_allocation_profile: entity_type='s_corp', shareholders,
+    officer-comp + distribution accounts) — nothing is guessed. tax_year: YYYY."""
+    start = f"{tax_year}-01-01"
+    end = f"{tax_year}-12-31"
+    profile = await _get_allocation_profile(tax_year)
+    ent = profile.get("entity") or {}
+    if ent.get("type") != "s_corp":
+        return (
+            f"## Form 1120-S — {tax_year}\n\n"
+            "This company isn't declared as an S corporation, and entity type is "
+            "never guessed. If it IS an S-corp, declare it first:\n\n"
+            "  qb_allocation_profile(tax_year=" + str(tax_year) + ", "
+            "entity_type='s_corp',\n"
+            '    shareholders_json=\'[{"name":"…","ownership_pct":1.0}]\',\n'
+            "    officer_comp_accounts_json='[\"Officer Wages\"]',\n"
+            "    distribution_accounts_json='[\"Shareholder Distributions\"]')\n\n"
+            "Then re-run. (Sole proprietors: use qb_schedule_c / "
+            "qb_schedule_c_detailed instead.)"
+        )
+
+    pl = await qb_request(
+        "GET",
+        "reports/ProfitAndLoss",
+        params={"start_date": start, "end_date": end, "summarize_column_by": "Total"},
+    )
+    subs, fqns = await _chart_maps()
+    expense_accounts = _extract_pl_expense_accounts(pl)
+    income_accounts = {
+        **_extract_pl_section_accounts(pl, "Income"),
+        **_extract_pl_section_accounts(pl, "Other Income"),
+    }
+    cogs_accounts = _extract_pl_section_accounts(pl, "Cost of Goods Sold")
+
+    officer_names = set(ent.get("officer_comp_accounts") or [])
+
+    def _is_declared(name, declared):
+        leaf = name.rsplit(":", 1)[-1]
+        return name in declared or leaf in declared or fqns.get(name, "") in declared
+
+    # Classify every book account onto its 1120-S line (form="1120s"), splitting
+    # separately-stated Schedule K items out of page-1 ordinary income.
+    page1: dict = {}  # line -> {"total": float, "accounts": [(name, amt)]}
+    schk: dict = {}
+    nonded: list = []  # (name, amt, line-desc) → Sch K 16c
+
+    def _post(bucket, line, name, amt):
+        b = bucket.setdefault(line, {"total": 0.0, "accounts": []})
+        b["total"] = round(b["total"] + amt, 2)
+        b["accounts"].append((name, amt))
+
+    for name, amt in sorted(income_accounts.items()):
+        line, _desc, flags = classify_account(
+            name, subs.get(name, ""), "US", form="1120s"
+        )
+        if "separately_stated" in flags:
+            _post(schk, line, name, amt)
+        elif line in ("1b",):
+            _post(page1, "1b", name, abs(amt))
+        else:
+            _post(page1, "1a" if line == "1a" else "5", name, amt)
+    for name, amt in sorted(cogs_accounts.items()):
+        _post(page1, "2", name, amt)
+
+    meals_total = 0.0
+    for name, amt in sorted(expense_accounts.items()):
+        amt = abs(amt)
+        line, desc, flags = classify_account(
+            name, subs.get(name, ""), "US", form="1120s"
+        )
+        if _is_declared(name, officer_names):
+            _post(page1, "7", name, amt)  # declared officer comp overrides
+            continue
+        if "separately_stated" in flags:  # charitable → K12a
+            _post(schk, line, name, amt)
+            continue
+        if "nondeductible" in flags:
+            nonded.append((name, amt, desc))
+            continue
+        if line == "20_meals":
+            meals_total += amt
+            continue
+        _post(page1, line, name, amt)
+
+    # Meals: 50% deductible on line 20; the disallowed half is Sch K 16c.
+    meals_factor, meals_cite = line_limitation("20_meals", "US")
+    meals_ded = round(meals_total * meals_factor, 2)
+    meals_disallowed = round(meals_total - meals_ded, 2)
+    if meals_ded:
+        _post(
+            page1, "20", f"Meals ({meals_factor:.0%} of {fmt(meals_total)})", meals_ded
+        )
+
+    # Distributions (Sch K 16d) from the DECLARED equity accounts' GL activity.
+    dist_names = set(ent.get("distribution_accounts") or [])
+    distributions = 0.0
+    dist_note = ""
+    if dist_names:
+        accts = (
+            (await qb_query_all("SELECT * FROM Account MAXRESULTS 500"))
+            .get("QueryResponse", {})
+            .get("Account", [])
+        )
+        matched = [
+            a
+            for a in accts
+            if a.get("Name") in dist_names
+            or a.get("FullyQualifiedName", "") in dist_names
+        ]
+        if not matched:
+            dist_note = (
+                "⚠️ none of the declared distribution accounts were found in the "
+                "chart — check the names in qb_allocation_profile."
+            )
+        for a in matched:
+            net = await _gl_net_activity(a, start, end)
+            if net is None:
+                dist_note = (
+                    f"⚠️ could not read the GL amount column for "
+                    f"'{a.get('Name')}' — distributions incomplete."
+                )
+                continue
+            # Equity debits (draws) are negative in the GL; distributions OUT are
+            # presented positive.
+            distributions = round(distributions + -net, 2)
+    else:
+        dist_note = (
+            "no distribution accounts declared — Sch K 16d and the "
+            "reasonable-comp check need them (qb_allocation_profile)."
+        )
+
+    catalog = _CATALOG_1120S()
+    total_income = round(
+        page1.get("1a", {}).get("total", 0.0)
+        - page1.get("1b", {}).get("total", 0.0)
+        - page1.get("2", {}).get("total", 0.0)
+        + page1.get("5", {}).get("total", 0.0),
+        2,
+    )
+    deduction_lines = [ln for ln in page1 if ln not in ("1a", "1b", "2", "5")]
+    total_deductions = round(sum(page1[ln]["total"] for ln in deduction_lines), 2)
+    ordinary = round(total_income - total_deductions, 2)
+
+    # --- render -----------------------------------------------------------
+    lines = [
+        f"## Form 1120-S Workpaper — {tax_year}",
+        f"**Period:** {start} to {end} · entity declared S corporation"
+        + (
+            f" (election effective {ent['s_election_effective']})"
+            if ent.get("s_election_effective")
+            else ""
+        ),
+        "**Workpaper, not a filing** — book values arranged onto verified 1120-S "
+        "lines; depreciation is BOOK depreciation (reconcile tax depreciation via "
+        "qb_depreciation_schedule / Form 4562 before filing).\n",
+        "### Page 1 — Ordinary business income",
+        f"  Line 1a — Gross receipts or sales: {fmt(page1.get('1a', {}).get('total', 0))}",
+    ]
+    if page1.get("1b", {}).get("total"):
+        lines.append(f"  Line 1b — Returns and allowances: {fmt(page1['1b']['total'])}")
+    if page1.get("2", {}).get("total"):
+        lines.append(f"  Line 2 — Cost of goods sold: {fmt(page1['2']['total'])}")
+    if page1.get("5", {}).get("total"):
+        lines.append(f"  Line 5 — Other income (loss): {fmt(page1['5']['total'])}")
+    lines.append(f"  **Line 6 — Total income: {fmt(total_income)}**")
+    for ln in sorted(
+        deduction_lines, key=lambda x: (len(x), x)
+    ):  # numeric-ish order: 7,8,9,10…
+        b = page1[ln]
+        desc = catalog.get(ln, {}).get("desc", "Other deductions")
+        lines.append(f"  Line {ln} — {desc}: {fmt(b['total'])}")
+        for name, amt in b["accounts"]:
+            lines.append(f"    - {name}: {fmt(amt)}")
+    if not page1.get("7"):
+        lines.append(
+            "  ⚠️ Line 7 (Compensation of officers) is $0.00 — no officer-comp "
+            "accounts are declared or they had no activity. Declare them with "
+            "qb_allocation_profile (officer_comp_accounts_json)."
+        )
+    lines.append(f"  **Line 21 — Total deductions: {fmt(total_deductions)}**")
+    lines.append(f"  **Line 22 — Ordinary business income (loss): {fmt(ordinary)}**\n")
+
+    lines.append("### Schedule K — separately stated items")
+    k_income = 0.0
+    for ln in sorted(schk):
+        desc = catalog.get(ln, {}).get("desc", ln)
+        lines.append(f"  {desc}: {fmt(schk[ln]['total'])}")
+        for name, amt in schk[ln]["accounts"]:
+            lines.append(f"    - {name}: {fmt(amt)}")
+    k4 = schk.get("K4", {}).get("total", 0.0)
+    k5a = schk.get("K5a", {}).get("total", 0.0)
+    k12a = schk.get("K12a", {}).get("total", 0.0)
+    k16a = schk.get("K16a", {}).get("total", 0.0)
+    k_income = round(k4 + k5a, 2)
+    k16c = round(meals_disallowed + sum(a for _n, a, _d in nonded), 2)
+    if meals_disallowed:
+        lines.append(
+            f"  Item 16c — Nondeductible: meals disallowed "
+            f"({fmt(meals_disallowed)}, {meals_cite})"
+        )
+    for name, amt, desc in nonded:
+        lines.append(f"  Item 16c — Nondeductible: {name} ({fmt(amt)}) — {desc}")
+    lines.append(
+        f"  Item 16d — Distributions: {fmt(distributions)}"
+        + (f"  ({dist_note})" if dist_note else "")
+    )
+
+    # Schedule M-1: book income ↔ return income, tie-out PROVEN or loudly not.
+    book_income = round(
+        sum(income_accounts.values())
+        - sum(cogs_accounts.values())
+        - sum(abs(v) for v in expense_accounts.values()),
+        2,
+    )
+    m1_left = round(book_income + k16c - k16a, 2)
+    m1_right = round(ordinary + k_income - k12a, 2)
+    tie = abs(m1_left - m1_right) < 0.01
+    lines += [
+        "\n### Schedule M-1 — book→tax reconciliation",
+        f"  Net income per books: {fmt(book_income)}",
+        f"  + Nondeductible expenses (Sch K 16c): {fmt(k16c)}",
+        f"  − Tax-exempt interest (Sch K 16a): {fmt(k16a)}",
+        f"  = Income per return: {fmt(m1_left)}",
+        f"  Return side (line 22 + K income − K charitable): {fmt(m1_right)}",
+        (
+            "  ✅ Ties out."
+            if tie
+            else f"  ⚠️ DOES NOT TIE — unreconciled {fmt(round(m1_left - m1_right, 2))}. "
+            "Likely an unclassified account or a book/tax timing item; review before "
+            "relying on any figure above."
+        ),
+    ]
+
+    # Per-shareholder K-1 summary (pro-rata from DECLARED ownership).
+    shareholders = ent.get("shareholders") or []
+    if shareholders:
+        lines.append("\n### K-1 summary (pro-rata, per declared ownership)")
+        for s in shareholders:
+            pct = float(s.get("ownership_pct", 0))
+            lines.append(
+                f"  **{s.get('name')} ({pct * 100:.2f}%)** — ordinary income "
+                f"{fmt(round(ordinary * pct, 2))} · interest {fmt(round(k4 * pct, 2))} · "
+                f"dividends {fmt(round(k5a * pct, 2))} · charitable "
+                f"{fmt(round(k12a * pct, 2))} · nondeductible {fmt(round(k16c * pct, 2))} · "
+                f"distributions {fmt(round(distributions * pct, 2))}"
+            )
+    else:
+        lines.append(
+            "\n### K-1 summary\n  ⚠️ No shareholders declared — declare them with "
+            "qb_allocation_profile (shareholders_json) to get per-shareholder K-1 "
+            "allocations."
+        )
+
+    # Reasonable-compensation advisory: ratios + the rule, never a dollar verdict.
+    officer_comp = page1.get("7", {}).get("total", 0.0)
+    lines.append("\n### Reasonable-compensation check (advisory)")
+    lines.append(
+        f"  Officer compensation (line 7): {fmt(officer_comp)} · "
+        f"Distributions (K 16d): {fmt(distributions)}"
+    )
+    if distributions > 0.005 and officer_comp < 0.005:
+        lines.append(
+            "  🔴 HIGH RISK: shareholder distributions with NO officer compensation "
+            "is the classic S-corp audit trigger (Rev. Rul. 74-44: distributions in "
+            "lieu of reasonable salary are recharacterized as wages). Discuss a "
+            "reasonable salary with your CPA."
+        )
+    elif distributions > 0.005 and officer_comp < 0.25 * (officer_comp + distributions):
+        lines.append(
+            "  🟡 REVIEW: officer compensation is under 25% of comp + distributions. "
+            "The IRS requires REASONABLE compensation for services before "
+            "distributions; document how the salary was set."
+        )
+    else:
+        lines.append(
+            "  ℹ️ No automatic flag. Reasonableness is facts-and-circumstances "
+            "(role, hours, market comparables) — this check reports ratios only and "
+            "never computes a 'correct' salary."
+        )
+
+    _audit_log(
+        "1120S_SUMMARY",
+        f"year={tax_year} ordinary={fmt(ordinary)} m1_tie={'yes' if tie else 'NO'}",
+    )
+    return "\n".join(lines) + tax_data_footer(int(tax_year))
+
+
+def _CATALOG_1120S() -> dict:
+    from accountingqb.tax_tables import _1120S_CATALOG
+
+    return _1120S_CATALOG
+
+
 @mcp.tool(annotations={"readOnlyHint": True})
 @require_region(
     "US", "Canadian payroll differs — hand T4/T4A summaries to your accountant."
