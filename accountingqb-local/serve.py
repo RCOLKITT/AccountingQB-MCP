@@ -607,6 +607,64 @@ async def api_status(_req: Request) -> JSONResponse:
     )
 
 
+async def api_clients(_req: Request) -> JSONResponse:
+    """The connected QuickBooks companies (the bookkeeper's clients) + which one
+    is active. Books data stays local — this is connection metadata only."""
+    ctx = get_ctx()
+    if not ctx.hosted_mode:
+        # Self-hosted BYO-Intuit: one company per connection (the UI already
+        # shows its name from qb_company_info).
+        return JSONResponse(
+            {
+                "clients": (
+                    [
+                        {
+                            "realmId": getattr(ctx, "realm_id", "") or "",
+                            "companyName": "",
+                            "active": True,
+                        }
+                    ]
+                    if getattr(ctx, "refresh_token", "")
+                    else []
+                ),
+                "multi": False,
+            }
+        )
+    try:
+        if not getattr(ctx, "hosted_loaded", False):
+            qb._fetch_hosted_tokens(ctx)
+    except Exception:
+        pass
+    active = getattr(ctx, "realm_id", "") or ""
+    clients = [
+        {
+            "realmId": c.get("realmId", ""),
+            "companyName": c.get("companyName") or c.get("realmId", ""),
+            "active": c.get("realmId") == active,
+        }
+        for c in getattr(ctx, "hosted_companies", []) or []
+    ]
+    return JSONResponse({"clients": clients, "multi": len(clients) > 1})
+
+
+async def api_clients_switch(req: Request) -> JSONResponse:
+    """Switch the active client (company). Connection-level state, not a book
+    write — but only ever driven by an explicit user click in the Clients view."""
+    try:
+        body = await req.json()
+    except Exception:
+        return JSONResponse({"error": "invalid JSON"}, status_code=400)
+    realm = str((body or {}).get("realmId") or "").strip()
+    if not realm:
+        return JSONResponse({"error": "realmId required"}, status_code=400)
+    try:
+        result = await call_tool("qb_switch_company", {"realm_id": realm})
+        ok = isinstance(result, str) and ("✅" in result or "Switched" in result)
+        return JSONResponse({"ok": ok, "result": str(result)[:300]})
+    except Exception as e:
+        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
+
+
 async def api_tools(_req: Request) -> JSONResponse:
     tools = _tool_registry()
     return JSONResponse(
@@ -1438,6 +1496,8 @@ routes = [
     Route("/healthz", healthz),
     Route("/api/status", api_status),
     Route("/api/whatsnew", api_whatsnew),
+    Route("/api/clients", api_clients),
+    Route("/api/clients/switch", api_clients_switch, methods=["POST"]),
     Route("/api/tools", api_tools),
     Route("/api/config", api_config, methods=["POST"]),
     Route("/whoami", whoami),

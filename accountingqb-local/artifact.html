@@ -211,6 +211,7 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 .le-row{display:flex;gap:8px;align-items:center;margin:2px 0}
 .le-rename{flex:1;padding:4px 8px;border:1px solid var(--rule);border-radius:5px;font-size:12px;font-family:inherit;color:var(--ink);background:#fff;min-width:0}
 .le-hide{font-size:11px;color:var(--ink-soft);white-space:nowrap;display:flex;align-items:center;gap:4px}
+[hidden]{display:none !important}
 /* ---- Client-data import (Slice A) ---- */
 .imp-row{display:flex;align-items:center;gap:8px;margin:5px 0}
 .imp-row label{font-size:11px;font-weight:600;color:var(--ink-soft);width:160px;flex-shrink:0}
@@ -272,6 +273,9 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 <span class="qlabel">Quick actions</span>
 <button class="qbtn" id="report-open" title="Build a branded client report package">&#128196; Client Package</button>
 <button class="qbtn" id="import-open" title="Import a client's trial balance / GL and turn it into a workpaper">&#128228; Import client data</button>
+<button class="qbtn" id="workpapers-open" title="Tax workpapers: Schedule C, Form 1120-S, Form 1065">&#129534; Workpapers</button>
+<button class="qbtn" id="rules-open" title="Categorization rules — view, preview cleanup, apply">&#129504; Rules</button>
+<button class="qbtn" id="clients-open" hidden title="Your clients — switch the active QuickBooks company">&#128101; Clients</button>
 <button class="qbtn" data-write="invoice"><span class="plus">+</span> Invoice</button>
 <button class="qbtn" data-write="expense"><span class="plus">+</span> Expense</button>
 <button class="qbtn" data-action="Run qb_find_duplicates and show me any duplicate transactions">⧉ Find duplicates</button>
@@ -524,6 +528,49 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
       <div class="sheet-row"><span>Open a report line’s transactions</span><span><span class="kbd">Enter</span> on a row</span></div>
       <div class="sheet-row"><span>Manage connections</span><span>the <span class="kbd">⚙</span> gear</span></div>
       <div class="sheet-row"><span>Show this help</span><span class="kbd">?</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="clients-modal" role="dialog" aria-modal="true" aria-labelledby="cl-title" hidden>
+  <div class="modal" style="max-width:520px">
+    <div class="modal-h"><h2 id="cl-title">Clients</h2><button class="modal-x" id="cl-close" aria-label="Close">&#10005;</button></div>
+    <div class="modal-body">
+      <p class="conn-sub" style="margin-top:0">Every QuickBooks company on your license. Switching changes what every tab and tool works on — your books stay on this machine either way.</p>
+      <div id="cl-list"><div class="loading">Loading</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="workpapers-modal" role="dialog" aria-modal="true" aria-labelledby="wp-title" hidden>
+  <div class="modal" style="max-width:720px">
+    <div class="modal-h"><h2 id="wp-title">Tax workpapers</h2><button class="modal-x" id="wp-close" aria-label="Close">&#10005;</button></div>
+    <div class="modal-body">
+      <p class="conn-sub" style="margin-top:0">Book-to-tax workpapers arranged from your live books — verified line mappings, never-invented figures. Pick the form for this company&rsquo;s declared entity type.</p>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select class="field" id="wp-year" style="width:110px;margin:0"></select>
+        <button class="btn2 ghost" id="wp-schc">Schedule C</button>
+        <button class="btn2 ghost" id="wp-1120s">Form 1120-S</button>
+        <button class="btn2 ghost" id="wp-1065">Form 1065</button>
+        <span id="wp-msg" class="conn-sub" style="display:inline"></span>
+      </div>
+      <div id="wp-out" class="md-content" style="max-height:420px;overflow:auto;margin-top:10px"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="rules-modal" role="dialog" aria-modal="true" aria-labelledby="ru-title" hidden>
+  <div class="modal" style="max-width:720px">
+    <div class="modal-h"><h2 id="ru-title">Categorization rules</h2><button class="modal-x" id="ru-close" aria-label="Close">&#10005;</button></div>
+    <div class="modal-body">
+      <p class="conn-sub" style="margin-top:0">Saved rules apply your categorizations consistently. Preview shows exactly what would change; nothing is written until you apply.</p>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn2 ghost" id="ru-refresh">View rules</button>
+        <button class="btn2 ghost" id="ru-preview">Preview cleanup</button>
+        <button class="btn2" id="ru-apply">Apply this batch</button>
+        <span id="ru-msg" class="conn-sub" style="display:inline"></span>
+      </div>
+      <div id="ru-out" class="md-content" style="max-height:420px;overflow:auto;margin-top:10px"></div>
     </div>
   </div>
 </div>
@@ -1590,6 +1637,10 @@ document.addEventListener('keydown', (e) => {
   if(e.key === 'Escape'){
     const wn = document.getElementById('whatsnew-modal');
     if(!wn.hidden){ closeWhatsNew(); return; }
+    for(const mid of ['clients-modal', 'workpapers-modal', 'rules-modal']){
+      const m = document.getElementById(mid);
+      if(!m.hidden){ m.hidden = true; return; }
+    }
     const sc = document.getElementById('shortcuts-modal');
     if(!sc.hidden){ closeShortcuts(); return; }
     const rep = document.getElementById('report-modal');
@@ -2122,6 +2173,88 @@ if(APP_VERSION){
   }
 }
 
+// ============ Practice layer: clients + workpapers + rules ============
+function _modalWire(id, closeId){
+  const m = document.getElementById(id);
+  document.getElementById(closeId).addEventListener('click', () => { m.hidden = true; });
+  m.addEventListener('click', e => { if(e.target.id === id) m.hidden = true; });
+  return m;
+}
+const _clientsModal = _modalWire('clients-modal', 'cl-close');
+const _wpModal = _modalWire('workpapers-modal', 'wp-close');
+const _rulesModal = _modalWire('rules-modal', 'ru-close');
+
+async function loadClients(){
+  try{
+    const d = await (await fetch('/api/clients')).json();
+    if(d.multi) document.getElementById('clients-open').hidden = false;
+    return d.clients || [];
+  }catch(_){ return []; }
+}
+async function openClients(){
+  _clientsModal.hidden = false;
+  const list = document.getElementById('cl-list');
+  list.innerHTML = '<div class="loading">Loading</div>';
+  const clients = await loadClients();
+  if(!clients.length){ list.innerHTML = '<p class="conn-sub">No companies connected yet.</p>'; return; }
+  list.innerHTML = clients.map(c =>
+    '<div class="conn-card"><div class="conn-row"><h3>' + escapeHtml(c.companyName || c.realmId) + '</h3>' +
+    (c.active ? '<span class="conn-chip">active</span>' : '<button class="btn2 ghost cl-switch" data-realm="' + escapeHtml(c.realmId) + '" style="margin:0">Switch to this client</button>') +
+    '</div></div>'
+  ).join('');
+  list.querySelectorAll('.cl-switch').forEach(b => b.addEventListener('click', async () => {
+    b.disabled = true; b.textContent = 'Switching…';
+    try{
+      const r = await (await fetch('/api/clients/switch', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ realmId: b.dataset.realm }) })).json();
+      if(r.ok){ location.reload(); } else { b.textContent = 'Failed — retry'; b.disabled = false; }
+    }catch(_){ b.textContent = 'Failed — retry'; b.disabled = false; }
+  }));
+}
+document.getElementById('clients-open').addEventListener('click', openClients);
+
+const _wpYearSel = document.getElementById('wp-year');
+{
+  const y = new Date().getFullYear();
+  [y, y - 1].forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; _wpYearSel.appendChild(o); });
+}
+async function runWorkpaper(tool){
+  const out = document.getElementById('wp-out'), msg = document.getElementById('wp-msg');
+  msg.textContent = 'Running…'; out.innerHTML = SKEL;
+  try{
+    const r = await call(tool, { tax_year: _wpYearSel.value });
+    out.innerHTML = md2html(r);
+    msg.textContent = '';
+  }catch(e){ out.innerHTML = ''; msg.textContent = 'Failed: ' + e; }
+}
+document.getElementById('workpapers-open').addEventListener('click', () => { _wpModal.hidden = false; });
+document.getElementById('wp-schc').addEventListener('click', () => runWorkpaper('qb_schedule_c_detailed'));
+document.getElementById('wp-1120s').addEventListener('click', () => runWorkpaper('qb_form_1120s_summary'));
+document.getElementById('wp-1065').addEventListener('click', () => runWorkpaper('qb_form_1065_summary'));
+
+async function runRules(args, label){
+  const out = document.getElementById('ru-out'), msg = document.getElementById('ru-msg');
+  msg.textContent = label + '…'; if(!out.innerHTML) out.innerHTML = SKEL;
+  try{
+    // Both tools lack readOnlyHint (they can write), so the shim's /mcp gate
+    // wants confirmed:true — the explicit button click IS that confirmation
+    // (the no-arg rules call and the default preview write nothing anyway).
+    const r = args === null
+      ? await call('qb_categorization_rules', { confirmed: true })
+      : await call('qb_apply_categorization_rules', args);
+    out.innerHTML = md2html(r);
+    msg.textContent = '';
+  }catch(e){ msg.textContent = 'Failed: ' + e; }
+}
+document.getElementById('rules-open').addEventListener('click', () => { _rulesModal.hidden = false; runRules(null, 'Loading rules'); });
+document.getElementById('ru-refresh').addEventListener('click', () => runRules(null, 'Loading rules'));
+// The apply tool is write-gated: /mcp requires confirmed:true even for its
+// (default) preview mode — the click IS the explicit confirmation for a dry run.
+document.getElementById('ru-preview').addEventListener('click', () => runRules({ confirmed: true }, 'Previewing'));
+document.getElementById('ru-apply').addEventListener('click', () => {
+  if(!window.confirm('Reclassify every transaction shown in the preview? This writes to QuickBooks.')) return;
+  runRules({ apply: true, confirmed: true }, 'Applying');
+});
+
 // ============ Boot ============
 if(/[?&]in_app=1/.test(location.search)) document.body.classList.add('in-app');   // packaged desktop shell
 document.querySelectorAll('.md-content .loading').forEach(el => { el.classList.remove('loading'); el.innerHTML = SKEL; });  // shimmer, not spinner text
@@ -2132,6 +2265,7 @@ renderActionLog();
   let s = {}; try{ s = await (await fetch('/api/status')).json(); }catch(e){}
   if(s.connected){
     CONNECTED = true;
+    loadClients();   // unhides the Clients quick action when the license has several companies
     loadCompany().then(() => { loadDashboardKpis(); loadHealthSummary(); });
     maybeShowTour();   // returning/connected user: no overlay, just the one-time tour
   } else {

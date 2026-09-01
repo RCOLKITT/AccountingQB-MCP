@@ -36,8 +36,12 @@ def test_desktop_and_plugin_tabs_match():
 
 
 def test_desktop_and_plugin_report_tools_match():
+    # The desktop must cover EVERY tool the plugin template uses (a plugin change
+    # fails here until the desktop catches up — the original drift this guards).
+    # The desktop MAY exceed the plugin: it became the flagship surface and grows
+    # first (practice layer, workpapers, rules), so superset — not equality.
     d, p = _report_tools(DESKTOP.read_text()), _report_tools(PLUGIN.read_text())
-    assert d == p, f"report-tool drift between desktop and plugin: {d ^ p}"
+    assert p <= d, f"plugin uses tools the desktop lacks: {p - d}"
 
 
 def test_desktop_has_cowork_shim():
