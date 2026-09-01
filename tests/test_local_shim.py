@@ -644,6 +644,48 @@ def test_whatsnew_returns_release_notes(client):
     assert top["version"] and top["notes"].strip()
 
 
+def test_api_clients_lists_companies(client, monkeypatch):
+    # Practice layer: /api/clients surfaces every company on the license and
+    # which one is active — connection metadata only, books stay local.
+    class Ctx:
+        hosted_mode = True
+        hosted_loaded = True
+        realm_id = "R2"
+        hosted_companies = [
+            {"realmId": "R1", "companyName": "Acme LLC"},
+            {"realmId": "R2", "companyName": "Bramble Co"},
+        ]
+
+    monkeypatch.setattr(serve, "get_ctx", lambda: Ctx())
+    d = client.get("/api/clients").json()
+    assert d["multi"] is True and len(d["clients"]) == 2
+    active = {c["realmId"]: c["active"] for c in d["clients"]}
+    assert active == {"R1": False, "R2": True}
+
+
+def test_api_clients_switch_calls_tool(client, monkeypatch):
+    seen = {}
+
+    async def fake_call_tool(name, args):
+        seen["name"], seen["args"] = name, args
+        return "✅ Switched to Acme LLC"
+
+    monkeypatch.setattr(serve, "call_tool", fake_call_tool)
+    d = client.post("/api/clients/switch", json={"realmId": "R1"}).json()
+    assert d["ok"] is True
+    assert seen == {"name": "qb_switch_company", "args": {"realm_id": "R1"}}
+    # missing realm → 400, no tool call
+    assert client.post("/api/clients/switch", json={}).status_code == 400
+
+
+def test_index_serves_practice_ui(client):
+    # Clients switcher + Workpapers + Rules surfacing must stay in the artifact.
+    html = client.get("/").text
+    assert 'id="clients-open"' in html and 'id="clients-modal"' in html
+    assert 'id="workpapers-open"' in html and "qb_form_1120s_summary" in html
+    assert 'id="rules-open"' in html and "qb_apply_categorization_rules" in html
+
+
 def test_index_serves_whatsnew_ui(client):
     # Auto-update + What's-new wiring must stay in the shipped artifact (regression guard).
     html = client.get("/").text
