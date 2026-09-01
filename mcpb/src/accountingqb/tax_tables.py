@@ -15,7 +15,7 @@ import json
 import pathlib
 import re
 
-TAX_DATA_VERSION = "2026.8"  # bumped by every approved rates PR
+TAX_DATA_VERSION = "2026.9"  # bumped by every approved rates PR
 TAX_DATA_VERIFIED = "2026-09-01"  # date of the last full verification sweep
 
 
@@ -149,7 +149,7 @@ _US_STATE_TAX = {
     "PA": (0.0307, "flat"),
     "UT": (0.045, "flat"),
     "AL": (0.05, "progressive_approx"),
-    "AR": (0.039, "progressive_approx"),
+    "AR": (0.037, "progressive_approx"),  # HB 1001 + SB 1 signed 2026-05-06, top rate 3.7% retroactive Jan 1, 2026
     "CA": (0.093, "progressive_approx"),
     "CT": (0.055, "progressive_approx"),
     "DE": (0.055, "progressive_approx"),
@@ -989,9 +989,9 @@ TABLES: dict = {
         jurisdiction="US-state",
         kind="approximation",
         description="State income tax on SE income (flat statutory or effective approx)",
-        source="Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01)",
+        source="Tax Foundation, State Individual Income Tax Rates and Brackets, 2026; GA HB 463 (signed 2026-05-11, retroactive 2026-01-01); AR HB 1001 + SB 1 (signed 2026-05-06, retroactive 2026-01-01, top rate 3.7%)",
         source_url="https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
-        verified="2026-07-13",
+        verified="2026-09-01",
         review="annual-january",
         sanity={"min": 0.0, "max": 1.0},
     ),
