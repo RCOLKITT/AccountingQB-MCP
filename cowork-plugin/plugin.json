@@ -1,7 +1,7 @@
 {
   "name": "AccountingQB",
   "version": "3.16.0",
-  "description": "135 tools connecting Claude to your QuickBooks Online — US and Canada. Run reports, reconcile books, prep taxes (Schedule C, GST/HST, T2125), detect anomalies — all through natural conversation.",
+  "description": "136 tools connecting Claude to your QuickBooks Online — US and Canada. Run reports, reconcile books, prep taxes (Schedule C, GST/HST, T2125), detect anomalies — all through natural conversation.",
   "author": "Ryan Colkitt",
   "contact": "ryan@vasperacapital.com",
   "homepage": "https://github.com/RCOLKITT/AccountingQB-MCP",

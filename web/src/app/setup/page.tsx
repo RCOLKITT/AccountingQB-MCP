@@ -156,7 +156,7 @@ function SetupContent() {
                 Step 1: Save Your License Key
               </h2>
               <p className="mt-2 text-gray-400">
-                This key unlocks all 135 QuickBooks tools. Keep it somewhere
+                This key unlocks all 136 QuickBooks tools. Keep it somewhere
                 safe — you&apos;ll paste it into your config in Step 4.
               </p>
               {licenseKey ? (

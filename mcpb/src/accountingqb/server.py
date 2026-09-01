@@ -6016,7 +6016,11 @@ def _fmt_allocation_profile(year: int, p: dict) -> str:
             lines.append(f"  - {name}: {label}")
     ent = p.get("entity") or {}
     if ent:
-        labels = {"sole_prop": "Sole proprietor / SMLLC", "s_corp": "S corporation"}
+        labels = {
+            "sole_prop": "Sole proprietor / SMLLC",
+            "s_corp": "S corporation",
+            "partnership": "Partnership / multi-member LLC",
+        }
         lines.append(
             f"- **Entity:** {labels.get(ent.get('type'), ent.get('type', '?'))}"
         )
@@ -6032,8 +6036,13 @@ def _fmt_allocation_profile(year: int, p: dict) -> str:
             )
         if ent.get("distribution_accounts"):
             lines.append(
-                "  - distribution accounts (→ Sch K 16d): "
+                "  - distribution accounts (→ Sch K 16d / 19a): "
                 + ", ".join(ent["distribution_accounts"])
+            )
+        if ent.get("guaranteed_payment_accounts"):
+            lines.append(
+                "  - guaranteed-payment accounts (→ 1065 line 10): "
+                + ", ".join(ent["guaranteed_payment_accounts"])
             )
     prov = p.get("provenance") or {}
     if prov:
@@ -6065,6 +6074,7 @@ async def qb_allocation_profile(
     shareholders_json: str = "",
     officer_comp_accounts_json: str = "",
     distribution_accounts_json: str = "",
+    guaranteed_payment_accounts_json: str = "",
     source: str = "",
 ) -> str:
     """Get or set this company's TAXPAYER allocation profile for a tax year — the
@@ -6084,13 +6094,16 @@ async def qb_allocation_profile(
     nonemployee comp on the 1099-NEC report; misc_rents/misc_royalties/misc_other/
     misc_medical/misc_attorney = the matching 1099-MISC box; "exclude" = not
     reportable. QuickBooks doesn't expose its 1099 box mapping via the API, so this
-    is how the 1099 reports know which accounts count). ENTITY (for S-corp / entity
-    tax workpapers, DECLARED never guessed): entity_type ('sole_prop' or 's_corp'),
-    shareholders_json (a JSON array like [{"name":"A","ownership_pct":0.6},
-    {"name":"B","ownership_pct":0.4}] — percentages must sum to 1.0),
-    officer_comp_accounts_json (JSON array of the payroll accounts that hold
-    OFFICER wages → 1120-S line 7), distribution_accounts_json (JSON array of the
-    equity accounts used for shareholder distributions → Schedule K item 16d).
+    is how the 1099 reports know which accounts count). ENTITY (for S-corp / partnership
+    tax workpapers, DECLARED never guessed): entity_type ('sole_prop', 's_corp' or
+    'partnership' — incl. multi-member LLCs), shareholders_json (owners/partners, a
+    JSON array like [{"name":"A","ownership_pct":0.6},{"name":"B","ownership_pct":
+    0.4}] — percentages must sum to 1.0), officer_comp_accounts_json (JSON array of
+    the payroll accounts that hold OFFICER wages → 1120-S line 7),
+    distribution_accounts_json (JSON array of the equity accounts used for
+    shareholder/partner distributions → 1120-S Sch K 16d / 1065 Sch K 19a),
+    guaranteed_payment_accounts_json (partnership only: expense accounts holding
+    guaranteed payments to partners → 1065 line 10).
     source documents the basis (e.g. 'CPA Form 8829 TY2025'). These are per-realm
     taxpayer inputs, stored outside the statutory tax ledger."""
     from datetime import datetime, timezone
@@ -6108,6 +6121,7 @@ async def qb_allocation_profile(
         or shareholders_json
         or officer_comp_accounts_json
         or distribution_accounts_json
+        or guaranteed_payment_accounts_json
         or business_miles
         or total_miles
     )
@@ -6228,15 +6242,13 @@ async def qb_allocation_profile(
         or shareholders_json
         or officer_comp_accounts_json
         or distribution_accounts_json
+        or guaranteed_payment_accounts_json
     ):
         ent = dict(profile.get("entity") or {})
         if entity_type:
             et = entity_type.lower().strip()
-            if et not in ("sole_prop", "s_corp"):
-                return (
-                    "entity_type must be 'sole_prop' or 's_corp' "
-                    "(partnership support is coming — not yet)."
-                )
+            if et not in ("sole_prop", "s_corp", "partnership"):
+                return "entity_type must be 'sole_prop', 's_corp' or 'partnership'."
             ent["type"] = et
         if shareholders_json:
             try:
@@ -6267,7 +6279,16 @@ async def qb_allocation_profile(
             ]
         for param, key, target in (
             (officer_comp_accounts_json, "officer_comp_accounts", "1120-S line 7"),
-            (distribution_accounts_json, "distribution_accounts", "Schedule K 16d"),
+            (
+                distribution_accounts_json,
+                "distribution_accounts",
+                "Schedule K 16d / 19a",
+            ),
+            (
+                guaranteed_payment_accounts_json,
+                "guaranteed_payment_accounts",
+                "1065 line 10",
+            ),
         ):
             if not param:
                 continue
@@ -12117,6 +12138,294 @@ def _CATALOG_1120S() -> dict:
     from accountingqb.tax_tables import _1120S_CATALOG
 
     return _1120S_CATALOG
+
+
+def _CATALOG_1065() -> dict:
+    from accountingqb.tax_tables import _1065_CATALOG
+
+    return _1065_CATALOG
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+@require_region("US", "Canadian partnerships file a T5013 — not yet supported.")
+async def qb_form_1065_summary(tax_year: str = "2025") -> str:
+    """Form 1065 (partnership / multi-member LLC) book-to-tax WORKPAPER for a tax
+    year: page-1 ordinary income arranged from the books (guaranteed payments to
+    partners split to line 10), separately-stated Schedule K items pulled out
+    (interest, dividends, charitable, tax-exempt), a Schedule M-1 book→tax
+    reconciliation with a proven tie-out, and a per-partner K-1 summary from
+    declared ownership. Requires the entity declaration (qb_allocation_profile:
+    entity_type='partnership', shareholders_json for the partners,
+    guaranteed_payment_accounts + distribution_accounts) — nothing is guessed.
+    tax_year: YYYY."""
+    start = f"{tax_year}-01-01"
+    end = f"{tax_year}-12-31"
+    profile = await _get_allocation_profile(tax_year)
+    ent = profile.get("entity") or {}
+    if ent.get("type") != "partnership":
+        return (
+            f"## Form 1065 — {tax_year}\n\n"
+            "This company isn't declared as a partnership, and entity type is "
+            "never guessed. If it IS one (incl. a multi-member LLC), declare it:\n\n"
+            "  qb_allocation_profile(tax_year=" + str(tax_year) + ", "
+            "entity_type='partnership',\n"
+            '    shareholders_json=\'[{"name":"…","ownership_pct":0.5}, …]\',\n'
+            "    guaranteed_payment_accounts_json='[\"Guaranteed Payments\"]',\n"
+            "    distribution_accounts_json='[\"Partner Distributions\"]')\n\n"
+            "Then re-run. (S-corps: qb_form_1120s_summary; sole proprietors: "
+            "qb_schedule_c_detailed.)"
+        )
+
+    pl = await qb_request(
+        "GET",
+        "reports/ProfitAndLoss",
+        params={"start_date": start, "end_date": end, "summarize_column_by": "Total"},
+    )
+    subs, fqns = await _chart_maps()
+    expense_accounts = _extract_pl_expense_accounts(pl)
+    income_accounts = {
+        **_extract_pl_section_accounts(pl, "Income"),
+        **_extract_pl_section_accounts(pl, "Other Income"),
+    }
+    cogs_accounts = _extract_pl_section_accounts(pl, "Cost of Goods Sold")
+
+    gp_names = set(ent.get("guaranteed_payment_accounts") or [])
+
+    def _is_declared(name, declared):
+        leaf = name.rsplit(":", 1)[-1]
+        return name in declared or leaf in declared or fqns.get(name, "") in declared
+
+    page1: dict = {}
+    schk: dict = {}
+    nonded: list = []
+
+    def _post(bucket, line, name, amt):
+        b = bucket.setdefault(line, {"total": 0.0, "accounts": []})
+        b["total"] = round(b["total"] + amt, 2)
+        b["accounts"].append((name, amt))
+
+    for name, amt in sorted(income_accounts.items()):
+        line, _desc, flags = classify_account(
+            name, subs.get(name, ""), "US", form="1065"
+        )
+        if "separately_stated" in flags:
+            _post(schk, line, name, amt)
+        elif line == "1b":
+            _post(page1, "1b", name, abs(amt))
+        else:
+            _post(page1, "1a" if line == "1a" else "7", name, amt)
+    for name, amt in sorted(cogs_accounts.items()):
+        _post(page1, "2", name, amt)
+
+    meals_total = 0.0
+    for name, amt in sorted(expense_accounts.items()):
+        amt = abs(amt)
+        line, desc, flags = classify_account(
+            name, subs.get(name, ""), "US", form="1065"
+        )
+        if _is_declared(name, gp_names):
+            _post(page1, "10", name, amt)  # guaranteed payments to partners
+            continue
+        if "separately_stated" in flags:  # charitable → K13a
+            _post(schk, line, name, amt)
+            continue
+        if "nondeductible" in flags:
+            nonded.append((name, amt, desc))
+            continue
+        if line == "21_meals":
+            meals_total += amt
+            continue
+        _post(page1, line, name, amt)
+
+    meals_factor, meals_cite = line_limitation("21_meals", "US")
+    meals_ded = round(meals_total * meals_factor, 2)
+    meals_disallowed = round(meals_total - meals_ded, 2)
+    if meals_ded:
+        _post(
+            page1, "21", f"Meals ({meals_factor:.0%} of {fmt(meals_total)})", meals_ded
+        )
+
+    # Distributions (Sch K 19a) from the DECLARED equity accounts' GL activity.
+    dist_names = set(ent.get("distribution_accounts") or [])
+    distributions = 0.0
+    dist_note = ""
+    if dist_names:
+        accts = (
+            (await qb_query_all("SELECT * FROM Account MAXRESULTS 500"))
+            .get("QueryResponse", {})
+            .get("Account", [])
+        )
+        matched = [
+            a
+            for a in accts
+            if a.get("Name") in dist_names
+            or a.get("FullyQualifiedName", "") in dist_names
+        ]
+        if not matched:
+            dist_note = (
+                "⚠️ none of the declared distribution accounts were found in the "
+                "chart — check the names in qb_allocation_profile."
+            )
+        for a in matched:
+            net = await _gl_net_activity(a, start, end)
+            if net is None:
+                dist_note = (
+                    f"⚠️ could not read the GL amount column for "
+                    f"'{a.get('Name')}' — distributions incomplete."
+                )
+                continue
+            distributions = round(distributions + -net, 2)
+    else:
+        dist_note = (
+            "no distribution accounts declared — Sch K 19a needs them "
+            "(qb_allocation_profile)."
+        )
+
+    catalog = _CATALOG_1065()
+    total_income = round(
+        page1.get("1a", {}).get("total", 0.0)
+        - page1.get("1b", {}).get("total", 0.0)
+        - page1.get("2", {}).get("total", 0.0)
+        + page1.get("7", {}).get("total", 0.0),
+        2,
+    )
+    deduction_lines = [ln for ln in page1 if ln not in ("1a", "1b", "2", "7")]
+    total_deductions = round(sum(page1[ln]["total"] for ln in deduction_lines), 2)
+    ordinary = round(total_income - total_deductions, 2)
+    gp_total = page1.get("10", {}).get("total", 0.0)
+
+    lines = [
+        f"## Form 1065 Workpaper — {tax_year}",
+        f"**Period:** {start} to {end} · entity declared partnership",
+        "**Workpaper, not a filing** — book values arranged onto verified 1065 "
+        "lines; depreciation is BOOK depreciation (reconcile tax depreciation via "
+        "qb_depreciation_schedule / Form 4562 before filing).\n",
+        "### Page 1 — Ordinary business income",
+        f"  Line 1a — Gross receipts or sales: {fmt(page1.get('1a', {}).get('total', 0))}",
+    ]
+    if page1.get("1b", {}).get("total"):
+        lines.append(f"  Line 1b — Returns and allowances: {fmt(page1['1b']['total'])}")
+    if page1.get("2", {}).get("total"):
+        lines.append(f"  Line 2 — Cost of goods sold: {fmt(page1['2']['total'])}")
+    if page1.get("7", {}).get("total"):
+        lines.append(f"  Line 7 — Other income (loss): {fmt(page1['7']['total'])}")
+    lines.append(f"  **Line 8 — Total income: {fmt(total_income)}**")
+    for ln in sorted(deduction_lines, key=lambda x: (len(x), x)):
+        b = page1[ln]
+        desc = catalog.get(ln, {}).get("desc", "Other deductions")
+        lines.append(f"  Line {ln} — {desc}: {fmt(b['total'])}")
+        for name, amt in b["accounts"]:
+            lines.append(f"    - {name}: {fmt(amt)}")
+    if gp_names and not page1.get("10"):
+        lines.append(
+            "  ℹ️ Line 10 (Guaranteed payments) is $0.00 — the declared accounts "
+            "had no activity this year."
+        )
+    elif not gp_names:
+        lines.append(
+            "  ⚠️ No guaranteed-payment accounts declared — if partners receive "
+            "guaranteed payments, declare the accounts with qb_allocation_profile "
+            "(guaranteed_payment_accounts_json) so line 10 is right."
+        )
+    lines.append(f"  **Line 22 — Total deductions: {fmt(total_deductions)}**")
+    lines.append(f"  **Line 23 — Ordinary business income (loss): {fmt(ordinary)}**\n")
+
+    lines.append("### Schedule K — separately stated items")
+    for ln in sorted(schk):
+        desc = catalog.get(ln, {}).get("desc", ln)
+        lines.append(f"  {desc}: {fmt(schk[ln]['total'])}")
+        for name, amt in schk[ln]["accounts"]:
+            lines.append(f"    - {name}: {fmt(amt)}")
+    k5 = schk.get("K5", {}).get("total", 0.0)
+    k6a = schk.get("K6a", {}).get("total", 0.0)
+    k13a = schk.get("K13a", {}).get("total", 0.0)
+    k18a = schk.get("K18a", {}).get("total", 0.0)
+    k_income = round(k5 + k6a, 2)
+    k18c = round(meals_disallowed + sum(a for _n, a, _d in nonded), 2)
+    if meals_disallowed:
+        lines.append(
+            f"  Line 18c — Nondeductible: meals disallowed "
+            f"({fmt(meals_disallowed)}, {meals_cite})"
+        )
+    for name, amt, desc in nonded:
+        lines.append(f"  Line 18c — Nondeductible: {name} ({fmt(amt)}) — {desc}")
+    lines.append(
+        f"  Line 19a — Distributions: {fmt(distributions)}"
+        + (f"  ({dist_note})" if dist_note else "")
+    )
+
+    book_income = round(
+        sum(income_accounts.values())
+        - sum(cogs_accounts.values())
+        - sum(abs(v) for v in expense_accounts.values()),
+        2,
+    )
+    m1_left = round(book_income + k18c - k18a, 2)
+    m1_right = round(ordinary + k_income - k13a, 2)
+    tie = abs(m1_left - m1_right) < 0.01
+    lines += [
+        "\n### Schedule M-1 — book→tax reconciliation",
+        f"  Net income per books: {fmt(book_income)}",
+        f"  + Nondeductible expenses (Sch K 18c): {fmt(k18c)}",
+        f"  − Tax-exempt interest (Sch K 18a): {fmt(k18a)}",
+        f"  = Income per return: {fmt(m1_left)}",
+        f"  Return side (line 23 + K income − K charitable): {fmt(m1_right)}",
+        (
+            "  ✅ Ties out."
+            if tie
+            else f"  ⚠️ DOES NOT TIE — unreconciled {fmt(round(m1_left - m1_right, 2))}. "
+            "Likely an unclassified account or a book/tax timing item; review before "
+            "relying on any figure above."
+        ),
+    ]
+
+    partners = ent.get("shareholders") or []
+    if partners:
+        lines.append("\n### K-1 summary (pro-rata, per declared ownership)")
+        for s_ in partners:
+            pct = float(s_.get("ownership_pct", 0))
+            lines.append(
+                f"  **{s_.get('name')} ({pct * 100:.2f}%)** — ordinary income "
+                f"{fmt(round(ordinary * pct, 2))} · interest {fmt(round(k5 * pct, 2))} · "
+                f"dividends {fmt(round(k6a * pct, 2))} · charitable "
+                f"{fmt(round(k13a * pct, 2))} · nondeductible {fmt(round(k18c * pct, 2))}"
+            )
+        if gp_total:
+            lines.append(
+                f"  ℹ️ Guaranteed payments ({fmt(gp_total)}) are NOT allocated "
+                "pro-rata — they follow the partnership agreement (each payment is "
+                "income to the specific partner who received it). Allocate per the "
+                "agreement, not ownership %."
+            )
+        if distributions:
+            lines.append(
+                f"  ℹ️ Distributions ({fmt(distributions)}) shown in total — "
+                "allocate per actual amounts received, not ownership %."
+            )
+    else:
+        lines.append(
+            "\n### K-1 summary\n  ⚠️ No partners declared — declare them with "
+            "qb_allocation_profile (shareholders_json) to get per-partner K-1 "
+            "allocations."
+        )
+
+    lines.append("\n### Advisory")
+    lines.append(
+        "  - Partners are NOT employees: partner compensation belongs in "
+        "guaranteed payments (line 10), never on W-2 payroll in line 9 — a common "
+        "bookkeeping error worth checking."
+    )
+    lines.append(
+        "  - For GENERAL partners, ordinary income + guaranteed payments are "
+        "generally self-employment income (Schedule SE) — flag for each partner's "
+        "preparer."
+    )
+
+    _audit_log(
+        "1065_SUMMARY",
+        f"year={tax_year} ordinary={fmt(ordinary)} m1_tie={'yes' if tie else 'NO'}",
+    )
+    return "\n".join(lines) + tax_data_footer(int(tax_year))
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
