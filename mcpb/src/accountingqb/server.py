@@ -6014,6 +6014,27 @@ def _fmt_allocation_profile(year: int, p: dict) -> str:
             else:
                 label = "MISC " + _MISC_1099_BOXES.get(box, (box,))[0]
             lines.append(f"  - {name}: {label}")
+    ent = p.get("entity") or {}
+    if ent:
+        labels = {"sole_prop": "Sole proprietor / SMLLC", "s_corp": "S corporation"}
+        lines.append(
+            f"- **Entity:** {labels.get(ent.get('type'), ent.get('type', '?'))}"
+        )
+        for s in ent.get("shareholders") or []:
+            lines.append(
+                f"  - shareholder: {s.get('name')} — "
+                f"{float(s.get('ownership_pct', 0)) * 100:.2f}%"
+            )
+        if ent.get("officer_comp_accounts"):
+            lines.append(
+                "  - officer-comp accounts (→ 1120-S line 7): "
+                + ", ".join(ent["officer_comp_accounts"])
+            )
+        if ent.get("distribution_accounts"):
+            lines.append(
+                "  - distribution accounts (→ Sch K 16d): "
+                + ", ".join(ent["distribution_accounts"])
+            )
     prov = p.get("provenance") or {}
     if prov:
         lines.append(
@@ -6040,6 +6061,10 @@ async def qb_allocation_profile(
     account_allocations_json: str = "",
     home_office_accounts_json: str = "",
     nec_1099_accounts_json: str = "",
+    entity_type: str = "",
+    shareholders_json: str = "",
+    officer_comp_accounts_json: str = "",
+    distribution_accounts_json: str = "",
     source: str = "",
 ) -> str:
     """Get or set this company's TAXPAYER allocation profile for a tax year — the
@@ -6059,9 +6084,15 @@ async def qb_allocation_profile(
     nonemployee comp on the 1099-NEC report; misc_rents/misc_royalties/misc_other/
     misc_medical/misc_attorney = the matching 1099-MISC box; "exclude" = not
     reportable. QuickBooks doesn't expose its 1099 box mapping via the API, so this
-    is how the 1099 reports know which accounts count). source documents the basis
-    (e.g. 'CPA Form 8829 TY2025'). These are per-realm taxpayer inputs, stored
-    outside the statutory tax ledger."""
+    is how the 1099 reports know which accounts count). ENTITY (for S-corp / entity
+    tax workpapers, DECLARED never guessed): entity_type ('sole_prop' or 's_corp'),
+    shareholders_json (a JSON array like [{"name":"A","ownership_pct":0.6},
+    {"name":"B","ownership_pct":0.4}] — percentages must sum to 1.0),
+    officer_comp_accounts_json (JSON array of the payroll accounts that hold
+    OFFICER wages → 1120-S line 7), distribution_accounts_json (JSON array of the
+    equity accounts used for shareholder distributions → Schedule K item 16d).
+    source documents the basis (e.g. 'CPA Form 8829 TY2025'). These are per-realm
+    taxpayer inputs, stored outside the statutory tax ledger."""
     from datetime import datetime, timezone
 
     year = int(tax_year) or datetime.now(timezone.utc).year
@@ -6073,6 +6104,10 @@ async def qb_allocation_profile(
         or account_allocations_json
         or home_office_accounts_json
         or nec_1099_accounts_json
+        or entity_type
+        or shareholders_json
+        or officer_comp_accounts_json
+        or distribution_accounts_json
         or business_miles
         or total_miles
     )
@@ -6187,6 +6222,73 @@ async def qb_allocation_profile(
                 )
             mapping[name] = box
         profile["nec_1099_accounts"] = mapping
+
+    if (
+        entity_type
+        or shareholders_json
+        or officer_comp_accounts_json
+        or distribution_accounts_json
+    ):
+        ent = dict(profile.get("entity") or {})
+        if entity_type:
+            et = entity_type.lower().strip()
+            if et not in ("sole_prop", "s_corp"):
+                return (
+                    "entity_type must be 'sole_prop' or 's_corp' "
+                    "(partnership support is coming — not yet)."
+                )
+            ent["type"] = et
+        if shareholders_json:
+            try:
+                sh = json.loads(shareholders_json)
+                assert isinstance(sh, list) and sh
+                assert all(isinstance(s, dict) and s.get("name") for s in sh)
+                pcts = [float(s["ownership_pct"]) for s in sh]
+            except Exception:
+                return (
+                    "shareholders_json must be a JSON array like "
+                    '[{"name":"A","ownership_pct":0.6},{"name":"B","ownership_pct":0.4}].'
+                )
+            if any(p <= 0 or p > 1 for p in pcts):
+                return "Each ownership_pct must be > 0 and <= 1."
+            if abs(sum(pcts) - 1.0) > 0.0001:
+                # Never pro-rate silently — K-1 allocations must be exact.
+                return (
+                    f"Shareholder ownership must sum to exactly 1.0 "
+                    f"(got {sum(pcts):.4f}). Fix the percentages — they are the "
+                    "K-1 allocation basis and are never auto-scaled."
+                )
+            ent["shareholders"] = [
+                {
+                    "name": str(s["name"]).strip(),
+                    "ownership_pct": round(float(s["ownership_pct"]), 6),
+                }
+                for s in sh
+            ]
+        for param, key, target in (
+            (officer_comp_accounts_json, "officer_comp_accounts", "1120-S line 7"),
+            (distribution_accounts_json, "distribution_accounts", "Schedule K 16d"),
+        ):
+            if not param:
+                continue
+            try:
+                names = json.loads(param)
+                assert isinstance(names, list) and all(
+                    isinstance(n, str) for n in names
+                )
+            except Exception:
+                return (
+                    f"{key}_json must be a JSON array of account names "
+                    f"(these accounts feed {target})."
+                )
+            chart = await _account_subtype_map()
+            for n in names:
+                if chart and n not in chart:
+                    warnings.append(
+                        f"'{n}' is not an account in this chart — check the name."
+                    )
+            ent[key] = sorted(set(names))
+        profile["entity"] = ent
 
     ctx = get_ctx()
     profile["provenance"] = {

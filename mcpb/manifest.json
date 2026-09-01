@@ -1277,6 +1277,26 @@
             "description": "Nec 1099 Accounts Json",
             "default": ""
           },
+          "entity_type": {
+            "type": "string",
+            "description": "Entity Type",
+            "default": ""
+          },
+          "shareholders_json": {
+            "type": "string",
+            "description": "Shareholders Json",
+            "default": ""
+          },
+          "officer_comp_accounts_json": {
+            "type": "string",
+            "description": "Officer Comp Accounts Json",
+            "default": ""
+          },
+          "distribution_accounts_json": {
+            "type": "string",
+            "description": "Distribution Accounts Json",
+            "default": ""
+          },
           "source": {
             "type": "string",
             "description": "Source",

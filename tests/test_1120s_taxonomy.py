@@ -119,3 +119,69 @@ def test_no_home_8829_flag_on_1120s():
     # ...but still fires on Schedule C.
     _l, _d, flags_c = classify_account("Home office utilities", "", "US")
     assert "home_8829" in flags_c
+
+
+# --- entity declaration (PR B) — stored in the taxpayer profile ---------------
+
+import asyncio  # noqa: E402
+
+import accountingqb.server as s  # noqa: E402
+
+
+def _profile_patch(monkeypatch):
+    saved = {}
+
+    async def fake_save(year, profile):
+        saved.clear()
+        saved.update(profile)
+        return True
+
+    async def fake_get(year):
+        return dict(saved)
+
+    async def fake_chart():
+        return {}
+
+    monkeypatch.setattr(s, "_save_allocation_profile", fake_save)
+    monkeypatch.setattr(s, "_get_allocation_profile", fake_get)
+    monkeypatch.setattr(s, "_account_subtype_map", fake_chart)
+    return saved
+
+
+def test_entity_declaration_persists_and_renders(monkeypatch):
+    saved = _profile_patch(monkeypatch)
+    out = asyncio.run(
+        s.qb_allocation_profile(
+            tax_year=2026,
+            entity_type="s_corp",
+            shareholders_json='[{"name":"Ryan","ownership_pct":0.6},{"name":"Ava","ownership_pct":0.4}]',
+            officer_comp_accounts_json='["Officer Wages"]',
+            distribution_accounts_json='["Shareholder Distributions"]',
+        )
+    )
+    assert "saved" in out.lower()
+    ent = saved["entity"]
+    assert ent["type"] == "s_corp"
+    assert [x["ownership_pct"] for x in ent["shareholders"]] == [0.6, 0.4]
+    assert ent["officer_comp_accounts"] == ["Officer Wages"]
+    assert ent["distribution_accounts"] == ["Shareholder Distributions"]
+    assert "S corporation" in out and "60.00%" in out
+    assert "1120-S line 7" in out and "Sch K 16d" in out
+
+
+def test_ownership_must_sum_to_exactly_one(monkeypatch):
+    _profile_patch(monkeypatch)
+    out = asyncio.run(
+        s.qb_allocation_profile(
+            tax_year=2026,
+            shareholders_json='[{"name":"A","ownership_pct":0.5},{"name":"B","ownership_pct":0.4}]',
+        )
+    )
+    # Never pro-rated silently: K-1 allocations are exact or refused.
+    assert "sum to exactly 1.0" in out and "never auto-scaled" in out
+
+
+def test_bad_entity_type_rejected(monkeypatch):
+    _profile_patch(monkeypatch)
+    out = asyncio.run(s.qb_allocation_profile(tax_year=2026, entity_type="c_corp"))
+    assert "sole_prop" in out and "s_corp" in out
