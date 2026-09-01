@@ -11,7 +11,7 @@ engineering standard is `VASPERA-SPINE.md`; the live audit is `SPINE-STATUS.md`.
 Constitution wins where they conflict.
 
 ## Layout
-- `mcpb/src/accountingqb/server.py` — canonical MCP server (133 tools, US + CA).
+- `mcpb/src/accountingqb/server.py` — canonical MCP server (135 tools, US + CA).
   Root `server.py` is a shim. Never fork the server; there is one core.
 - `mcpb/src/accountingqb/remote.py` — remote connector (stateless HTTP + JWT).
 - `web/` — Next.js app: licensing, Stripe, OAuth broker + OAuth 2.1 AS, admin.
