@@ -26,7 +26,7 @@ export const tiers: Tier[] = [
     description: "For freelancers & sole proprietors",
     savings: "Save ~5 hrs/mo on bookkeeping & tax prep",
     features: [
-      "All 133 QuickBooks tools",
+      "All 135 QuickBooks tools",
       "US & Canadian tax prep (Schedule C / T2125)",
       "Deduction finder",
       "Anomaly detection",
@@ -87,7 +87,7 @@ export interface CompareRow {
 export const comparisonRows: CompareRow[] = [
   { label: "Monthly price (USD)", values: ["$39", "$99", "$299"] },
   { label: "QuickBooks companies", values: ["1", "Up to 3", "Unlimited"] },
-  { label: "All 133 tools (read + write)", values: ["✓", "✓", "✓"] },
+  { label: "All 135 tools (read + write)", values: ["✓", "✓", "✓"] },
   {
     label: "US & Canadian tax prep (Schedule C / T2125)",
     values: ["✓", "✓", "✓"],
@@ -107,11 +107,11 @@ export const comparisonRows: CompareRow[] = [
 export const pricingFaqs: { q: string; a: string }[] = [
   {
     q: "Is there a free trial?",
-    a: "Yes — every plan starts with a 14-day free trial with full access to all 133 tools. No credit card required to start.",
+    a: "Yes — every plan starts with a 14-day free trial with full access to all 135 tools. No credit card required to start.",
   },
   {
     q: "What happens when the trial ends?",
-    a: "You keep access to 25 essential read-only tools for free. To keep using all 133 tools — including writes, tax prep, and advanced analytics — choose a paid plan.",
+    a: "You keep access to 25 essential read-only tools for free. To keep using all 135 tools — including writes, tax prep, and advanced analytics — choose a paid plan.",
   },
   {
     q: "Can I cancel anytime?",

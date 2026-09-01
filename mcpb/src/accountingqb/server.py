@@ -7596,6 +7596,224 @@ async def qb_auto_categorize_suggestions(
         )
 
     lines.append("\nUse `qb_update_transaction` to apply the suggested categories.")
+    lines.append(
+        "To make a categorization PERMANENT, save it as a rule with "
+        "qb_categorization_rules — then qb_apply_categorization_rules clears "
+        "future uncategorized batches consistently in one pass."
+    )
+    return "\n".join(lines)
+
+
+# Categorization rules are COMPANY-wide (not per-year), so they live in the
+# tax_year=0 bucket of the same cross-surface taxpayer store the allocation
+# profile uses (local JSON self-hosted; the broker for hosted/stateless).
+async def _get_categorization_rules() -> dict:
+    return (await _get_allocation_profile(0)).get("categorization_rules") or {}
+
+
+@mcp.tool(annotations={"destructiveHint": False})
+async def qb_categorization_rules(rules_json: str = "", remove_json: str = "") -> str:
+    """View, add, or remove this company's saved categorization rules — the
+    bookkeeper's memory. A rule maps a vendor/description match to an account:
+    when qb_apply_categorization_rules runs, any uncategorized transaction whose
+    vendor or memo CONTAINS the pattern (case-insensitive) is reclassified to
+    that account. Call with no arguments to VIEW. rules_json: a JSON object like
+    {"uber": "Travel", "aws": "Software & Subscriptions"}. remove_json: a JSON
+    array of patterns to delete. Rules are company-wide and persist across
+    sessions and machines."""
+    profile = dict(await _get_allocation_profile(0) or {})
+    rules = dict(profile.get("categorization_rules") or {})
+
+    if not rules_json and not remove_json:
+        if not rules:
+            return (
+                "## Categorization rules\n\nNo rules saved yet. Add some:\n"
+                '  qb_categorization_rules(rules_json=\'{"uber": "Travel", '
+                '"aws": "Software & Subscriptions"}\')\n\n'
+                "Tip: run qb_auto_categorize_suggestions first — it proposes "
+                "categories from your own history; save the ones you confirm."
+            )
+        lines = [f"## Categorization rules ({len(rules)})\n"]
+        for pat, acct in sorted(rules.items()):
+            lines.append(f'  - "{pat}" → {acct}')
+        lines.append(
+            "\nApply them with qb_apply_categorization_rules (preview first, "
+            "then apply=True)."
+        )
+        return "\n".join(lines)
+
+    warnings = []
+    if rules_json:
+        try:
+            raw = json.loads(rules_json)
+            assert isinstance(raw, dict) and raw
+            assert all(
+                isinstance(k, str) and k.strip() and isinstance(v, str) and v.strip()
+                for k, v in raw.items()
+            )
+        except Exception:
+            return (
+                'rules_json must be a JSON object like {"uber": "Travel", '
+                '"aws": "Software & Subscriptions"} (pattern → account name).'
+            )
+        chart = await _account_subtype_map()
+        for pat, acct in raw.items():
+            if chart and acct not in chart:
+                warnings.append(
+                    f"'{acct}' is not an account in this chart — check the name."
+                )
+            rules[pat.strip().lower()] = acct.strip()
+    if remove_json:
+        try:
+            gone = json.loads(remove_json)
+            assert isinstance(gone, list)
+        except Exception:
+            return 'remove_json must be a JSON array of patterns, e.g. ["uber"].'
+        for pat in gone:
+            rules.pop(str(pat).strip().lower(), None)
+
+    profile["categorization_rules"] = rules
+    if not await _save_allocation_profile(0, profile):
+        return "⚠️ Could not save the rules — try again."
+    _audit_log("CATEGORIZATION_RULES", f"count={len(rules)}")
+    out = f"✅ Saved — {len(rules)} rule(s) now active.\n"
+    for pat, acct in sorted(rules.items()):
+        out += f'\n  - "{pat}" → {acct}'
+    if warnings:
+        out += "\n\n⚠️ " + " ".join(warnings)
+    return out
+
+
+@mcp.tool(annotations={"destructiveHint": True})
+async def qb_apply_categorization_rules(
+    start_date: str = "",
+    end_date: str = "",
+    apply: bool = False,
+    max_changes: int = 50,
+) -> str:
+    """Clear the uncategorized backlog using the company's saved rules — the
+    daily bookkeeping loop, at scale and CONSISTENT. Scans transactions booked to
+    Uncategorized accounts, matches each vendor/memo against the saved rules
+    (qb_categorization_rules), and reclassifies the matches. DEFAULTS TO A
+    PREVIEW: shows exactly what would change and touches nothing until you re-run
+    with apply=True (human confirms every batch — no silent writes). Unmatched
+    transactions are listed so you can add rules or use
+    qb_auto_categorize_suggestions. Dates YYYY-MM-DD (default all time);
+    max_changes caps one batch."""
+    rules = await _get_categorization_rules()
+    if not rules:
+        return (
+            "No categorization rules saved yet — add them first:\n"
+            '  qb_categorization_rules(rules_json=\'{"uber": "Travel"}\')\n'
+            "Then re-run. (qb_auto_categorize_suggestions proposes candidates "
+            "from your own history.)"
+        )
+
+    accts = await qb_query(
+        "SELECT Id, Name FROM Account WHERE Name LIKE '%ncategorized%' MAXRESULTS 10"
+    )
+    acct_list = accts.get("QueryResponse", {}).get("Account", [])
+    if not acct_list:
+        return "No uncategorized accounts found — your books look clean!"
+
+    date_filter = ""
+    if start_date:
+        date_filter += f" AND TxnDate >= '{_sanitize_input(start_date, 'start_date')}'"
+    if end_date:
+        date_filter += f" AND TxnDate <= '{_sanitize_input(end_date, 'end_date')}'"
+    txns = []
+    for acct in acct_list:
+        q = f"SELECT * FROM Purchase WHERE AccountRef = '{acct['Id']}'{date_filter}"
+        try:
+            txns.extend(
+                (await qb_query_all(q)).get("QueryResponse", {}).get("Purchase", [])
+            )
+        except Exception:
+            continue
+    if not txns:
+        return "No uncategorized transactions found — nothing to do."
+
+    # Deterministic matching: case-insensitive substring on vendor then memo;
+    # the LONGEST matching pattern wins so "amazon web services" beats "amazon".
+    ordered = sorted(rules.items(), key=lambda kv: len(kv[0]), reverse=True)
+
+    def _match(txn):
+        hay = " ".join(
+            [
+                txn.get("EntityRef", {}).get("name", ""),
+                txn.get("PrivateNote", ""),
+                " ".join(
+                    ln.get("Description", "") or "" for ln in txn.get("Line", []) or []
+                ),
+            ]
+        ).lower()
+        for pat, acct in ordered:
+            if pat in hay:
+                return pat, acct
+        return None, None
+
+    matched, unmatched = [], []
+    for t in txns:
+        pat, acct = _match(t)
+        (matched if pat else unmatched).append((t, pat, acct))
+
+    over_cap = max(0, len(matched) - max_changes)
+    batch = matched[:max_changes]
+
+    if not apply:
+        lines = [
+            f"## Categorization preview — {len(txns)} uncategorized, "
+            f"{len(matched)} match a rule\n",
+            "**Nothing has been changed.** Review below, then re-run with "
+            "apply=True to reclassify this batch.\n",
+        ]
+        for t, pat, acct in batch:
+            lines.append(
+                f"  - {t.get('TxnDate', '?')} | "
+                f"{t.get('EntityRef', {}).get('name', '?')} | "
+                f"{fmt(float(t.get('TotalAmt', 0) or 0))} → **{acct}** "
+                f'(rule "{pat}") | ID {t.get("Id")}'
+            )
+        if over_cap:
+            lines.append(f"  … and {over_cap} more beyond max_changes={max_changes}.")
+        if unmatched:
+            lines.append(f"\n**No rule matched ({len(unmatched)}):**")
+            for t, _p, _a in unmatched[:15]:
+                lines.append(
+                    f"  - {t.get('TxnDate', '?')} | "
+                    f"{t.get('EntityRef', {}).get('name', '?')} | "
+                    f"{fmt(float(t.get('TotalAmt', 0) or 0))}"
+                )
+            lines.append(
+                "  Add rules for these (qb_categorization_rules) or get AI "
+                "proposals from qb_auto_categorize_suggestions."
+            )
+        return "\n".join(lines)
+
+    ok = failed = 0
+    fail_notes = []
+    for t, pat, acct in batch:
+        res = await qb_reclassify_transaction(
+            "Purchase", str(t.get("Id")), acct, memo=f"rule:{pat}"
+        )
+        if isinstance(res, str) and res.lstrip().startswith("✅"):
+            ok += 1
+        else:
+            failed += 1
+            if len(fail_notes) < 5:
+                fail_notes.append(f"  - ID {t.get('Id')} → {acct}: {str(res)[:120]}")
+    _audit_log("APPLY_CATEGORIZATION_RULES", f"applied={ok} failed={failed}")
+    lines = [
+        "## Applied categorization rules\n",
+        f"  Reclassified: {ok}",
+        *([f"  Failed: {failed}"] + fail_notes if failed else []),
+        *(
+            [f"  Remaining beyond this batch: {over_cap} — re-run to continue."]
+            if over_cap
+            else []
+        ),
+        *([f"  Still unmatched (need rules): {len(unmatched)}"] if unmatched else []),
+    ]
     return "\n".join(lines)
 
 
