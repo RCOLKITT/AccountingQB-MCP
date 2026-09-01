@@ -68,7 +68,7 @@ If you see test/fake data:
 Go to https://accountingqb.com/dashboard and enter the email you used to purchase. Your key will be displayed.
 
 ### Trial expired
-After 14 days, you keep access to 25 essential read-only tools for free. To unlock all 132 tools, choose a paid plan.
+After 14 days, you keep access to 25 essential read-only tools for free. To unlock all 133 tools, choose a paid plan.
 
 ### How to cancel subscription
 1. Go to https://accountingqb.com/dashboard
@@ -103,7 +103,7 @@ Yes. With the local extension or self-hosted setup, AccountingQB runs entirely o
 No. Install the extension, connect your QuickBooks, and ask questions in plain English.
 
 ### What happens after the 14-day trial?
-You keep 25 essential read-only tools free. For all 132 tools including writes and tax prep, choose a paid plan.
+You keep 25 essential read-only tools free. For all 133 tools including writes and tax prep, choose a paid plan.
 
 ### Does this work with QuickBooks Desktop?
 AccountingQB currently supports QuickBooks Online only. Desktop support is on our roadmap.

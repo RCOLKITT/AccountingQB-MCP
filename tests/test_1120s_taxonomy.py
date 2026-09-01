@@ -185,3 +185,247 @@ def test_bad_entity_type_rejected(monkeypatch):
     _profile_patch(monkeypatch)
     out = asyncio.run(s.qb_allocation_profile(tax_year=2026, entity_type="c_corp"))
     assert "sole_prop" in out and "s_corp" in out
+
+
+# --- qb_form_1120s_summary (PR C) — golden numbers ----------------------------
+
+
+def _pl_fixture():
+    """Synthetic S-corp P&L:
+    Income: Sales 200,000; Refunds -5,000; Interest income 1,000 (K4);
+            Muni interest 500 (K16a, tax-exempt)
+    COGS: Materials 40,000
+    Expenses: Officer Wages 60,000 (declared officer comp → line 7);
+              Staff Wages 30,000 (line 8); Rent 12,000 (line 11);
+              Meals 4,000 (50% → 2,000 ded, 2,000 → K16c);
+              Entertainment 1,000 (NONDED_274 → K16c);
+              Charity 2,000 (K12a separately stated)
+    Book income = 195,500(+1,500 K/exempt inc) ... computed below."""
+
+    def leaf(name, amt):
+        return {"ColData": [{"value": name}, {"value": str(amt)}]}
+
+    def section(title, leaves):
+        return {
+            "Header": {"ColData": [{"value": title}]},
+            "Rows": {"Row": leaves},
+            "Summary": {
+                "ColData": [
+                    {"value": f"Total {title}"},
+                    {
+                        "value": str(
+                            sum(float(l["ColData"][1]["value"]) for l in leaves)
+                        )
+                    },
+                ]
+            },
+        }
+
+    return {
+        "Rows": {
+            "Row": [
+                section(
+                    "Income",
+                    [leaf("Sales", 200000.0), leaf("Refunds given", -5000.0)],
+                ),
+                section("Cost of Goods Sold", [leaf("Materials", 40000.0)]),
+                section(
+                    "Expenses",
+                    [
+                        leaf("Officer Wages", 60000.0),
+                        leaf("Staff Wages", 30000.0),
+                        leaf("Rent", 12000.0),
+                        leaf("Business meals", 4000.0),
+                        leaf("Client entertainment", 1000.0),
+                        leaf("Charitable donations", 2000.0),
+                    ],
+                ),
+                section(
+                    "Other Income",
+                    [
+                        leaf("Interest income", 1000.0),
+                        leaf("Muni bond interest", 500.0),
+                    ],
+                ),
+            ]
+        }
+    }
+
+
+def _patch_1120s(monkeypatch, subtypes=None):
+    async def fake_request(method, endpoint, **kw):
+        if "ProfitAndLoss" in endpoint:
+            return _pl_fixture()
+        if "GeneralLedger" in endpoint:
+            # Distribution account activity: two draws of -15,000 (equity debits).
+            return {
+                "Columns": {
+                    "Column": [
+                        {
+                            "ColType": "tx_date",
+                            "MetaData": [{"Name": "ColKey", "Value": "tx_date"}],
+                        },
+                        {
+                            "ColType": "amount",
+                            "MetaData": [
+                                {"Name": "ColKey", "Value": "subt_nat_amount"}
+                            ],
+                        },
+                    ]
+                },
+                "Rows": {
+                    "Row": [
+                        {
+                            "Header": {
+                                "ColData": [{"value": "Shareholder Distributions"}]
+                            },
+                            "Rows": {
+                                "Row": [
+                                    {
+                                        "ColData": [
+                                            {"value": "2026-03-01"},
+                                            {"value": "-15000"},
+                                        ]
+                                    },
+                                    {
+                                        "ColData": [
+                                            {"value": "2026-09-01"},
+                                            {"value": "-15000"},
+                                        ]
+                                    },
+                                ]
+                            },
+                        }
+                    ]
+                },
+            }
+        return {}
+
+    async def fake_query_all(q, **kw):
+        if "FROM Account" in q:
+            return {
+                "QueryResponse": {
+                    "Account": [
+                        {
+                            "Id": "77",
+                            "Name": "Shareholder Distributions",
+                            "AccountType": "Equity",
+                        }
+                    ]
+                }
+            }
+        return {"QueryResponse": {}}
+
+    async def fake_chart():
+        return (
+            subtypes
+            or {
+                "Sales": "SalesOfProductIncome",
+                "Refunds given": "DiscountsRefundsGiven",
+                "Materials": "SuppliesMaterialsCogs",
+                "Interest income": "InterestEarned",
+                "Muni bond interest": "TaxExemptInterest",
+                "Staff Wages": "PayrollExpenses",
+                "Officer Wages": "PayrollExpenses",
+                "Rent": "RentOrLeaseOfBuildings",
+                "Business meals": "TravelMeals",
+                "Client entertainment": "Entertainment",
+                "Charitable donations": "CharitableContributions",
+            },
+            {},
+        )
+
+    async def fake_profile(year):
+        return {
+            "entity": {
+                "type": "s_corp",
+                "shareholders": [
+                    {"name": "Ryan", "ownership_pct": 0.6},
+                    {"name": "Ava", "ownership_pct": 0.4},
+                ],
+                "officer_comp_accounts": ["Officer Wages"],
+                "distribution_accounts": ["Shareholder Distributions"],
+            }
+        }
+
+    async def fake_region():
+        return {
+            "region": "US",
+            "subdivision": "",
+            "home_currency": "USD",
+            "multicurrency": False,
+        }
+
+    monkeypatch.setattr(s, "qb_request", fake_request)
+    monkeypatch.setattr(s, "qb_query_all", fake_query_all)
+    monkeypatch.setattr(s, "_chart_maps", fake_chart)
+    monkeypatch.setattr(s, "_get_allocation_profile", fake_profile)
+    monkeypatch.setattr(s, "_get_region", fake_region)
+
+
+def test_1120s_golden_numbers(monkeypatch):
+    _patch_1120s(monkeypatch)
+    out = asyncio.run(s.qb_form_1120s_summary("2026"))
+    # Page 1: 200,000 − 5,000 returns − 40,000 COGS = 155,000 total income.
+    assert "Line 1a — Gross receipts or sales: $200,000.00" in out
+    assert "Line 1b — Returns and allowances: $5,000.00" in out
+    assert "Line 2 — Cost of goods sold: $40,000.00" in out
+    assert "Line 6 — Total income: $155,000.00" in out
+    # Officer comp pulled OUT of wages by declaration.
+    assert "Line 7 — Compensation of officers: $60,000.00" in out
+    assert "Line 8 — Salaries and wages: $30,000.00" in out
+    assert "Line 11 — Rents: $12,000.00" in out
+    # Meals at 50%: deductions = 60k+30k+12k+2k = 104,000 → ordinary 51,000.
+    assert "Line 21 — Total deductions: $104,000.00" in out
+    assert "Line 22 — Ordinary business income (loss): $51,000.00" in out
+    # Separately stated: interest K4, muni K16a, charity K12a — never in page 1.
+    assert "Interest income (separately stated): $1,000.00" in out
+    assert "Tax-exempt interest income: $500.00" in out
+    assert "Charitable contributions" in out and "$2,000.00" in out
+    # Nondeductible (K16c): 2,000 meals disallowed + 1,000 entertainment.
+    assert "meals disallowed ($2,000.00" in out
+    assert "Client entertainment ($1,000.00)" in out
+    # Distributions from the declared equity account: 30,000 out.
+    assert "Item 16d — Distributions: $30,000.00" in out
+    # M-1 ties: book 47,500 (196.5k inc − 40k COGS − 109k exp) + 3,000 nonded
+    # − 500 exempt = 50,000 = 51,000 ordinary + 1,000 K income − 2,000 K charity.
+    assert "Net income per books: $47,500.00" in out
+    assert "✅ Ties out." in out
+    # K-1 pro-rata (60/40 of 51,000 ordinary; 30,000 distributions).
+    assert "Ryan (60.00%)" in out and "$30,600.00" in out
+    assert "Ava (40.00%)" in out and "$20,400.00" in out
+    assert "distributions $18,000.00" in out and "distributions $12,000.00" in out
+    # Reasonable comp: 60k comp vs 30k distributions → no automatic flag.
+    assert "No automatic flag" in out
+
+
+def test_1120s_requires_entity_declaration(monkeypatch):
+    _patch_1120s(monkeypatch)
+
+    async def no_entity(year):
+        return {}
+
+    monkeypatch.setattr(s, "_get_allocation_profile", no_entity)
+    out = asyncio.run(s.qb_form_1120s_summary("2026"))
+    assert "never guessed" in out and "entity_type='s_corp'" in out
+    assert "Line 22" not in out  # no numbers produced without the declaration
+
+
+def test_1120s_reasonable_comp_flags_zero_salary(monkeypatch):
+    _patch_1120s(monkeypatch)
+
+    async def zero_comp_profile(year):
+        return {
+            "entity": {
+                "type": "s_corp",
+                "shareholders": [{"name": "Ryan", "ownership_pct": 1.0}],
+                "officer_comp_accounts": [],  # nothing declared as officer comp
+                "distribution_accounts": ["Shareholder Distributions"],
+            }
+        }
+
+    monkeypatch.setattr(s, "_get_allocation_profile", zero_comp_profile)
+    out = asyncio.run(s.qb_form_1120s_summary("2026"))
+    assert "HIGH RISK" in out and "Rev. Rul. 74-44" in out
+    # And never invents a salary figure.
+    assert "correct" not in out.split("HIGH RISK")[1][:400].lower()
