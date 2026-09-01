@@ -15,8 +15,8 @@ import json
 import pathlib
 import re
 
-TAX_DATA_VERSION = "2026.7"  # bumped by every approved rates PR
-TAX_DATA_VERIFIED = "2026-08-31"  # date of the last full verification sweep
+TAX_DATA_VERSION = "2026.8"  # bumped by every approved rates PR
+TAX_DATA_VERIFIED = "2026-09-01"  # date of the last full verification sweep
 
 
 class TaxDataError(ValueError):
@@ -363,48 +363,80 @@ def _ca_agency_is_provincial(display_name: str) -> bool:
 # fallback for accounts with a blank/custom subtype (see _NAME_FALLBACK_*).
 
 _ACCOUNT_TAXONOMY = {
+    # Keys per subtype: "us" = Schedule C line, "ca" = T2125/GIFI line,
+    # "us_1120s" = Form 1120-S line (page-1 number; "Kn" = separately-stated
+    # Schedule K item; "20_meals" = the 50%-limited meals slice of line 20).
+    # 1120-S numbers verified against the current IRS i1120s instructions
+    # (2022 renumbering: §179D at line 19, Other deductions 20, ordinary 22).
     # --- Income (AccountType Income) --------------------------------
-    "SalesOfProductIncome": {"us": "1", "ca": "8000"},
-    "ServiceFeeIncome": {"us": "1", "ca": "8000"},
-    "OtherPrimaryIncome": {"us": "1", "ca": "8000"},
-    "UnappliedCashPaymentIncome": {"us": "1", "ca": "8000"},
-    "DiscountsRefundsGiven": {"us": "2", "ca": "8000a"},  # returns & allowances
-    # --- Other Income (AccountType Other Income) -> Line 6 / CA 8230 -
-    "InterestEarned": {"us": "6", "ca": "8230"},
-    "DividendIncome": {"us": "6", "ca": "8230"},
-    "TaxExemptInterest": {"us": "6", "ca": "8230"},
-    "OtherMiscellaneousIncome": {"us": "6", "ca": "8230"},
+    "SalesOfProductIncome": {"us": "1", "ca": "8000", "us_1120s": "1a"},
+    "ServiceFeeIncome": {"us": "1", "ca": "8000", "us_1120s": "1a"},
+    "OtherPrimaryIncome": {"us": "1", "ca": "8000", "us_1120s": "1a"},
+    "UnappliedCashPaymentIncome": {"us": "1", "ca": "8000", "us_1120s": "1a"},
+    "DiscountsRefundsGiven": {
+        "us": "2",
+        "ca": "8000a",
+        "us_1120s": "1b",
+    },  # returns & allowances
+    # --- Other Income: separately stated on an 1120-S (Sch K), NOT page 1 ---
+    "InterestEarned": {"us": "6", "ca": "8230", "us_1120s": "K4"},
+    "DividendIncome": {"us": "6", "ca": "8230", "us_1120s": "K5a"},
+    "TaxExemptInterest": {"us": "6", "ca": "8230", "us_1120s": "K16a"},
+    "OtherMiscellaneousIncome": {"us": "6", "ca": "8230", "us_1120s": "5"},
+    # --- Cost of goods sold (QBO Cost of Goods Sold subtypes) --------
+    # 1120-S line 2 (Form 1125-A, summarized). No "us"/"ca" keys on purpose:
+    # Schedule C / T2125 classification is intentionally unchanged (these
+    # subtypes fall through to the name fallback exactly as before).
+    "SuppliesMaterialsCogs": {"us_1120s": "2"},
+    "CostOfLaborCos": {"us_1120s": "2"},
+    "EquipmentRentalCos": {"us_1120s": "2"},
+    "ShippingFreightDeliveryCos": {"us_1120s": "2"},
+    "OtherCostsOfServiceCos": {"us_1120s": "2"},
     # --- Expenses (AccountType Expense) -----------------------------
-    "AdvertisingPromotional": {"us": "8", "ca": "8521"},
-    "Auto": {"us": "9", "ca": "9281"},
-    "CommissionsAndFees": {"us": "10", "ca": "9270"},
-    "PayrollExpenses": {"us": "26", "ca": "9060"},
-    "Insurance": {"us": "15", "ca": "8690"},
-    "InterestPaid": {"us": "16b", "ca": "8710"},
-    "FinanceCosts": {"us": "16b", "ca": "8710"},
-    "BankCharges": {"us": "27a", "ca": "8710"},
-    "BadDebts": {"us": "27a", "ca": "8590"},
-    "LegalProfessionalFees": {"us": "17", "ca": "8860"},
-    "OfficeExpenses": {"us": "18", "ca": "8810"},
-    "OfficeGeneralAdministrativeExpenses": {"us": "18", "ca": "8810"},
-    "DuesSubscriptions": {"us": "27a", "ca": "8760"},
-    "SuppliesMaterials": {"us": "22", "ca": "8811"},
-    "RentOrLeaseOfBuildings": {"us": "20b", "ca": "8910"},
-    "EquipmentRental": {"us": "20a", "ca": "8910"},
-    "RepairMaintenance": {"us": "21", "ca": "8960"},
-    "Travel": {"us": "24a", "ca": "9200"},
-    "TravelMeals": {"us": "24b", "ca": "8523"},
-    "PromotionalMeals": {"us": "24b", "ca": "8523"},
-    "EntertainmentMeals": {"us": "24b", "ca": "8523"},
-    "Entertainment": {"us": "NONDED_274", "ca": "8523"},  # §274: not deductible (US)
+    "AdvertisingPromotional": {"us": "8", "ca": "8521", "us_1120s": "16"},
+    "Auto": {"us": "9", "ca": "9281", "us_1120s": "20"},
+    "CommissionsAndFees": {"us": "10", "ca": "9270", "us_1120s": "20"},
+    "PayrollExpenses": {"us": "26", "ca": "9060", "us_1120s": "8"},
+    "PayrollWageExpenses": {"us_1120s": "8"},
+    "PayrollTaxExpenses": {"us_1120s": "12"},  # employer share → taxes & licenses
+    "TaxesPaid": {"us_1120s": "12"},
+    "Insurance": {"us": "15", "ca": "8690", "us_1120s": "20"},
+    "InterestPaid": {"us": "16b", "ca": "8710", "us_1120s": "13"},
+    "FinanceCosts": {"us": "16b", "ca": "8710", "us_1120s": "13"},
+    "BankCharges": {"us": "27a", "ca": "8710", "us_1120s": "20"},
+    "BadDebts": {"us": "27a", "ca": "8590", "us_1120s": "10"},
+    "LegalProfessionalFees": {"us": "17", "ca": "8860", "us_1120s": "20"},
+    "OfficeExpenses": {"us": "18", "ca": "8810", "us_1120s": "20"},
+    "OfficeGeneralAdministrativeExpenses": {
+        "us": "18",
+        "ca": "8810",
+        "us_1120s": "20",
+    },
+    "DuesSubscriptions": {"us": "27a", "ca": "8760", "us_1120s": "20"},
+    "SuppliesMaterials": {"us": "22", "ca": "8811", "us_1120s": "20"},
+    "RentOrLeaseOfBuildings": {"us": "20b", "ca": "8910", "us_1120s": "11"},
+    "EquipmentRental": {"us": "20a", "ca": "8910", "us_1120s": "11"},
+    "RepairMaintenance": {"us": "21", "ca": "8960", "us_1120s": "9"},
+    "Travel": {"us": "24a", "ca": "9200", "us_1120s": "20"},
+    "TravelMeals": {"us": "24b", "ca": "8523", "us_1120s": "20_meals"},
+    "PromotionalMeals": {"us": "24b", "ca": "8523", "us_1120s": "20_meals"},
+    "EntertainmentMeals": {"us": "24b", "ca": "8523", "us_1120s": "20_meals"},
+    "Entertainment": {
+        "us": "NONDED_274",
+        "ca": "8523",
+        "us_1120s": "NONDED_274",  # entity-level nondeductible → Sch K item 16c
+    },  # §274: not deductible (US)
     "CharitableContributions": {
         "us": "NONDED_170",
         "ca": "NONDED",
+        # S-corp difference: charitable is NOT nondeductible at the entity —
+        # it's a separately-stated Sch K item that flows to shareholders (12a).
+        "us_1120s": "K12a",
     },  # sole-prop: Sch A / T1, not the business
-    "Utilities": {"us": "25", "ca": "9220"},
-    "ShippingFreightDelivery": {"us": "27a", "ca": "9275"},
-    "OtherMiscellaneousServiceCost": {"us": "27a", "ca": "9270"},
-    "OtherBusinessExpenses": {"us": "27a", "ca": "9270"},
+    "Utilities": {"us": "25", "ca": "9220", "us_1120s": "20"},
+    "ShippingFreightDelivery": {"us": "27a", "ca": "9275", "us_1120s": "20"},
+    "OtherMiscellaneousServiceCost": {"us": "27a", "ca": "9270", "us_1120s": "20"},
+    "OtherBusinessExpenses": {"us": "27a", "ca": "9270", "us_1120s": "20"},
 }
 
 # Authoritative line catalog per jurisdiction: the canonical ID + citation.
@@ -457,6 +489,67 @@ _SCHEDULE_C_CATALOG = {
 # authority + cite are uniform for the form, attach them once
 for _k, _v in _SCHEDULE_C_CATALOG.items():
     _v["authority"], _v["cite"] = "IRS-Sch-C", _IRS_SCHED_C
+
+# Form 1120-S (S corporation) — page-1 lines + the separately-stated Schedule K
+# items the taxonomy may target. Line numbers verified against the current IRS
+# Instructions for Form 1120-S (i1120s), 2026-09-01: the 2022 form renumbering
+# put the §179D energy-efficient-buildings deduction at line 19, Other
+# deductions at 20, Total deductions 21, Ordinary business income (loss) 22.
+_IRS_1120S = "https://www.irs.gov/instructions/i1120s"
+
+_1120S_CATALOG = {
+    "1a": {"desc": "Gross receipts or sales", "mef": None},
+    "1b": {"desc": "Returns and allowances", "mef": None},
+    "2": {"desc": "Cost of goods sold (Form 1125-A)", "mef": None},
+    "4": {"desc": "Net gain (loss) from Form 4797", "mef": None},
+    "5": {"desc": "Other income (loss)", "mef": None},
+    "7": {"desc": "Compensation of officers", "mef": None},
+    "8": {"desc": "Salaries and wages", "mef": None},
+    "9": {"desc": "Repairs and maintenance", "mef": None},
+    "10": {"desc": "Bad debts", "mef": None},
+    "11": {"desc": "Rents", "mef": None},
+    "12": {"desc": "Taxes and licenses", "mef": None},
+    "13": {"desc": "Interest", "mef": None},
+    "14": {"desc": "Depreciation (Form 4562)", "mef": None},
+    "15": {"desc": "Depletion", "mef": None},
+    "16": {"desc": "Advertising", "mef": None},
+    "17": {"desc": "Pension, profit-sharing, etc., plans", "mef": None},
+    "18": {"desc": "Employee benefit programs", "mef": None},
+    "19": {
+        "desc": "Energy efficient commercial buildings deduction (Form 7205)",
+        "mef": None,
+    },
+    "20": {"desc": "Other deductions", "mef": None},
+    "20_meals": {
+        "desc": "Meals within Other deductions — 50% deductible (IRC §274(n)); "
+        "the disallowed half is a Schedule K item 16c nondeductible expense",
+        "mef": None,
+    },
+    "22": {"desc": "Ordinary business income (loss)", "mef": None},
+    # Separately-stated Schedule K items (never in page-1 ordinary income).
+    "K4": {"desc": "Schedule K — Interest income (separately stated)", "mef": None},
+    "K5a": {"desc": "Schedule K — Ordinary dividends (separately stated)", "mef": None},
+    "K12a": {
+        "desc": "Schedule K — Charitable contributions (separately stated; "
+        "flows to shareholders, not an entity deduction)",
+        "mef": None,
+    },
+    "K16a": {"desc": "Schedule K — Tax-exempt interest income", "mef": None},
+    "K16c": {"desc": "Schedule K — Nondeductible expenses", "mef": None},
+    "K16d": {"desc": "Schedule K — Distributions", "mef": None},
+    "NONDED_274": {
+        "desc": "Entertainment — not deductible (IRC §274(a)); reported as a "
+        "Schedule K item 16c nondeductible expense",
+        "mef": None,
+    },
+    "NONDED_162E": {
+        "desc": "Political contributions & lobbying — not deductible (IRC §162(e)); "
+        "a Schedule K item 16c nondeductible expense",
+        "mef": None,
+    },
+}
+for _k, _v in _1120S_CATALOG.items():
+    _v["authority"], _v["cite"] = "IRS-1120S", _IRS_1120S
 
 _T2125_CATALOG = {
     "8000": "Gross sales, commissions or fees",
@@ -562,6 +655,44 @@ _NAME_FALLBACK_CA = [
     (r"vehicle|automobile|auto\b|mileage|motor", "9281"),
     (r"software|subscription|hosting|education|training|tax(?:es)?\b", "9270"),
 ]
+# 1120-S name fallback: the SAME word-boundary patterns as Schedule C, with each
+# target translated to its 1120-S line — one pattern list, two forms, so the two
+# fallbacks can never drift apart. Lines with no 1120-S analogue go to line 20.
+_SCHC_TO_1120S_LINE = {
+    "1": "1a",
+    "2": "1b",
+    "6": "5",
+    "8": "16",
+    "9": "20",  # no vehicle line on the 1120-S
+    "10": "20",
+    "11": "20",  # contract labor → other deductions
+    "12": "15",  # depletion
+    "13": "14",  # depreciation
+    "14": "18",  # employee benefits
+    "15": "20",  # insurance → other deductions
+    "16a": "13",
+    "16b": "13",
+    "17": "20",  # legal/professional → other deductions
+    "18": "20",  # office → other deductions
+    "19": "17",  # pension/profit-sharing
+    "20a": "11",
+    "20b": "11",
+    "21": "9",
+    "22": "20",  # supplies → other deductions
+    "23": "12",
+    "24a": "20",  # travel → other deductions
+    "24b": "20_meals",
+    "25": "20",  # utilities → other deductions
+    "26": "8",
+    "27a": "20",
+    "NONDED_274": "NONDED_274",
+    "NONDED_170": "K12a",  # S-corp: charitable is separately stated, not nonded
+    "NONDED_162E": "NONDED_162E",
+}
+_NAME_FALLBACK_1120S = [
+    (p, _SCHC_TO_1120S_LINE.get(line, "20")) for p, line in _NAME_FALLBACK_US
+]
+
 _NAME_FALLBACK_COMPILED = {
     "us": [
         (re.compile(r"\b(?:" + p + r")", re.I), line) for p, line in _NAME_FALLBACK_US
@@ -569,9 +700,17 @@ _NAME_FALLBACK_COMPILED = {
     "ca": [
         (re.compile(r"\b(?:" + p + r")", re.I), line) for p, line in _NAME_FALLBACK_CA
     ],
+    "us_1120s": [
+        (re.compile(r"\b(?:" + p + r")", re.I), line)
+        for p, line in _NAME_FALLBACK_1120S
+    ],
 }
-_CATCH_ALL = {"us": "27a", "ca": "9270"}
-_CATALOG = {"us": _SCHEDULE_C_CATALOG, "ca": _T2125_CATALOG}
+_CATCH_ALL = {"us": "27a", "ca": "9270", "us_1120s": "20"}
+_CATALOG = {
+    "us": _SCHEDULE_C_CATALOG,
+    "ca": _T2125_CATALOG,
+    "us_1120s": _1120S_CATALOG,
+}
 _HOME_8829 = re.compile(
     r"\b(home office|home-office|homeowner|home util\w*|home insurance)\b", re.I
 )
@@ -618,14 +757,19 @@ _SYSTEM_EQUITY_SUBTYPES = {
 }
 
 
-def classify_account(name: str, subtype: str, jurisdiction: str):
+def classify_account(name: str, subtype: str, jurisdiction: str, form: str = ""):
     """Map one account to its tax line. jurisdiction: 'US' or 'CA'.
+    form: '' (default — Schedule C / T2125 by jurisdiction) or '1120s' (US S-corp;
+    Form 1120-S page-1 lines + separately-stated Schedule K items).
     Returns (line, desc, flags). Prefers the authoritative AccountSubType;
-    falls back to word-boundary name rules; else the jurisdiction catch-all.
-    flags may include 'home_8829' (US, review on Form 8829) and 'nondeductible'.
-    A line starting with "NONDED" marks a book expense that is NOT a deduction on
-    the business return (entertainment §274, charitable §170, political §162(e))."""
+    falls back to word-boundary name rules; else the form's catch-all.
+    flags may include 'home_8829' (US sole-prop, review on Form 8829),
+    'nondeductible' (a NONDED_* line), and 'separately_stated' (a Schedule K
+    item on the 1120-S — never part of page-1 ordinary income)."""
     juris = "us" if str(jurisdiction).upper() == "US" else "ca"
+    form_key = str(form or "").lower().replace("-", "").replace("form", "").strip()
+    if juris == "us" and form_key == "1120s":
+        juris = "us_1120s"
     catalog = _CATALOG[juris]
     name = name or ""
     line = None
@@ -643,6 +787,8 @@ def classify_account(name: str, subtype: str, jurisdiction: str):
     flags = []
     if line.startswith("NONDED"):
         flags.append("nondeductible")
+    if line.startswith("K"):
+        flags.append("separately_stated")
     if juris == "us" and _HOME_8829.search(name):
         flags.append("home_8829")
     return line, desc, flags
@@ -670,6 +816,14 @@ _STATUTORY_LIMITS = {
         "cite": "ITA s.67.1",
         "since": None,
         "desc": "Meals & entertainment — 50% deductible",
+    },
+    "meals_us_1120s": {
+        "factor": 0.50,
+        "line": "20_meals",  # 1120-S-only line id, so the (juris, line) index can't clash
+        "jurisdiction": "US",
+        "cite": "IRC §274(n)",
+        "since": "2023-01-01",
+        "desc": "Business meals (1120-S) — 50% deductible; disallowed half → Sch K 16c",
     },
     # NONDED_* lines are the degenerate case (factor 0.0); they are handled
     # separately (segregated + cited) rather than reduced in place.
@@ -1031,10 +1185,10 @@ TABLES: dict = {
         year_keyed=False,
         jurisdiction="US-federal",
         kind="stable_statute",
-        description="QuickBooks AccountSubType -> IRS Schedule C line + CRA T2125/GIFI line",
-        source="IRS Schedule C instructions (i1040sc) + CRA Form T2125",
+        description="QuickBooks AccountSubType -> IRS Schedule C line + CRA T2125/GIFI line + Form 1120-S line",
+        source="IRS Schedule C instructions (i1040sc) + CRA Form T2125 + IRS 1120-S instructions (i1120s)",
         source_url="https://www.irs.gov/instructions/i1040sc",
-        verified="2026-08-03",
+        verified="2026-09-01",
         review="annual-january",
         sanity={},
     ),
@@ -1047,6 +1201,18 @@ TABLES: dict = {
         source="IRS Schedule C instructions (i1040sc)",
         source_url="https://www.irs.gov/instructions/i1040sc",
         verified="2026-08-03",
+        review="annual-january",
+        sanity={},
+    ),
+    "FORM_1120S_CATALOG": dict(
+        values=_1120S_CATALOG,
+        year_keyed=False,
+        jurisdiction="US-federal",
+        kind="stable_statute",
+        description="Authoritative Form 1120-S line catalog (page-1 lines + separately-stated Schedule K items)",
+        source="IRS Instructions for Form 1120-S (i1120s); line numbering per the 2022 form renumbering (§179D line 19, Other deductions 20, ordinary income 22)",
+        source_url="https://www.irs.gov/instructions/i1120s",
+        verified="2026-09-01",
         review="annual-january",
         sanity={},
     ),
