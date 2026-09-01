@@ -5,6 +5,19 @@ shown in-app once, right after the app updates itself. Keep entries short and wr
 for the person using the app — not for engineers. One `## <version> — <date>` heading
 per release; the app parses these headings.
 
+## 0.3.0 — 2026-09-01
+
+- **S corporation and partnership tax workpapers.** Declare your entity type and
+  AccountingQB arranges your books onto Form 1120-S or Form 1065 — including the
+  Schedule M-1 book-to-tax reconciliation, per-owner K-1 summaries, and (for
+  S-corps) a reasonable-compensation check. Workpapers to hand your CPA, with
+  every line verified against the IRS instructions.
+- **Categorization rules that remember.** Save rules like "uber → Travel" once and
+  clear the whole uncategorized backlog in one pass — always previewed before
+  anything changes, and consistent every month.
+- **1099-MISC report.** Rents, royalties (at the correct $10 threshold), and other
+  reportable payments — completing the 1099 story alongside the improved 1099-NEC.
+
 ## 0.2.0 — 2026-08-31
 
 - **The app now updates itself.** When we ship a new version, AccountingQB downloads
