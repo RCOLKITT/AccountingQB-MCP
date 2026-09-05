@@ -34,7 +34,7 @@ inferred from code and needs a live check (that check is itself the gap).
 | Tests (web) | 🟢 | `cd web && npm run test:e2e` (Playwright) | Smoke suite over all public routes + headers/robots/download/auth-gate, on a real prod build; in CI (`web-e2e`). Authed dashboard flows = follow-up. |
 | Secret scan | 🟢 | `bash scripts/scan-secrets.sh` | In CI; also blocks real QBO realm ids in tracked files |
 | Theater scan | 🟢 | `bash scripts/scan-theater.sh` | **In CI (blocking)** — clean; demo mode + UI placeholders excluded with reasons |
-| Branch protection | 🟢 | GitHub settings | `main` requires PR + **pytest, secret-scan, theater, web-checks**; admins keep emergency-merge |
+| Branch protection | 🟢 | GitHub settings | `main` requires PR + **pytest, secret-scan, theater, web-checks, web-e2e**; admins keep emergency-merge |
 
 ## Progress (Phase 1, 2026-08-28)
 Closed: **G1** (docs/FLAGS.md), **G8** (web tsc in CI, blocking), **G12** (theater gate in CI,

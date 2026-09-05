@@ -13,7 +13,7 @@ real behavior drifts from its designed state, that's a bug — fix the code or u
 | Coffer pairing gate | The Coffer structured dialect on the 3 contract tools requires the identity-verified pairing secret; a secret-less call gets the normal (confirm-gated) tool, so the app's own UI is never locked out | `_load_pairing` + `x-aqb-pairing` (serve.py `mcp_call`) | Platform |
 | `MCP_JWT_SECRET` fail-closed | Remote connector refuses all requests if unset | `remote.py` | Platform |
 | `TOKEN_ENCRYPTION_KEY` fail-closed | Production refuses to run without it | server.py / web | Platform |
-| Branch protection | `main` requires PR + pytest + secret-scan + theater + web-checks | GitHub settings | Owner |
+| Branch protection | `main` requires PR + pytest + secret-scan + theater + web-checks + web-e2e | GitHub settings | Owner |
 | Update signature | Desktop auto-update installs only artifacts signed by the pinned minisign pubkey | `plugins.updater.pubkey` (tauri.conf.json) + CI `TAURI_SIGNING_PRIVATE_KEY` | Owner |
 
 ## Rate limits (hard stops on public endpoints — Upstash)
