@@ -31,7 +31,7 @@ inferred from code and needs a live check (that check is itself the gap).
 | Lint | 🟢 | `ruff check` (py) + `npm run lint` (web), both BLOCKING | Python ruff F+I; web ESLint errors-only (compiler-era rules are visible warnings — G9 backlog). |
 | Format | 🟢 | `prettier --check` (web) + `black --check` (py), both in CI | **BLOCKING** — G10 done: 139 web files reformatted + prettier gate in `web-checks`; 43 py files reformatted + `black --check` in the `pytest` job. |
 | Tests (py) | 🟢 | `python3 -m pytest tests/ -q` | **412 pass**; in CI (`tests.yml`) |
-| Tests (web) | 🟢 | `cd web && npm run test:e2e` (Playwright) | Smoke suite over all public routes + headers/robots/download/auth-gate, on a real prod build; in CI (`web-e2e`). Authed dashboard flows = follow-up. |
+| Tests (web) | 🟢 | `cd web && npm run test:e2e` (Playwright) | Public-route smoke + **auth-boundary** (protected API/admin routes reject anon; no anon writes) on a real prod build; in CI (`web-e2e`, required). Authed happy-path (signed-in dashboard) needs a Clerk test user = follow-up. |
 | Secret scan | 🟢 | `bash scripts/scan-secrets.sh` | In CI; also blocks real QBO realm ids in tracked files |
 | Theater scan | 🟢 | `bash scripts/scan-theater.sh` | **In CI (blocking)** — clean; demo mode + UI placeholders excluded with reasons |
 | Branch protection | 🟢 | GitHub settings | `main` requires PR + **pytest, secret-scan, theater, web-checks, web-e2e**; admins keep emergency-merge |
