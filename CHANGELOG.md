@@ -5,6 +5,18 @@ shown in-app once, right after the app updates itself. Keep entries short and wr
 for the person using the app — not for engineers. One `## <version> — <date>` heading
 per release; the app parses these headings.
 
+## 0.3.1 — 2026-09-05
+
+- **Manage a book of clients.** If your license has several QuickBooks companies, a
+  new Clients switcher lets you move between them in-app — everything (reports, tax,
+  tools) follows the active client. Your books stay on your machine.
+- **Tax workpapers, one click.** A Workpapers button runs Schedule C, Form 1120-S
+  (S-corp), or Form 1065 (partnership) for the active company, right in the app.
+- **Categorization rules, visible.** A Rules panel to view your saved rules, preview
+  a cleanup of uncategorized transactions, and apply it — always previewed first.
+- **Get paid faster.** A Get-paid button finds overdue invoices and re-emails them as
+  reminders (preview before anything sends), plus you can email any invoice on demand.
+
 ## 0.3.0 — 2026-09-01
 
 - **S corporation and partnership tax workpapers.** Declare your entity type and
