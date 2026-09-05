@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 const faqs: { q: string; a: string }[] = [
   {
     q: "What is AccountingQB?",
-    a: "AccountingQB is an AI-powered QuickBooks Online integration for Claude. It gives Claude 136 tools to run financial reports, clean up bookkeeping, reconcile accounts, and prepare US and Canadian taxes through natural conversation. It connects to QuickBooks Online over the Model Context Protocol (MCP) — as a downloadable desktop app, a Claude Desktop extension, or a hosted connector.",
+    a: "AccountingQB is an AI-powered QuickBooks Online integration for Claude. It gives Claude 138 tools to run financial reports, clean up bookkeeping, reconcile accounts, and prepare US and Canadian taxes through natural conversation. It connects to QuickBooks Online over the Model Context Protocol (MCP) — as a downloadable desktop app, a Claude Desktop extension, or a hosted connector.",
   },
   {
     q: "How does AccountingQB work?",
@@ -25,7 +25,7 @@ const faqs: { q: string; a: string }[] = [
   },
   {
     q: "What can AccountingQB do?",
-    a: "136 tools spanning financial reports (P&L, balance sheet, cash flow, general ledger, AR/AP aging, sales by customer/product/class), bookkeeping cleanup (uncategorized transactions, duplicates, anomaly detection, a structural books-hygiene audit), reconciliation, sales-tax economic-nexus screening, and full US and Canadian tax preparation.",
+    a: "138 tools spanning financial reports (P&L, balance sheet, cash flow, general ledger, AR/AP aging, sales by customer/product/class), bookkeeping cleanup (uncategorized transactions, duplicates, anomaly detection, a structural books-hygiene audit), reconciliation, sales-tax economic-nexus screening, and full US and Canadian tax preparation.",
   },
   {
     q: "Does AccountingQB support Canadian businesses?",
@@ -33,7 +33,7 @@ const faqs: { q: string; a: string }[] = [
   },
   {
     q: "How much does AccountingQB cost?",
-    a: "Three plans: Solopreneur at $39/month, Business at $99/month, and Firm at $299/month (with CAD pricing for Canadian customers), each with a 14-day free trial. After the trial you keep 25 essential read-only tools for free; paid plans unlock all 136 tools including writes, tax prep, and advanced analytics.",
+    a: "Three plans: Solopreneur at $39/month, Business at $99/month, and Firm at $299/month (with CAD pricing for Canadian customers), each with a 14-day free trial. After the trial you keep 25 essential read-only tools for free; paid plans unlock all 138 tools including writes, tax prep, and advanced analytics.",
   },
   {
     q: "Which Claude apps does AccountingQB work with?",
@@ -49,7 +49,7 @@ const faqs: { q: string; a: string }[] = [
   },
   {
     q: "How is AccountingQB different from other QuickBooks integrations?",
-    a: "It is the most comprehensive QuickBooks MCP server for Claude — 136 tools versus a handful in typical integrations — it uniquely covers both US and Canadian tax prep with sourced, dated tax data, and its connector is current with the 2026-07-28 MCP specification: stateless, load-balancer-ready, and using none of the deprecated protocol features.",
+    a: "It is the most comprehensive QuickBooks MCP server for Claude — 138 tools versus a handful in typical integrations — it uniquely covers both US and Canadian tax prep with sourced, dated tax data, and its connector is current with the 2026-07-28 MCP specification: stateless, load-balancer-ready, and using none of the deprecated protocol features.",
   },
 ];
 

@@ -4,7 +4,7 @@
   "display_name": "AccountingQB \u2014 QuickBooks for Claude",
   "version": "3.18.1",
   "icon": "icon.png",
-  "description": "136 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
+  "description": "138 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
   "long_description": "Connect Claude to your QuickBooks Online with one click. Run P&L reports, reconcile transactions, prep for taxes, detect anomalies, and more. Full US and Canada support: Schedule C, quarterly estimates and 1099s for the US; GST/HST returns, T2125, CCA schedules, T4A reporting and CRA instalments for Canada. Your data stays on your machine \u2014 zero cloud routing.\n\n**Getting Started:**\n1. Enter your license key (get one at accountingqb.com)\n2. Click 'Connect QuickBooks' when prompted\n3. Start asking Claude about your books!\n\n**Requirements:** Python 3.10 or newer on your machine (all Python package dependencies are bundled with the extension).",
   "author": {
     "name": "Vaspera Capital",
@@ -4048,6 +4048,63 @@
           "customer_name",
           "amount"
         ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_send_invoice",
+      "description": "Email an existing invoice to the customer through QuickBooks. This sends a",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {
+            "type": "string",
+            "description": "Invoice Id"
+          },
+          "send_to": {
+            "type": "string",
+            "description": "Send To",
+            "default": ""
+          }
+        },
+        "required": [
+          "invoice_id"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_send_payment_reminders",
+      "description": "Chase overdue invoices: find every invoice past its due date with an open",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "as_of_date": {
+            "type": "string",
+            "description": "As Of Date",
+            "default": ""
+          },
+          "apply": {
+            "type": "boolean",
+            "description": "Apply",
+            "default": false
+          },
+          "max_sends": {
+            "type": "integer",
+            "description": "Max Sends",
+            "default": 25
+          }
+        }
       },
       "annotations": {
         "destructiveHint": true

@@ -15961,6 +15961,154 @@ async def qb_record_invoice_payment(
 
 
 # ===================================================================
+# GETTING PAID — send invoices + chase overdue (Phase 5 slice 1)
+# ===================================================================
+
+
+def _invoice_line(inv: dict) -> str:
+    """One-line summary of an invoice for send/reminder output."""
+    bal = float(inv.get("Balance", 0) or 0)
+    total = float(inv.get("TotalAmt", 0) or 0)
+    due = inv.get("DueDate", "N/A")
+    cust = inv.get("CustomerRef", {}).get("name", "?")
+    status = "PAID" if bal == 0 else "OPEN"
+    return (
+        f"#{inv.get('DocNumber', inv.get('Id'))} · {cust} · {fmt(total)} "
+        f"(balance {fmt(bal)}) · due {due} · {status}"
+    )
+
+
+async def _send_one_invoice(invoice_id: str, send_to: str = "") -> tuple[bool, str]:
+    """Email a single invoice via QuickBooks' send endpoint. Returns (ok, note).
+    send_to overrides the recipient; otherwise QuickBooks uses the invoice's
+    BillEmail. QuickBooks sets EmailStatus to 'EmailSent' on success."""
+    params = {"sendTo": send_to} if send_to else None
+    try:
+        resp = await qb_request(
+            "POST", f"invoice/{invoice_id}/send", params=params, json_body=None
+        )
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"
+    inv = resp.get("Invoice", {})
+    to = send_to or inv.get("BillEmail", {}).get("Address", "the customer on file")
+    return True, f"emailed to {to} (status: {inv.get('EmailStatus', 'EmailSent')})"
+
+
+@mcp.tool(annotations={"destructiveHint": True})
+async def qb_send_invoice(invoice_id: str, send_to: str = "") -> str:
+    """Email an existing invoice to the customer through QuickBooks. This sends a
+    real email — it is confirm-gated. invoice_id: the QuickBooks invoice ID (from
+    qb_list_invoices). send_to: optional email to override the invoice's saved
+    BillEmail (comma-separate for several). Re-sending an open invoice is exactly
+    how you send a payment reminder for a single customer."""
+    invoice_id = _sanitize_input(invoice_id, "invoice_id")
+    if _demo_active():
+        return (
+            f"🎭 *Demo Mode* — would email invoice {invoice_id} to "
+            f"{send_to or 'the customer on file'} (no email sent in demo)."
+        )
+    try:
+        inv = (await qb_read("invoice", invoice_id)).get("Invoice", {})
+    except Exception:
+        inv = {}
+    if not inv:
+        return f"Invoice {invoice_id} not found. Use qb_list_invoices to find the ID."
+    if not send_to and not inv.get("BillEmail", {}).get("Address"):
+        return (
+            f"Invoice {invoice_id} has no email on file. Pass send_to='name@example.com', "
+            "or add the customer's email in QuickBooks first."
+        )
+    ok, note = await _send_one_invoice(invoice_id, send_to)
+    _audit_log("SEND_INVOICE", f"id={invoice_id} ok={ok}")
+    if not ok:
+        return f"⚠️ Could not send invoice {invoice_id}: {note}"
+    return f"✅ Invoice {_invoice_line(inv)}\n  {note}"
+
+
+@mcp.tool(annotations={"destructiveHint": True})
+async def qb_send_payment_reminders(
+    as_of_date: str = "", apply: bool = False, max_sends: int = 25
+) -> str:
+    """Chase overdue invoices: find every invoice past its due date with an open
+    balance and re-email it as a reminder. DEFAULTS TO A PREVIEW — it lists who
+    would be emailed and sends nothing until you re-run with apply=True (these are
+    real customer emails; human confirms the batch). Skips invoices with no email
+    on file (listed separately). as_of_date: YYYY-MM-DD overdue cutoff (default
+    today); max_sends caps one batch."""
+    from datetime import date as _date
+
+    as_of = (
+        _sanitize_input(as_of_date, "as_of_date") if as_of_date else str(_date.today())
+    )
+    if _demo_active():
+        return (
+            "🎭 *Demo Mode* — would preview/send overdue reminders (no email in demo)."
+        )
+
+    res = await qb_query_all(
+        "SELECT * FROM Invoice WHERE Balance > '0' MAXRESULTS 1000"
+    )
+    invoices = res.get("QueryResponse", {}).get("Invoice", [])
+    overdue = [
+        i
+        for i in invoices
+        if i.get("DueDate")
+        and i["DueDate"] < as_of
+        and float(i.get("Balance", 0) or 0) > 0
+    ]
+    if not overdue:
+        return f"No overdue invoices as of {as_of} — nothing to chase. 🎉"
+    overdue.sort(key=lambda i: i.get("DueDate", ""))
+
+    emailable = [i for i in overdue if i.get("BillEmail", {}).get("Address")]
+    no_email = [i for i in overdue if not i.get("BillEmail", {}).get("Address")]
+    total_open = sum(float(i.get("Balance", 0) or 0) for i in overdue)
+
+    if not apply:
+        lines = [
+            f"## Overdue reminders — preview (as of {as_of})\n",
+            f"**{len(overdue)} overdue invoices · {fmt(total_open)} open.** "
+            "Nothing sent yet — re-run with apply=True to email the batch.\n",
+            f"**Would email ({min(len(emailable), max_sends)}):**",
+        ]
+        for i in emailable[:max_sends]:
+            to = i.get("BillEmail", {}).get("Address", "")
+            lines.append(f"  - {_invoice_line(i)} → {to}")
+        if len(emailable) > max_sends:
+            lines.append(f"  … and {len(emailable) - max_sends} more beyond max_sends.")
+        if no_email:
+            lines.append(f"\n**No email on file ({len(no_email)}) — skipped:**")
+            for i in no_email[:15]:
+                lines.append(f"  - {_invoice_line(i)}")
+            lines.append("  Add these customers' emails in QuickBooks to include them.")
+        return "\n".join(lines)
+
+    sent = failed = 0
+    fail_notes = []
+    for i in emailable[:max_sends]:
+        ok, note = await _send_one_invoice(str(i.get("Id")))
+        if ok:
+            sent += 1
+        else:
+            failed += 1
+            if len(fail_notes) < 5:
+                fail_notes.append(f"  - #{i.get('DocNumber', i.get('Id'))}: {note}")
+    _audit_log("SEND_REMINDERS", f"sent={sent} failed={failed} overdue={len(overdue)}")
+    out = [
+        f"## Overdue reminders sent (as of {as_of})\n",
+        f"  Emailed: {sent}",
+        *([f"  Failed: {failed}"] + fail_notes if failed else []),
+        *(
+            [f"  Beyond this batch: {len(emailable) - max_sends} — re-run to continue."]
+            if len(emailable) > max_sends
+            else []
+        ),
+        *([f"  Skipped (no email): {len(no_email)}"] if no_email else []),
+    ]
+    return "\n".join(out)
+
+
+# ===================================================================
 # NEW: Create Estimate
 # ===================================================================
 

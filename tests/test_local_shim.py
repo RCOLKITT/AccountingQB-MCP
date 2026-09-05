@@ -32,7 +32,7 @@ def test_healthz(client):
 
 def test_status_reports_tools(client):
     data = client.get("/api/status").json()
-    assert data["toolCount"] == 136
+    assert data["toolCount"] == 138
     assert data["connected"] is False  # no QB in tests
 
 
@@ -684,6 +684,12 @@ def test_index_serves_practice_ui(client):
     assert 'id="clients-open"' in html and 'id="clients-modal"' in html
     assert 'id="workpapers-open"' in html and "qb_form_1120s_summary" in html
     assert 'id="rules-open"' in html and "qb_apply_categorization_rules" in html
+
+
+def test_index_serves_getpaid_ui(client):
+    html = client.get("/").text
+    assert 'id="getpaid-open"' in html and 'id="getpaid-modal"' in html
+    assert "qb_send_payment_reminders" in html
 
 
 def test_index_serves_whatsnew_ui(client):

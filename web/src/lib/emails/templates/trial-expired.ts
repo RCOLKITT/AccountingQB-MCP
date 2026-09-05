@@ -27,7 +27,7 @@ export function trialExpiredEmail(params: TrialExpiredEmailParams): {
 
     ${paragraph("You're now on our <strong>free read-only plan</strong>: you keep 25 essential tools for reports and lookups. Your QuickBooks data stays safe and unchanged — we never store your financial information.")}
 
-    ${paragraph("Want the full 136 tools back — writes, tax prep, and the deduction finder? Pick a plan anytime:")}
+    ${paragraph("Want the full 138 tools back — writes, tax prep, and the deduction finder? Pick a plan anytime:")}
 
     ${primaryButton("Choose a plan", pricingUrl)}
 
@@ -42,7 +42,7 @@ export function trialExpiredEmail(params: TrialExpiredEmailParams): {
     subject: `Your AccountingQB trial has ended`,
     html: emailWrapper(
       content,
-      `Your trial has ended — you're on the free plan; pick a plan anytime to unlock all 136 tools`,
+      `Your trial has ended — you're on the free plan; pick a plan anytime to unlock all 138 tools`,
     ),
   };
 }
