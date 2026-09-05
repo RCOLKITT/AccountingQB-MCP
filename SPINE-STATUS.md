@@ -28,7 +28,7 @@ inferred from code and needs a live check (that check is itself the gap).
 |------|--------|---------|-------|
 | Typecheck (web) | 🟢 | `cd web && npx tsc --noEmit` | **In CI (blocking)** — `web-checks` job |
 | Typecheck (py) | N/A | — | Python; type hints present, no mypy gate (optional) |
-| Lint | 🟡 | `ruff check` (py, BLOCKING) | Python ruff curated to correctness (F+I) and **BLOCKING** in `pytest` — found + fixed a real `NameError` (F821) + dead fetches. ESLint (web) still unconfigured = remaining **Gap G9**. |
+| Lint | 🟢 | `ruff check` (py) + `npm run lint` (web), both BLOCKING | Python ruff F+I; web ESLint errors-only (compiler-era rules are visible warnings — G9 backlog). |
 | Format | 🟢 | `prettier --check` (web) + `black --check` (py), both in CI | **BLOCKING** — G10 done: 139 web files reformatted + prettier gate in `web-checks`; 43 py files reformatted + `black --check` in the `pytest` job. |
 | Tests (py) | 🟢 | `python3 -m pytest tests/ -q` | **412 pass**; in CI (`tests.yml`) |
 | Tests (web) | 🔴 | (none) | **Gap G11:** no web unit/e2e suite |
@@ -68,9 +68,7 @@ ESLint** (web; `next lint` is deprecated → needs migration to the ESLint CLI, 
    an external dead-man switch (healthchecks.io). *~3-4h.*
 7. ~~**G7 dependency audit**~~ — DONE: `npm audit --audit-level=high` is BLOCKING in `web-checks` (0 vulnerabilities after the Next.js 16 upgrade cleared the sharp/libvips highs + `npm audit fix` cleared the rest). `pip-audit` (python) remains report-only.
 8. ~~**G8 web typecheck in CI**~~ — DONE: `web-checks` job runs `tsc --noEmit` (blocking).
-9. **G9 lint gate** — PYTHON HALF DONE: ruff curated to correctness (F+I), cleared, and **blocking**
-   in `pytest` (caught a real F821 `NameError` + dead fetches). REMAINING: ESLint (web) — `next lint`
-   is deprecated, so migrate to the ESLint CLI, pick a ruleset, clear + gate. *~2-3h.*
+9. **G9 lint gate** — PYTHON DONE (ruff F+I blocking). WEB: ESLint (flat config) now BLOCKING in `web-checks` (`npm run lint`) — errors only. It caught + fixed a real conditional-hooks bug (SupportWidget) and 2 unescaped entities. The React-19.2 compiler-era rules (immutability, purity, set-state-in-effect, exhaustive-deps — 64 warnings) are VISIBLE but non-blocking; clearing them is the remaining G9 backlog, best done under the new web e2e suite (G11). *~half day under e2e cover.*
 10. ~~**G10 format gate**~~ — DONE: one-time `prettier --write` (139 web files) + `black` (43 py
     files), both now blocking in CI with pinned configs (prettier in `web-checks`, `black --check`
     in `pytest`).

@@ -369,8 +369,8 @@ function SettingsContent() {
               Cancel Subscription?
             </h3>
             <p className="text-gray-400 mb-6">
-              Are you sure you want to cancel your subscription? You'll retain
-              access until the end of your current billing period.
+              Are you sure you want to cancel your subscription? You&apos;ll
+              retain access until the end of your current billing period.
             </p>
             <div className="flex gap-3">
               <button
@@ -467,8 +467,8 @@ function SettingsContent() {
                 </div>
                 <p className="text-gray-400 mb-6">
                   This will generate a new license key and immediately
-                  invalidate your current one. You'll need to update your local
-                  configuration with the new key.
+                  invalidate your current one. You&apos;ll need to update your
+                  local configuration with the new key.
                 </p>
                 <div className="flex gap-3">
                   <button
