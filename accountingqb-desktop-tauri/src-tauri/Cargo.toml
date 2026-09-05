@@ -1,6 +1,6 @@
 [package]
 name = "accountingqb"
-version = "0.3.0"
+version = "0.3.1"
 description = "AccountingQB — talk to your QuickBooks locally; your books stay on your machine"
 edition = "2021"
 
