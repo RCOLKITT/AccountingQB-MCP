@@ -31,7 +31,7 @@ inferred from code and needs a live check (that check is itself the gap).
 | Lint | 🟢 | `ruff check` (py) + `npm run lint` (web), both BLOCKING | Python ruff F+I; web ESLint errors-only (compiler-era rules are visible warnings — G9 backlog). |
 | Format | 🟢 | `prettier --check` (web) + `black --check` (py), both in CI | **BLOCKING** — G10 done: 139 web files reformatted + prettier gate in `web-checks`; 43 py files reformatted + `black --check` in the `pytest` job. |
 | Tests (py) | 🟢 | `python3 -m pytest tests/ -q` | **412 pass**; in CI (`tests.yml`) |
-| Tests (web) | 🔴 | (none) | **Gap G11:** no web unit/e2e suite |
+| Tests (web) | 🟢 | `cd web && npm run test:e2e` (Playwright) | Smoke suite over all public routes + headers/robots/download/auth-gate, on a real prod build; in CI (`web-e2e`). Authed dashboard flows = follow-up. |
 | Secret scan | 🟢 | `bash scripts/scan-secrets.sh` | In CI; also blocks real QBO realm ids in tracked files |
 | Theater scan | 🟢 | `bash scripts/scan-theater.sh` | **In CI (blocking)** — clean; demo mode + UI placeholders excluded with reasons |
 | Branch protection | 🟢 | GitHub settings | `main` requires PR + **pytest, secret-scan, theater, web-checks**; admins keep emergency-merge |
@@ -72,8 +72,11 @@ ESLint** (web; `next lint` is deprecated → needs migration to the ESLint CLI, 
 10. ~~**G10 format gate**~~ — DONE: one-time `prettier --write` (139 web files) + `black` (43 py
     files), both now blocking in CI with pinned configs (prettier in `web-checks`, `black --check`
     in `pytest`).
-11. **G11 web tests** — a starter Playwright e2e against the dashboard + a dedicated test license
-    (top-3 riskiest paths: license verify, OAuth connect, checkout). *~1 day.*
+11. **G11 web tests** — STARTER DONE: a Playwright smoke suite (`web/tests/e2e/`) runs on a real
+    `next build` + `next start` in CI (`web-e2e` job) — every public route returns <400 with real
+    content, plus security headers, robots/sitemap, the download redirect, and the dashboard
+    auth-gate. The build itself is now a regression check. REMAINING: authenticated dashboard/
+    admin flows need a dedicated Clerk test user (license verify, OAuth connect, checkout). *~half day.*
 12. ~~**G12 theater-scan gate**~~ — DONE: `scripts/scan-theater.sh` in CI (blocking), clean.
 
 **Not a gap (already strong):** the Constitution's Product Laws (workpapers-not-filings, region

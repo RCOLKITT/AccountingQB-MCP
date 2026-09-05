@@ -47,6 +47,29 @@ jobs:
       - run: cd web && npm run lint                                  # ESLint (BLOCKING — G9; errors only, compiler-era rules are warnings)
       - run: cd web && npm audit --audit-level=high                  # web dep advisories (BLOCKING — G7; clean since Next 16)
 
+  web-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: cd web && npm ci
+      - run: cd web && npx playwright install --with-deps chromium
+      # Dummy but format-valid Clerk keys — app builds/serves signed-out, no real auth.
+      # Publishable keys are public; the "secret" is fake (secret-scan flags only
+      # sk_live_). Production uses the real keys on Vercel.
+      - run: cd web && npm run build
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk"
+          CLERK_SECRET_KEY: "sk_test_ZHVtbXlfc2VjcmV0X2Zvcl9lMmVfc21va2Vfb25seQ"
+      - run: cd web && npm run test:e2e
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk"
+          CLERK_SECRET_KEY: "sk_test_ZHVtbXlfc2VjcmV0X2Zvcl9lMmVfc21va2Vfb25seQ"
+
   # Installed-and-red beats absent (VASPERA-SPINE §3): runs and is VISIBLE but does not block merges
   # yet. Remaining report-only: pip-audit (python advisories) + ESLint (G9). Prettier + black + ruff
   # (G10 + G9 python) and npm audit (G7, web) are now BLOCKING.
