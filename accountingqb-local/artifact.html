@@ -275,6 +275,7 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
 <button class="qbtn" id="import-open" title="Import a client's trial balance / GL and turn it into a workpaper">&#128228; Import client data</button>
 <button class="qbtn" id="workpapers-open" title="Tax workpapers: Schedule C, Form 1120-S, Form 1065">&#129534; Workpapers</button>
 <button class="qbtn" id="rules-open" title="Categorization rules — view, preview cleanup, apply">&#129504; Rules</button>
+<button class="qbtn" id="getpaid-open" title="Chase overdue invoices — preview then send reminders">&#128176; Get paid</button>
 <button class="qbtn" id="clients-open" hidden title="Your clients — switch the active QuickBooks company">&#128101; Clients</button>
 <button class="qbtn" data-write="invoice"><span class="plus">+</span> Invoice</button>
 <button class="qbtn" data-write="expense"><span class="plus">+</span> Expense</button>
@@ -571,6 +572,21 @@ body{font-family:'IBM Plex Sans',-apple-system,'Helvetica Neue',sans-serif;backg
         <span id="ru-msg" class="conn-sub" style="display:inline"></span>
       </div>
       <div id="ru-out" class="md-content" style="max-height:420px;overflow:auto;margin-top:10px"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="getpaid-modal" role="dialog" aria-modal="true" aria-labelledby="gp-title" hidden>
+  <div class="modal" style="max-width:720px">
+    <div class="modal-h"><h2 id="gp-title">Get paid — overdue reminders</h2><button class="modal-x" id="gp-close" aria-label="Close">&#10005;</button></div>
+    <div class="modal-body">
+      <p class="conn-sub" style="margin-top:0">Finds every overdue invoice with a balance and re-emails it as a reminder. Preview shows exactly who would be emailed; nothing is sent until you send the batch.</p>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn2 ghost" id="gp-preview">Preview overdue</button>
+        <button class="btn2" id="gp-send">Send reminders</button>
+        <span id="gp-msg" class="conn-sub" style="display:inline"></span>
+      </div>
+      <div id="gp-out" class="md-content" style="max-height:420px;overflow:auto;margin-top:10px"></div>
     </div>
   </div>
 </div>
@@ -1637,7 +1653,7 @@ document.addEventListener('keydown', (e) => {
   if(e.key === 'Escape'){
     const wn = document.getElementById('whatsnew-modal');
     if(!wn.hidden){ closeWhatsNew(); return; }
-    for(const mid of ['clients-modal', 'workpapers-modal', 'rules-modal']){
+    for(const mid of ['clients-modal', 'workpapers-modal', 'rules-modal', 'getpaid-modal']){
       const m = document.getElementById(mid);
       if(!m.hidden){ m.hidden = true; return; }
     }
@@ -2253,6 +2269,24 @@ document.getElementById('ru-preview').addEventListener('click', () => runRules({
 document.getElementById('ru-apply').addEventListener('click', () => {
   if(!window.confirm('Reclassify every transaction shown in the preview? This writes to QuickBooks.')) return;
   runRules({ apply: true, confirmed: true }, 'Applying');
+});
+
+// ============ Get paid: overdue reminders ============
+const _gpModal = _modalWire('getpaid-modal', 'gp-close');
+async function runGetPaid(apply){
+  const out = document.getElementById('gp-out'), msg = document.getElementById('gp-msg');
+  msg.textContent = apply ? 'Sending…' : 'Checking…'; if(!apply || !out.innerHTML) out.innerHTML = SKEL;
+  try{
+    // destructiveHint tool → /mcp needs confirmed:true; the explicit click is that confirmation.
+    const r = await call('qb_send_payment_reminders', apply ? { apply: true, confirmed: true } : { confirmed: true });
+    out.innerHTML = md2html(r); msg.textContent = '';
+  }catch(e){ msg.textContent = 'Failed: ' + e; }
+}
+document.getElementById('getpaid-open').addEventListener('click', () => { _gpModal.hidden = false; runGetPaid(false); });
+document.getElementById('gp-preview').addEventListener('click', () => runGetPaid(false));
+document.getElementById('gp-send').addEventListener('click', () => {
+  if(!window.confirm('Email a payment reminder to every overdue customer shown? This sends real emails.')) return;
+  runGetPaid(true);
 });
 
 // ============ Boot ============

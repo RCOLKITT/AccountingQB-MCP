@@ -40,7 +40,7 @@ export function qbConnectedEmail(params: QbConnectedEmailParams): {
 
     ${primaryButton("View Dashboard", dashboardUrl)}
 
-    ${paragraph("Just open Claude Desktop and start asking questions about your books. AccountingQB gives Claude 136 tools to help with everything from reports to reconciliation.")}
+    ${paragraph("Just open Claude Desktop and start asking questions about your books. AccountingQB gives Claude 138 tools to help with everything from reports to reconciliation.")}
 
     ${paragraph("Questions? Reply to this email anytime.")}
 
