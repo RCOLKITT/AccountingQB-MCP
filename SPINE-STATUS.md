@@ -66,11 +66,7 @@ ESLint** (web; `next lint` is deprecated → needs migration to the ESLint CLI, 
    fixed fixture; assert never-fabricate + no write-tool exposure). *~half day.*
 6. **G6 cron heartbeat + dead-man** — confirm Vercel crons pin UTC; add a heartbeat row per run +
    an external dead-man switch (healthchecks.io). *~3-4h.*
-7. **G7 dependency audit** — `pip-audit` + `npm audit --audit-level=high` both run report-only in CI
-   (`quality-report`). **Open triage (2026-09-05):** `sharp` → libvips (4 highs, CVE-2026-33327/33328/
-   35590/35591) + a couple moderates; npm's only fix is `next@16` (a breaking major), so it is
-   **deliberately deferred** — visible in CI, not force-fixed. To make `npm audit` BLOCKING, first do
-   the Next 16 upgrade (its own PR + full web QA) or pin/replace `sharp`. *~½ day when we take Next 16.*
+7. ~~**G7 dependency audit**~~ — DONE: `npm audit --audit-level=high` is BLOCKING in `web-checks` (0 vulnerabilities after the Next.js 16 upgrade cleared the sharp/libvips highs + `npm audit fix` cleared the rest). `pip-audit` (python) remains report-only.
 8. ~~**G8 web typecheck in CI**~~ — DONE: `web-checks` job runs `tsc --noEmit` (blocking).
 9. **G9 lint gate** — PYTHON HALF DONE: ruff curated to correctness (F+I), cleared, and **blocking**
    in `pytest` (caught a real F821 `NameError` + dead fetches). REMAINING: ESLint (web) — `next lint`
