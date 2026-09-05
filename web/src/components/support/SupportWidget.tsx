@@ -29,12 +29,6 @@ export default function SupportWidget({
   const [showEscalation, setShowEscalation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Hide on landing page
-  const hiddenPaths = ["/", "/pricing"];
-  if (hiddenPaths.includes(pathname)) {
-    return null;
-  }
-
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
@@ -42,6 +36,13 @@ export default function SupportWidget({
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  // Hide on landing pages — AFTER all hooks so the hook order is stable across
+  // navigation (Rules of Hooks: never return before a hook runs).
+  const hiddenPaths = ["/", "/pricing"];
+  if (hiddenPaths.includes(pathname)) {
+    return null;
+  }
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
