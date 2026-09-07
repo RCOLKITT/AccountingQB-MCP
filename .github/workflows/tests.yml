@@ -49,6 +49,18 @@ jobs:
 
   web-e2e:
     runs-on: ubuntu-latest
+    # Real Clerk *development-instance* keys + a +clerk_test user + Supabase come from
+    # repo secrets (sourced from Doppler `accountingqb-mcp/dev`). When a secret is
+    # unavailable (fork PRs can't read secrets), each falls back to a dummy key and the
+    # authenticated spec skips itself — public smoke + auth-boundary still run. No real
+    # sk_live_ / production instance is ever used here.
+    env:
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_TEST_PUBLISHABLE_KEY || 'pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk' }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_TEST_SECRET_KEY || 'sk_test_ZHVtbXlfc2VjcmV0X2Zvcl9lMmVfc21va2Vfb25seQ' }}
+      E2E_CLERK_USER: ${{ secrets.E2E_CLERK_USER }}
+      E2E_CLERK_PASSWORD: ${{ secrets.E2E_CLERK_PASSWORD }}
+      SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@v4
@@ -58,17 +70,8 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: cd web && npm ci
       - run: cd web && npx playwright install --with-deps chromium
-      # Dummy but format-valid Clerk keys — app builds/serves signed-out, no real auth.
-      # Publishable keys are public; the "secret" is fake (secret-scan flags only
-      # sk_live_). Production uses the real keys on Vercel.
       - run: cd web && npm run build
-        env:
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk"
-          CLERK_SECRET_KEY: "sk_test_ZHVtbXlfc2VjcmV0X2Zvcl9lMmVfc21va2Vfb25seQ"
       - run: cd web && npm run test:e2e
-        env:
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk"
-          CLERK_SECRET_KEY: "sk_test_ZHVtbXlfc2VjcmV0X2Zvcl9lMmVfc21va2Vfb25seQ"
 
   # Installed-and-red beats absent (VASPERA-SPINE §3): runs and is VISIBLE but does not block merges
   # yet. Remaining report-only: pip-audit (python advisories) + ESLint (G9). Prettier + black + ruff

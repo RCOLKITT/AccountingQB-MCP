@@ -31,7 +31,7 @@ inferred from code and needs a live check (that check is itself the gap).
 | Lint | 🟢 | `ruff check` (py) + `npm run lint` (web), both BLOCKING | Python ruff F+I; web ESLint errors-only (compiler-era rules are visible warnings — G9 backlog). |
 | Format | 🟢 | `prettier --check` (web) + `black --check` (py), both in CI | **BLOCKING** — G10 done: 139 web files reformatted + prettier gate in `web-checks`; 43 py files reformatted + `black --check` in the `pytest` job. |
 | Tests (py) | 🟢 | `python3 -m pytest tests/ -q` | **412 pass**; in CI (`tests.yml`) |
-| Tests (web) | 🟢 | `cd web && npm run test:e2e` (Playwright) | Public-route smoke + **auth-boundary** (protected API/admin routes reject anon; no anon writes) on a real prod build; in CI (`web-e2e`, required). Authed happy-path (signed-in dashboard) needs a Clerk test user = follow-up. |
+| Tests (web) | 🟢 | `cd web && npm run test:e2e` (Playwright) | Public-route smoke + **auth-boundary** (protected API/admin routes reject anon; no anon writes) + **authed happy-path** (a real signed-in Clerk user renders the dashboard) on a real prod build; in CI (`web-e2e`, required). Authed spec uses a Clerk **dev-instance** `+clerk_test` user via `@clerk/testing` (creds: Doppler → GitHub secrets); it skips cleanly when creds are absent (fork PRs), never touches the `pk_live_` prod instance. |
 | Secret scan | 🟢 | `bash scripts/scan-secrets.sh` | In CI; also blocks real QBO realm ids in tracked files |
 | Theater scan | 🟢 | `bash scripts/scan-theater.sh` | **In CI (blocking)** — clean; demo mode + UI placeholders excluded with reasons |
 | Branch protection | 🟢 | GitHub settings | `main` requires PR + **pytest, secret-scan, theater, web-checks, web-e2e**; admins keep emergency-merge |
@@ -53,6 +53,20 @@ blocking — the gate immediately paid for itself, catching a real `NameError` (
 in the create-bill success message, F821) plus several dead fetches/assignments. Remaining: **G9
 ESLint** (web; `next lint` is deprecated → needs migration to the ESLint CLI, its own decision).
 
+## Progress (Phase 3, 2026-09-07)
+**G9 ESLint** (web) closed and blocking (`npm run lint` in `web-checks`) — caught + fixed a real
+conditional-hooks bug (SupportWidget) and 2 unescaped entities; compiler-era rules left VISIBLE as
+warnings. **G7** closed (`npm audit --audit-level=high` blocking). **G11** advanced to the
+authenticated happy-path: `@clerk/testing` global setup fetches a Testing Token once (guarded — a
+no-op without creds), and `dashboard.auth.spec.ts` signs in a real Clerk **dev-instance**
+`+clerk_test` user (email_code magic-code strategy — no password provisioning) and asserts the
+signed-in dashboard renders. Dev-instance Clerk + Supabase creds flow Doppler (`accountingqb-mcp/dev`)
+→ GitHub Actions secrets; the `web-e2e` job injects them with dummy-key fallbacks so fork PRs (no
+secret access) skip the authed spec and still run smoke + auth-boundary. Never uses the `pk_live_`
+prod instance; creates no book data. Verified locally: 24/24 pass with creds, authed spec skips
+cleanly without them. Pre-scale: `tool_usage` composite index `(license_key, invoked_at DESC)`
+shipped (#89); retention/rollup window remains an owner decision (OPS).
+
 ## Declared gaps (with rough cost to close)
 
 1. ~~**G1 flag registry**~~ — DONE: `docs/FLAGS.md`.
@@ -72,11 +86,15 @@ ESLint** (web; `next lint` is deprecated → needs migration to the ESLint CLI, 
 10. ~~**G10 format gate**~~ — DONE: one-time `prettier --write` (139 web files) + `black` (43 py
     files), both now blocking in CI with pinned configs (prettier in `web-checks`, `black --check`
     in `pytest`).
-11. **G11 web tests** — STARTER DONE: a Playwright smoke suite (`web/tests/e2e/`) runs on a real
-    `next build` + `next start` in CI (`web-e2e` job) — every public route returns <400 with real
-    content, plus security headers, robots/sitemap, the download redirect, and the dashboard
-    auth-gate. The build itself is now a regression check. REMAINING: authenticated dashboard/
-    admin flows need a dedicated Clerk test user (license verify, OAuth connect, checkout). *~half day.*
+11. **G11 web tests** — LARGELY DONE: a Playwright suite (`web/tests/e2e/`) runs on a real
+    `next build` + `next start` in CI (`web-e2e` job, required) — every public route returns <400
+    with real content, plus security headers, robots/sitemap, the download redirect, the
+    auth-boundary net (protected API/admin routes reject anon; no anon writes), and now the
+    **authenticated happy-path** (a real signed-in Clerk `+clerk_test` user renders the dashboard,
+    via `@clerk/testing` global setup + Testing Token; dev-instance creds Doppler→GitHub secrets;
+    guarded to skip on fork PRs). The build itself is a regression check. REMAINING (thinner):
+    deeper authed flows — license verify with a seeded `is_test` license, OAuth connect, checkout.
+    *~2-3h.*
 12. ~~**G12 theater-scan gate**~~ — DONE: `scripts/scan-theater.sh` in CI (blocking), clean.
 
 **Not a gap (already strong):** the Constitution's Product Laws (workpapers-not-filings, region

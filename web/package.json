@@ -30,6 +30,7 @@
     "svix": "~1.92.2"
   },
   "devDependencies": {
+    "@clerk/testing": "~2.2.33",
     "@playwright/test": "~1.63.0",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",
