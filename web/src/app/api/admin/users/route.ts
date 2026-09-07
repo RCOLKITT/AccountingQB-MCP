@@ -84,12 +84,11 @@ export async function GET(req: NextRequest) {
     if (!cur || ts > cur) lastActive.set(key, ts);
   };
   if (keys.length > 0) {
+    // Tool last-active from the permanent rollup (date-grain, MAX(day)) so it stays
+    // correct for accounts idle beyond the raw-row retention window; oauth activity
+    // from event_logs. rollup_by_license returns one row per license (bounded).
     const [{ data: usageRows }, { data: eventRows }] = await Promise.all([
-      supabase
-        .from("tool_usage")
-        .select("license_key, invoked_at")
-        .in("license_key", keys)
-        .order("invoked_at", { ascending: false }),
+      supabase.rpc("rollup_by_license", { p_keys: keys, p_since: null }),
       supabase
         .from("event_logs")
         .select("license_key, created_at")
@@ -99,9 +98,9 @@ export async function GET(req: NextRequest) {
     ]);
     for (const r of (usageRows as {
       license_key: string;
-      invoked_at: string;
+      last_day: string;
     }[]) || [])
-      noteActivity(r.license_key, r.invoked_at);
+      noteActivity(r.license_key, r.last_day);
     for (const r of (eventRows as {
       license_key: string;
       created_at: string;

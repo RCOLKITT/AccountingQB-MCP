@@ -37,6 +37,7 @@ real behavior drifts from its designed state, that's a bug — fix the code or u
 |------|----------------|-------------|-------|
 | Demo mode (`_demo_active`) | Canned QuickBooks data ONLY when no QB is connected / demo license `LK-DEMO-REVIEW2026`; logs "DEMO MODE" to the user | server.py | Platform |
 | `is_test` (licenses) | Test licenses excluded from real metrics/dashboards | web admin/usage queries | Owner |
+| tool_usage retention | Raw per-call rows kept `TOOL_USAGE_RETENTION_DAYS` (default **90**) days; a permanent `tool_usage_daily` rollup preserves all-time totals so pruning never shrinks lifetime numbers. Prune runs only when `TOOL_USAGE_PRUNE_ENABLED=true` | `web/src/app/api/cron/rollup-usage/route.ts` + `prune_tool_usage()` / `rollup_tool_usage()` (Supabase) | Owner |
 | Hosted vs local tier | Data-locality promise differs by tier (Constitution §"Books Data Locality") | connector + marketing copy | Owner |
 | Two-door (`in_app=1`) | Desktop shell affordances only in the packaged app | `accountingqb-local/artifact.html` | Platform |
 

@@ -2,9 +2,14 @@ import { getSupabase } from "@/lib/supabase";
 
 /**
  * Server-side aggregation of MCP tool usage for the admin CEO dashboard.
- * Reads the `tool_usage` table (populated by the MCP server after each tool
- * invocation) joined to `licenses` and `oauth_tokens`. Test/demo licenses
- * (`is_test = true`) are excluded so the numbers reflect real customers.
+ *
+ * Aggregates over the permanent `tool_usage_daily` rollup via SQL RPCs (bounded to
+ * ≤#tools / ≤#accounts rows) instead of paging every raw `tool_usage` row — the old
+ * paginating scan grew unbounded and each page still risked the PostgREST cap.
+ * Test/demo licenses (`is_test = true`) are excluded so numbers reflect real
+ * customers. Windows (7/30/90d) are within the 90-day raw-retention window and the
+ * rollup is ≤15 min fresh, so figures match live usage. `lastActive` is date-grain
+ * (the rollup's UTC day).
  */
 
 export interface ToolStat {
@@ -51,55 +56,46 @@ interface LicenseRow {
   is_test: boolean;
 }
 
-interface UsageRow {
-  license_key: string;
-  tool_name: string;
-  time_saved_minutes: number | null;
-  invoked_at: string;
-}
-
 /** Only 7/30/90 are accepted upstream; clamp defensively. */
 export function normalizeDays(raw: string | undefined): number {
   return raw === "7" ? 7 : raw === "90" ? 90 : 30;
 }
 
-// tool_usage grows unbounded — page through it so usage metrics don't silently
-// plateau at Supabase's default 1000-row cap.
-async function fetchAllUsage(
-  sb: ReturnType<typeof getSupabase>,
-  since: string,
-): Promise<UsageRow[]> {
-  const out: UsageRow[] = [];
-  const PAGE = 1000;
-  for (let from = 0; from <= 500000; from += PAGE) {
-    const { data } = await sb
-      .from("tool_usage")
-      .select("license_key, tool_name, time_saved_minutes, invoked_at")
-      .gte("invoked_at", since)
-      .order("invoked_at", { ascending: false })
-      .range(from, from + PAGE - 1);
-    const rows = (data as UsageRow[]) || [];
-    out.push(...rows);
-    if (rows.length < PAGE) break;
-  }
-  return out;
+function emptyAnalytics(): UsageAnalytics {
+  return {
+    totalCalls: 0,
+    activeAccounts: 0,
+    hoursSaved: 0,
+    avgCallsPerAccount: 0,
+    topTools: [],
+    byTier: [],
+    accounts: [],
+    empty: true,
+  };
 }
 
 export async function getUsageAnalytics(days: number): Promise<UsageAnalytics> {
   const sb = getSupabase();
-  const since = new Date(Date.now() - days * 86400000).toISOString();
+  // Rollup grain is UTC calendar day; convert the lookback to a since-date.
+  const sinceDate = new Date(Date.now() - days * 86400000)
+    .toISOString()
+    .slice(0, 10);
 
-  const [{ data: licenses }, { data: tokens }, usage] = await Promise.all([
+  const [{ data: licenses }, { data: tokens }] = await Promise.all([
     sb
       .from("licenses")
       .select("key, email, tier, status, is_test")
       .limit(50000),
     sb.from("oauth_tokens").select("license_key, company_name").limit(50000),
-    fetchAllUsage(sb, since),
   ]);
 
   const licByKey = new Map<string, LicenseRow>();
   for (const l of (licenses as LicenseRow[]) || []) licByKey.set(l.key, l);
+  const nonTestKeys = [...licByKey.values()]
+    .filter((l) => !l.is_test)
+    .map((l) => l.key);
+
+  if (nonTestKeys.length === 0) return emptyAnalytics();
 
   const companyByKey = new Map<string, string>();
   for (const t of (tokens as {
@@ -111,54 +107,47 @@ export async function getUsageAnalytics(days: number): Promise<UsageAnalytics> {
     }
   }
 
-  // Only real customers' usage.
-  const rows = ((usage as UsageRow[]) || []).filter((r) => {
-    const l = licByKey.get(r.license_key);
-    return l && !l.is_test;
-  });
+  // Per-tool and per-account aggregates for real customers in-window (SQL-side).
+  const [{ data: toolRows }, { data: acctRows }] = await Promise.all([
+    sb.rpc("rollup_by_tool", { p_keys: nonTestKeys, p_since: sinceDate }),
+    sb.rpc("rollup_by_license", { p_keys: nonTestKeys, p_since: sinceDate }),
+  ]);
 
-  const toolAgg = new Map<string, ToolStat>();
-  const acctAgg = new Map<string, AccountUsage & { tools: Set<string> }>();
-
-  for (const r of rows) {
-    const l = licByKey.get(r.license_key)!;
-    const mins = r.time_saved_minutes || 0;
-
-    const t = toolAgg.get(r.tool_name) || {
+  const topTools: ToolStat[] = (
+    (toolRows as { tool_name: string; calls: number; minutes: number }[]) || []
+  )
+    .map((r) => ({
       tool: r.tool_name,
-      calls: 0,
-      minutesSaved: 0,
-    };
-    t.calls += 1;
-    t.minutesSaved += mins;
-    toolAgg.set(r.tool_name, t);
+      calls: Number(r.calls || 0),
+      minutesSaved: Number(r.minutes || 0),
+    }))
+    .sort((x, y) => y.calls - x.calls);
 
-    let a = acctAgg.get(r.license_key);
-    if (!a) {
-      a = {
+  const accounts: AccountUsage[] = (
+    (acctRows as {
+      license_key: string;
+      calls: number;
+      minutes: number;
+      distinct_tools: number;
+      last_day: string;
+    }[]) || []
+  )
+    .map((r) => {
+      const l = licByKey.get(r.license_key);
+      if (!l) return null;
+      return {
         licenseKey: r.license_key,
         email: l.email,
         tier: l.tier,
         status: l.status,
         company: companyByKey.get(r.license_key) || null,
-        calls: 0,
-        minutesSaved: 0,
-        distinctTools: 0,
-        lastActive: r.invoked_at,
-        tools: new Set<string>(),
-      };
-      acctAgg.set(r.license_key, a);
-    }
-    a.calls += 1;
-    a.minutesSaved += mins;
-    a.tools.add(r.tool_name);
-    // rows are ordered newest-first, so the first seen is the most recent.
-  }
-
-  const topTools = [...toolAgg.values()].sort((x, y) => y.calls - x.calls);
-
-  const accounts: AccountUsage[] = [...acctAgg.values()]
-    .map(({ tools, ...a }) => ({ ...a, distinctTools: tools.size }))
+        calls: Number(r.calls || 0),
+        minutesSaved: Number(r.minutes || 0),
+        distinctTools: Number(r.distinct_tools || 0),
+        lastActive: r.last_day,
+      } as AccountUsage;
+    })
+    .filter((a): a is AccountUsage => a !== null)
     .sort((x, y) => y.calls - x.calls);
 
   const tierMap = new Map<string, TierUsage>();
@@ -173,9 +162,9 @@ export async function getUsageAnalytics(days: number): Promise<UsageAnalytics> {
     tierMap.set(a.tier, tu);
   }
 
-  const totalCalls = rows.length;
+  const totalCalls = accounts.reduce((s, a) => s + a.calls, 0);
   const activeAccounts = accounts.length;
-  const minutes = rows.reduce((s, r) => s + (r.time_saved_minutes || 0), 0);
+  const minutes = accounts.reduce((s, a) => s + a.minutesSaved, 0);
 
   return {
     totalCalls,

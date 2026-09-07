@@ -67,6 +67,18 @@ prod instance; creates no book data. Verified locally: 24/24 pass with creds, au
 cleanly without them. Pre-scale: `tool_usage` composite index `(license_key, invoked_at DESC)`
 shipped (#89); retention/rollup window remains an owner decision (OPS).
 
+## Progress (Phase 4, 2026-09-07)
+Closed the deferred **tool_usage retention** decision (was flagged in OPS as owner-gated). Policy:
+**90-day raw retention + a permanent daily rollup** (`tool_usage_daily`, grain license×tool×UTC-day).
+Shipped: the rollup table + `rollup_tool_usage()`/`prune_tool_usage()` + 3 read RPCs
+(`rollup_by_tool`, `rollup_by_license`, `engagement_by_license`), applied to the live DB and
+backfilled (verified rollup SUM == raw at every license/tool grain). A 15-min `rollup-usage` cron
+keeps it fresh; **all six usage reads** (update-stats, usage/stats, admin/users[/key], engagement,
+usage-analytics) now aggregate server-side over the rollup — which also **fixed a live correctness
+bug**: those reads full-fetched raw rows and silently capped at PostgREST's ~1000 rows, undercounting
+all-time calls/hours (prod was already at ~1141 rows). Prune is gated OFF (`TOOL_USAGE_PRUNE_ENABLED`)
+until the read rewire is verified in prod, then it's a config flip — no rows are >90d old yet anyway.
+
 ## Declared gaps (with rough cost to close)
 
 1. ~~**G1 flag registry**~~ — DONE: `docs/FLAGS.md`.
