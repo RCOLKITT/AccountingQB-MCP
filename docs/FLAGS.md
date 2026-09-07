@@ -7,7 +7,7 @@ real behavior drifts from its designed state, that's a bug — fix the code or u
 | Control | Designed state | Enforced in | Owner |
 |---------|----------------|-------------|-------|
 | Write confirm-gate | Any book-mutating tool via the shim `/mcp` requires `confirmed:true` | `accountingqb-local/serve.py` `_is_write_tool` | Platform |
-| Region gating | Every jurisdiction-specific tool refuses the wrong region (US↔CA) | `_get_region` / `require_region` (server.py) | Tax |
+| Region gating | Every jurisdiction-specific tool refuses the wrong region (US↔CA) | `_get_region` / `require_region` (server.py); regression net: `tests/test_region_gating.py` auto-discovers every `@require_region` tool and asserts it refuses + never fetches on a mismatch | Tax |
 | License gating | Licensed tools require an active/trialing license | `require_license` (server.py), web license routes | Platform |
 | Chat read-only allowlist | `/chat` agentic loop exposes ONLY read-only tools (never a write) | `_CHAT_ALLOW` / `_anthropic_tools()` (serve.py) | Platform |
 | Coffer pairing gate | The Coffer structured dialect on the 3 contract tools requires the identity-verified pairing secret; a secret-less call gets the normal (confirm-gated) tool, so the app's own UI is never locked out | `_load_pairing` + `x-aqb-pairing` (serve.py `mcp_call`) | Platform |
