@@ -420,6 +420,36 @@ LANGUAGE sql STABLE SET search_path = public AS $$
   GROUP BY license_key;
 $$;
 
+-- Schema-drift introspection (G3): deterministic JSON of public columns + indexes,
+-- diffed against web/schema-snapshot.json by web/scripts/check-schema-drift.mjs.
+CREATE OR REPLACE FUNCTION schema_snapshot()
+RETURNS jsonb
+LANGUAGE sql STABLE SET search_path = public AS $$
+  SELECT jsonb_build_object(
+    'columns', (
+      SELECT coalesce(jsonb_agg(c ORDER BY c->>'table', c->>'column'), '[]'::jsonb)
+      FROM (
+        SELECT jsonb_build_object(
+          'table', table_name,
+          'column', column_name,
+          'type', data_type,
+          'nullable', is_nullable,
+          'default', column_default
+        ) AS c
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+      ) x
+    ),
+    'indexes', (
+      SELECT coalesce(jsonb_agg(i ORDER BY i->>'name'), '[]'::jsonb)
+      FROM (
+        SELECT jsonb_build_object('name', indexname, 'table', tablename, 'def', indexdef) AS i
+        FROM pg_indexes WHERE schemaname = 'public'
+      ) y
+    )
+  );
+$$;
+
 -- ============================================================
 -- Support Conversations: stores chat history for continuity
 -- ============================================================

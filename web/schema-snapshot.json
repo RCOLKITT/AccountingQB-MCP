@@ -1,0 +1,1647 @@
+{
+  "columns": [
+    {
+      "type": "timestamp with time zone",
+      "table": "account_links",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "account_links",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "account_links",
+      "column": "identity_hash",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "account_links",
+      "column": "license_key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "account_links",
+      "column": "pairing_secret",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "account_links",
+      "column": "peer_identity",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "account_links",
+      "column": "peer_product",
+      "default": "'coffer'::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "account_links",
+      "column": "revoked_at",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "admin_users",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "admin_users",
+      "column": "email",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "admin_users",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "admin_users",
+      "column": "role",
+      "default": "'admin'::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "allocation_profiles",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "allocation_profiles",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "allocation_profiles",
+      "column": "license_key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "jsonb",
+      "table": "allocation_profiles",
+      "column": "profile",
+      "default": "'{}'::jsonb",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "allocation_profiles",
+      "column": "realm_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "integer",
+      "table": "allocation_profiles",
+      "column": "tax_year",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "allocation_profiles",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "app_downloads",
+      "column": "downloaded_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "app_downloads",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "app_downloads",
+      "column": "ip_hash",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "app_downloads",
+      "column": "license_key",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "app_downloads",
+      "column": "platform",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "app_downloads",
+      "column": "referrer",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "app_downloads",
+      "column": "user_agent_hash",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "app_downloads",
+      "column": "version",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "artifacts",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "artifacts",
+      "column": "created_by",
+      "default": "'claude'::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "jsonb",
+      "table": "artifacts",
+      "column": "data",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "artifacts",
+      "column": "description",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "artifacts",
+      "column": "format",
+      "default": "'table'::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "artifacts",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "artifacts",
+      "column": "license_key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "artifacts",
+      "column": "name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "artifacts",
+      "column": "realm_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "boolean",
+      "table": "artifacts",
+      "column": "starred",
+      "default": "false",
+      "nullable": "YES"
+    },
+    {
+      "type": "ARRAY",
+      "table": "artifacts",
+      "column": "tags",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "artifacts",
+      "column": "type",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "artifacts",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "boolean",
+      "table": "email_schedules",
+      "column": "cancelled",
+      "default": "false",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "email_schedules",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "email_schedules",
+      "column": "email_type",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "email_schedules",
+      "column": "error_message",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "email_schedules",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "email_schedules",
+      "column": "license_key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "jsonb",
+      "table": "email_schedules",
+      "column": "metadata",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "email_schedules",
+      "column": "scheduled_for",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "email_schedules",
+      "column": "sent_at",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "email_unsubscribes",
+      "column": "email",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "email_unsubscribes",
+      "column": "reason",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "email_unsubscribes",
+      "column": "scope",
+      "default": "'marketing'::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "email_unsubscribes",
+      "column": "source",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "email_unsubscribes",
+      "column": "unsubscribed_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "event_logs",
+      "column": "action",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "event_logs",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "event_logs",
+      "column": "error_message",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "event_logs",
+      "column": "event_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "event_logs",
+      "column": "event_type",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "event_logs",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "event_logs",
+      "column": "license_key",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "jsonb",
+      "table": "event_logs",
+      "column": "payload",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "event_logs",
+      "column": "processed_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "event_logs",
+      "column": "realm_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "event_logs",
+      "column": "stripe_subscription_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "boolean",
+      "table": "event_logs",
+      "column": "success",
+      "default": "true",
+      "nullable": "NO"
+    },
+    {
+      "type": "integer",
+      "table": "licenses",
+      "column": "billing_amount_cents",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "licenses",
+      "column": "card_brand",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "licenses",
+      "column": "card_last_four",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "licenses",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "licenses",
+      "column": "default_realm_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "licenses",
+      "column": "email",
+      "default": "''::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "licenses",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "boolean",
+      "table": "licenses",
+      "column": "is_test",
+      "default": "false",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "licenses",
+      "column": "key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "licenses",
+      "column": "next_billing_date",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "licenses",
+      "column": "status",
+      "default": "'trialing'::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "licenses",
+      "column": "stripe_customer_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "licenses",
+      "column": "stripe_subscription_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "licenses",
+      "column": "tier",
+      "default": "'solopreneur'::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "licenses",
+      "column": "trial_ends_at",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "licenses",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "link_codes",
+      "column": "code",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "link_codes",
+      "column": "code_challenge",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "link_codes",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "link_codes",
+      "column": "expires_at",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "link_codes",
+      "column": "identity_hash",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "link_codes",
+      "column": "license_key",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "link_codes",
+      "column": "pairing_secret",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "link_codes",
+      "column": "peer_product",
+      "default": "'coffer'::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "link_codes",
+      "column": "redeemed_at",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "link_codes",
+      "column": "redirect_uri",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "mcp_oauth_clients",
+      "column": "client_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "mcp_oauth_clients",
+      "column": "client_name",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "mcp_oauth_clients",
+      "column": "client_secret_hash",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "mcp_oauth_clients",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "jsonb",
+      "table": "mcp_oauth_clients",
+      "column": "redirect_uris",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "mcp_oauth_codes",
+      "column": "client_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "mcp_oauth_codes",
+      "column": "code_challenge",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "mcp_oauth_codes",
+      "column": "code_hash",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "mcp_oauth_codes",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "mcp_oauth_codes",
+      "column": "expires_at",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "mcp_oauth_codes",
+      "column": "license_key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "mcp_oauth_codes",
+      "column": "redirect_uri",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "mcp_oauth_codes",
+      "column": "scope",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "mcp_oauth_codes",
+      "column": "user_clerk_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "mcp_refresh_tokens",
+      "column": "client_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "mcp_refresh_tokens",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "mcp_refresh_tokens",
+      "column": "expires_at",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "mcp_refresh_tokens",
+      "column": "license_key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "boolean",
+      "table": "mcp_refresh_tokens",
+      "column": "revoked",
+      "default": "false",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "mcp_refresh_tokens",
+      "column": "rotated_from",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "mcp_refresh_tokens",
+      "column": "token_hash",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "mcp_refresh_tokens",
+      "column": "user_clerk_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "mrr_snapshots",
+      "column": "captured_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "mrr_snapshots",
+      "column": "license_key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "mrr_snapshots",
+      "column": "month",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "integer",
+      "table": "mrr_snapshots",
+      "column": "mrr_cents",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "mrr_snapshots",
+      "column": "status",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "mrr_snapshots",
+      "column": "tier",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "oauth_tokens",
+      "column": "access_token",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "oauth_tokens",
+      "column": "company_name",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "oauth_tokens",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "oauth_tokens",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "oauth_tokens",
+      "column": "license_key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "oauth_tokens",
+      "column": "realm_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "oauth_tokens",
+      "column": "refresh_locked_at",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "oauth_tokens",
+      "column": "refresh_token",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "oauth_tokens",
+      "column": "token_expires_at",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "oauth_tokens",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "support_conversations",
+      "column": "anonymous_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "support_conversations",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "support_conversations",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "support_conversations",
+      "column": "license_key",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "jsonb",
+      "table": "support_conversations",
+      "column": "metadata",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "support_conversations",
+      "column": "status",
+      "default": "'open'::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "support_conversations",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "support_messages",
+      "column": "content",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "support_messages",
+      "column": "conversation_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "support_messages",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "support_messages",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "support_messages",
+      "column": "role",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "tool_usage",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "tool_usage",
+      "column": "invoked_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "tool_usage",
+      "column": "license_key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "tool_usage",
+      "column": "realm_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "integer",
+      "table": "tool_usage",
+      "column": "time_saved_minutes",
+      "default": "0",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "tool_usage",
+      "column": "tool_name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "integer",
+      "table": "tool_usage_daily",
+      "column": "calls",
+      "default": "0",
+      "nullable": "NO"
+    },
+    {
+      "type": "date",
+      "table": "tool_usage_daily",
+      "column": "day",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "tool_usage_daily",
+      "column": "license_key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "integer",
+      "table": "tool_usage_daily",
+      "column": "minutes_saved",
+      "default": "0",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "tool_usage_daily",
+      "column": "tool_name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "trial_extensions",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "trial_extensions",
+      "column": "extended_by",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "integer",
+      "table": "trial_extensions",
+      "column": "extension_days",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "trial_extensions",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "trial_extensions",
+      "column": "license_key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "trial_extensions",
+      "column": "new_trial_end",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "trial_extensions",
+      "column": "old_trial_end",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "trial_extensions",
+      "column": "reason",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "integer",
+      "table": "usage_stats_cache",
+      "column": "active_licenses",
+      "default": "0",
+      "nullable": "YES"
+    },
+    {
+      "type": "bigint",
+      "table": "usage_stats_cache",
+      "column": "calls_this_week",
+      "default": "0",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "usage_stats_cache",
+      "column": "id",
+      "default": "'global'::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "numeric",
+      "table": "usage_stats_cache",
+      "column": "total_hours_saved",
+      "default": "0",
+      "nullable": "YES"
+    },
+    {
+      "type": "bigint",
+      "table": "usage_stats_cache",
+      "column": "total_tool_calls",
+      "default": "0",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "usage_stats_cache",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "user_licenses",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "user_licenses",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "user_licenses",
+      "column": "license_key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "user_licenses",
+      "column": "role",
+      "default": "'owner'::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "user_licenses",
+      "column": "user_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "user_milestones",
+      "column": "completed_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "user_milestones",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "user_milestones",
+      "column": "license_key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "jsonb",
+      "table": "user_milestones",
+      "column": "metadata",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "user_milestones",
+      "column": "milestone",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "user_profiles",
+      "column": "clerk_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "user_profiles",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "user_profiles",
+      "column": "display_name",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "user_profiles",
+      "column": "email",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "user_profiles",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "user_profiles",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "YES"
+    }
+  ],
+  "indexes": [
+    {
+      "def": "CREATE UNIQUE INDEX account_links_license_key_peer_product_key ON public.account_links USING btree (license_key, peer_product)",
+      "name": "account_links_license_key_peer_product_key",
+      "table": "account_links"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX account_links_pkey ON public.account_links USING btree (id)",
+      "name": "account_links_pkey",
+      "table": "account_links"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX admin_users_email_key ON public.admin_users USING btree (email)",
+      "name": "admin_users_email_key",
+      "table": "admin_users"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX admin_users_pkey ON public.admin_users USING btree (id)",
+      "name": "admin_users_pkey",
+      "table": "admin_users"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX allocation_profiles_license_key_realm_id_tax_year_key ON public.allocation_profiles USING btree (license_key, realm_id, tax_year)",
+      "name": "allocation_profiles_license_key_realm_id_tax_year_key",
+      "table": "allocation_profiles"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX allocation_profiles_pkey ON public.allocation_profiles USING btree (id)",
+      "name": "allocation_profiles_pkey",
+      "table": "allocation_profiles"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX app_downloads_pkey ON public.app_downloads USING btree (id)",
+      "name": "app_downloads_pkey",
+      "table": "app_downloads"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX artifacts_pkey ON public.artifacts USING btree (id)",
+      "name": "artifacts_pkey",
+      "table": "artifacts"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX email_schedules_pkey ON public.email_schedules USING btree (id)",
+      "name": "email_schedules_pkey",
+      "table": "email_schedules"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX email_unsubscribes_pkey ON public.email_unsubscribes USING btree (email)",
+      "name": "email_unsubscribes_pkey",
+      "table": "email_unsubscribes"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX event_logs_pkey ON public.event_logs USING btree (id)",
+      "name": "event_logs_pkey",
+      "table": "event_logs"
+    },
+    {
+      "def": "CREATE INDEX idx_account_links_key ON public.account_links USING btree (license_key)",
+      "name": "idx_account_links_key",
+      "table": "account_links"
+    },
+    {
+      "def": "CREATE INDEX idx_allocation_profiles_license_key ON public.allocation_profiles USING btree (license_key)",
+      "name": "idx_allocation_profiles_license_key",
+      "table": "allocation_profiles"
+    },
+    {
+      "def": "CREATE INDEX idx_app_downloads_downloaded_at ON public.app_downloads USING btree (downloaded_at DESC)",
+      "name": "idx_app_downloads_downloaded_at",
+      "table": "app_downloads"
+    },
+    {
+      "def": "CREATE INDEX idx_app_downloads_platform ON public.app_downloads USING btree (platform)",
+      "name": "idx_app_downloads_platform",
+      "table": "app_downloads"
+    },
+    {
+      "def": "CREATE INDEX idx_app_downloads_platform_time ON public.app_downloads USING btree (platform, downloaded_at DESC)",
+      "name": "idx_app_downloads_platform_time",
+      "table": "app_downloads"
+    },
+    {
+      "def": "CREATE INDEX idx_artifacts_created_at ON public.artifacts USING btree (license_key, created_at DESC)",
+      "name": "idx_artifacts_created_at",
+      "table": "artifacts"
+    },
+    {
+      "def": "CREATE INDEX idx_artifacts_license_key ON public.artifacts USING btree (license_key)",
+      "name": "idx_artifacts_license_key",
+      "table": "artifacts"
+    },
+    {
+      "def": "CREATE INDEX idx_artifacts_realm_id ON public.artifacts USING btree (realm_id) WHERE (realm_id IS NOT NULL)",
+      "name": "idx_artifacts_realm_id",
+      "table": "artifacts"
+    },
+    {
+      "def": "CREATE INDEX idx_artifacts_starred ON public.artifacts USING btree (license_key, starred) WHERE (starred = true)",
+      "name": "idx_artifacts_starred",
+      "table": "artifacts"
+    },
+    {
+      "def": "CREATE INDEX idx_artifacts_type ON public.artifacts USING btree (type)",
+      "name": "idx_artifacts_type",
+      "table": "artifacts"
+    },
+    {
+      "def": "CREATE INDEX idx_email_schedules_license_key ON public.email_schedules USING btree (license_key)",
+      "name": "idx_email_schedules_license_key",
+      "table": "email_schedules"
+    },
+    {
+      "def": "CREATE INDEX idx_email_schedules_pending ON public.email_schedules USING btree (scheduled_for) WHERE ((sent_at IS NULL) AND (cancelled = false))",
+      "name": "idx_email_schedules_pending",
+      "table": "email_schedules"
+    },
+    {
+      "def": "CREATE INDEX idx_event_logs_event_type ON public.event_logs USING btree (event_type)",
+      "name": "idx_event_logs_event_type",
+      "table": "event_logs"
+    },
+    {
+      "def": "CREATE INDEX idx_event_logs_license_key ON public.event_logs USING btree (license_key) WHERE (license_key IS NOT NULL)",
+      "name": "idx_event_logs_license_key",
+      "table": "event_logs"
+    },
+    {
+      "def": "CREATE INDEX idx_event_logs_processed_at ON public.event_logs USING btree (processed_at DESC)",
+      "name": "idx_event_logs_processed_at",
+      "table": "event_logs"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX idx_event_logs_stripe_idempotent ON public.event_logs USING btree (event_id) WHERE ((event_type = 'stripe_webhook'::text) AND (event_id IS NOT NULL))",
+      "name": "idx_event_logs_stripe_idempotent",
+      "table": "event_logs"
+    },
+    {
+      "def": "CREATE INDEX idx_licenses_email ON public.licenses USING btree (email)",
+      "name": "idx_licenses_email",
+      "table": "licenses"
+    },
+    {
+      "def": "CREATE INDEX idx_licenses_is_test ON public.licenses USING btree (is_test) WHERE (NOT is_test)",
+      "name": "idx_licenses_is_test",
+      "table": "licenses"
+    },
+    {
+      "def": "CREATE INDEX idx_licenses_key ON public.licenses USING btree (key)",
+      "name": "idx_licenses_key",
+      "table": "licenses"
+    },
+    {
+      "def": "CREATE INDEX idx_licenses_stripe_sub ON public.licenses USING btree (stripe_subscription_id) WHERE (stripe_subscription_id IS NOT NULL)",
+      "name": "idx_licenses_stripe_sub",
+      "table": "licenses"
+    },
+    {
+      "def": "CREATE INDEX idx_link_codes_expires ON public.link_codes USING btree (expires_at)",
+      "name": "idx_link_codes_expires",
+      "table": "link_codes"
+    },
+    {
+      "def": "CREATE INDEX idx_mcp_oauth_codes_expires_at ON public.mcp_oauth_codes USING btree (expires_at)",
+      "name": "idx_mcp_oauth_codes_expires_at",
+      "table": "mcp_oauth_codes"
+    },
+    {
+      "def": "CREATE INDEX idx_mcp_refresh_tokens_expires_at ON public.mcp_refresh_tokens USING btree (expires_at)",
+      "name": "idx_mcp_refresh_tokens_expires_at",
+      "table": "mcp_refresh_tokens"
+    },
+    {
+      "def": "CREATE INDEX idx_mcp_refresh_tokens_rotated_from ON public.mcp_refresh_tokens USING btree (rotated_from)",
+      "name": "idx_mcp_refresh_tokens_rotated_from",
+      "table": "mcp_refresh_tokens"
+    },
+    {
+      "def": "CREATE INDEX idx_mrr_snapshots_month ON public.mrr_snapshots USING btree (month)",
+      "name": "idx_mrr_snapshots_month",
+      "table": "mrr_snapshots"
+    },
+    {
+      "def": "CREATE INDEX idx_oauth_tokens_license_key ON public.oauth_tokens USING btree (license_key)",
+      "name": "idx_oauth_tokens_license_key",
+      "table": "oauth_tokens"
+    },
+    {
+      "def": "CREATE INDEX idx_support_conversations_license_key ON public.support_conversations USING btree (license_key) WHERE (license_key IS NOT NULL)",
+      "name": "idx_support_conversations_license_key",
+      "table": "support_conversations"
+    },
+    {
+      "def": "CREATE INDEX idx_support_messages_conversation_id ON public.support_messages USING btree (conversation_id, created_at)",
+      "name": "idx_support_messages_conversation_id",
+      "table": "support_messages"
+    },
+    {
+      "def": "CREATE INDEX idx_tool_usage_daily_day ON public.tool_usage_daily USING btree (day)",
+      "name": "idx_tool_usage_daily_day",
+      "table": "tool_usage_daily"
+    },
+    {
+      "def": "CREATE INDEX idx_tool_usage_daily_license_day ON public.tool_usage_daily USING btree (license_key, day DESC)",
+      "name": "idx_tool_usage_daily_license_day",
+      "table": "tool_usage_daily"
+    },
+    {
+      "def": "CREATE INDEX idx_tool_usage_invoked_at ON public.tool_usage USING btree (invoked_at DESC)",
+      "name": "idx_tool_usage_invoked_at",
+      "table": "tool_usage"
+    },
+    {
+      "def": "CREATE INDEX idx_tool_usage_license_key ON public.tool_usage USING btree (license_key)",
+      "name": "idx_tool_usage_license_key",
+      "table": "tool_usage"
+    },
+    {
+      "def": "CREATE INDEX idx_tool_usage_tool_name ON public.tool_usage USING btree (tool_name)",
+      "name": "idx_tool_usage_tool_name",
+      "table": "tool_usage"
+    },
+    {
+      "def": "CREATE INDEX idx_trial_extensions_license_key ON public.trial_extensions USING btree (license_key)",
+      "name": "idx_trial_extensions_license_key",
+      "table": "trial_extensions"
+    },
+    {
+      "def": "CREATE INDEX idx_user_licenses_license_key ON public.user_licenses USING btree (license_key)",
+      "name": "idx_user_licenses_license_key",
+      "table": "user_licenses"
+    },
+    {
+      "def": "CREATE INDEX idx_user_licenses_user_id ON public.user_licenses USING btree (user_id)",
+      "name": "idx_user_licenses_user_id",
+      "table": "user_licenses"
+    },
+    {
+      "def": "CREATE INDEX idx_user_milestones_license_key ON public.user_milestones USING btree (license_key)",
+      "name": "idx_user_milestones_license_key",
+      "table": "user_milestones"
+    },
+    {
+      "def": "CREATE INDEX idx_user_profiles_clerk_id ON public.user_profiles USING btree (clerk_id) WHERE (clerk_id IS NOT NULL)",
+      "name": "idx_user_profiles_clerk_id",
+      "table": "user_profiles"
+    },
+    {
+      "def": "CREATE INDEX idx_user_profiles_email ON public.user_profiles USING btree (email)",
+      "name": "idx_user_profiles_email",
+      "table": "user_profiles"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX licenses_key_key ON public.licenses USING btree (key)",
+      "name": "licenses_key_key",
+      "table": "licenses"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX licenses_pkey ON public.licenses USING btree (id)",
+      "name": "licenses_pkey",
+      "table": "licenses"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX licenses_stripe_subscription_id_unique ON public.licenses USING btree (stripe_subscription_id)",
+      "name": "licenses_stripe_subscription_id_unique",
+      "table": "licenses"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX link_codes_pkey ON public.link_codes USING btree (code)",
+      "name": "link_codes_pkey",
+      "table": "link_codes"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX mcp_oauth_clients_pkey ON public.mcp_oauth_clients USING btree (client_id)",
+      "name": "mcp_oauth_clients_pkey",
+      "table": "mcp_oauth_clients"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX mcp_oauth_codes_pkey ON public.mcp_oauth_codes USING btree (code_hash)",
+      "name": "mcp_oauth_codes_pkey",
+      "table": "mcp_oauth_codes"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX mcp_refresh_tokens_pkey ON public.mcp_refresh_tokens USING btree (token_hash)",
+      "name": "mcp_refresh_tokens_pkey",
+      "table": "mcp_refresh_tokens"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX mrr_snapshots_pkey ON public.mrr_snapshots USING btree (month, license_key)",
+      "name": "mrr_snapshots_pkey",
+      "table": "mrr_snapshots"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX oauth_tokens_license_key_realm_id_key ON public.oauth_tokens USING btree (license_key, realm_id)",
+      "name": "oauth_tokens_license_key_realm_id_key",
+      "table": "oauth_tokens"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX oauth_tokens_pkey ON public.oauth_tokens USING btree (id)",
+      "name": "oauth_tokens_pkey",
+      "table": "oauth_tokens"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX support_conversations_pkey ON public.support_conversations USING btree (id)",
+      "name": "support_conversations_pkey",
+      "table": "support_conversations"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX support_messages_pkey ON public.support_messages USING btree (id)",
+      "name": "support_messages_pkey",
+      "table": "support_messages"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX tool_usage_daily_pkey ON public.tool_usage_daily USING btree (license_key, tool_name, day)",
+      "name": "tool_usage_daily_pkey",
+      "table": "tool_usage_daily"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX tool_usage_pkey ON public.tool_usage USING btree (id)",
+      "name": "tool_usage_pkey",
+      "table": "tool_usage"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX trial_extensions_pkey ON public.trial_extensions USING btree (id)",
+      "name": "trial_extensions_pkey",
+      "table": "trial_extensions"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX usage_stats_cache_pkey ON public.usage_stats_cache USING btree (id)",
+      "name": "usage_stats_cache_pkey",
+      "table": "usage_stats_cache"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX user_licenses_pkey ON public.user_licenses USING btree (id)",
+      "name": "user_licenses_pkey",
+      "table": "user_licenses"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX user_licenses_user_id_license_key_key ON public.user_licenses USING btree (user_id, license_key)",
+      "name": "user_licenses_user_id_license_key_key",
+      "table": "user_licenses"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX user_milestones_license_key_milestone_key ON public.user_milestones USING btree (license_key, milestone)",
+      "name": "user_milestones_license_key_milestone_key",
+      "table": "user_milestones"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX user_milestones_pkey ON public.user_milestones USING btree (id)",
+      "name": "user_milestones_pkey",
+      "table": "user_milestones"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX user_profiles_clerk_id_key ON public.user_profiles USING btree (clerk_id)",
+      "name": "user_profiles_clerk_id_key",
+      "table": "user_profiles"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX user_profiles_pkey ON public.user_profiles USING btree (id)",
+      "name": "user_profiles_pkey",
+      "table": "user_profiles"
+    }
+  ]
+}
