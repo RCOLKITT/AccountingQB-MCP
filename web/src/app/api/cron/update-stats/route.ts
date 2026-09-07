@@ -6,6 +6,11 @@ import { getSupabase } from "@/lib/supabase";
  * Aggregates usage statistics and updates the cache table.
  * Called by Vercel Cron every 5 minutes.
  * Protected by CRON_SECRET authorization.
+ *
+ * Reads the permanent `tool_usage_daily` rollup via SQL-aggregating RPCs — NOT raw
+ * `tool_usage`. The old raw full-fetch (`select(...)` then `.length`) silently capped
+ * at PostgREST's ~1000-row limit, undercounting all-time calls once the table grew
+ * past 1000 rows. The rollup is kept ≤15 min fresh by /api/cron/rollup-usage.
  */
 export async function GET(req: NextRequest) {
   // Verify cron secret (Vercel sends this automatically)
@@ -16,59 +21,52 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // UTC calendar-day helpers for the rollup's DATE grain.
+  const dayString = (d: Date) => d.toISOString().slice(0, 10);
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setUTCDate(startOfWeek.getUTCDate() - startOfWeek.getUTCDay());
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
+
   try {
     const supabase = getSupabase();
 
-    // Get total tool calls and time saved
-    const { data: allUsage, error: allError } = await supabase
-      .from("tool_usage")
-      .select("time_saved_minutes");
+    // All-time totals (per-tool rows, ≤#tools) → sum server-side-aggregated values.
+    const { data: allTools, error: allError } = await supabase.rpc(
+      "rollup_by_tool",
+      { p_keys: null, p_since: null },
+    );
+    if (allError) throw allError;
 
-    if (allError) {
-      console.error("Failed to fetch all usage:", allError);
-      throw allError;
-    }
-
-    const totalToolCalls = allUsage?.length || 0;
-    const totalMinutes =
-      allUsage?.reduce((sum, r) => sum + (r.time_saved_minutes || 0), 0) || 0;
+    const totalToolCalls = (allTools || []).reduce(
+      (s: number, r: { calls: number }) => s + Number(r.calls || 0),
+      0,
+    );
+    const totalMinutes = (allTools || []).reduce(
+      (s: number, r: { minutes: number }) => s + Number(r.minutes || 0),
+      0,
+    );
     const totalHoursSaved = Math.round((totalMinutes / 60) * 10) / 10;
 
-    // Get this week's calls
-    const startOfWeek = new Date();
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const { data: weekUsage, error: weekError } = await supabase
-      .from("tool_usage")
-      .select("id")
-      .gte("invoked_at", startOfWeek.toISOString());
-
-    if (weekError) {
-      console.error("Failed to fetch week usage:", weekError);
-      throw weekError;
-    }
-
-    const callsThisWeek = weekUsage?.length || 0;
-
-    // Get active licenses (licenses with usage in the last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const { data: activeLicenseData, error: licenseError } = await supabase
-      .from("tool_usage")
-      .select("license_key")
-      .gte("invoked_at", thirtyDaysAgo.toISOString());
-
-    if (licenseError) {
-      console.error("Failed to fetch active licenses:", licenseError);
-      throw licenseError;
-    }
-
-    const uniqueLicenses = new Set(
-      activeLicenseData?.map((r) => r.license_key),
+    // This week's calls.
+    const { data: weekTools, error: weekError } = await supabase.rpc(
+      "rollup_by_tool",
+      { p_keys: null, p_since: dayString(startOfWeek) },
     );
-    const activeLicenses = uniqueLicenses.size;
+    if (weekError) throw weekError;
+    const callsThisWeek = (weekTools || []).reduce(
+      (s: number, r: { calls: number }) => s + Number(r.calls || 0),
+      0,
+    );
+
+    // Active licenses = licenses with any rollup activity in the last 30 days
+    // (one row per license from rollup_by_license).
+    const { data: activeRows, error: licenseError } = await supabase.rpc(
+      "rollup_by_license",
+      { p_keys: null, p_since: dayString(thirtyDaysAgo) },
+    );
+    if (licenseError) throw licenseError;
+    const activeLicenses = (activeRows || []).length;
 
     // Upsert cache record
     const { error: upsertError } = await supabase

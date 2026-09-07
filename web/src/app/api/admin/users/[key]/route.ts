@@ -64,41 +64,33 @@ export async function GET(
     .eq("license_key", key)
     .order("created_at", { ascending: false });
 
-  // Tool usage (per-tool aggregate + totals)
-  const { data: usageRows } = await supabase
-    .from("tool_usage")
-    .select("tool_name, time_saved_minutes, invoked_at")
-    .eq("license_key", key)
-    .order("invoked_at", { ascending: false });
+  // Tool usage (per-tool aggregate + totals) from the permanent rollup, aggregated
+  // server-side (bounded to ≤#tools rows) — the old raw full-fetch capped at
+  // PostgREST's ~1000 rows, undercounting heavy accounts. "last" is now date-grain
+  // (the rollup's UTC day), which is sufficient for the admin "last used" display.
+  const { data: usageRows } = await supabase.rpc("rollup_by_tool", {
+    p_keys: [key],
+    p_since: null,
+  });
 
-  const usageMap = new Map<
-    string,
-    { tool: string; calls: number; minutes: number; last: string }
-  >();
   let totalCalls = 0;
   let totalMinutes = 0;
-  for (const r of (usageRows as {
-    tool_name: string;
-    time_saved_minutes: number | null;
-    invoked_at: string;
-  }[]) || []) {
-    const mins = r.time_saved_minutes || 0;
-    totalCalls += 1;
-    totalMinutes += mins;
-    const cur = usageMap.get(r.tool_name);
-    if (cur) {
-      cur.calls += 1;
-      cur.minutes += mins;
-    } else {
-      usageMap.set(r.tool_name, {
-        tool: r.tool_name,
-        calls: 1,
-        minutes: mins,
-        last: r.invoked_at,
-      });
-    }
-  }
-  const toolUsage = [...usageMap.values()].sort((a, b) => b.calls - a.calls);
+  const toolUsage = (
+    (usageRows as {
+      tool_name: string;
+      calls: number;
+      minutes: number;
+      last_day: string;
+    }[]) || []
+  )
+    .map((r) => {
+      const calls = Number(r.calls || 0);
+      const minutes = Number(r.minutes || 0);
+      totalCalls += calls;
+      totalMinutes += minutes;
+      return { tool: r.tool_name, calls, minutes, last: r.last_day };
+    })
+    .sort((a, b) => b.calls - a.calls);
 
   // Activity timeline (connect/refresh/webhook events)
   const { data: activity } = await supabase

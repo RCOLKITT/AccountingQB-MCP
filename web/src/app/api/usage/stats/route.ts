@@ -2,9 +2,20 @@ import { NextResponse } from "next/server";
 import { createServerComponentClient } from "@/lib/supabase-server";
 import { getSupabase } from "@/lib/supabase";
 
+interface ToolAgg {
+  tool_name: string;
+  calls: number;
+  minutes: number;
+}
+
 /**
  * GET /api/usage/stats
  * Returns usage statistics for the authenticated user.
+ *
+ * Aggregates over the permanent `tool_usage_daily` rollup via SQL RPCs (bounded to
+ * ≤#tools rows) rather than fetching every raw `tool_usage` row into Node — the old
+ * approach silently capped at PostgREST's ~1000-row limit, undercounting lifetime
+ * calls / hours-saved for any active account.
  */
 export async function GET() {
   try {
@@ -36,56 +47,53 @@ export async function GET() {
 
     const licenseKeys = userLicenses.map((l) => l.license_key);
 
-    // Get total usage stats
-    const { data: allUsage } = await serviceSupabase
-      .from("tool_usage")
-      .select("tool_name, time_saved_minutes")
-      .in("license_key", licenseKeys);
+    // UTC calendar-day boundaries for the rollup's DATE grain.
+    const dayString = (d: Date) => d.toISOString().slice(0, 10);
+    const now = new Date();
+    const startOfMonth = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    );
+    const startOfWeek = new Date(now);
+    startOfWeek.setUTCDate(startOfWeek.getUTCDate() - startOfWeek.getUTCDay());
+    startOfWeek.setUTCHours(0, 0, 0, 0);
 
-    // Get this month's stats
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+    const sumCalls = (rows: ToolAgg[] | null) =>
+      (rows || []).reduce((s, r) => s + Number(r.calls || 0), 0);
+    const sumMinutes = (rows: ToolAgg[] | null) =>
+      (rows || []).reduce((s, r) => s + Number(r.minutes || 0), 0);
 
-    const { data: monthUsage } = await serviceSupabase
-      .from("tool_usage")
-      .select("tool_name, time_saved_minutes")
-      .in("license_key", licenseKeys)
-      .gte("invoked_at", startOfMonth.toISOString());
+    // All-time per-tool (for totals + top tools), plus month/week windows.
+    const [{ data: allUsage }, { data: monthUsage }, { data: weekUsage }] =
+      await Promise.all([
+        serviceSupabase.rpc("rollup_by_tool", {
+          p_keys: licenseKeys,
+          p_since: null,
+        }),
+        serviceSupabase.rpc("rollup_by_tool", {
+          p_keys: licenseKeys,
+          p_since: dayString(startOfMonth),
+        }),
+        serviceSupabase.rpc("rollup_by_tool", {
+          p_keys: licenseKeys,
+          p_since: dayString(startOfWeek),
+        }),
+      ]);
 
-    // Get this week's stats
-    const startOfWeek = new Date();
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
+    const totalCalls = sumCalls(allUsage);
+    const totalMinutes = sumMinutes(allUsage);
+    const monthCalls = sumCalls(monthUsage);
+    const monthMinutes = sumMinutes(monthUsage);
+    const weekCalls = sumCalls(weekUsage);
 
-    const { data: weekUsage } = await serviceSupabase
-      .from("tool_usage")
-      .select("tool_name")
-      .in("license_key", licenseKeys)
-      .gte("invoked_at", startOfWeek.toISOString());
-
-    // Calculate aggregates
-    const totalCalls = allUsage?.length || 0;
-    const totalMinutes =
-      allUsage?.reduce((sum, r) => sum + (r.time_saved_minutes || 0), 0) || 0;
-    const monthCalls = monthUsage?.length || 0;
-    const monthMinutes =
-      monthUsage?.reduce((sum, r) => sum + (r.time_saved_minutes || 0), 0) || 0;
-    const weekCalls = weekUsage?.length || 0;
-
-    // Calculate top tools by usage count
-    const toolCounts: Record<string, number> = {};
-    allUsage?.forEach((r) => {
-      toolCounts[r.tool_name] = (toolCounts[r.tool_name] || 0) + 1;
-    });
-
-    const topTools = Object.entries(toolCounts)
-      .sort((a, b) => b[1] - a[1])
+    // Top tools by all-time call count.
+    const topTools = ((allUsage as ToolAgg[]) || [])
+      .slice()
+      .sort((a, b) => Number(b.calls) - Number(a.calls))
       .slice(0, 10)
-      .map(([name, count]) => ({
-        name: formatToolName(name),
-        rawName: name,
-        count,
+      .map((r) => ({
+        name: formatToolName(r.tool_name),
+        rawName: r.tool_name,
+        count: Number(r.calls),
       }));
 
     return NextResponse.json({

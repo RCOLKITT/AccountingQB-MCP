@@ -23,9 +23,14 @@ export interface Engagement {
   atRiskCount: number;
 }
 
-interface UsageRow {
+interface EngRow {
   license_key: string;
-  invoked_at: string;
+  last_day: string | null;
+  calls_7d: number;
+  calls_prior: number;
+  active_1d: boolean;
+  active_7d: boolean;
+  active_30d: boolean;
 }
 interface Lic {
   key: string;
@@ -37,11 +42,9 @@ interface Lic {
 
 export async function getEngagement(): Promise<Engagement> {
   const sb = getSupabase();
-  const now = Date.now();
-  const DAY = 86400000;
-  const since30 = new Date(now - 30 * DAY).toISOString();
+  const today = new Date().toISOString().slice(0, 10); // UTC calendar day
 
-  // Non-test licenses (identity + eligibility) and the last 30 days of usage.
+  // Non-test licenses (identity + eligibility).
   const { data: licData } = await sb
     .from("licenses")
     .select("key, email, tier, status, is_test")
@@ -49,78 +52,41 @@ export async function getEngagement(): Promise<Engagement> {
   const licByKey = new Map<string, Lic>();
   for (const l of (licData as Lic[]) || []) licByKey.set(l.key, l);
 
-  const usage: UsageRow[] = [];
-  const PAGE = 1000;
-  for (let from = 0; from <= 500000; from += PAGE) {
-    const { data } = await sb
-      .from("tool_usage")
-      .select("license_key, invoked_at")
-      .gte("invoked_at", since30)
-      .order("invoked_at", { ascending: false })
-      .range(from, from + PAGE - 1);
-    const rows = (data as UsageRow[]) || [];
-    usage.push(...rows);
-    if (rows.length < PAGE) break;
-  }
-
-  // Per real (non-test) account: active-day buckets + call counts by window.
-  interface Acc {
-    d1: boolean;
-    d7: boolean;
-    d30: boolean;
-    recent7: number; // calls in last 7 days
-    prior: number; // calls in [8,30] days
-    lastActive: number; // ms
-  }
-  const acc = new Map<string, Acc>();
-  for (const r of usage) {
-    const lic = licByKey.get(r.license_key);
-    if (!lic || lic.is_test) continue;
-    const t = new Date(r.invoked_at).getTime();
-    const ageDays = (now - t) / DAY;
-    const a = acc.get(r.license_key) || {
-      d1: false,
-      d7: false,
-      d30: false,
-      recent7: 0,
-      prior: 0,
-      lastActive: 0,
-    };
-    if (ageDays <= 1) a.d1 = true;
-    if (ageDays <= 7) {
-      a.d7 = true;
-      a.recent7 += 1;
-    } else if (ageDays <= 30) {
-      a.prior += 1;
-    }
-    a.d30 = true;
-    if (t > a.lastActive) a.lastActive = t;
-    acc.set(r.license_key, a);
-  }
+  // Per-license 30-day activity windows, aggregated server-side over the rollup
+  // (one bounded row per active license) instead of paging raw tool_usage. Active
+  // day-buckets are calendar-day (UTC): DAU = active today, WAU = last 7d, MAU = 30d.
+  const { data: engData } = await sb.rpc("engagement_by_license", {
+    p_today: today,
+  });
 
   let dau = 0,
     wau = 0,
     mau = 0;
   const atRisk: AtRiskAccount[] = [];
-  for (const [key, a] of acc) {
-    if (a.d1) dau += 1;
-    if (a.d7) wau += 1;
-    if (a.d30) mau += 1;
+  for (const r of (engData as EngRow[]) || []) {
+    const lic = licByKey.get(r.license_key);
+    if (!lic || lic.is_test) continue;
+    if (r.active_1d) dau += 1;
+    if (r.active_7d) wau += 1;
+    if (r.active_30d) mau += 1;
     // At-risk: was meaningfully active in the prior window, silent in the last 7
     // days, and still a live (paying/trialing) customer worth saving.
-    const lic = licByKey.get(key)!;
+    const prior = Number(r.calls_prior || 0);
+    const recent7 = Number(r.calls_7d || 0);
     if (
-      a.prior >= 3 &&
-      a.recent7 === 0 &&
+      prior >= 3 &&
+      recent7 === 0 &&
       (lic.status === "active" || lic.status === "trialing")
     ) {
       atRisk.push({
-        license_key: key,
+        license_key: r.license_key,
         email: lic.email,
         tier: lic.tier,
         status: lic.status,
-        priorCalls: a.prior,
-        lastActive: new Date(a.lastActive).toISOString(),
+        priorCalls: prior,
+        lastActive: r.last_day
+          ? new Date(`${r.last_day}T00:00:00Z`).toISOString()
+          : new Date(0).toISOString(),
       });
     }
   }

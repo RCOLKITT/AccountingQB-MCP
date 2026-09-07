@@ -301,6 +301,126 @@ INSERT INTO usage_stats_cache (id) VALUES ('global') ON CONFLICT (id) DO NOTHING
 ALTER TABLE usage_stats_cache ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
+-- Tool Usage Daily Rollup: permanent per-(license, tool, UTC day) aggregate.
+-- Preserves all-time totals + per-day activity so raw tool_usage can be pruned
+-- to a 90-day window without shrinking lifetime "hours saved". Reads aggregate
+-- server-side over this table (fixing the PostgREST >1000-row undercount that
+-- affected the raw full-fetch reads). See migrations/2026-09-tool-usage-rollup.sql.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS tool_usage_daily (
+  license_key    TEXT NOT NULL REFERENCES licenses(key) ON DELETE CASCADE,
+  tool_name      TEXT NOT NULL,
+  day            DATE NOT NULL,
+  calls          INTEGER NOT NULL DEFAULT 0,
+  minutes_saved  INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (license_key, tool_name, day)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tool_usage_daily_day
+  ON tool_usage_daily (day);
+CREATE INDEX IF NOT EXISTS idx_tool_usage_daily_license_day
+  ON tool_usage_daily (license_key, day DESC);
+
+-- Row-Level Security (service role only)
+ALTER TABLE tool_usage_daily ENABLE ROW LEVEL SECURITY;
+
+-- Idempotent recompute of a bounded recent window (self-heals a missed cron run).
+-- Backfill all history once with select rollup_tool_usage(100000).
+CREATE OR REPLACE FUNCTION rollup_tool_usage(lookback_days INTEGER DEFAULT 2)
+RETURNS BIGINT
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  affected BIGINT;
+BEGIN
+  INSERT INTO tool_usage_daily (license_key, tool_name, day, calls, minutes_saved)
+  SELECT
+    license_key,
+    tool_name,
+    (invoked_at AT TIME ZONE 'UTC')::date AS day,
+    count(*)                              AS calls,
+    coalesce(sum(time_saved_minutes), 0)  AS minutes_saved
+  FROM tool_usage
+  WHERE invoked_at >= now() - make_interval(days => lookback_days)
+  GROUP BY 1, 2, 3
+  ON CONFLICT (license_key, tool_name, day)
+  DO UPDATE SET
+    calls         = EXCLUDED.calls,
+    minutes_saved = EXCLUDED.minutes_saved;
+
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  RETURN affected;
+END;
+$$;
+
+-- Chunked delete of raw rows older than the retention window (avoids long locks).
+-- DESTRUCTIVE — only invoked once reads are sourced from the rollup.
+CREATE OR REPLACE FUNCTION prune_tool_usage(retention_days INTEGER DEFAULT 90)
+RETURNS BIGINT
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  cutoff TIMESTAMPTZ := now() - make_interval(days => retention_days);
+  chunk  BIGINT;
+  total  BIGINT := 0;
+BEGIN
+  LOOP
+    DELETE FROM tool_usage
+    WHERE ctid IN (
+      SELECT ctid FROM tool_usage WHERE invoked_at < cutoff LIMIT 10000
+    );
+    GET DIAGNOSTICS chunk = ROW_COUNT;
+    total := total + chunk;
+    EXIT WHEN chunk = 0;
+  END LOOP;
+  RETURN total;
+END;
+$$;
+
+-- Read-side aggregation RPCs (bounded output; aggregate server-side over the rollup
+-- instead of fetching raw rows — fixes the PostgREST >1000-row undercount).
+-- p_keys NULL = all licenses; p_since NULL = all time.
+CREATE OR REPLACE FUNCTION rollup_by_tool(p_keys TEXT[] DEFAULT NULL, p_since DATE DEFAULT NULL)
+RETURNS TABLE(tool_name TEXT, calls BIGINT, minutes BIGINT, last_day DATE)
+LANGUAGE sql STABLE SET search_path = public AS $$
+  SELECT tool_name, sum(calls)::bigint, sum(minutes_saved)::bigint, max(day)
+  FROM tool_usage_daily
+  WHERE (p_keys IS NULL OR license_key = ANY(p_keys))
+    AND (p_since IS NULL OR day >= p_since)
+  GROUP BY tool_name;
+$$;
+
+CREATE OR REPLACE FUNCTION rollup_by_license(p_keys TEXT[] DEFAULT NULL, p_since DATE DEFAULT NULL)
+RETURNS TABLE(license_key TEXT, calls BIGINT, minutes BIGINT, distinct_tools BIGINT, last_day DATE)
+LANGUAGE sql STABLE SET search_path = public AS $$
+  SELECT license_key, sum(calls)::bigint, sum(minutes_saved)::bigint,
+         count(DISTINCT tool_name)::bigint, max(day)
+  FROM tool_usage_daily
+  WHERE (p_keys IS NULL OR license_key = ANY(p_keys))
+    AND (p_since IS NULL OR day >= p_since)
+  GROUP BY license_key;
+$$;
+
+CREATE OR REPLACE FUNCTION engagement_by_license(p_today DATE)
+RETURNS TABLE(license_key TEXT, last_day DATE, calls_7d BIGINT, calls_prior BIGINT,
+              active_1d BOOLEAN, active_7d BOOLEAN, active_30d BOOLEAN)
+LANGUAGE sql STABLE SET search_path = public AS $$
+  SELECT license_key,
+         max(day) AS last_day,
+         coalesce(sum(calls) FILTER (WHERE day >= p_today - 6), 0)::bigint AS calls_7d,
+         coalesce(sum(calls) FILTER (WHERE day >= p_today - 29 AND day < p_today - 6), 0)::bigint AS calls_prior,
+         bool_or(day >= p_today)      AS active_1d,
+         bool_or(day >= p_today - 6)  AS active_7d,
+         bool_or(day >= p_today - 29) AS active_30d
+  FROM tool_usage_daily
+  WHERE day >= p_today - 29
+  GROUP BY license_key;
+$$;
+
+-- ============================================================
 -- Support Conversations: stores chat history for continuity
 -- ============================================================
 
