@@ -2213,6 +2213,10 @@ def require_region(region: str, alternative: str):
                 )
             return await func(*args, **kwargs)
 
+        # Introspection marker so the region-gate invariant test can enumerate every
+        # gated tool automatically (a new @require_region tool is covered without
+        # touching the test). Constitution: "Never Wrong-Jurisdiction Numbers".
+        wrapper.__region_gate__ = (region, alternative)
         return wrapper
 
     return decorator
