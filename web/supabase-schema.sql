@@ -270,6 +270,11 @@ CREATE INDEX IF NOT EXISTS idx_tool_usage_invoked_at
 CREATE INDEX IF NOT EXISTS idx_tool_usage_tool_name
   ON tool_usage (tool_name);
 
+-- Composite index for the hot access pattern (license_key + invoked_at): admin
+-- last-active + usage stats. Makes idx_tool_usage_license_key redundant.
+CREATE INDEX IF NOT EXISTS idx_tool_usage_license_invoked
+  ON tool_usage (license_key, invoked_at DESC);
+
 -- Row-Level Security (service role only - MCP server writes via API)
 ALTER TABLE tool_usage ENABLE ROW LEVEL SECURITY;
 
