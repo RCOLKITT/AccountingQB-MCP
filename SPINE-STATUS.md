@@ -17,7 +17,7 @@ inferred from code and needs a live check (that check is itself the gap).
 | 3 Domain/execution | ✅ | `mcpb/src/accountingqb/server.py` (131 tools), `tax_tables.py`, `remote.py`, `accountingqb-local/serve.py` | The real work; one canonical server |
 | 4 Governance/policy | ✅ | Upstash rate limiters (`web/src/lib/ratelimit.ts`), region gating (`_get_region`/`require_region`), license gating, write confirm-gate (`_is_write_tool`) | Flag registry now at **`docs/FLAGS.md`** (G1 closed) |
 | 5 Autonomous response | 🟡 | Token single-flight (`claim_token_refresh`), `/healthz`, `_bootstrap_pairing` self-heal on boot | Stateless connector; **Gap G2:** no watchdog/sentinel alerting on failures |
-| 6 Data | 🟡 | `web/supabase-schema.sql` mirror + dated `web/migrations/*`; RLS deny-by-default | **Gap G3:** no schema-drift-check command; **Gap G4:** no documented backup restore drill |
+| 6 Data | 🟡 | `web/supabase-schema.sql` mirror + dated `web/migrations/*`; RLS deny-by-default; **schema-drift check** (`scripts/check-schema-drift.mjs`, G3 closed, report-only in CI) | **Gap G4:** no documented backup restore drill |
 | 7 Intelligence | 🟡 | Read-only-only `/chat` loop (`_CHAT_ALLOW`), `/sample`, report narrative, campaign composer; never-fabricate (Constitution); `escapeHtml` render; untrusted-data tags on MCP results | Golden tax tests exist; **Gap G5:** no rerunnable eval for the chat/narrative AI |
 | 8 Scheduling & ops | 🟡 VERIFY | `web/src/app/api/cron/*` (Vercel cron) | **Gap G6:** confirm UTC + add heartbeat + alert-on-silence + external dead-man switch |
 | 9 Secrets & supply chain | 🟡 | Doppler (`accountingqb-mcp/prd`); `scripts/scan-secrets.sh` CI gate; `requirements.txt`, `web/package-lock.json` | **Gap G7:** no automated dependency audit |
@@ -84,8 +84,11 @@ until the read rewire is verified in prod, then it's a config flip — no rows a
 1. ~~**G1 flag registry**~~ — DONE: `docs/FLAGS.md`.
 2. **G2 watchdog/alerting** — an independent check that alerts on connector/web failure (beyond
    `/healthz`). Ties to G6. *~1 day (needs a monitor + alert channel).*
-3. **G3 schema-drift check** — a command that diffs `web/supabase-schema.sql` vs live Supabase and
-   fails on drift. *~2-3h (Supabase introspection).*
+3. ~~**G3 schema-drift check**~~ — DONE (report-only): `web/scripts/check-schema-drift.mjs` diffs the
+   LIVE public schema (columns + indexes, via the `schema_snapshot()` RPC — service-role, no DB
+   password) against the committed `web/schema-snapshot.json`; `--update` regenerates it after an
+   intentional change. CI `schema-drift` job runs it with the existing Supabase secrets, VISIBLE but
+   `continue-on-error: true` for now — flip to blocking once trusted. Skips cleanly when creds absent.
 4. **G4 backup restore drill** — perform one restore of the Supabase DB to a scratch project and
    write it up in RUNBOOK.md. *~2h.*
 5. **G5 AI eval** — a rerunnable eval for the `/chat` loop + report narrative (golden Q→A over a
