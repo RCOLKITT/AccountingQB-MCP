@@ -16,7 +16,7 @@ inferred from code and needs a live check (that check is itself the gap).
 | 2 API | ✅ | `web/src/app/api/*`, `web/src/middleware.ts` (isPublicRoute), MCP tools | Public routes are explicitly listed + commented; license/JWT gated elsewhere |
 | 3 Domain/execution | ✅ | `mcpb/src/accountingqb/server.py` (131 tools), `tax_tables.py`, `remote.py`, `accountingqb-local/serve.py` | The real work; one canonical server |
 | 4 Governance/policy | ✅ | Upstash rate limiters (`web/src/lib/ratelimit.ts`), region gating (`_get_region`/`require_region`), license gating, write confirm-gate (`_is_write_tool`) | Flag registry now at **`docs/FLAGS.md`** (G1 closed) |
-| 5 Autonomous response | 🟡 | Token single-flight (`claim_token_refresh`), `/healthz`, `_bootstrap_pairing` self-heal on boot | Stateless connector; **Gap G2:** no watchdog/sentinel alerting on failures |
+| 5 Autonomous response | 🟡 | Token single-flight (`claim_token_refresh`), `/healthz`, `_bootstrap_pairing` self-heal on boot; **email watchdog** (`api/cron/watchdog` → connector + site, G2 mostly done) | Stateless connector; **Gap G2 remainder:** external dead-man for a full web-platform outage |
 | 6 Data | 🟡 | `web/supabase-schema.sql` mirror + dated `web/migrations/*`; RLS deny-by-default; **schema-drift check** (`scripts/check-schema-drift.mjs`, G3 closed, report-only in CI) | **Gap G4:** no documented backup restore drill |
 | 7 Intelligence | 🟡 | Read-only-only `/chat` loop (`_CHAT_ALLOW`), `/sample`, report narrative, campaign composer; never-fabricate (Constitution); `escapeHtml` render; untrusted-data tags on MCP results | Golden tax tests exist; **Gap G5:** no rerunnable eval for the chat/narrative AI |
 | 8 Scheduling & ops | 🟡 VERIFY | `web/src/app/api/cron/*` (Vercel cron) | **Gap G6:** confirm UTC + add heartbeat + alert-on-silence + external dead-man switch |
@@ -82,8 +82,12 @@ until the read rewire is verified in prod, then it's a config flip — no rows a
 ## Declared gaps (with rough cost to close)
 
 1. ~~**G1 flag registry**~~ — DONE: `docs/FLAGS.md`.
-2. **G2 watchdog/alerting** — an independent check that alerts on connector/web failure (beyond
-   `/healthz`). Ties to G6. *~1 day (needs a monitor + alert channel).*
+2. **G2 watchdog/alerting** — MOSTLY DONE: `/api/cron/watchdog` (every 5 min) probes the connector
+   `/healthz` + marketing site and emails `WATCHDOG_ALERT_EMAIL` on DOWN (after 2 consecutive
+   fails), re-alerts ≤6h while down, and on RECOVERED — transition-based, no per-tick spam
+   (`watchdog_state` table). REMAINING: an EXTERNAL dead-man switch (e.g. healthchecks.io) to catch
+   a full Vercel/platform outage of the web app itself — a Vercel-hosted watchdog can't self-report
+   that. Ties to **G6**. *~1-2h once a dead-man provider is chosen.*
 3. ~~**G3 schema-drift check**~~ — DONE (report-only): `web/scripts/check-schema-drift.mjs` diffs the
    LIVE public schema (columns + indexes, via the `schema_snapshot()` RPC — service-role, no DB
    password) against the committed `web/schema-snapshot.json`; `--update` regenerates it after an
