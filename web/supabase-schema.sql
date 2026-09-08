@@ -451,6 +451,24 @@ LANGUAGE sql STABLE SET search_path = public AS $$
 $$;
 
 -- ============================================================
+-- Watchdog state (G2): one row per monitored check; the /api/cron/watchdog job
+-- alerts by email on state transitions (down after N consecutive fails, periodic
+-- re-alert, recovery). See web/src/app/api/cron/watchdog/route.ts.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS watchdog_state (
+  check_name           TEXT PRIMARY KEY,
+  healthy              BOOLEAN NOT NULL DEFAULT true,
+  consecutive_failures INTEGER NOT NULL DEFAULT 0,
+  last_status          TEXT,
+  last_change          TIMESTAMPTZ DEFAULT now(),
+  last_alert_at        TIMESTAMPTZ,
+  updated_at           TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE watchdog_state ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
 -- Support Conversations: stores chat history for continuity
 -- ============================================================
 

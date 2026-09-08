@@ -1280,6 +1280,55 @@
       "column": "updated_at",
       "default": "now()",
       "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "watchdog_state",
+      "column": "check_name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "integer",
+      "table": "watchdog_state",
+      "column": "consecutive_failures",
+      "default": "0",
+      "nullable": "NO"
+    },
+    {
+      "type": "boolean",
+      "table": "watchdog_state",
+      "column": "healthy",
+      "default": "true",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "watchdog_state",
+      "column": "last_alert_at",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "watchdog_state",
+      "column": "last_change",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "watchdog_state",
+      "column": "last_status",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "watchdog_state",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "YES"
     }
   ],
   "indexes": [
@@ -1642,6 +1691,11 @@
       "def": "CREATE UNIQUE INDEX user_profiles_pkey ON public.user_profiles USING btree (id)",
       "name": "user_profiles_pkey",
       "table": "user_profiles"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX watchdog_state_pkey ON public.watchdog_state USING btree (check_name)",
+      "name": "watchdog_state_pkey",
+      "table": "watchdog_state"
     }
   ]
 }
