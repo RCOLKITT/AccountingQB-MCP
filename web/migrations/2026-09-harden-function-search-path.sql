@@ -1,0 +1,14 @@
+-- Security hardening: pin search_path on claim_token_refresh (2026-09).
+--
+-- The Supabase database linter (function_search_path_mutable, WARN) flagged
+-- claim_token_refresh() as having a role-mutable search_path. It's SECURITY INVOKER
+-- (runs as the caller — the service role — so not a privilege-escalation vector), but
+-- a fixed search_path is best practice and clears the only WARN-level security advisor.
+--
+-- Non-invasive: the body is unchanged; it only references oauth_tokens (public) plus
+-- built-ins (pg_catalog is always searched first), so resolution is identical under
+-- search_path = public. Every function added in the retention/rollup + schema-drift
+-- work already pins SET search_path = public; this brings the last legacy one in line.
+--
+-- Applied to the live project via ALTER (no body rewrite needed).
+ALTER FUNCTION public.claim_token_refresh(uuid) SET search_path = public;
