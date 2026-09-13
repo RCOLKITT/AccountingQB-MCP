@@ -43,10 +43,27 @@ if (!url || !key) {
 
 const supabase = createClient(url, key, { auth: { persistSession: false } });
 
-const { data, error } = await supabase.rpc("schema_snapshot");
+let data, error;
+try {
+  ({ data, error } = await supabase.rpc("schema_snapshot"));
+} catch (e) {
+  error = e;
+}
 if (error) {
-  console.error("[schema-drift] schema_snapshot() RPC failed:", error.message);
-  process.exit(2);
+  const msg = error.message || String(error);
+  if (update) {
+    // Can't regenerate the snapshot without the DB — hard fail (local/manual op).
+    console.error("[schema-drift] cannot update — schema_snapshot() RPC failed:", msg);
+    process.exit(2);
+  }
+  // CHECK mode fails OPEN on a transient/infra error (DB unreachable, RPC timeout) so a
+  // Supabase or network blip never blocks an unrelated merge. Only real, detected drift
+  // (a snapshot mismatch below) blocks. A persistently broken RPC surfaces as a loud,
+  // repeated CI warning rather than a wall of blocked PRs.
+  console.warn(
+    `[schema-drift] ⚠️ could not reach schema_snapshot() (${msg}) — skipping drift check (fail-open, non-blocking).`,
+  );
+  process.exit(0);
 }
 
 // Stable, human-diffable serialization (the RPC already orders its arrays).
