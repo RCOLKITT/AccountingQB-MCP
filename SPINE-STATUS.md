@@ -16,7 +16,7 @@ inferred from code and needs a live check (that check is itself the gap).
 | 2 API | ✅ | `web/src/app/api/*`, `web/src/middleware.ts` (isPublicRoute), MCP tools | Public routes are explicitly listed + commented; license/JWT gated elsewhere |
 | 3 Domain/execution | ✅ | `mcpb/src/accountingqb/server.py` (131 tools), `tax_tables.py`, `remote.py`, `accountingqb-local/serve.py` | The real work; one canonical server |
 | 4 Governance/policy | ✅ | Upstash rate limiters (`web/src/lib/ratelimit.ts`), region gating (`_get_region`/`require_region`), license gating, write confirm-gate (`_is_write_tool`) | Flag registry now at **`docs/FLAGS.md`** (G1 closed) |
-| 5 Autonomous response | 🟡 | Token single-flight (`claim_token_refresh`), `/healthz`, `_bootstrap_pairing` self-heal on boot; **email watchdog** (`api/cron/watchdog` → connector + site, G2 mostly done) | Stateless connector; **Gap G2 remainder:** external dead-man for a full web-platform outage |
+| 5 Autonomous response | 🟡 | Token single-flight (`claim_token_refresh`), `/healthz`, `_bootstrap_pairing` self-heal on boot; **email watchdog** (`api/cron/watchdog` → connector + site) + **external dead-man** (healthchecks.io ping) — G2 done | Stateless connector; self-healing on boot |
 | 6 Data | 🟡 | `web/supabase-schema.sql` mirror + dated `web/migrations/*`; RLS deny-by-default; **schema-drift check** (`scripts/check-schema-drift.mjs`, G3 closed, **blocking** in CI) | **Gap G4:** no documented backup restore drill |
 | 7 Intelligence | 🟡 | Read-only-only `/chat` loop (`_CHAT_ALLOW`), `/sample`, report narrative, campaign composer; never-fabricate (Constitution); `escapeHtml` render; untrusted-data tags on MCP results | Golden tax tests exist; **Gap G5:** no rerunnable eval for the chat/narrative AI |
 | 8 Scheduling & ops | 🟡 VERIFY | `web/src/app/api/cron/*` (Vercel cron) | **Gap G6:** confirm UTC + add heartbeat + alert-on-silence + external dead-man switch |
@@ -82,12 +82,12 @@ until the read rewire is verified in prod, then it's a config flip — no rows a
 ## Declared gaps (with rough cost to close)
 
 1. ~~**G1 flag registry**~~ — DONE: `docs/FLAGS.md`.
-2. **G2 watchdog/alerting** — MOSTLY DONE: `/api/cron/watchdog` (every 5 min) probes the connector
+2. ~~**G2 watchdog/alerting**~~ — DONE: `/api/cron/watchdog` (every 5 min) probes the connector
    `/healthz` + marketing site and emails `WATCHDOG_ALERT_EMAIL` on DOWN (after 2 consecutive
    fails), re-alerts ≤6h while down, and on RECOVERED — transition-based, no per-tick spam
-   (`watchdog_state` table). REMAINING: an EXTERNAL dead-man switch (e.g. healthchecks.io) to catch
-   a full Vercel/platform outage of the web app itself — a Vercel-hosted watchdog can't self-report
-   that. Ties to **G6**. *~1-2h once a dead-man provider is chosen.*
+   (`watchdog_state` table). **G6 external dead-man** also closed: each run pings healthchecks.io
+   (`HEALTHCHECK_PING_URL`) — base on success, `/fail` on a down check — so a full Vercel/app outage
+   (which the in-Vercel watchdog can't self-report) is caught when the pings stop.
 3. ~~**G3 schema-drift check**~~ — DONE (**BLOCKING**): `web/scripts/check-schema-drift.mjs` diffs the
    LIVE public schema (columns + indexes, via the `schema_snapshot()` RPC — service-role, no DB
    password) against the committed `web/schema-snapshot.json`; `--update` regenerates it after an
@@ -98,8 +98,8 @@ until the read rewire is verified in prod, then it's a config flip — no rows a
    write it up in RUNBOOK.md. *~2h.*
 5. **G5 AI eval** — a rerunnable eval for the `/chat` loop + report narrative (golden Q→A over a
    fixed fixture; assert never-fabricate + no write-tool exposure). *~half day.*
-6. **G6 cron heartbeat + dead-man** — confirm Vercel crons pin UTC; add a heartbeat row per run +
-   an external dead-man switch (healthchecks.io). *~3-4h.*
+6. **G6 cron heartbeat + dead-man** — dead-man DONE (watchdog pings healthchecks.io each run;
+   see G2). REMAINING (minor): confirm Vercel crons pin UTC + a per-run heartbeat row. *~1-2h.*
 7. ~~**G7 dependency audit**~~ — DONE: `npm audit --audit-level=high` is BLOCKING in `web-checks` (0 vulnerabilities after the Next.js 16 upgrade cleared the sharp/libvips highs + `npm audit fix` cleared the rest). `pip-audit` (python) remains report-only.
 8. ~~**G8 web typecheck in CI**~~ — DONE: `web-checks` job runs `tsc --noEmit` (blocking).
 9. **G9 lint gate** — PYTHON DONE (ruff F+I blocking). WEB: ESLint (flat config) now BLOCKING in `web-checks` (`npm run lint`) — errors only. It caught + fixed a real conditional-hooks bug (SupportWidget) and 2 unescaped entities. The React-19.2 compiler-era rules (immutability, purity, set-state-in-effect, exhaustive-deps — 64 warnings) are VISIBLE but non-blocking; clearing them is the remaining G9 backlog, best done under the new web e2e suite (G11). *~half day under e2e cover.*

@@ -14,10 +14,11 @@ import { sendEmail } from "@/lib/emails/send-email";
  *   - a RECOVERED alert when it comes back.
  * So real outages page; healthy ticks are silent.
  *
- * NOTE: this runs ON Vercel, so it cannot detect a full Vercel/platform outage of the
- * web app itself — that needs an EXTERNAL dead-man switch (e.g. healthchecks.io),
- * which is the remaining half of G6. This covers connector-down (the revenue-critical
- * path: MCP tool calls) and app-level site breakage.
+ * A watchdog running ON Vercel can't self-report a full Vercel/platform outage of the
+ * web app — so each run also pings an EXTERNAL dead-man (healthchecks.io) via
+ * HEALTHCHECK_PING_URL. If those pings stop, healthchecks alerts independently (G6).
+ * Between the two: connector-down + site breakage page via email here; the app/cron
+ * itself going dark is caught by the missing external ping.
  *
  * Protected by CRON_SECRET.
  */
@@ -171,6 +172,24 @@ export async function GET(req: NextRequest) {
   }
 
   const allHealthy = results.every((r) => r.ok);
+
+  // External dead-man (G6): ping healthchecks.io every run. Pinging the base URL on
+  // success means healthchecks alerts if the pings ever STOP — which is exactly the
+  // outage this in-Vercel watchdog can't self-report (the cron/app/platform being
+  // down). On a detected downstream failure we ping /fail for an immediate external
+  // alert too. Best-effort; the email path above already fired. No-op if unset.
+  const pingUrl = process.env.HEALTHCHECK_PING_URL;
+  if (pingUrl) {
+    try {
+      await fetch(allHealthy ? pingUrl : `${pingUrl}/fail`, {
+        method: "POST",
+        signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+      });
+    } catch {
+      /* dead-man is best-effort; don't fail the cron on a ping error */
+    }
+  }
+
   return NextResponse.json({ ok: allHealthy, checks: results, at: nowIso });
 }
 
