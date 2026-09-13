@@ -75,11 +75,11 @@ jobs:
 
   # Schema-drift gate (G3): compares the LIVE Supabase public schema to the committed
   # web/schema-snapshot.json via the schema_snapshot() RPC (service-role, no DB password).
-  # Report-only for now (VISIBLE, installed-and-red beats absent); flip continue-on-error
-  # to false to make it blocking once trusted. Skips cleanly when secrets are absent.
+  # BLOCKING: a real schema mismatch fails the job. The checker fails OPEN on transient
+  # infra errors (DB unreachable / RPC timeout) and skips when secrets are absent, so only
+  # genuine drift blocks a merge — never a network blip or a fork PR.
   schema-drift:
     runs-on: ubuntu-latest
-    continue-on-error: true
     env:
       SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}

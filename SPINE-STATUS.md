@@ -17,7 +17,7 @@ inferred from code and needs a live check (that check is itself the gap).
 | 3 Domain/execution | ✅ | `mcpb/src/accountingqb/server.py` (131 tools), `tax_tables.py`, `remote.py`, `accountingqb-local/serve.py` | The real work; one canonical server |
 | 4 Governance/policy | ✅ | Upstash rate limiters (`web/src/lib/ratelimit.ts`), region gating (`_get_region`/`require_region`), license gating, write confirm-gate (`_is_write_tool`) | Flag registry now at **`docs/FLAGS.md`** (G1 closed) |
 | 5 Autonomous response | 🟡 | Token single-flight (`claim_token_refresh`), `/healthz`, `_bootstrap_pairing` self-heal on boot; **email watchdog** (`api/cron/watchdog` → connector + site, G2 mostly done) | Stateless connector; **Gap G2 remainder:** external dead-man for a full web-platform outage |
-| 6 Data | 🟡 | `web/supabase-schema.sql` mirror + dated `web/migrations/*`; RLS deny-by-default; **schema-drift check** (`scripts/check-schema-drift.mjs`, G3 closed, report-only in CI) | **Gap G4:** no documented backup restore drill |
+| 6 Data | 🟡 | `web/supabase-schema.sql` mirror + dated `web/migrations/*`; RLS deny-by-default; **schema-drift check** (`scripts/check-schema-drift.mjs`, G3 closed, **blocking** in CI) | **Gap G4:** no documented backup restore drill |
 | 7 Intelligence | 🟡 | Read-only-only `/chat` loop (`_CHAT_ALLOW`), `/sample`, report narrative, campaign composer; never-fabricate (Constitution); `escapeHtml` render; untrusted-data tags on MCP results | Golden tax tests exist; **Gap G5:** no rerunnable eval for the chat/narrative AI |
 | 8 Scheduling & ops | 🟡 VERIFY | `web/src/app/api/cron/*` (Vercel cron) | **Gap G6:** confirm UTC + add heartbeat + alert-on-silence + external dead-man switch |
 | 9 Secrets & supply chain | 🟡 | Doppler (`accountingqb-mcp/prd`); `scripts/scan-secrets.sh` CI gate; `requirements.txt`, `web/package-lock.json` | **Gap G7:** no automated dependency audit |
@@ -34,7 +34,7 @@ inferred from code and needs a live check (that check is itself the gap).
 | Tests (web) | 🟢 | `cd web && npm run test:e2e` (Playwright) | Public-route smoke + **auth-boundary** (protected API/admin routes reject anon; no anon writes) + **authed happy-path** (a real signed-in Clerk user renders the dashboard) on a real prod build; in CI (`web-e2e`, required). Authed spec uses a Clerk **dev-instance** `+clerk_test` user via `@clerk/testing` (creds: Doppler → GitHub secrets); it skips cleanly when creds are absent (fork PRs), never touches the `pk_live_` prod instance. |
 | Secret scan | 🟢 | `bash scripts/scan-secrets.sh` | In CI; also blocks real QBO realm ids in tracked files |
 | Theater scan | 🟢 | `bash scripts/scan-theater.sh` | **In CI (blocking)** — clean; demo mode + UI placeholders excluded with reasons |
-| Branch protection | 🟢 | GitHub settings | `main` requires PR + **pytest, secret-scan, theater, web-checks, web-e2e**; admins keep emergency-merge |
+| Branch protection | 🟢 | GitHub settings | `main` requires PR + **pytest, secret-scan, theater, web-checks, web-e2e, schema-drift**; admins keep emergency-merge |
 
 ## Progress (Phase 1, 2026-08-28)
 Closed: **G1** (docs/FLAGS.md), **G8** (web tsc in CI, blocking), **G12** (theater gate in CI,
@@ -88,11 +88,12 @@ until the read rewire is verified in prod, then it's a config flip — no rows a
    (`watchdog_state` table). REMAINING: an EXTERNAL dead-man switch (e.g. healthchecks.io) to catch
    a full Vercel/platform outage of the web app itself — a Vercel-hosted watchdog can't self-report
    that. Ties to **G6**. *~1-2h once a dead-man provider is chosen.*
-3. ~~**G3 schema-drift check**~~ — DONE (report-only): `web/scripts/check-schema-drift.mjs` diffs the
+3. ~~**G3 schema-drift check**~~ — DONE (**BLOCKING**): `web/scripts/check-schema-drift.mjs` diffs the
    LIVE public schema (columns + indexes, via the `schema_snapshot()` RPC — service-role, no DB
    password) against the committed `web/schema-snapshot.json`; `--update` regenerates it after an
-   intentional change. CI `schema-drift` job runs it with the existing Supabase secrets, VISIBLE but
-   `continue-on-error: true` for now — flip to blocking once trusted. Skips cleanly when creds absent.
+   intentional change. CI `schema-drift` job (blocking) runs it with the existing Supabase secrets.
+   Fails ONLY on genuine drift (exit 1); fails OPEN on transient infra errors (DB unreachable / RPC
+   timeout → exit 0 + warning) and skips when creds absent — so a blip or fork PR never blocks a merge.
 4. **G4 backup restore drill** — perform one restore of the Supabase DB to a scratch project and
    write it up in RUNBOOK.md. *~2h.*
 5. **G5 AI eval** — a rerunnable eval for the `/chat` loop + report narrative (golden Q→A over a
