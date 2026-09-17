@@ -36,12 +36,15 @@ export async function POST(req: NextRequest) {
     }
     const url = await createPortalUrl(licenseKey);
     if (!url) {
-      return NextResponse.json(
-        { error: "License not found or no associated Stripe customer" },
-        { status: 404 },
-      );
+      // No Stripe customer (e.g. a no-credit-card trial) → not an error: there's
+      // simply no billing account to manage, and nothing that can be charged.
+      return NextResponse.json({
+        state: "no_billing_account",
+        message:
+          "You're on a trial with no payment method on file — there's no billing account to manage, and no charge will be made.",
+      });
     }
-    return NextResponse.json({ url });
+    return NextResponse.json({ url, state: "ok" });
   } catch (err) {
     console.error("Portal session error:", err);
     return NextResponse.json(
@@ -65,8 +68,14 @@ export async function GET(req: NextRequest) {
   }
   try {
     const url = await createPortalUrl(licenseKey);
-    // No Stripe customer yet (e.g. admin-issued trial) → send them to pricing to subscribe.
-    return NextResponse.redirect(url || `${baseUrl}/pricing`, 303);
+    // No Stripe customer (e.g. a no-credit-card trial) → back to the dashboard with
+    // a flag so it can show the "no billing account, nothing to manage" state,
+    // rather than dumping the user on the pricing page.
+    return NextResponse.redirect(
+      url ||
+        `${baseUrl}/dashboard?key=${encodeURIComponent(licenseKey)}&billing=none`,
+      303,
+    );
   } catch (err) {
     console.error("Portal GET error:", err);
     return NextResponse.redirect(

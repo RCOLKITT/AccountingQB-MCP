@@ -8,6 +8,9 @@ interface UserProfile {
   email: string;
   tier: string;
   status: string;
+  billingState?: string; // active | trialing_paid | trialing_free | canceled | expired
+  hasSubscription?: boolean;
+  hasBillingAccount?: boolean;
   licenseKey: string;
   trialEndsAt: string | null;
   cardLastFour: string | null;
@@ -58,14 +61,17 @@ function SettingsContent() {
         body: JSON.stringify({ licenseKey }),
       });
 
+      const data = await res.json();
       if (res.ok) {
         setShowCancelModal(false);
+        // The endpoint always returns a clear message (canceled, or "nothing to
+        // cancel — you won't be charged" for no-card trials).
         alert(
-          "Your subscription has been cancelled. You'll retain access until the end of your billing period.",
+          data.message ||
+            "Your subscription has been cancelled. You won't be charged.",
         );
         fetchProfile();
       } else {
-        const data = await res.json();
         alert(data.error || "Failed to cancel subscription");
       }
     } catch {
@@ -113,8 +119,11 @@ function SettingsContent() {
       const data = await res.json();
       if (res.ok && data.url) {
         window.location.href = data.url;
+      } else if (res.ok && data.state === "no_billing_account") {
+        // No card on file — nothing to manage. Reassure instead of erroring.
+        alert(data.message);
       } else {
-        alert("Failed to open billing portal");
+        alert(data.error || "Failed to open billing portal");
       }
     } catch {
       alert("Network error");
@@ -257,22 +266,47 @@ function SettingsContent() {
                 </div>
               )}
             </dl>
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={handleManageBilling}
-                className="px-4 py-2 bg-cyan-500/10 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition"
-              >
-                Manage Billing
-              </button>
-              {profile.status !== "canceled" && (
+            {/* Reassure when there's nothing that can be charged. A card can be on
+                file with no active subscription (e.g. a comped/extended trial), so
+                the copy is about the SUBSCRIPTION, not the card. */}
+            {profile.billingState === "trialing_free" && (
+              <p className="mt-6 text-sm text-gray-300 bg-white/5 rounded-lg p-3">
+                You&apos;re on a trial with{" "}
+                <span className="text-white">no active subscription</span> — you
+                won&apos;t be charged, and there&apos;s nothing to cancel.
+              </p>
+            )}
+            {profile.billingState === "canceled" && (
+              <p className="mt-6 text-sm text-gray-300 bg-white/5 rounded-lg p-3">
+                Your subscription is{" "}
+                <span className="text-white">canceled</span>
+                {profile.trialEndsAt
+                  ? ` — access remains through ${formatDate(profile.trialEndsAt)}.`
+                  : "."}{" "}
+                You won&apos;t be charged.
+              </p>
+            )}
+            {/* Manage Billing whenever a Stripe customer exists (update/remove card);
+                Cancel only when there's an active subscription to cancel. */}
+            {(profile.hasBillingAccount || profile.hasSubscription) && (
+              <div className="mt-6 flex gap-3">
                 <button
-                  onClick={() => setShowCancelModal(true)}
-                  className="px-4 py-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition"
+                  onClick={handleManageBilling}
+                  className="px-4 py-2 bg-cyan-500/10 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition"
                 >
-                  Cancel Subscription
+                  Manage Billing
                 </button>
-              )}
-            </div>
+                {profile.hasSubscription &&
+                  profile.billingState !== "canceled" && (
+                    <button
+                      onClick={() => setShowCancelModal(true)}
+                      className="px-4 py-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition"
+                    >
+                      Cancel Subscription
+                    </button>
+                  )}
+              </div>
+            )}
           </div>
 
           {/* Connected Companies */}

@@ -1,6 +1,25 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { getSupabase } from "@/lib/supabase";
+import { reconcileSubscriptionStatus } from "@/lib/subscription";
+
+/** Reconcile only licenses that actually have a Stripe subscription (bounded — keeps
+ *  no-credit-card trials fast) so the dashboard shows an accurate status for payers. */
+async function withReconciledStatus<
+  T extends {
+    key: string;
+    status: string;
+    stripe_subscription_id?: string | null;
+  },
+>(licenses: T[]): Promise<T[]> {
+  return Promise.all(
+    licenses.map(async (l) => {
+      if (!l.stripe_subscription_id) return l;
+      const r = await reconcileSubscriptionStatus(l.key);
+      return r ? { ...l, status: r.status } : l;
+    }),
+  );
+}
 
 /**
  * GET /api/user/licenses
@@ -77,7 +96,7 @@ export async function GET() {
     // Use ilike for case-insensitive matching
     const { data: licenses } = await supabase
       .from("licenses")
-      .select("key, tier, status, trial_ends_at")
+      .select("key, tier, status, trial_ends_at, stripe_subscription_id")
       .ilike("email", userEmail);
 
     // Persist fallback matches into user_licenses so they're durable
@@ -92,8 +111,9 @@ export async function GET() {
       );
     }
 
+    const reconciled = await withReconciledStatus(licenses || []);
     return NextResponse.json({
-      licenses: (licenses || []).map((l) => ({
+      licenses: reconciled.map((l) => ({
         key: l.key,
         tier: l.tier,
         status: l.status,
@@ -106,11 +126,12 @@ export async function GET() {
   const licenseKeys = userLicenses.map((ul) => ul.license_key);
   const { data: licenses } = await supabase
     .from("licenses")
-    .select("key, tier, status, trial_ends_at")
+    .select("key, tier, status, trial_ends_at, stripe_subscription_id")
     .in("key", licenseKeys);
 
+  const reconciled = await withReconciledStatus(licenses || []);
   return NextResponse.json({
-    licenses: (licenses || []).map((l) => {
+    licenses: reconciled.map((l) => {
       const link = userLicenses.find((ul) => ul.license_key === l.key);
       return {
         key: l.key,
