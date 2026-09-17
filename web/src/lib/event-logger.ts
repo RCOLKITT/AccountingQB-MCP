@@ -1,7 +1,11 @@
 import { getSupabase } from "./supabase";
 
 export type EventType =
-  "stripe_webhook" | "oauth_connect" | "oauth_disconnect" | "oauth_refresh";
+  | "stripe_webhook"
+  | "oauth_connect"
+  | "oauth_disconnect"
+  | "oauth_refresh"
+  | "subscription_reconciled";
 
 export interface LogEventParams {
   eventType: EventType;

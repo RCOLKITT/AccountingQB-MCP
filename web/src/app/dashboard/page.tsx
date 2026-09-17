@@ -631,6 +631,23 @@ function DashboardContent() {
                   </span>
                 </div>
               </div>
+              {/* Status detail + always-available billing management / cancel. */}
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-3 text-sm">
+                <span className="text-gray-400">
+                  {selectedLicense.status === "trialing" &&
+                  selectedLicense.trial_ends_at
+                    ? `Trial ends ${new Date(selectedLicense.trial_ends_at).toLocaleDateString()}`
+                    : selectedLicense.status === "canceled"
+                      ? "Subscription canceled — you won't be charged"
+                      : "Manage your plan, payment method, or cancel"}
+                </span>
+                <a
+                  href={`/dashboard/settings?key=${encodeURIComponent(selectedLicense.key)}`}
+                  className="text-cyan-400 hover:underline"
+                >
+                  Manage or cancel →
+                </a>
+              </div>
             </div>
 
             {/* Connected Companies */}
