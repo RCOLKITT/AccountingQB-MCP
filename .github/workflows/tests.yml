@@ -45,6 +45,7 @@ jobs:
       - run: cd web && npx tsc --noEmit                              # typecheck (Constitution: typed web endpoints)
       - run: cd web && npm run format:check                          # prettier (BLOCKING — format gate, G10)
       - run: cd web && npm run lint                                  # ESLint (BLOCKING — G9; errors only, compiler-era rules are warnings)
+      - run: cd web && npm run test:unit                             # vitest unit tests for lib logic (BLOCKING — token-crypto fail-closed, etc.)
       - run: cd web && npm audit --audit-level=high                  # web dep advisories (BLOCKING — G7; clean since Next 16)
 
   web-e2e:
