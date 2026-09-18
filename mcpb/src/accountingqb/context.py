@@ -40,6 +40,11 @@ class QBContext:
     # QB_LICENSE_KEY from the environment" (single-tenant default). The
     # remote service sets this per request from the verified JWT claim.
     license_key: str = ""
+    # Client-selected read-only mode (per-license, set by the remote service from
+    # the licenses.read_only flag). When True, _apply_readonly_gating (server.py)
+    # refuses every book-mutating tool before it runs — a hard, server-enforced lock
+    # (not just the client's per-action approval). Read/report tools are unaffected.
+    read_only: bool = False
     hosted_companies: list = field(default_factory=list)
     # True once the company list has been fetched from the broker (or loaded
     # from the offline cache) — hosted-company fetching is lazy.

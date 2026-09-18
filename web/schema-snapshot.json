@@ -533,6 +533,13 @@
       "nullable": "YES"
     },
     {
+      "type": "boolean",
+      "table": "licenses",
+      "column": "read_only",
+      "default": "false",
+      "nullable": "NO"
+    },
+    {
       "type": "text",
       "table": "licenses",
       "column": "status",

@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
   const supabase = getSupabase();
   const { data: license } = await supabase
     .from("licenses")
-    .select("key, default_realm_id")
+    .select("key, default_realm_id, read_only")
     .eq("key", licenseKey)
     .maybeSingle();
 
@@ -51,8 +51,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "License not found" }, { status: 404 });
   }
 
+  // `readOnly` drives the connector's server-enforced read-only mode (it refuses
+  // write tools + filters tools/list). Consumed by the remote connector's
+  // DefaultRealmCache (mcpb/src/accountingqb/remote.py).
   return NextResponse.json(
-    { realmId: license.default_realm_id || null },
+    {
+      realmId: license.default_realm_id || null,
+      readOnly: !!license.read_only,
+    },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

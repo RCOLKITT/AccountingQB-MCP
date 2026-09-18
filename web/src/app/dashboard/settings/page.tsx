@@ -8,6 +8,7 @@ interface UserProfile {
   email: string;
   tier: string;
   status: string;
+  readOnly?: boolean;
   billingState?: string; // active | trialing_paid | trialing_free | canceled | expired
   hasSubscription?: boolean;
   hasBillingAccount?: boolean;
@@ -31,6 +32,7 @@ function SettingsContent() {
   const [showRotateModal, setShowRotateModal] = useState(false);
   const [rotateLoading, setRotateLoading] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
+  const [readOnlyLoading, setReadOnlyLoading] = useState(false);
 
   useEffect(() => {
     if (licenseKey) {
@@ -105,6 +107,29 @@ function SettingsContent() {
       setShowRotateModal(false);
     } finally {
       setRotateLoading(false);
+    }
+  };
+
+  const handleToggleReadOnly = async () => {
+    if (!profile) return;
+    const next = !profile.readOnly;
+    setReadOnlyLoading(true);
+    try {
+      const res = await fetch("/api/user/read-only", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ licenseKey, enabled: next }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setProfile({ ...profile, readOnly: data.readOnly });
+      } else {
+        alert(data.error || "Failed to update read-only mode");
+      }
+    } catch {
+      alert("Network error");
+    } finally {
+      setReadOnlyLoading(false);
     }
   };
 
@@ -307,6 +332,50 @@ function SettingsContent() {
                   )}
               </div>
             )}
+          </div>
+
+          {/* Read-only mode */}
+          <div className="bg-[#131a2e] rounded-xl border border-white/10 p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white">
+                  Read-only mode
+                </h3>
+                <p className="mt-1 text-sm text-gray-400">
+                  When on, AccountingQB can view reports but can{" "}
+                  <span className="text-white">
+                    never create, update, delete, or reconcile
+                  </span>{" "}
+                  — enforced on our servers, not just in Claude&apos;s approval
+                  prompts. Recommended for evaluations and read-only reviews.
+                </p>
+                <p className="mt-2 text-sm">
+                  Status:{" "}
+                  <span
+                    className={
+                      profile.readOnly ? "text-green-400" : "text-gray-300"
+                    }
+                  >
+                    {profile.readOnly ? "Read-only (writes disabled)" : "Off"}
+                  </span>
+                </p>
+              </div>
+              <button
+                onClick={handleToggleReadOnly}
+                disabled={readOnlyLoading}
+                className={`shrink-0 px-4 py-2 rounded-lg transition ${
+                  profile.readOnly
+                    ? "bg-white/10 text-white hover:bg-white/20"
+                    : "bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20"
+                }`}
+              >
+                {readOnlyLoading
+                  ? "..."
+                  : profile.readOnly
+                    ? "Turn off"
+                    : "Turn on read-only"}
+              </button>
+            </div>
           </div>
 
           {/* Connected Companies */}
