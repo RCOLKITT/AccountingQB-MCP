@@ -1,312 +1,52 @@
 "use client";
 
+import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
+import catalog from "@/lib/tools-catalog.json";
+import { TOOL_CATEGORIES } from "@/lib/tools-categories";
 
-const TOOL_CATEGORIES = [
-  {
-    name: "Company & Entities",
-    icon: "🏢",
-    description:
-      "Manage your QuickBooks company data, accounts, vendors, and customers",
-    tools: [
-      {
-        name: "qb_company_info",
-        desc: "Company name, EIN, address, fiscal year",
-      },
-      {
-        name: "qb_list_accounts",
-        desc: "Full chart of accounts with balances",
-      },
-      { name: "qb_list_vendors", desc: "Search vendors/suppliers" },
-      { name: "qb_list_customers", desc: "Search customers" },
-      { name: "qb_list_items", desc: "Products and services" },
-      { name: "qb_create_vendor", desc: "Create a new vendor" },
-      { name: "qb_create_customer", desc: "Create a new customer" },
-      {
-        name: "qb_update_vendor",
-        desc: "Update vendor details (email, phone, address)",
-      },
-      {
-        name: "qb_update_customer",
-        desc: "Update customer details (email, phone, address)",
-      },
-      {
-        name: "qb_create_account",
-        desc: "Add an account to chart of accounts",
-      },
-      {
-        name: "qb_create_sub_account",
-        desc: "Create a sub-account under a parent",
-      },
-      { name: "qb_inactivate_account", desc: "Hide unused accounts" },
-    ],
-  },
-  {
-    name: "Transactions",
-    icon: "📊",
-    description: "View and search all transaction types in your books",
-    tools: [
-      { name: "qb_list_transactions", desc: "Purchases/expenses with filters" },
-      { name: "qb_list_deposits", desc: "Income and owner investments" },
-      { name: "qb_list_transfers", desc: "Account-to-account transfers" },
-      {
-        name: "qb_list_journal_entries",
-        desc: "Adjustments and reclassifications",
-      },
-      {
-        name: "qb_list_journal_entries_by_memo",
-        desc: "Search JEs by memo text",
-      },
-      { name: "qb_list_bills", desc: "Accounts payable" },
-      { name: "qb_list_bill_payments", desc: "Bill payments" },
-      { name: "qb_list_sales_receipts", desc: "Direct sales" },
-      { name: "qb_list_payments", desc: "Customer payments received" },
-      { name: "qb_list_invoices", desc: "Invoices with status filter" },
-      { name: "qb_list_credit_memos", desc: "Customer credit memos/refunds" },
-      { name: "qb_list_vendor_credits", desc: "Vendor credits received" },
-      {
-        name: "qb_list_estimates",
-        desc: "Estimates/quotes with status filter",
-      },
-      {
-        name: "qb_search_transactions",
-        desc: "Search across ALL transaction types",
-      },
-      {
-        name: "qb_list_recurring_transactions",
-        desc: "Recurring templates and schedules",
-      },
-      {
-        name: "qb_transaction_detail",
-        desc: "Full detail for any single transaction",
-      },
-      {
-        name: "qb_account_transactions",
-        desc: "All transactions hitting a specific account",
-      },
-    ],
-  },
-  {
-    name: "Create & Modify",
-    icon: "✏️",
-    description: "Create, update, and manage transactions in QuickBooks",
-    tools: [
-      { name: "qb_create_expense", desc: "Record a purchase/expense" },
-      { name: "qb_create_invoice", desc: "Create a customer invoice" },
-      { name: "qb_create_bill", desc: "Create a vendor bill" },
-      { name: "qb_create_estimate", desc: "Create a customer estimate/quote" },
-      { name: "qb_create_journal_entry", desc: "Record adjustments" },
-      { name: "qb_create_deposit", desc: "Record a bank deposit" },
-      { name: "qb_create_transfer", desc: "Transfer between accounts" },
-      { name: "qb_create_credit_memo", desc: "Issue a customer credit memo" },
-      { name: "qb_create_vendor_credit", desc: "Record a vendor credit" },
-      {
-        name: "qb_convert_estimate_to_invoice",
-        desc: "Convert estimate into invoice",
-      },
-      {
-        name: "qb_record_bill_payment",
-        desc: "Record payment on a vendor bill",
-      },
-      {
-        name: "qb_record_invoice_payment",
-        desc: "Record customer payment on invoice",
-      },
-      { name: "qb_update_transaction", desc: "Update any transaction" },
-      { name: "qb_void_transaction", desc: "Void a transaction" },
-      {
-        name: "qb_delete_transaction",
-        desc: "Delete a transaction permanently",
-      },
-      { name: "qb_delete_journal_entry", desc: "Permanently delete a JE" },
-      {
-        name: "qb_reclassify_transaction",
-        desc: "Move transaction to different account",
-      },
-      {
-        name: "qb_bulk_update_vendor",
-        desc: "Bulk-assign vendor to multiple transactions",
-      },
-      {
-        name: "qb_bulk_update_vendors_multi",
-        desc: "Bulk-assign multiple vendors in one call",
-      },
-      { name: "qb_batch_create_expenses", desc: "Bulk expense import" },
-      { name: "qb_batch_create_bills", desc: "Bulk bill import" },
-      { name: "qb_batch_create_journal_entries", desc: "Bulk JE import" },
-    ],
-  },
-  {
-    name: "Reports & Analysis",
-    icon: "📈",
-    description:
-      "Generate financial reports and analyze your business performance",
-    tools: [
-      { name: "qb_profit_loss", desc: "P&L by total, month, quarter, or year" },
-      { name: "qb_profit_loss_by_class", desc: "P&L by department/class" },
-      { name: "qb_balance_sheet", desc: "Balance sheet as of any date" },
-      { name: "qb_cash_flow", desc: "Statement of cash flows" },
-      {
-        name: "qb_cash_flow_forecast",
-        desc: "Multi-period cash flow projections",
-      },
-      { name: "qb_general_ledger", desc: "All transactions by account" },
-      { name: "qb_trial_balance", desc: "Verify books are balanced" },
-      { name: "qb_ar_aging", desc: "What customers owe you" },
-      { name: "qb_ap_aging", desc: "What you owe vendors" },
-      { name: "qb_expense_summary", desc: "Expenses by category" },
-      { name: "qb_income_summary", desc: "Income by source" },
-      {
-        name: "qb_sales_tax_summary",
-        desc: "Sales tax collected by jurisdiction",
-      },
-      { name: "qb_compare_periods", desc: "Side-by-side period comparison" },
-      { name: "qb_vendor_summary", desc: "Top vendors by spend" },
-      {
-        name: "qb_profit_margin_analysis",
-        desc: "Profit margins by customer or item",
-      },
-      {
-        name: "qb_budget_vs_actual",
-        desc: "Compare budget to actual spending",
-      },
-      {
-        name: "qb_anomaly_detection",
-        desc: "Statistical anomaly and fraud detection",
-      },
-    ],
-  },
-  {
-    name: "Tax Preparation",
-    icon: "📋",
-    description:
-      "Prepare for tax season in the US and Canada — Schedule C, T2125, GST/HST, 1099 & T4A reporting",
-    tools: [
-      { name: "qb_tax_summary", desc: "Expenses mapped to Schedule C lines" },
-      { name: "qb_schedule_c", desc: "Full IRS Schedule C line-by-line" },
-      {
-        name: "qb_schedule_c_detailed",
-        desc: "Granular Schedule C with QB account detail",
-      },
-      {
-        name: "qb_estimate_quarterly_tax",
-        desc: "Federal + state estimated taxes",
-      },
-      { name: "qb_deduction_finder", desc: "Find commonly missed deductions" },
-      {
-        name: "qb_depreciation_schedule",
-        desc: "Section 179 and MACRS schedules",
-      },
-      {
-        name: "qb_1099_contractor_report",
-        desc: "1099-NEC contractor reporting",
-      },
-      {
-        name: "qb_home_office_calculator",
-        desc: "Form 8829 home office deduction",
-      },
-      {
-        name: "qb_vehicle_depreciation_calculator",
-        desc: "Vehicle depreciation with business use %",
-      },
-      { name: "qb_gst_hst_return", desc: "GST/HST return workpaper (Canada)" },
-      { name: "qb_t2125_summary", desc: "CRA T2125 mapping (Canada)" },
-      { name: "qb_cca_schedule", desc: "CCA depreciation schedule (Canada)" },
-      {
-        name: "qb_t4a_contractor_report",
-        desc: "T4A/T5018 contractor report (Canada)",
-      },
-      {
-        name: "qb_estimate_instalments",
-        desc: "CRA instalments + CPP estimator (Canada)",
-      },
-      { name: "qb_list_tax_codes", desc: "List sales tax codes (GST/HST/PST)" },
-      { name: "qb_list_tax_rates", desc: "List sales tax rates" },
-    ],
-  },
-  {
-    name: "Smart Features",
-    icon: "🧠",
-    description:
-      "AI-powered insights, duplicate detection, and automated suggestions",
-    tools: [
-      {
-        name: "qb_uncategorized_transactions",
-        desc: "Find uncategorized transactions",
-      },
-      { name: "qb_find_duplicates", desc: "Detect potential duplicates" },
-      {
-        name: "qb_auto_categorize_suggestions",
-        desc: "AI-suggested categories",
-      },
-      { name: "qb_monthly_burn_rate", desc: "Monthly expense trends" },
-      { name: "qb_runway_calculator", desc: "Months of cash runway" },
-      {
-        name: "qb_fiscal_year_close_checklist",
-        desc: "Year-end close readiness check",
-      },
-      {
-        name: "qb_books_health_audit",
-        desc: "Comprehensive books health audit",
-      },
-      {
-        name: "qb_month_end_close",
-        desc: "Month-end close checklist with status checks",
-      },
-      {
-        name: "qb_unknown_vendor_report",
-        desc: "Find transactions with missing vendor names",
-      },
-    ],
-  },
-  {
-    name: "Reconciliation & Attachments",
-    icon: "🔗",
-    description: "Match invoices, attach receipts, and reconcile accounts",
-    tools: [
-      {
-        name: "qb_reconcile_invoices",
-        desc: "Match invoices against transactions",
-      },
-      {
-        name: "qb_match_invoices_to_transactions",
-        desc: "Fuzzy-match with tolerance",
-      },
-      { name: "qb_upload_receipt", desc: "Attach receipts to transactions" },
-      { name: "qb_list_attachments", desc: "List attached documents" },
-      { name: "qb_account_balance", desc: "Check any account balance" },
-    ],
-  },
-  {
-    name: "Connection & Multi-Company",
-    icon: "🔄",
-    description: "Manage multiple QuickBooks companies and connections",
-    tools: [
-      {
-        name: "qb_list_companies",
-        desc: "List connected QuickBooks companies",
-      },
-      { name: "qb_switch_company", desc: "Switch to a different company" },
-      {
-        name: "qb_refresh_connection",
-        desc: "Refresh connection to AccountingQB",
-      },
-    ],
-  },
-];
+interface CatalogTool {
+  name: string;
+  description: string;
+  write: boolean;
+}
+
+const BY_NAME = new Map<string, CatalogTool>(
+  (catalog as CatalogTool[]).map((t) => [t.name, t]),
+);
+const TOTAL = catalog.length;
+const WRITES = (catalog as CatalogTool[]).filter((t) => t.write).length;
+const READS = TOTAL - WRITES;
+
+function Badge({ write }: { write: boolean }) {
+  return write ? (
+    <span className="shrink-0 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 px-2.5 py-0.5 text-xs font-medium">
+      Writes to QuickBooks
+    </span>
+  ) : (
+    <span className="shrink-0 rounded-full bg-green-500/15 text-green-400 border border-green-500/30 px-2.5 py-0.5 text-xs font-medium">
+      Read-only
+    </span>
+  );
+}
+
+function anchor(name: string) {
+  return name.toLowerCase().replace(/[^a-z]+/g, "-");
+}
 
 export default function FeaturesPage() {
   const { isSignedIn, isLoaded } = useUser();
+  const [readOnlyOnly, setReadOnlyOnly] = useState(false);
 
   if (isLoaded && !isSignedIn) {
     redirect("/sign-in");
   }
 
-  const totalTools = TOOL_CATEGORIES.reduce(
-    (acc, cat) => acc + cat.tools.length,
-    0,
-  );
+  const visible = (names: string[]) =>
+    names
+      .map((n) => BY_NAME.get(n))
+      .filter((t): t is CatalogTool => !!t && (!readOnlyOnly || !t.write));
 
   return (
     <main className="min-h-screen bg-[#0a0e1a] text-white">
@@ -327,7 +67,7 @@ export default function FeaturesPage() {
               >
                 Dashboard
               </a>
-              <span className="text-sm text-white font-medium">Features</span>
+              <span className="text-sm text-white font-medium">Tools</span>
             </nav>
           </div>
         </div>
@@ -335,26 +75,68 @@ export default function FeaturesPage() {
 
       <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Page Title */}
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold mb-4">All {totalTools} Tools</h1>
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-3">All {TOTAL} Tools</h1>
           <p className="text-xl text-gray-400 max-w-3xl">
-            Everything AccountingQB can do for your QuickBooks books. Just ask
-            Claude naturally — &quot;What&apos;s my P&L for last month?&quot; or
-            &quot;Find missing deductions.&quot;
+            Every tool AccountingQB can use on your QuickBooks — and exactly
+            which ones only <span className="text-green-400">read</span> vs.{" "}
+            <span className="text-amber-400">write</span>.
           </p>
+          <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
+            <span className="text-green-400">● {READS} read-only</span>
+            <span className="text-amber-400">● {WRITES} write</span>
+            <label className="ml-auto flex items-center gap-2 text-gray-400 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={readOnlyOnly}
+                onChange={(e) => setReadOnlyOnly(e.target.checked)}
+                className="accent-cyan-500"
+              />
+              Show read-only tools only
+            </label>
+          </div>
         </div>
+
+        {/* What we write to QuickBooks */}
+        <section className="mb-12 rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-6">
+          <h2 className="text-lg font-semibold mb-2">
+            What AccountingQB writes to QuickBooks
+          </h2>
+          <p className="text-gray-300 text-sm max-w-3xl">
+            AccountingQB <strong>reads by default</strong>. It only changes your
+            books through the {WRITES} tools marked{" "}
+            <span className="text-amber-400">Writes to QuickBooks</span> — and
+            never silently: every write is an explicit, confirm-gated action
+            surfaced for your approval. Writes cover invoices, bills, expenses,
+            deposits, transfers, journal entries, credit memos, vendors &amp;
+            customers, accounts, payments, reclassification, and recorded
+            depreciation.
+          </p>
+          <p className="text-gray-400 text-sm mt-3 max-w-3xl">
+            Want a hard guarantee? Turn on{" "}
+            <a
+              href="/dashboard/settings"
+              className="text-cyan-400 hover:underline"
+            >
+              read-only mode
+            </a>{" "}
+            — our servers then refuse every write tool and hide them entirely.
+            Tax jurisdiction (US vs. Canada) is detected automatically from your
+            QuickBooks company; wrong-jurisdiction tools are refused.
+          </p>
+        </section>
 
         {/* Category Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
           {TOOL_CATEGORIES.map((cat) => (
             <a
-              key={cat.name}
-              href={`#${cat.name.toLowerCase().replace(/[^a-z]+/g, "-")}`}
+              key={cat.category}
+              href={`#${anchor(cat.category)}`}
               className="rounded-xl border border-white/10 bg-white/[0.02] p-4 hover:bg-white/[0.05] transition group"
             >
               <div className="text-2xl mb-2">{cat.icon}</div>
               <h3 className="font-medium text-white group-hover:text-cyan-400 transition">
-                {cat.name}
+                {cat.category}
               </h3>
               <p className="text-sm text-gray-500">{cat.tools.length} tools</p>
             </a>
@@ -363,41 +145,46 @@ export default function FeaturesPage() {
 
         {/* Tool Categories */}
         <div className="space-y-12">
-          {TOOL_CATEGORIES.map((category) => (
-            <section
-              key={category.name}
-              id={category.name.toLowerCase().replace(/[^a-z]+/g, "-")}
-              className="scroll-mt-24"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-3xl">{category.icon}</span>
-                <div>
-                  <h2 className="text-2xl font-bold">{category.name}</h2>
-                  <p className="text-gray-400">{category.description}</p>
+          {TOOL_CATEGORIES.map((category) => {
+            const tools = visible(category.tools);
+            if (tools.length === 0) return null;
+            return (
+              <section
+                key={category.category}
+                id={anchor(category.category)}
+                className="scroll-mt-24"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-3xl">{category.icon}</span>
+                  <div>
+                    <h2 className="text-2xl font-bold">{category.category}</h2>
+                    <p className="text-gray-400">{category.blurb}</p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="grid gap-3">
-                {category.tools.map((tool) => (
-                  <div
-                    key={tool.name}
-                    className="rounded-xl border border-white/10 bg-white/[0.02] p-4 hover:bg-white/[0.04] transition"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <code className="text-cyan-400 font-mono text-sm">
-                          {tool.name}
-                        </code>
-                        <p className="text-gray-400 text-sm mt-1">
-                          {tool.desc}
-                        </p>
+                <div className="grid gap-3">
+                  {tools.map((tool) => (
+                    <div
+                      key={tool.name}
+                      className="rounded-xl border border-white/10 bg-white/[0.02] p-4 hover:bg-white/[0.04] transition"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <code className="text-cyan-400 font-mono text-sm">
+                            {tool.name}
+                          </code>
+                          <p className="text-gray-400 text-sm mt-1">
+                            {tool.description}
+                          </p>
+                        </div>
+                        <Badge write={tool.write} />
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
 
         {/* Usage Examples */}

@@ -1,0 +1,692 @@
+[
+  {
+    "name": "qb_1099_contractor_report",
+    "description": "1099-NEC contractor reporting",
+    "write": false
+  },
+  {
+    "name": "qb_1099_misc_report",
+    "description": "Generate 1099-MISC reporting data for a tax year — rents (box 1),",
+    "write": false
+  },
+  {
+    "name": "qb_account_balance",
+    "description": "Get account balance",
+    "write": false
+  },
+  {
+    "name": "qb_account_transactions",
+    "description": "All transactions for an account",
+    "write": false
+  },
+  {
+    "name": "qb_allocation_profile",
+    "description": "Get or set this company's TAXPAYER allocation profile for a tax year — the",
+    "write": true
+  },
+  {
+    "name": "qb_anomaly_detection",
+    "description": "Detect unusual transactions",
+    "write": false
+  },
+  {
+    "name": "qb_ap_aging",
+    "description": "Accounts payable aging",
+    "write": false
+  },
+  {
+    "name": "qb_apply_categorization_rules",
+    "description": "Clear the uncategorized backlog using the company's saved rules — the",
+    "write": true
+  },
+  {
+    "name": "qb_ar_aging",
+    "description": "Accounts receivable aging",
+    "write": false
+  },
+  {
+    "name": "qb_auto_categorize_suggestions",
+    "description": "AI categorization suggestions",
+    "write": false
+  },
+  {
+    "name": "qb_balance_sheet",
+    "description": "Balance Sheet report",
+    "write": false
+  },
+  {
+    "name": "qb_bank_reconciliation",
+    "description": "Reconcile a bank / credit-card statement against the books. QuickBooks",
+    "write": false
+  },
+  {
+    "name": "qb_batch_create_bills",
+    "description": "Bulk create bills",
+    "write": true
+  },
+  {
+    "name": "qb_batch_create_expenses",
+    "description": "Bulk create expenses",
+    "write": true
+  },
+  {
+    "name": "qb_batch_create_journal_entries",
+    "description": "Bulk create journal entries",
+    "write": true
+  },
+  {
+    "name": "qb_books_health_audit",
+    "description": "Comprehensive books health audit",
+    "write": false
+  },
+  {
+    "name": "qb_books_hygiene",
+    "description": "Structural books-quality audit that catches what a health score misses:",
+    "write": false
+  },
+  {
+    "name": "qb_budget_vs_actual",
+    "description": "Budget vs actual spending",
+    "write": false
+  },
+  {
+    "name": "qb_bulk_update_vendor",
+    "description": "Assign vendor to multiple txns",
+    "write": true
+  },
+  {
+    "name": "qb_bulk_update_vendors_multi",
+    "description": "Bulk vendor assignment",
+    "write": true
+  },
+  {
+    "name": "qb_cash_flow",
+    "description": "Statement of Cash Flows",
+    "write": false
+  },
+  {
+    "name": "qb_cash_flow_forecast",
+    "description": "Project future cash flow",
+    "write": false
+  },
+  {
+    "name": "qb_categorization_rules",
+    "description": "View, add, or remove this company's saved categorization rules — the",
+    "write": true
+  },
+  {
+    "name": "qb_cca_schedule",
+    "description": "Compute a Capital Cost Allowance (CCA) schedule by class (T2125 Area A).",
+    "write": false
+  },
+  {
+    "name": "qb_change_audit_trail",
+    "description": "What changed in the books since a date — created, updated, and **deleted**",
+    "write": false
+  },
+  {
+    "name": "qb_company_info",
+    "description": "Get company details, address, EIN, fiscal year",
+    "write": false
+  },
+  {
+    "name": "qb_comparative_statements",
+    "description": "Two-year comparative statement — the format CPAs read first. Renders",
+    "write": false
+  },
+  {
+    "name": "qb_compare_periods",
+    "description": "Compare two time periods",
+    "write": false
+  },
+  {
+    "name": "qb_convert_estimate_to_invoice",
+    "description": "Convert estimate to invoice",
+    "write": true
+  },
+  {
+    "name": "qb_create_account",
+    "description": "Create a new account",
+    "write": true
+  },
+  {
+    "name": "qb_create_bill",
+    "description": "Create a bill (AP)",
+    "write": true
+  },
+  {
+    "name": "qb_create_credit_memo",
+    "description": "Create customer credit memo",
+    "write": true
+  },
+  {
+    "name": "qb_create_customer",
+    "description": "Create a new customer",
+    "write": true
+  },
+  {
+    "name": "qb_create_deposit",
+    "description": "Create a bank deposit",
+    "write": true
+  },
+  {
+    "name": "qb_create_estimate",
+    "description": "Create a quote/estimate",
+    "write": true
+  },
+  {
+    "name": "qb_create_expense",
+    "description": "Create a new expense",
+    "write": true
+  },
+  {
+    "name": "qb_create_invoice",
+    "description": "Create a customer invoice",
+    "write": true
+  },
+  {
+    "name": "qb_create_journal_entry",
+    "description": "Create a journal entry",
+    "write": true
+  },
+  {
+    "name": "qb_create_sub_account",
+    "description": "Create a sub-account",
+    "write": true
+  },
+  {
+    "name": "qb_create_transfer",
+    "description": "Transfer between accounts",
+    "write": true
+  },
+  {
+    "name": "qb_create_vendor",
+    "description": "Create a new vendor",
+    "write": true
+  },
+  {
+    "name": "qb_create_vendor_credit",
+    "description": "Create vendor credit",
+    "write": true
+  },
+  {
+    "name": "qb_customer_balance_detail",
+    "description": "Open invoices per customer with line detail (date, invoice #, due date,",
+    "write": false
+  },
+  {
+    "name": "qb_deduction_finder",
+    "description": "Find missed tax deductions",
+    "write": false
+  },
+  {
+    "name": "qb_delete_journal_entry",
+    "description": "Delete a journal entry",
+    "write": true
+  },
+  {
+    "name": "qb_delete_transaction",
+    "description": "Delete a transaction",
+    "write": true
+  },
+  {
+    "name": "qb_depreciation_schedule",
+    "description": "Asset depreciation schedules",
+    "write": false
+  },
+  {
+    "name": "qb_estimate_instalments",
+    "description": "Estimate CRA tax instalments and CPP for a self-employed Canadian based",
+    "write": false
+  },
+  {
+    "name": "qb_estimate_quarterly_tax",
+    "description": "Quarterly tax estimates",
+    "write": false
+  },
+  {
+    "name": "qb_expense_summary",
+    "description": "Expenses by category",
+    "write": false
+  },
+  {
+    "name": "qb_find_duplicates",
+    "description": "Detect duplicate transactions",
+    "write": false
+  },
+  {
+    "name": "qb_fiscal_year_close_checklist",
+    "description": "Year-end close checklist",
+    "write": false
+  },
+  {
+    "name": "qb_form_1065_summary",
+    "description": "Form 1065 (partnership / multi-member LLC) book-to-tax WORKPAPER for a tax",
+    "write": false
+  },
+  {
+    "name": "qb_form_1120s_summary",
+    "description": "Form 1120-S (S corporation) book-to-tax WORKPAPER for a tax year: page-1",
+    "write": false
+  },
+  {
+    "name": "qb_general_ledger",
+    "description": "General ledger by account",
+    "write": false
+  },
+  {
+    "name": "qb_gst_hst_return",
+    "description": "Build a GST/HST (GST34) return workpaper for a filing period.",
+    "write": false
+  },
+  {
+    "name": "qb_home_office_calculator",
+    "description": "Home office deduction (Form 8829)",
+    "write": true
+  },
+  {
+    "name": "qb_inactivate_account",
+    "description": "Deactivate an account",
+    "write": true
+  },
+  {
+    "name": "qb_income_summary",
+    "description": "Income by category",
+    "write": false
+  },
+  {
+    "name": "qb_inventory_valuation",
+    "description": "Inventory valuation as of a date — on-hand quantity, asset value, and",
+    "write": false
+  },
+  {
+    "name": "qb_list_accounts",
+    "description": "Chart of accounts",
+    "write": false
+  },
+  {
+    "name": "qb_list_attachments",
+    "description": "List document attachments",
+    "write": false
+  },
+  {
+    "name": "qb_list_bill_payments",
+    "description": "List bill payments",
+    "write": false
+  },
+  {
+    "name": "qb_list_bills",
+    "description": "List accounts payable bills",
+    "write": false
+  },
+  {
+    "name": "qb_list_classes",
+    "description": "List QuickBooks classes (the segment tags used for class tracking, e.g.",
+    "write": false
+  },
+  {
+    "name": "qb_list_companies",
+    "description": "List connected QuickBooks companies",
+    "write": false
+  },
+  {
+    "name": "qb_list_credit_memos",
+    "description": "List customer credit memos",
+    "write": false
+  },
+  {
+    "name": "qb_list_customers",
+    "description": "List customers",
+    "write": false
+  },
+  {
+    "name": "qb_list_departments",
+    "description": "List QuickBooks departments/locations (the Location-tracking dimension).",
+    "write": false
+  },
+  {
+    "name": "qb_list_deposits",
+    "description": "List deposits and income",
+    "write": false
+  },
+  {
+    "name": "qb_list_estimates",
+    "description": "List estimates/quotes",
+    "write": false
+  },
+  {
+    "name": "qb_list_invoices",
+    "description": "List invoices with status filter",
+    "write": false
+  },
+  {
+    "name": "qb_list_items",
+    "description": "List products and services",
+    "write": false
+  },
+  {
+    "name": "qb_list_journal_entries",
+    "description": "List journal entries",
+    "write": false
+  },
+  {
+    "name": "qb_list_journal_entries_by_memo",
+    "description": "Search JEs by memo text",
+    "write": false
+  },
+  {
+    "name": "qb_list_payments",
+    "description": "List customer payments",
+    "write": false
+  },
+  {
+    "name": "qb_list_purchase_orders",
+    "description": "List purchase orders in a date range — date, PO number, vendor, amount, and",
+    "write": false
+  },
+  {
+    "name": "qb_list_recurring_transactions",
+    "description": "List recurring transactions",
+    "write": false
+  },
+  {
+    "name": "qb_list_sales_receipts",
+    "description": "List sales receipts",
+    "write": false
+  },
+  {
+    "name": "qb_list_tax_codes",
+    "description": "List this company's sales tax codes: name, Id, combined sales rate, and agency.",
+    "write": false
+  },
+  {
+    "name": "qb_list_tax_rates",
+    "description": "List this company's individual sales tax rates (rate % and tax agency).",
+    "write": false
+  },
+  {
+    "name": "qb_list_transactions",
+    "description": "List purchases/expenses in a date range",
+    "write": false
+  },
+  {
+    "name": "qb_list_transfers",
+    "description": "List account transfers",
+    "write": false
+  },
+  {
+    "name": "qb_list_vendor_credits",
+    "description": "List vendor credits",
+    "write": false
+  },
+  {
+    "name": "qb_list_vendors",
+    "description": "List vendors/suppliers",
+    "write": false
+  },
+  {
+    "name": "qb_match_invoices_to_transactions",
+    "description": "Fuzzy match invoices to QB",
+    "write": false
+  },
+  {
+    "name": "qb_missing_receipts",
+    "description": "Find expense transactions at/above a dollar threshold that have NO",
+    "write": false
+  },
+  {
+    "name": "qb_month_end_close",
+    "description": "Month-end close checklist",
+    "write": false
+  },
+  {
+    "name": "qb_monthly_burn_rate",
+    "description": "Monthly burn rate analysis",
+    "write": false
+  },
+  {
+    "name": "qb_owner_draws",
+    "description": "Owner's draws and contributions for the year — equity movement a CPA",
+    "write": false
+  },
+  {
+    "name": "qb_payroll_checklist",
+    "description": "Payroll boundary checklist. AccountingQB does NOT run payroll or compute",
+    "write": false
+  },
+  {
+    "name": "qb_profit_loss",
+    "description": "P&L / Income Statement",
+    "write": false
+  },
+  {
+    "name": "qb_profit_loss_by_class",
+    "description": "P&L by class/department",
+    "write": false
+  },
+  {
+    "name": "qb_profit_loss_by_department",
+    "description": "Generate a P&L broken down by department/location. Dates in YYYY-MM-DD",
+    "write": false
+  },
+  {
+    "name": "qb_profit_loss_detail",
+    "description": "Profit & Loss DETAIL — every transaction behind each P&L line, grouped by",
+    "write": false
+  },
+  {
+    "name": "qb_profit_margin_analysis",
+    "description": "Margins by customer/item",
+    "write": false
+  },
+  {
+    "name": "qb_reclassify_transaction",
+    "description": "Reclassify to different account",
+    "write": true
+  },
+  {
+    "name": "qb_reconcile_invoices",
+    "description": "Match invoices to transactions",
+    "write": false
+  },
+  {
+    "name": "qb_reconciliation_status",
+    "description": "Bank and credit-card tie-out summary for CPA handoff: per-account book",
+    "write": false
+  },
+  {
+    "name": "qb_record_bill_payment",
+    "description": "Record a bill payment",
+    "write": true
+  },
+  {
+    "name": "qb_record_depreciation",
+    "description": "Record period depreciation for a fixed asset the CORRECT way:",
+    "write": true
+  },
+  {
+    "name": "qb_record_invoice_payment",
+    "description": "Record invoice payment",
+    "write": true
+  },
+  {
+    "name": "qb_refresh_connection",
+    "description": "Refresh connection to AccountingQB",
+    "write": false
+  },
+  {
+    "name": "qb_runway_calculator",
+    "description": "Cash runway calculator",
+    "write": false
+  },
+  {
+    "name": "qb_sales_by_class",
+    "description": "Sales broken out by class for a date range — segment/program performance.",
+    "write": false
+  },
+  {
+    "name": "qb_sales_by_customer",
+    "description": "Total sales (income) by customer for a date range — who your biggest",
+    "write": false
+  },
+  {
+    "name": "qb_sales_by_department",
+    "description": "Sales broken out by department/location for a date range. Dates YYYY-MM-DD",
+    "write": false
+  },
+  {
+    "name": "qb_sales_by_product",
+    "description": "Sales by product/service (item) for a date range — what's actually",
+    "write": false
+  },
+  {
+    "name": "qb_sales_tax_nexus",
+    "description": "Screen for state sales-tax ECONOMIC NEXUS exposure and show sales-tax",
+    "write": false
+  },
+  {
+    "name": "qb_sales_tax_summary",
+    "description": "Sales tax summary by jurisdiction",
+    "write": false
+  },
+  {
+    "name": "qb_schedule_c",
+    "description": "Schedule C line mapping",
+    "write": false
+  },
+  {
+    "name": "qb_schedule_c_detailed",
+    "description": "Detailed Schedule C with accounts",
+    "write": false
+  },
+  {
+    "name": "qb_search_transactions",
+    "description": "Search all transaction types",
+    "write": false
+  },
+  {
+    "name": "qb_send_invoice",
+    "description": "Email an existing invoice to the customer through QuickBooks. This sends a",
+    "write": true
+  },
+  {
+    "name": "qb_send_payment_reminders",
+    "description": "Chase overdue invoices: find every invoice past its due date with an open",
+    "write": true
+  },
+  {
+    "name": "qb_server_info",
+    "description": "Report the RUNNING AccountingQB MCP server: version, tool count, build",
+    "write": false
+  },
+  {
+    "name": "qb_startup_cost_analysis",
+    "description": "Compute the §195 startup-cost deduction and amortization schedule.",
+    "write": false
+  },
+  {
+    "name": "qb_stripe_reconcile",
+    "description": "Reconcile a month of Stripe activity into QuickBooks the right way: net",
+    "write": true
+  },
+  {
+    "name": "qb_switch_company",
+    "description": "Switch to a different company",
+    "write": true
+  },
+  {
+    "name": "qb_t2125_summary",
+    "description": "Generate a CRA T2125 (Statement of Business or Professional Activities)",
+    "write": false
+  },
+  {
+    "name": "qb_t4a_contractor_report",
+    "description": "Generate T4A (box 048 — fees for services) contractor reporting data for",
+    "write": false
+  },
+  {
+    "name": "qb_tax_data_info",
+    "description": "Show the provenance of every tax rate and threshold this server uses:",
+    "write": false
+  },
+  {
+    "name": "qb_tax_payments_made",
+    "description": "What you actually PAID the IRS/CRA this year — the first thing a CPA",
+    "write": false
+  },
+  {
+    "name": "qb_tax_summary",
+    "description": "Tax-oriented Schedule C mapping",
+    "write": false
+  },
+  {
+    "name": "qb_transaction_detail",
+    "description": "Full details of one transaction",
+    "write": false
+  },
+  {
+    "name": "qb_transaction_list",
+    "description": "A flexible transaction register — every transaction (date, type, num, name,",
+    "write": false
+  },
+  {
+    "name": "qb_trial_balance",
+    "description": "Trial balance report",
+    "write": false
+  },
+  {
+    "name": "qb_uncategorized_transactions",
+    "description": "Find uncategorized items",
+    "write": false
+  },
+  {
+    "name": "qb_unknown_vendor_report",
+    "description": "Find unknown/missing vendors",
+    "write": false
+  },
+  {
+    "name": "qb_update_customer",
+    "description": "Update customer details",
+    "write": true
+  },
+  {
+    "name": "qb_update_transaction",
+    "description": "Update an existing transaction",
+    "write": true
+  },
+  {
+    "name": "qb_update_vendor",
+    "description": "Update vendor details",
+    "write": true
+  },
+  {
+    "name": "qb_upload_receipt",
+    "description": "Attach receipt to transaction",
+    "write": true
+  },
+  {
+    "name": "qb_vehicle_depreciation_calculator",
+    "description": "Vehicle depreciation calc",
+    "write": false
+  },
+  {
+    "name": "qb_vendor_balance_detail",
+    "description": "Open bills per vendor with line detail (date, bill #, due date, amount,",
+    "write": false
+  },
+  {
+    "name": "qb_vendor_expenses",
+    "description": "Total spend by vendor for a date range (QuickBooks VendorExpenses report).",
+    "write": false
+  },
+  {
+    "name": "qb_vendor_summary",
+    "description": "Top vendors by spend",
+    "write": false
+  },
+  {
+    "name": "qb_void_transaction",
+    "description": "Void a transaction",
+    "write": true
+  }
+]
