@@ -17190,9 +17190,67 @@ def _apply_usage_tracking():
     )
 
 
+def _tool_is_read_only(tool) -> bool:
+    """A tool is read-only iff its manifest annotation readOnlyHint is True."""
+    ann = getattr(tool, "annotations", None)
+    if ann is None:
+        return False
+    if isinstance(ann, dict):
+        return ann.get("readOnlyHint") is True
+    return getattr(ann, "readOnlyHint", None) is True
+
+
+# Names of every read-only/report tool (readOnlyHint=True). Everything else is a
+# book-mutating tool. Exposed for the remote connector's read-only tools/list filter
+# and the read-only invariant test.
+READ_ONLY_TOOLS: set[str] = set()
+
+
+def require_not_readonly(func):
+    """Gate a book-mutating tool behind the per-request read-only flag. When the
+    connection is read-only (client-selected `licenses.read_only`, set on the
+    QBContext by the remote service), the tool refuses BEFORE running — a hard,
+    server-enforced lock, not just the client's per-action approval. Mirrors
+    require_license / require_region."""
+
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        if getattr(get_ctx(), "read_only", False):
+            return (
+                f"⚠️ This connection is read-only — {func.__name__} "
+                "(create/update/delete/reconcile) is disabled. Reports and "
+                "read-only tools remain available."
+            )
+        return await func(*args, **kwargs)
+
+    return wrapper
+
+
+def _apply_readonly_gating():
+    """Wrap every book-mutating tool with require_not_readonly (cf.
+    _apply_license_gating). Read-only/report tools are left untouched."""
+    global READ_ONLY_TOOLS
+    READ_ONLY_TOOLS = {
+        name
+        for name, tool in mcp._tool_manager._tools.items()
+        if _tool_is_read_only(tool)
+    }
+    gated = 0
+    for tool_name in list(mcp._tool_manager._tools.keys()):
+        if tool_name not in READ_ONLY_TOOLS:
+            tool = mcp._tool_manager._tools[tool_name]
+            tool.fn = require_not_readonly(tool.fn)
+            gated += 1
+    logger.info(
+        f"Read-only gating installed: {len(READ_ONLY_TOOLS)} read tools, "
+        f"{gated} write tools gated (refuse when the connection is read-only)"
+    )
+
+
 # Apply gating and tracking after all tools are registered
 _apply_license_gating()
 _apply_usage_tracking()
+_apply_readonly_gating()
 
 
 # ===================================================================

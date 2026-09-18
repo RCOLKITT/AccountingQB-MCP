@@ -108,6 +108,17 @@ def _augment_tools_list(body: bytes) -> bytes:
     except (ValueError, TypeError):
         return body
 
+    # Read-only mode (client-selected): hide every write tool from tools/list so
+    # Claude only ever sees reports. Defense-in-depth — server-side gating still
+    # refuses a write even if one were called directly (server._apply_readonly_gating).
+    read_only = False
+    try:
+        from .context import get_ctx  # noqa: PLC0415
+
+        read_only = bool(getattr(get_ctx(), "read_only", False))
+    except Exception:
+        read_only = False
+
     changed = False
 
     def _aug(o: object) -> None:
@@ -115,6 +126,16 @@ def _augment_tools_list(body: bytes) -> bytes:
         if isinstance(o, dict):
             res = o.get("result")
             if isinstance(res, dict) and isinstance(res.get("tools"), list):
+                if read_only:
+                    from accountingqb import server as _srv  # noqa: PLC0415
+
+                    allow = _srv.READ_ONLY_TOOLS
+                    res["tools"] = [
+                        t
+                        for t in res["tools"]
+                        if isinstance(t, dict) and t.get("name") in allow
+                    ]
+                    changed = True
                 res.setdefault("ttlMs", TOOLS_LIST_TTL_MS)
                 res.setdefault("cacheScope", "public")
                 changed = True
@@ -148,15 +169,19 @@ class DefaultRealmCache:
     ):
         self._api_url = api_url.rstrip("/")
         self._ttl = ttl
-        self._cache: dict[str, tuple[float, Optional[str]]] = {}
+        # license_key -> (ts, realm, read_only)
+        self._cache: dict[str, tuple[float, Optional[str], bool]] = {}
 
-    async def get(self, license_key: str) -> Optional[str]:
-        now = time.monotonic()
+    def _fresh(self, license_key: str) -> Optional[tuple[float, Optional[str], bool]]:
         hit = self._cache.get(license_key)
-        if hit and now - hit[0] < self._ttl:
-            return hit[1]
+        if hit and time.monotonic() - hit[0] < self._ttl:
+            return hit
+        return None
 
+    async def _refresh(self, license_key: str) -> tuple[Optional[str], bool]:
+        """One broker call fetching BOTH the default realm and the read-only flag."""
         realm: Optional[str] = None
+        read_only = False
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(
@@ -164,12 +189,27 @@ class DefaultRealmCache:
                     params={"license_key": license_key},
                 )
                 if resp.status_code == 200:
-                    realm = resp.json().get("realmId") or None
+                    data = resp.json()
+                    realm = data.get("realmId") or None
+                    read_only = bool(data.get("readOnly"))
         except Exception as exc:  # network errors are non-fatal
             logger.warning("default-realm lookup failed: %s", exc)
+        self._cache[license_key] = (time.monotonic(), realm, read_only)
+        return realm, read_only
 
-        self._cache[license_key] = (now, realm)
+    async def get(self, license_key: str) -> Optional[str]:
+        hit = self._fresh(license_key)
+        if hit:
+            return hit[1]
+        realm, _ = await self._refresh(license_key)
         return realm
+
+    async def read_only(self, license_key: str) -> bool:
+        hit = self._fresh(license_key)
+        if hit:
+            return hit[2]
+        _, read_only = await self._refresh(license_key)
+        return read_only
 
     def invalidate(self, license_key: str) -> None:
         self._cache.pop(license_key, None)
@@ -180,6 +220,10 @@ _default_realm_cache = DefaultRealmCache()
 
 async def _resolve_default_realm(license_key: str) -> Optional[str]:
     return await _default_realm_cache.get(license_key)
+
+
+async def _resolve_read_only(license_key: str) -> bool:
+    return await _default_realm_cache.read_only(license_key)
 
 
 # ---------------------------------------------------------------------------
@@ -206,6 +250,9 @@ class BearerAuthMiddleware:
         realm_resolver: Optional[
             Callable[[str], Awaitable[Optional[str]]]
         ] = _resolve_default_realm,
+        read_only_resolver: Optional[
+            Callable[[str], Awaitable[bool]]
+        ] = _resolve_read_only,
         version: str = "",
         tool_count: int = 0,
         tax_data: Optional[dict] = None,
@@ -215,6 +262,7 @@ class BearerAuthMiddleware:
         self.resource_url = resource_url.rstrip("/")
         self.auth_server_url = auth_server_url.rstrip("/")
         self.realm_resolver = realm_resolver
+        self.read_only_resolver = read_only_resolver
         self.version = version
         self.tool_count = tool_count
         self.tax_data = tax_data or {}
@@ -377,11 +425,20 @@ class BearerAuthMiddleware:
 
         # Fresh per-request tenant context. persist_tokens=False: the remote
         # host must never write tenant tokens to its local disk.
+        # Client-selected read-only mode (licenses.read_only), resolved per request
+        # (cached with the realm — one broker call). Server-side gating refuses every
+        # write tool when this is set; tools/list is filtered to read tools too.
+        read_only = False
+        if self.read_only_resolver is not None:
+            try:
+                read_only = bool(await self.read_only_resolver(license_key))
+            except Exception as exc:  # never fail the request on this lookup
+                logger.warning("read-only lookup failed: %s", exc)
+
         ctx = QBContext(persist_tokens=False, hosted_mode=True)
         ctx.realm_id = realm_id or ""
-        # Dynamic attribute — QBContext has no license_key field yet; see the
-        # module docstring for the server.py/context.py hook this requires.
-        ctx.license_key = license_key  # type: ignore[attr-defined]
+        ctx.license_key = license_key
+        ctx.read_only = read_only
         ctx.user_id = claims.get("sub", "")  # type: ignore[attr-defined]
 
         token = set_ctx(ctx)

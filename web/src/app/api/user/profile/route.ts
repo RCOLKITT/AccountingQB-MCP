@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   const { data: license, error } = await supabase
     .from("licenses")
     .select(
-      "key, email, tier, status, trial_ends_at, card_last_four, card_brand, next_billing_date, billing_amount_cents",
+      "key, email, tier, status, trial_ends_at, card_last_four, card_brand, next_billing_date, billing_amount_cents, read_only",
     )
     .eq("key", licenseKey)
     .single();
@@ -64,6 +64,7 @@ export async function GET(req: NextRequest) {
       email: license.email,
       tier: license.tier,
       status: license.status,
+      readOnly: !!license.read_only,
       billingState,
       hasSubscription,
       hasBillingAccount: recon?.hasBillingAccount ?? false,

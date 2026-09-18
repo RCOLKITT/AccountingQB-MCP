@@ -30,6 +30,11 @@ CREATE TABLE IF NOT EXISTS licenses (
   -- Internal/demo account flag: excluded from admin funnel + campaigns
   is_test       BOOLEAN NOT NULL DEFAULT false,
 
+  -- Client-selectable read-only connector mode: when true the remote connector
+  -- refuses every book-mutating tool (server-enforced) and hides them from
+  -- tools/list. See migrations/2026-09-license-read-only.sql.
+  read_only     BOOLEAN NOT NULL DEFAULT false,
+
   -- Timestamps
   created_at    TIMESTAMPTZ DEFAULT NOW(),
   updated_at    TIMESTAMPTZ DEFAULT NOW()
