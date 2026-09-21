@@ -26,7 +26,12 @@ Operational procedures. Keep truthful; if a step here doesn't match reality, fix
   `latest.json` on next launch. Signing secrets: Apple (6) + Azure (6) + updater (2,
   `TAURI_SIGNING_PRIVATE_KEY[_PASSWORD]`) in Doppler + mirrored to GitHub Actions secrets. See
   `accountingqb-desktop-tauri/SIGNING.md`.
-- **PyPI:** version bump + changelog; publish token is `UV_PUBLISH_TOKEN` in Doppler.
+- **Package + connector (PyPI + Fly), automated — keeps every surface in parity:** bump the version
+  in `mcpb/pyproject.toml` + `mcpb/manifest.json` + `mcpb/src/accountingqb/__init__.py`, then
+  `git tag vX.Y.Z && git push --tags` → `release.yml` publishes `accountingqb` to PyPI **and** deploys
+  the remote connector to Fly, smoke-gated (`deploy-smoke.py` must see the live `/version` match).
+  Secrets (GitHub Actions, from Doppler `prd`): `UV_PUBLISH_TOKEN`, `FLY_API_TOKEN`, `MCP_JWT_SECRET`.
+  Manual fallback: `cd mcpb && uv publish` (PyPI) · `./scripts/deploy.sh` (connector).
 
 ## Rollback
 - **Web:** in Vercel, promote the previous good deployment (Deployments → ⋯ → Promote to Production).

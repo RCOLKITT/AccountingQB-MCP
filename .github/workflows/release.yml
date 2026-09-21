@@ -1,0 +1,69 @@
+name: Release (PyPI + connector)
+
+# Push a version tag (e.g. `v3.18.3`) → publish the accountingqb package to PyPI AND
+# deploy the remote MCP connector to Fly, smoke-gated. This is the "keep every surface
+# in parity" lane — a single deliberate `git tag vX.Y.Z && git push --tags` ships the
+# package + the live connector together (the desktop app has its own `desktop-v*` lane
+# in release-desktop.yml; the web app is continuously deployed by Vercel on merge).
+#
+# Tokens (GitHub Actions secrets, sourced from Doppler `accountingqb-mcp/prd`):
+#   UV_PUBLISH_TOKEN — PyPI upload token
+#   FLY_API_TOKEN    — Fly deploy token (scoped to app accountingqb-mcp)
+#   MCP_JWT_SECRET   — mints the JWT the deploy smoke test uses for the /mcp path
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch: {}
+
+jobs:
+  pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Verify the tag matches mcpb/pyproject.toml
+        run: |
+          PKG="$(grep -m1 '^version' mcpb/pyproject.toml | sed 's/.*"\(.*\)".*/\1/')"
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME#v}"
+            if [ "$TAG" != "$PKG" ]; then
+              echo "::error::tag v$TAG does not match pyproject version $PKG — bump the version first"
+              exit 1
+            fi
+          fi
+          echo "Publishing accountingqb $PKG"
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Build + publish
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          cd mcpb && uv build && uv publish dist/*
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN }}
+
+  connector:
+    name: Deploy connector to Fly (smoke-gated)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install flyctl
+        run: |
+          curl -L https://fly.io/install.sh | sh
+          echo "$HOME/.fly/bin" >> "$GITHUB_PATH"
+      - name: Deploy
+        run: flyctl deploy --config remote/fly.toml --dockerfile remote/Dockerfile --now
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Smoke-gate the live connector (version + authenticated /mcp path)
+        run: |
+          python3 -m pip install --quiet pyjwt
+          EXPECT="$(grep -m1 '^version' mcpb/pyproject.toml | sed 's/.*"\(.*\)".*/\1/')"
+          # Retry: a fresh machine can take a few seconds to serve the new /version.
+          for i in 1 2 3 4 5; do
+            python3 scripts/deploy-smoke.py --expect-version "$EXPECT" && exit 0
+            echo "  … smoke not green yet ($i/5) — retrying in 6s"; sleep 6
+          done
+          echo "::error::connector smoke test failed — live build does not match v$EXPECT"
+          exit 1
+        env:
+          MCP_JWT_SECRET: ${{ secrets.MCP_JWT_SECRET }}
