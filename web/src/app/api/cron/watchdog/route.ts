@@ -131,6 +131,15 @@ export async function GET(req: NextRequest) {
           html: alertHtml(check, status, failures, nowIso),
         });
         alerted = true;
+        // Incident history (queryable later — the state row only holds the latest).
+        await supabase.from("event_logs").insert({
+          event_type: "watchdog",
+          action: `${check.name}_down`,
+          payload: { url: check.url, status, consecutive_failures: failures },
+          success: false,
+          error_message: `${check.label} DOWN (${status})`,
+          processed_at: nowIso,
+        });
       }
       await supabase.from("watchdog_state").upsert(
         {
@@ -145,14 +154,23 @@ export async function GET(req: NextRequest) {
         { onConflict: "check_name" },
       );
     } else {
-      // Recovered → notify once.
-      if (prev && !wasHealthy) {
+      // Recovered → notify once, but ONLY if we actually paged a DOWN (prev.last_alert_at
+      // set). A single-cycle blip that never crossed the alert threshold recovers
+      // silently — no "RECOVERED" email without a preceding "DOWN".
+      if (prev && !wasHealthy && prev.last_alert_at) {
         await sendEmail({
           to: alertTo,
           subject: `🟢 [AccountingQB] ${check.label} RECOVERED (${status})`,
           html: recoveredHtml(check, status, nowIso),
         });
         alerted = true;
+        await supabase.from("event_logs").insert({
+          event_type: "watchdog",
+          action: `${check.name}_recovered`,
+          payload: { url: check.url, status },
+          success: true,
+          processed_at: nowIso,
+        });
       }
       await supabase.from("watchdog_state").upsert(
         {
