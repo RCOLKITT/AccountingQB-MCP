@@ -21,8 +21,11 @@ primary_region = "iad"
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
-  # Keep one machine warm — MCP clients are latency-sensitive on connect.
-  min_machines_running = 1
+  # Keep TWO machines warm — MCP clients are latency-sensitive on connect, and a
+  # single warm machine let a cold-start/edge blip surface as a transient /healthz
+  # failure (the watchdog flagged one 2026-09-24). Two warm machines remove that
+  # class of blip; the extra always-on machine is a cheap reliability buy.
+  min_machines_running = 2
 
   [[http_service.checks]]
     interval = "15s"
