@@ -90,6 +90,8 @@ export async function GET(req: NextRequest) {
     ok: boolean;
     status: string;
     alerted: boolean;
+    // Down for >= FAIL_THRESHOLD consecutive runs (a real outage, not a blip).
+    sustained: boolean;
   }> = [];
 
   const { data: stateRows } = await supabase
@@ -115,9 +117,12 @@ export async function GET(req: NextRequest) {
     const lastChange = transition ? nowIso : (prev?.last_change ?? nowIso);
 
     let alerted = false;
+    let sustained = false;
 
     if (!ok) {
       const failures = prevFailures + 1;
+      // A single failed probe is a blip; only >= FAIL_THRESHOLD is a real outage.
+      sustained = failures >= FAIL_THRESHOLD;
       // Page once failures cross the threshold, then re-page at most every cooldown.
       const shouldAlert =
         failures >= FAIL_THRESHOLD &&
@@ -186,20 +191,27 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    results.push({ check: check.name, ok, status, alerted });
+    results.push({ check: check.name, ok, status, alerted, sustained });
   }
 
   const allHealthy = results.every((r) => r.ok);
+  // A real, sustained outage — down for >= FAIL_THRESHOLD consecutive runs, the
+  // same anti-flap bar the email path uses to page.
+  const sustainedDown = results.some((r) => r.sustained);
 
   // External dead-man (G6): ping healthchecks.io every run. Pinging the base URL on
   // success means healthchecks alerts if the pings ever STOP — which is exactly the
   // outage this in-Vercel watchdog can't self-report (the cron/app/platform being
-  // down). On a detected downstream failure we ping /fail for an immediate external
-  // alert too. Best-effort; the email path above already fired. No-op if unset.
+  // down). We ping /fail for an immediate external page ONLY on a SUSTAINED outage
+  // (>= FAIL_THRESHOLD consecutive failures) — the same anti-flap bar the email path
+  // uses. A single-cycle blip pings the base URL instead: the cron is proven alive
+  // and healthchecks stays green, matching email (which also stays silent below the
+  // threshold). Without this, a transient blip paged healthchecks but sent no email.
+  // Best-effort; the email path above already fired. No-op if unset.
   const pingUrl = process.env.HEALTHCHECK_PING_URL;
   if (pingUrl) {
     try {
-      await fetch(allHealthy ? pingUrl : `${pingUrl}/fail`, {
+      await fetch(sustainedDown ? `${pingUrl}/fail` : pingUrl, {
         method: "POST",
         signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
       });
