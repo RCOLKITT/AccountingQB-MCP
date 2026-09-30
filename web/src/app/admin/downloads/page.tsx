@@ -70,6 +70,63 @@ const getData = unstable_cache(
   },
 );
 
+interface InstallStats {
+  total: number;
+  activeInWindow: number;
+  byPlatform: { platform: string; count: number }[];
+  recent: {
+    license_key: string;
+    app_version: string | null;
+    platform: string | null;
+    last_seen_at: string;
+  }[];
+}
+
+// Local desktop installs that have phoned home (activation heartbeat). This is
+// the ONLY visibility we have into who runs the free local app — downloads
+// alone are anonymous.
+async function getInstalls(days: number): Promise<InstallStats> {
+  const empty: InstallStats = {
+    total: 0,
+    activeInWindow: 0,
+    byPlatform: [],
+    recent: [],
+  };
+  try {
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+    const { data, error } = await getSupabase()
+      .from("app_heartbeats")
+      .select("license_key, app_version, platform, last_seen_at")
+      .order("last_seen_at", { ascending: false })
+      .limit(5000);
+    if (error || !data) return empty;
+    const rows = data as InstallStats["recent"][number][];
+    const byPlat: Record<string, number> = {};
+    let active = 0;
+    for (const r of rows) {
+      byPlat[r.platform || "unknown"] =
+        (byPlat[r.platform || "unknown"] || 0) + 1;
+      if (r.last_seen_at >= since) active++;
+    }
+    return {
+      total: rows.length,
+      activeInWindow: active,
+      byPlatform: Object.entries(byPlat)
+        .map(([platform, count]) => ({ platform, count }))
+        .sort((a, b) => b.count - a.count),
+      recent: rows.slice(0, 15),
+    };
+  } catch {
+    return empty;
+  }
+}
+
+const getInstallData = unstable_cache(
+  (days: number) => getInstalls(days),
+  ["admin-installs"],
+  { revalidate: CACHE_SECONDS },
+);
+
 function Metric({
   label,
   value,
@@ -103,7 +160,10 @@ export default async function DownloadsPage({
 }) {
   const sp = await searchParams;
   const days = sp.days === "7" ? 7 : sp.days === "90" ? 90 : 30;
-  const data = await getData(days);
+  const [data, installs] = await Promise.all([
+    getData(days),
+    getInstallData(days),
+  ]);
   const maxTotal = Math.max(1, ...data.trend.map((t) => t.total));
 
   return (
@@ -193,6 +253,75 @@ export default async function DownloadsPage({
             </div>
           </>
         )}
+      </div>
+
+      {/* Local installs (activation heartbeats) — who is actually RUNNING the
+          free local app. Downloads alone are anonymous; this is the only signal
+          we have into local usage. */}
+      <div>
+        <h2 className="mb-1 text-lg font-bold text-white">Local installs</h2>
+        <p className="mb-4 text-sm text-gray-400">
+          Desktop apps that activated a license and phoned home (activation +
+          version only — no usage or financial data). Installs that never
+          activate stay invisible.
+        </p>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+          <Metric label="Activated installs" value={installs.total} accent />
+          <Metric
+            label={`Active · ${days}d`}
+            value={installs.activeInWindow}
+            sub="seen in window"
+          />
+          <Metric
+            label="Platforms"
+            value={
+              installs.byPlatform
+                .map((p) => `${p.platform}:${p.count}`)
+                .join("  ") || "—"
+            }
+          />
+        </div>
+        <div className="mt-4 overflow-hidden rounded-xl border border-white/10 bg-[#131a2e]">
+          <div className="border-b border-white/5 px-6 py-3">
+            <h3 className="text-sm font-semibold text-white">
+              Most recently active
+            </h3>
+          </div>
+          {installs.recent.length === 0 ? (
+            <p className="px-6 py-4 text-sm text-gray-500">
+              No local installs have activated yet.
+            </p>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-white/5 text-left text-xs text-gray-400">
+                  <th className="px-6 py-2 font-medium">License</th>
+                  <th className="px-6 py-2 font-medium">Version</th>
+                  <th className="px-6 py-2 font-medium">Platform</th>
+                  <th className="px-6 py-2 font-medium">Last seen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {installs.recent.map((r) => (
+                  <tr key={r.license_key} className="border-b border-white/5">
+                    <td className="px-6 py-3 font-mono text-xs text-cyan-400">
+                      {r.license_key}
+                    </td>
+                    <td className="px-6 py-3 text-sm text-gray-300">
+                      {r.app_version || "—"}
+                    </td>
+                    <td className="px-6 py-3 text-sm text-gray-300">
+                      {r.platform || "—"}
+                    </td>
+                    <td className="px-6 py-3 text-sm text-gray-400">
+                      {r.last_seen_at.slice(0, 16).replace("T", " ")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
     </div>
   );

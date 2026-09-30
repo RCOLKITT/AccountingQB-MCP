@@ -36,6 +36,9 @@ const isPublicRoute = createRouteMatcher([
   // email to mint a tracked trial before downloading. Validates + rate-limits
   // itself; without this Clerk 404s the anonymous POST.
   "/api/trial(.*)",
+  // Local desktop-app activation heartbeat: the app authenticates by license key
+  // in the body (validated server-side), not a Clerk session — same as /api/usage.
+  "/api/app(.*)",
   // Cross-app pairing: issue (Clerk-or-license), redeem (peer product), status (license).
   "/api/link(.*)",
   // Allocation-profile broker: the MCP connector authenticates by license key in

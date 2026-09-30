@@ -55,7 +55,7 @@ async function getPublicStats(): Promise<PublicStats | null> {
 const faqs = [
   {
     q: "Is my financial data safe?",
-    a: "Absolutely. Run AccountingQB locally — the downloadable desktop app or the Claude Desktop extension runs entirely on your machine, and your financial data flows directly between your computer and QuickBooks, never touching our servers. Or connect through our hosted connector, where data passes through with zero retention — it is never stored, logged, or used for analytics. Either way, we never store your books.",
+    a: "Absolutely. Run AccountingQB locally — the downloadable desktop app or the Claude Desktop extension runs on your machine, and your financial data flows directly between your computer and QuickBooks, never touching our servers. The desktop app sends only a small activation check-in (your license key and app version) so we can support your trial — never your books, transactions, or any financial data. Or connect through our hosted connector, where data passes through with zero retention — it is never stored, logged, or used for analytics. Either way, we never store your books.",
   },
   {
     q: "How do I know the tax numbers are current?",
