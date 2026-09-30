@@ -32,6 +32,10 @@ const isPublicRoute = createRouteMatcher([
   "/api/usage(.*)",
   // Desktop-app download redirect: records the click then 302s to the GitHub asset.
   "/api/download(.*)",
+  // No-credit-card trial start: anonymous visitors (no account yet) POST their
+  // email to mint a tracked trial before downloading. Validates + rate-limits
+  // itself; without this Clerk 404s the anonymous POST.
+  "/api/trial(.*)",
   // Cross-app pairing: issue (Clerk-or-license), redeem (peer product), status (license).
   "/api/link(.*)",
   // Allocation-profile broker: the MCP connector authenticates by license key in
