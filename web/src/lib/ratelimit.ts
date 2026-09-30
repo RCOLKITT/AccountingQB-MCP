@@ -114,6 +114,18 @@ export function getOAuth2TokenLimiter(): Ratelimit {
   });
 }
 
+// Rate limiter for starting a no-credit-card trial (download / self-serve):
+// 5/min per IP — enough for a real person retrying, tight against scripted
+// trial-spam that would pollute the licenses table.
+export function getTrialStartLimiter(): Ratelimit {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(5, "1 m"),
+    prefix: "ratelimit:trial-start",
+    analytics: true,
+  });
+}
+
 // Rate limiter for default-realm lookups (remote MCP service): 30/min per IP
 export function getDefaultRealmLimiter(): Ratelimit {
   return new Ratelimit({

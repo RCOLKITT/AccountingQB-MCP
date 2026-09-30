@@ -10,6 +10,7 @@ import LandingNav from "@/components/nav/LandingNav";
 import Footer from "@/components/Footer";
 import { tiers } from "@/lib/pricing";
 import Testimonials from "@/components/Testimonials";
+import DownloadTrial from "@/components/DownloadTrial";
 
 export const metadata: Metadata = {
   alternates: {
@@ -936,34 +937,12 @@ export default async function Home() {
               leave your machine.
             </p>
             <div className="flex flex-col items-center gap-3 sm:flex-row">
-              <a
-                href="/api/download/macos"
-                className="flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[#0a0e1a] shadow-lg shadow-black/20 transition hover:bg-slate-200"
-              >
-                <svg
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path d="M16.365 1.43c0 1.14-.416 2.2-1.11 2.99-.84.95-2.2 1.68-3.32 1.6-.14-1.12.42-2.3 1.08-3.03.75-.83 2.05-1.46 3.35-1.56zM20.9 17.02c-.55 1.27-.81 1.83-1.52 2.95-.99 1.56-2.39 3.5-4.12 3.51-1.54.02-1.94-1-4.03-.99-2.09.01-2.53 1.01-4.07.99-1.73-.02-3.06-1.77-4.05-3.33-2.77-4.37-3.06-9.5-1.35-12.22 1.21-1.93 3.13-3.06 4.93-3.06 1.83 0 2.98 1.01 4.5 1.01 1.47 0 2.36-1.01 4.48-1.01 1.6 0 3.3.87 4.51 2.38-3.96 2.17-3.32 7.83.29 9.79z" />
-                </svg>
-                Download for macOS
-              </a>
-              <a
-                href="/api/download/windows"
-                className="flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[#0a0e1a] shadow-lg shadow-black/20 transition hover:bg-slate-200"
-              >
-                <svg
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path d="M3 5.1l7.5-1.02v7.23H3V5.1zm0 13.8l7.5 1.02v-7.14H3v6.12zM11.4 3.95L21 2.62v8.69h-9.6V3.95zm0 16.1L21 21.38v-8.61h-9.6v7.28z" />
-                </svg>
-                Download for Windows
-              </a>
+              {/* Desktop-app download = tracked no-credit-card trial (Door 2).
+                  Captures an email, mints a trialing license, then starts the
+                  key-tagged download. Flag off → plain direct links. */}
+              <DownloadTrial
+                enabled={process.env.TRIAL_AT_DOWNLOAD_ENABLED !== "false"}
+              />
               <a
                 href="/downloads/accountingqb.plugin"
                 download
