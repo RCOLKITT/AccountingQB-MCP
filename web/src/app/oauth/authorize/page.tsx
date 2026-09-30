@@ -40,6 +40,20 @@ function AuthorizeContent() {
   const codeChallengeMethod = searchParams.get("code_challenge_method") || "";
   const scope = searchParams.get("scope") || "";
 
+  // The host the authorization code will be delivered to. This is the single
+  // most important anti-phishing signal on this page: client_name is
+  // attacker-controllable (open Dynamic Client Registration, required by MCP),
+  // so a malicious client can spoof a trustworthy name — but it cannot hide
+  // where the token actually goes. Surfacing the destination lets a user catch
+  // a consent-phishing attempt (an unexpected domain) before approving.
+  const redirectHost = useMemo(() => {
+    try {
+      return new URL(redirectUri).host;
+    } catch {
+      return "";
+    }
+  }, [redirectUri]);
+
   const [clientInfo, setClientInfo] = useState<ClientInfo | null>(null);
   const [clientError, setClientError] = useState<string | null>(null);
   const [licenses, setLicenses] = useState<LicenseInfo[] | null>(null);
@@ -169,8 +183,9 @@ function AuthorizeContent() {
           ) : (
             <>
               <p className="mt-3 text-gray-400">
-                <span className="font-semibold text-white">{appName}</span>{" "}
-                wants to access your QuickBooks data through AccountingQB.
+                An app identifying itself as{" "}
+                <span className="font-semibold text-white">{appName}</span> is
+                requesting access to your QuickBooks data through AccountingQB.
               </p>
 
               <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-gray-300">
@@ -182,6 +197,26 @@ function AuthorizeContent() {
                   <li>• Run reports, invoices, expenses and more via Claude</li>
                 </ul>
               </div>
+
+              {/* Destination + phishing caution. The redirect host is shown
+                  prominently because the app name above is self-declared and
+                  cannot be trusted on its own. */}
+              {redirectHost && (
+                <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm">
+                  <p className="text-gray-300">
+                    After you approve, your access will be sent to:
+                  </p>
+                  <p className="mt-1 font-mono text-amber-300 break-all">
+                    {redirectHost}
+                  </p>
+                  <p className="mt-2 text-xs text-gray-400">
+                    Only approve if you just started this from an app you trust
+                    and you recognize this destination. AccountingQB will never
+                    ask you to approve access from a link you didn&apos;t
+                    initiate yourself.
+                  </p>
+                </div>
+              )}
 
               {/* License picker */}
               <div className="mt-6">
