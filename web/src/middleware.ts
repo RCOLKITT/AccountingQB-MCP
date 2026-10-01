@@ -25,6 +25,11 @@ const isPublicRoute = createRouteMatcher([
   "/api/auth(.*)",
   "/api/debug(.*)",
   "/api/license(.*)",
+  // License validation for the MCP server's per-request gate: authenticated by
+  // the license key in the body (not a Clerk session), same as /api/usage.
+  // MUST be public — the connector calls it unauthenticated to enforce active
+  // licenses; if Clerk blocks it, enforcement fails closed and refuses everyone.
+  "/api/validate(.*)",
   "/api/cron(.*)",
   // MCP server telemetry: usage tracking + setup verification. The server
   // authenticates by license key in the body, not a Clerk session — without
