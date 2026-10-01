@@ -190,6 +190,48 @@
       "nullable": "YES"
     },
     {
+      "type": "text",
+      "table": "app_heartbeats",
+      "column": "app_version",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "app_heartbeats",
+      "column": "first_seen_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "integer",
+      "table": "app_heartbeats",
+      "column": "heartbeat_count",
+      "default": "1",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "app_heartbeats",
+      "column": "last_seen_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "app_heartbeats",
+      "column": "license_key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "app_heartbeats",
+      "column": "platform",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
       "type": "timestamp with time zone",
       "table": "artifacts",
       "column": "created_at",
@@ -1373,6 +1415,11 @@
       "def": "CREATE UNIQUE INDEX app_downloads_pkey ON public.app_downloads USING btree (id)",
       "name": "app_downloads_pkey",
       "table": "app_downloads"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX app_heartbeats_pkey ON public.app_heartbeats USING btree (license_key)",
+      "name": "app_heartbeats_pkey",
+      "table": "app_heartbeats"
     },
     {
       "def": "CREATE UNIQUE INDEX artifacts_pkey ON public.artifacts USING btree (id)",
