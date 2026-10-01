@@ -301,46 +301,27 @@ LICENSE_KEY = os.environ.get("QB_LICENSE_KEY", "")
 _LICENSE_VALIDATION_URL = os.environ.get(
     "QB_LICENSE_URL", ""  # e.g. https://yourapp.vercel.app/api/validate
 )
-_license_cache: dict = {}  # {key: {valid: bool, tier: str, expires: float}}
-_LICENSE_CACHE_TTL = 86400  # 24 hours
+_license_cache: dict = {}  # {key: {valid, tier, validated_at, expires}}
+# Re-validate hourly so trial-expiry / cancellation is enforced within the hour
+# (not the 90-day refresh-token lifetime).
+_LICENSE_CACHE_TTL = 3600  # 1 hour
+# Backend-unreachable grace: keep the last CONFIRMED verdict this long, then
+# fail closed. Protects paying users through an outage without an open bypass.
+_LICENSE_GRACE_SECONDS = 72 * 3600  # 72 hours
 
-# Tool classification: FREE tools are always available; PAID require license
+# Tool classification: FREE tools are always available; PAID require a valid,
+# ACTIVE license (trialing within window, or subscribed). The free set is
+# deliberately tiny — connectivity + connection-management ONLY, with NO
+# financial-reporting value — so the product's value (reports, lists, tax,
+# bookkeeping, writes) sits entirely behind an active trial/subscription and
+# shuts off cleanly at trial expiry. An expired user can still see their company
+# is connected and manage/reconnect it (to then subscribe), but gets no books.
 FREE_TOOLS = {
-    "qb_company_info",
-    "qb_list_transactions",
-    "qb_list_deposits",
-    "qb_list_transfers",
-    "qb_list_journal_entries",
-    "qb_list_bills",
-    "qb_list_bill_payments",
-    "qb_list_sales_receipts",
-    "qb_list_payments",
-    "qb_list_invoices",
-    "qb_list_accounts",
-    "qb_list_vendors",
-    "qb_list_customers",
-    "qb_list_items",
-    "qb_profit_loss",
-    "qb_balance_sheet",
-    "qb_cash_flow",
-    "qb_trial_balance",
-    "qb_reconciliation_status",
-    "qb_comparative_statements",
-    "qb_ar_aging",
-    "qb_ap_aging",
-    "qb_expense_summary",
-    "qb_income_summary",
-    "qb_account_balance",
-    "qb_list_estimates",
-    "qb_search_transactions",
-    # Hosted mode management tools (always free)
-    "qb_list_companies",
-    "qb_switch_company",
-    "qb_refresh_connection",
-    # Tax-code discovery utilities (always free)
-    "qb_list_tax_codes",
-    "qb_list_tax_rates",
-}  # ~30 read-only / reporting / management tools
+    "qb_company_info",  # connectivity proof + a connected-company name; no books
+    "qb_list_companies",  # pick which connected company (metadata only)
+    "qb_switch_company",  # switch active company (metadata only)
+    "qb_refresh_connection",  # silent hosted reconnect (no books)
+}
 
 
 def _effective_license_key() -> str:
@@ -354,42 +335,59 @@ def _effective_license_key() -> str:
 
 
 async def _validate_license(key: str) -> dict:
-    """Validate a license key against the remote API (with 24h cache)."""
+    """Validate a license key against the remote API.
+
+    Re-checks hourly (``_LICENSE_CACHE_TTL``) so a trial that expires or a
+    subscription that cancels stops working within the cache window — NOT the
+    90-day refresh-token lifetime. When the backend is unreachable we fall back
+    to the last SUCCESSFUL result for a bounded grace window
+    (``_LICENSE_GRACE_SECONDS``) so a real paying user rides out an outage, then
+    we FAIL CLOSED — an indefinite "offline = valid" was an open door
+    (block the network → free forever). The grace only extends the last known
+    verdict; it never invents a valid result that was never confirmed.
+    """
     if not key:
         return {"valid": False, "tier": "free", "reason": "no_key"}
 
-    # Check cache
+    now = time.time()
     cached = _license_cache.get(key)
-    if cached and cached.get("expires", 0) > time.time():
+    # Fresh cache (verified within the last hour) — trust it.
+    if cached and cached.get("expires", 0) > now:
         return cached
 
-    # If no validation URL configured, treat any key as valid (dev mode)
+    # If no validation URL configured, treat any key as valid (dev mode). This
+    # is the master switch: prod enforcement turns ON by setting QB_LICENSE_URL,
+    # and OFF (instant rollback) by unsetting it.
     if not _LICENSE_VALIDATION_URL:
-        result = {"valid": True, "tier": "pro", "reason": "dev_mode"}
-        result["expires"] = time.time() + _LICENSE_CACHE_TTL
-        _license_cache[key] = result
-        return result
+        return {
+            "valid": True,
+            "tier": "pro",
+            "reason": "dev_mode",
+            "expires": now + _LICENSE_CACHE_TTL,
+            "validated_at": now,
+        }
 
-    # Remote validation
+    def _grace_or_closed(reason: str) -> dict:
+        """Backend unreachable: extend the last CONFIRMED verdict for a bounded
+        window, else refuse. Never upgrades an unknown key to valid."""
+        if cached and now - cached.get("validated_at", 0) <= _LICENSE_GRACE_SECONDS:
+            return {**cached, "reason": f"grace_{reason}"}
+        return {"valid": False, "tier": "free", "reason": f"unvalidated_{reason}"}
+
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(_LICENSE_VALIDATION_URL, json={"key": key})
-            if resp.status_code == 200:
-                result = resp.json()
-                result["expires"] = time.time() + _LICENSE_CACHE_TTL
-                _license_cache[key] = result
-                return result
-            else:
-                # API unreachable — use cached result if available, else allow
-                if cached:
-                    return cached
-                return {"valid": True, "tier": "grace", "reason": "api_unreachable"}
+        if resp.status_code == 200:
+            result = resp.json()
+            result["validated_at"] = now  # last CONFIRMED check (grace anchor)
+            result["expires"] = now + _LICENSE_CACHE_TTL
+            _license_cache[key] = result
+            return result
+        # Non-200 (5xx/4xx from our own API): treat as unreachable → bounded grace.
+        return _grace_or_closed(f"http_{resp.status_code}")
     except Exception as e:
         logger.warning(f"License validation failed: {e}")
-        # Offline resilience: if we validated before, trust the cache
-        if cached:
-            return cached
-        return {"valid": True, "tier": "grace", "reason": "offline"}
+        return _grace_or_closed("offline")
 
 
 def require_license(func):

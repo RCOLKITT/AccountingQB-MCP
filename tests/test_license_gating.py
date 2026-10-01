@@ -105,9 +105,11 @@ def test_free_tools_are_all_real_registered_tools():
 
 
 def test_revenue_crown_jewels_are_not_free():
-    # High-value tax + book-mutating tools MUST require a license. If a refactor adds
-    # one to FREE_TOOLS, this fails loudly (revenue leak) rather than silently.
+    # High-value tax + book-mutating tools AND the core financial reports MUST
+    # require a license. If a refactor adds one to FREE_TOOLS, this fails loudly
+    # (revenue leak) rather than silently.
     MUST_REQUIRE_LICENSE = {
+        # tax + writes
         "qb_schedule_c",
         "qb_form_1120s_summary",
         "qb_form_1065_summary",
@@ -116,8 +118,117 @@ def test_revenue_crown_jewels_are_not_free():
         "qb_batch_create_bills",
         "qb_batch_create_expenses",
         "qb_apply_categorization_rules",
+        # the reporting crown jewels — the product's core value, previously free
+        "qb_profit_loss",
+        "qb_balance_sheet",
+        "qb_cash_flow",
+        "qb_trial_balance",
+        "qb_ar_aging",
+        "qb_ap_aging",
+        "qb_comparative_statements",
+        "qb_list_invoices",
     }
     registered = set(s.mcp._tool_manager._tools.keys())
     for tool in MUST_REQUIRE_LICENSE:
         assert tool in registered, f"{tool} is not a registered tool"
         assert tool not in s.FREE_TOOLS, f"{tool} leaked into FREE_TOOLS!"
+
+
+def test_free_set_is_minimal_connectivity_only():
+    # The free set must stay tiny — connectivity/connection-management only, with
+    # NO financial-reporting value. Widening it back is a revenue leak; lock it.
+    assert s.FREE_TOOLS == {
+        "qb_company_info",
+        "qb_list_companies",
+        "qb_switch_company",
+        "qb_refresh_connection",
+    }
+
+
+# ---------------------------------------------------------------------------
+# _validate_license: hourly re-check + bounded offline grace, then fail closed.
+# ---------------------------------------------------------------------------
+def _fake_client(*, raises=False, status=200, payload=None):
+    class _Resp:
+        status_code = status
+
+        def json(self):
+            return payload or {}
+
+    class _Client:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, *a, **k):
+            if raises:
+                raise RuntimeError("offline")
+            return _Resp()
+
+    return _Client
+
+
+def test_validate_offline_within_grace_keeps_last_verdict(monkeypatch):
+    import time
+
+    monkeypatch.setattr(s, "_LICENSE_VALIDATION_URL", "https://x/api/validate")
+    s._license_cache.clear()
+    now = time.time()
+    # last CONFIRMED check said valid, 1h ago; cache is now stale (needs recheck)
+    s._license_cache["LK-X"] = {
+        "valid": True,
+        "tier": "pro",
+        "validated_at": now - 3600,
+        "expires": now - 1,
+    }
+    monkeypatch.setattr(s.httpx, "AsyncClient", _fake_client(raises=True))
+    out = asyncio.run(s._validate_license("LK-X"))
+    assert out["valid"] is True and out["reason"].startswith("grace")
+
+
+def test_validate_offline_beyond_grace_fails_closed(monkeypatch):
+    import time
+
+    monkeypatch.setattr(s, "_LICENSE_VALIDATION_URL", "https://x/api/validate")
+    s._license_cache.clear()
+    now = time.time()
+    s._license_cache["LK-X"] = {
+        "valid": True,
+        "tier": "pro",
+        "validated_at": now - (73 * 3600),  # beyond 72h grace
+        "expires": now - 1,
+    }
+    monkeypatch.setattr(s.httpx, "AsyncClient", _fake_client(raises=True))
+    out = asyncio.run(s._validate_license("LK-X"))
+    assert out["valid"] is False and out["reason"].startswith("unvalidated")
+
+
+def test_validate_offline_no_prior_confirmation_never_valid(monkeypatch):
+    monkeypatch.setattr(s, "_LICENSE_VALIDATION_URL", "https://x/api/validate")
+    s._license_cache.clear()
+    monkeypatch.setattr(s.httpx, "AsyncClient", _fake_client(raises=True))
+    out = asyncio.run(s._validate_license("LK-NEVER-SEEN"))
+    assert out["valid"] is False  # offline must never invent a valid license
+
+
+def test_validate_expired_verdict_not_resurrected_by_grace(monkeypatch):
+    import time
+
+    monkeypatch.setattr(s, "_LICENSE_VALIDATION_URL", "https://x/api/validate")
+    s._license_cache.clear()
+    now = time.time()
+    # last CONFIRMED said INVALID (expired) — grace must not flip it to valid
+    s._license_cache["LK-X"] = {
+        "valid": False,
+        "tier": "free",
+        "validated_at": now - 60,
+        "expires": now - 1,
+    }
+    monkeypatch.setattr(s.httpx, "AsyncClient", _fake_client(raises=True))
+    out = asyncio.run(s._validate_license("LK-X"))
+    assert out["valid"] is False
