@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
     fourDayWarnings: 0,
     oneDayWarnings: 0,
     expiredNotices: 0,
+    sweptStale: 0,
     errors: [] as string[],
   };
 
@@ -191,6 +192,20 @@ export async function GET(req: NextRequest) {
       }
     }
   }
+
+  // Backstop sweep: expire any trial that slipped past the 24h just-expired
+  // window above — a missed cron day, or a legacy row that lingered as
+  // "trialing" long after it ended. Silent (no email): too old for a meaningful
+  // "your trial ended" notice, which the just-expired block already sent for
+  // anything within the last day. Keeps the admin funnel's "in trial" honest and
+  // ensures a dormant expired trial can never read as active.
+  const { data: swept } = await supabase
+    .from("licenses")
+    .update({ status: "expired", updated_at: new Date().toISOString() })
+    .eq("status", "trialing")
+    .lt("trial_ends_at", justExpiredStart.toISOString())
+    .select("key");
+  results.sweptStale = swept?.length || 0;
 
   console.log("Trial check results:", results);
 
