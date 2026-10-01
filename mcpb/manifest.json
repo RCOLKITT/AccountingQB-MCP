@@ -51,7 +51,8 @@
         "QB_CLIENT_SECRET": "${user_config.QB_CLIENT_SECRET}",
         "QB_REALM_ID": "${user_config.QB_REALM_ID}",
         "QB_REFRESH_TOKEN": "${user_config.QB_REFRESH_TOKEN}",
-        "QB_ENVIRONMENT": "${user_config.QB_ENVIRONMENT}"
+        "QB_ENVIRONMENT": "${user_config.QB_ENVIRONMENT}",
+        "QB_LICENSE_URL": "https://accountingqb.com/api/validate"
       },
       "platform_overrides": {
         "win32": {
