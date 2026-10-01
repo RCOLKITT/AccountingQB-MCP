@@ -14,6 +14,11 @@ primary_region = "iad"
   RESOURCE_URL = "https://mcp.accountingqb.com"
   AS_URL = "https://accountingqb.com"
   QB_API_URL = "https://accountingqb.com"
+  # License enforcement master switch. Set → _apply_license_gating wraps every
+  # non-free tool and validates the per-request (JWT) license against this
+  # endpoint hourly (active/trialing only; expired/canceled refused), with a
+  # bounded 72h offline grace. Unset this to instantly disable enforcement.
+  QB_LICENSE_URL = "https://accountingqb.com/api/validate"
   # MCP_JWT_SECRET is a secret: fly secrets set MCP_JWT_SECRET=...
 
 [http_service]
