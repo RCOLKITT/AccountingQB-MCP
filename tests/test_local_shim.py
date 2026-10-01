@@ -166,7 +166,12 @@ def test_export_xlsx_builds_real_workbook(client):
     assert 195 in vals and 156 in vals
 
 
+async def _license_ok():
+    return True
+
+
 def test_sample_without_key_reports_needskey(client, monkeypatch):
+    monkeypatch.setattr(serve, "_license_active", _license_ok)  # past the paywall
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setattr(serve, "_anthropic_key", lambda: "")
     r = client.post(
@@ -223,12 +228,14 @@ def test_index_serves_tabbed_artifact(client):
 
 
 def test_chat_without_key(client, monkeypatch):
+    monkeypatch.setattr(serve, "_license_active", _license_ok)  # past the paywall
     monkeypatch.setattr(serve, "_anthropic_key", lambda: "")
     r = client.post("/chat", json={"messages": [{"role": "user", "content": "hi"}]})
     assert r.json()["needsKey"] is True
 
 
 def test_chat_agentic_loop_runs_a_real_tool(client, monkeypatch):
+    monkeypatch.setattr(serve, "_license_active", _license_ok)  # past the paywall
     """Mock Anthropic: round 1 asks for a tool, round 2 answers. The loop must actually
     execute the tool in-process and return the final text + a trace."""
     monkeypatch.setattr(serve, "_anthropic_key", lambda: "sk-test")

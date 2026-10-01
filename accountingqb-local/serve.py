@@ -54,6 +54,17 @@ else:
 
 import httpx  # noqa: E402
 import uvicorn  # noqa: E402
+
+# Turn license enforcement ON for the local app BEFORE importing the connector:
+# the connector's _apply_license_gating() reads QB_LICENSE_URL at import time and,
+# when set, wraps every non-free tool with require_license. Without this the local
+# app ran in "dev mode" (all tools unlocked) — the download path's giveaway. An
+# explicit override (e.g. a dev setting QB_LICENSE_URL="") is respected.
+os.environ.setdefault(
+    "QB_LICENSE_URL",
+    os.environ.get("QB_API_URL", "https://accountingqb.com").rstrip("/")
+    + "/api/validate",
+)
 from accountingqb import server as qb  # noqa: E402  (the connector: mcp, tools, tokens)
 from accountingqb.context import get_ctx  # noqa: E402
 from starlette.applications import Starlette  # noqa: E402
@@ -606,6 +617,9 @@ async def api_status(_req: Request) -> JSONResponse:
             "connected": connected,
             "hasAnthropicKey": bool(_anthropic_key()),
             "hasLicense": has_license,
+            # True only if that license is active (trialing in-window / subscribed).
+            # hasLicense && !licenseActive → trial ended (show the renew state).
+            "licenseActive": await _license_active(),
             "realmId": getattr(ctx, "realm_id", "") or "",
         }
     )
@@ -763,8 +777,30 @@ async def mcp_call(req: Request) -> JSONResponse:
         return JSONResponse({"isError": True, "error": f"{type(e).__name__}: {e}"})
 
 
+async def _license_active() -> bool:
+    """True only if the configured license validates as active (trialing in-window
+    or subscribed). Reuses the connector's gate — hourly re-check + 72h grace."""
+    lic = qb._effective_license_key()
+    if not lic:
+        return False
+    try:
+        return bool((await qb._validate_license(lic)).get("valid"))
+    except Exception:
+        return False
+
+
+_LOCKED = {
+    "needsLicense": True,
+    "error": "Start your free trial (or renew your subscription) to use AccountingQB. "
+    "Activate above — no credit card for the trial.",
+    "upgradeUrl": "https://accountingqb.com/pricing",
+}
+
+
 async def sample(req: Request) -> JSONResponse:
     """BYO-key Claude relay. NO proxy — the key never leaves the machine."""
+    if not await _license_active():
+        return JSONResponse(_LOCKED, status_code=402)
     key = _anthropic_key()
     if not key:
         return JSONResponse(
@@ -819,6 +855,8 @@ async def chat(req: Request) -> JSONResponse:
     """Agentic chat loop: Claude (BYO key) picks read-only tools, we run them via the
     in-process registry and feed results back, until it answers. Returns the final text
     plus a trace of the tools it called. Bounded to keep cost sane on the user's key."""
+    if not await _license_active():
+        return JSONResponse(_LOCKED, status_code=402)
     key = _anthropic_key()
     if not key:
         return JSONResponse(
@@ -1603,7 +1641,8 @@ pre{white-space:pre-wrap;background:#0d1220;padding:12px;border-radius:8px;max-h
 <h1><span style="color:#22d3ee">Accounting</span><span style="color:#60a5fa">QB</span> <span class=muted style="font-size:14px">local</span></h1>
 <p class=muted id=status>Loading status…</p>
 <div class=card id=activateCard><h3>1 · Activate your free trial <span class=muted>(no credit card)</span></h3>
-<p class=muted>Starts a 14-day trial so your install is supported and kept up to date. We send only your license key + app version — never your books.</p>
+<p id=lockMsg style="color:#fca5a5;font-size:13px;margin:0 0 6px"></p>
+<p class=muted>Reports, tax prep, bookkeeping and chat need an active trial or subscription. Start a 14-day trial — no credit card. We send only your license key + app version, never your books.</p>
 <input id=trialEmail type=email placeholder="you@company.com"><button onclick=startTrial()>Start free trial</button>
 <p class=muted style="font-size:12px;margin-top:10px">Already have a license key? <a href="#" onclick="document.getElementById('keyRow').style.display='block';return false" style="color:#22d3ee">Enter it</a></p>
 <div id=keyRow style="display:none"><input id=licKey placeholder="LK-…"><button onclick=activateKey()>Activate key</button></div>
@@ -1621,8 +1660,10 @@ pre{white-space:pre-wrap;background:#0d1220;padding:12px;border-radius:8px;max-h
 <p class=muted style="font-size:12px">Phase 2a shell. The tabbed Chat + Dashboard UI lands in Phase 2b.</p>
 <script>
 async function refresh(){const s=await (await fetch('/api/status')).json();
-document.getElementById('status').textContent=`v${s.version} · ${s.toolCount} tools · ${s.hasLicense?'trial active':'not activated'} · QuickBooks ${s.connected?'connected':'not connected'} · Anthropic key ${s.hasAnthropicKey?'set':'missing'}`;
-const card=document.getElementById('activateCard');if(card)card.style.display=s.hasLicense?'none':'block';}
+const lic=s.licenseActive?'trial active':(s.hasLicense?'trial ENDED':'not activated');
+document.getElementById('status').textContent=`v${s.version} · ${s.toolCount} tools · ${lic} · QuickBooks ${s.connected?'connected':'not connected'} · Anthropic key ${s.hasAnthropicKey?'set':'missing'}`;
+const card=document.getElementById('activateCard');if(card)card.style.display=s.licenseActive?'none':'block';
+const lm=document.getElementById('lockMsg');if(lm)lm.textContent=(s.hasLicense&&!s.licenseActive)?'Your trial has ended — subscribe at accountingqb.com/pricing to keep using your books.':'';}
 async function startTrial(){const e=document.getElementById('trialEmail').value.trim();const m=document.getElementById('activateMsg');
 if(!e){m.textContent='Enter your email.';return;}m.textContent='Starting your trial…';
 const r=await fetch('/api/activate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:e})});
