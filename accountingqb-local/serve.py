@@ -595,6 +595,9 @@ async def healthz(_req: Request) -> PlainTextResponse:
 async def api_status(_req: Request) -> JSONResponse:
     ctx = get_ctx()
     connected = bool(getattr(ctx, "refresh_token", "") or ctx.hosted_mode)
+    has_license = bool(
+        os.environ.get("QB_LICENSE_KEY") or load_config().get("license_key", "")
+    )
     return JSONResponse(
         {
             "version": _server_version(),
@@ -602,6 +605,7 @@ async def api_status(_req: Request) -> JSONResponse:
             "hostedMode": bool(ctx.hosted_mode),
             "connected": connected,
             "hasAnthropicKey": bool(_anthropic_key()),
+            "hasLicense": has_license,
             "realmId": getattr(ctx, "realm_id", "") or "",
         }
     )
@@ -917,6 +921,54 @@ async def api_config(req: Request) -> JSONResponse:
     if patch.get("license_key"):
         _bootstrap_profile()
     return JSONResponse({"ok": True, "hasAnthropicKey": bool(_anthropic_key())})
+
+
+async def api_activate(req: Request) -> JSONResponse:
+    """First-run activation. Either the user pastes a license key they already
+    have, or they start a free no-credit-card trial by email (we mint a key via
+    the website's /api/trial/start). Saves the key, loads the profile, and sends
+    the activation heartbeat so this install becomes visible."""
+    try:
+        body = await req.json()
+    except Exception:
+        body = {}
+    key = str(body.get("licenseKey") or "").strip()
+    email = str(body.get("email") or "").strip()
+
+    if not key and email:
+        base = AQB_API_URL.rstrip("/")
+        try:
+            with httpx.Client(timeout=20) as client:
+                r = client.post(
+                    f"{base}/api/trial/start",
+                    json={"email": email, "platform": _platform_tag()},
+                )
+            data = r.json() if r.status_code == 200 else {}
+            key = str(data.get("licenseKey") or "")
+        except Exception as e:  # pragma: no cover - network/offline
+            return JSONResponse(
+                {"ok": False, "error": f"could not start trial ({type(e).__name__})"},
+                status_code=502,
+            )
+        if not key:
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "error": "could not start trial — check your email address",
+                },
+                status_code=400,
+            )
+
+    if not key:
+        return JSONResponse(
+            {"ok": False, "error": "provide a license key or an email"},
+            status_code=400,
+        )
+
+    save_config({"license_key": key})
+    _bootstrap_profile()
+    send_heartbeat(key)
+    return JSONResponse({"ok": True, "licenseKey": key, "hasLicense": True})
 
 
 async def whoami(_req: Request) -> JSONResponse:
@@ -1500,6 +1552,7 @@ routes = [
     Route("/api/clients/switch", api_clients_switch, methods=["POST"]),
     Route("/api/tools", api_tools),
     Route("/api/config", api_config, methods=["POST"]),
+    Route("/api/activate", api_activate, methods=["POST"]),
     Route("/whoami", whoami),
     Route("/pair", pair, methods=["POST"]),
     Route("/unpair", unpair, methods=["POST"]),
@@ -1549,10 +1602,16 @@ pre{white-space:pre-wrap;background:#0d1220;padding:12px;border-radius:8px;max-h
 <body>
 <h1><span style="color:#22d3ee">Accounting</span><span style="color:#60a5fa">QB</span> <span class=muted style="font-size:14px">local</span></h1>
 <p class=muted id=status>Loading status…</p>
-<div class=card><h3>1 · Connect QuickBooks</h3>
+<div class=card id=activateCard><h3>1 · Activate your free trial <span class=muted>(no credit card)</span></h3>
+<p class=muted>Starts a 14-day trial so your install is supported and kept up to date. We send only your license key + app version — never your books.</p>
+<input id=trialEmail type=email placeholder="you@company.com"><button onclick=startTrial()>Start free trial</button>
+<p class=muted style="font-size:12px;margin-top:10px">Already have a license key? <a href="#" onclick="document.getElementById('keyRow').style.display='block';return false" style="color:#22d3ee">Enter it</a></p>
+<div id=keyRow style="display:none"><input id=licKey placeholder="LK-…"><button onclick=activateKey()>Activate key</button></div>
+<p class=muted id=activateMsg style="font-size:12px"></p></div>
+<div class=card><h3>2 · Connect QuickBooks</h3>
 <p class=muted>Opens the QuickBooks consent flow. No data leaves your machine.</p>
 <a class=btn href="/oauth/start">Connect QuickBooks</a></div>
-<div class=card><h3>2 · Add your Anthropic key <span class=muted>(for chat)</span></h3>
+<div class=card><h3>3 · Add your Anthropic key <span class=muted>(for chat)</span></h3>
 <p class=muted>Stored only in ~/.accountingqb. Chat calls go from your machine straight to Anthropic.</p>
 <input id=key type=password placeholder="sk-ant-…"><button onclick=saveKey()>Save key</button></div>
 <div class=card><h3>Probe a tool</h3>
@@ -1562,7 +1621,16 @@ pre{white-space:pre-wrap;background:#0d1220;padding:12px;border-radius:8px;max-h
 <p class=muted style="font-size:12px">Phase 2a shell. The tabbed Chat + Dashboard UI lands in Phase 2b.</p>
 <script>
 async function refresh(){const s=await (await fetch('/api/status')).json();
-document.getElementById('status').textContent=`v${s.version} · ${s.toolCount} tools · QuickBooks ${s.connected?'connected':'not connected'} · Anthropic key ${s.hasAnthropicKey?'set':'missing'}`;}
+document.getElementById('status').textContent=`v${s.version} · ${s.toolCount} tools · ${s.hasLicense?'trial active':'not activated'} · QuickBooks ${s.connected?'connected':'not connected'} · Anthropic key ${s.hasAnthropicKey?'set':'missing'}`;
+const card=document.getElementById('activateCard');if(card)card.style.display=s.hasLicense?'none':'block';}
+async function startTrial(){const e=document.getElementById('trialEmail').value.trim();const m=document.getElementById('activateMsg');
+if(!e){m.textContent='Enter your email.';return;}m.textContent='Starting your trial…';
+const r=await fetch('/api/activate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:e})});
+const j=await r.json();m.textContent=j.ok?'Activated — check your email for your license key.':('Error: '+(j.error||'try again'));refresh();}
+async function activateKey(){const k=document.getElementById('licKey').value.trim();const m=document.getElementById('activateMsg');
+if(!k){m.textContent='Enter your license key.';return;}m.textContent='Activating…';
+const r=await fetch('/api/activate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({licenseKey:k})});
+const j=await r.json();m.textContent=j.ok?'Activated.':('Error: '+(j.error||'try again'));refresh();}
 async function saveKey(){const k=document.getElementById('key').value.trim();if(!k)return;
 await fetch('/api/config',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({anthropicApiKey:k})});
 document.getElementById('key').value='';refresh();}
@@ -1571,6 +1639,45 @@ const r=await fetch('/mcp',{method:'POST',headers:{'content-type':'application/j
 const j=await r.json();o.textContent=typeof j.result==='string'?j.result:JSON.stringify(j,null,2);}
 refresh();
 </script></body></html>"""
+
+
+def _platform_tag() -> str:
+    if sys.platform == "darwin":
+        return "macos"
+    if sys.platform.startswith("win"):
+        return "windows"
+    return "linux"
+
+
+def send_heartbeat(lic: str) -> bool:
+    """Best-effort activation check-in: tell the backend this licensed install is
+    alive (license key + app version + platform ONLY). No usage, no financial
+    data — those never leave the machine. Silent + non-fatal on any error."""
+    lic = (lic or "").strip()
+    if not lic:
+        return False
+    base = AQB_API_URL.rstrip("/")
+    try:
+        with httpx.Client(timeout=10) as client:
+            r = client.post(
+                f"{base}/api/app/heartbeat",
+                json={
+                    "license_key": lic,
+                    "version": _server_version(),
+                    "platform": _platform_tag(),
+                },
+            )
+        return r.status_code == 200
+    except Exception:  # pragma: no cover - network/offline
+        return False
+
+
+def _bootstrap_heartbeat() -> None:
+    """On launch, if a license is configured, send one activation heartbeat so an
+    activated local install becomes visible (it otherwise sends nothing)."""
+    lic = os.environ.get("QB_LICENSE_KEY") or load_config().get("license_key", "")
+    if lic and send_heartbeat(lic):
+        print("  Activation check-in sent.")
 
 
 def _bootstrap_profile() -> None:
@@ -1633,6 +1740,7 @@ def _bootstrap_pairing() -> None:
 def main() -> None:
     _bootstrap_profile()
     _bootstrap_pairing()  # restore Coffer pairing from web so a restart never comes up inert
+    _bootstrap_heartbeat()  # activation check-in so an activated install is visible
     url = f"http://127.0.0.1:{PORT}"
     print(f"\n  AccountingQB local is live → {url}\n")
     if not os.environ.get("ACCOUNTINGQB_NO_OPEN"):
