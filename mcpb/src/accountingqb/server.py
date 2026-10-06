@@ -299,7 +299,14 @@ def _check_rate_limit() -> None:
 
 LICENSE_KEY = os.environ.get("QB_LICENSE_KEY", "")
 _LICENSE_VALIDATION_URL = os.environ.get(
-    "QB_LICENSE_URL", ""  # e.g. https://yourapp.vercel.app/api/validate
+    # Gated BY DEFAULT: every build of the connector (hosted, .mcpb extension,
+    # desktop app, raw PyPI/self-host) validates licenses against the hosted
+    # broker unless QB_LICENSE_URL is explicitly set. Set it to "" to disable
+    # enforcement for local development. Defaulting this (rather than relying on
+    # each distribution to set the env) is what closes the "forgot to wire it →
+    # free product" hole; see tests/test_enforcement_wired.py.
+    "QB_LICENSE_URL",
+    "https://accountingqb.com/api/validate",
 )
 _license_cache: dict = {}  # {key: {valid, tier, validated_at, expires}}
 # Re-validate hourly so trial-expiry / cancellation is enforced within the hour
@@ -317,6 +324,7 @@ _LICENSE_GRACE_SECONDS = 72 * 3600  # 72 hours
 # shuts off cleanly at trial expiry. An expired user can still see their company
 # is connected and manage/reconnect it (to then subscribe), but gets no books.
 FREE_TOOLS = {
+    "qb_server_info",  # diagnostic: version/tool count, NO QuickBooks data at all
     "qb_company_info",  # connectivity proof + a connected-company name; no books
     "qb_list_companies",  # pick which connected company (metadata only)
     "qb_switch_company",  # switch active company (metadata only)
