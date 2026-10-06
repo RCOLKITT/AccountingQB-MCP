@@ -2414,6 +2414,16 @@ async def qb_switch_company(realm_id: str) -> str:
                         f"request, but the choice could not be saved — it may reset "
                         f"on your next message."
                     )
+                # Write-through THIS connector process's realm cache so the next
+                # request on this machine resumes on the switched-to company
+                # instead of the stale cached realm (other machines converge
+                # within the short TTL). Remote mode only; remote is loaded here.
+                try:
+                    from accountingqb import remote
+
+                    remote.note_default_realm(ctx.license_key, realm_id)
+                except Exception as e:  # pragma: no cover - best-effort
+                    logger.warning(f"Could not update local realm cache: {e}")
             return f"✓ Switched to **{name}** (Realm ID: `{realm_id}`)"
 
     return f"Company with realm ID `{realm_id}` not found. Use `qb_list_companies` to see available companies."

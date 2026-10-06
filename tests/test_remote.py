@@ -300,3 +300,47 @@ def test_non_tools_response_untouched_but_versioned():
     r = client.post("/mcp", headers={"Authorization": f"Bearer {token}"}, json={})
     assert r.headers.get("mcp-protocol-version") == SPEC_PROTOCOL_VERSION
     assert "ttlMs" not in r.text and "cacheScope" not in r.text
+
+
+# ---------------------------------------------------------------------------
+# Company-switch realm cache (fix: switching was masked by a 45-min stale cache)
+# ---------------------------------------------------------------------------
+def test_default_realm_ttl_is_short_enough_for_switching():
+    # A long TTL meant a persisted company switch didn't take effect for up to
+    # the TTL (per machine). Lock it short so switches converge quickly.
+    from accountingqb.remote import DEFAULT_REALM_TTL_SECONDS
+
+    assert DEFAULT_REALM_TTL_SECONDS <= 120
+
+
+def test_set_realm_write_through_serves_new_company_immediately():
+    import asyncio
+
+    from accountingqb.remote import DefaultRealmCache
+
+    c = DefaultRealmCache(ttl=9999)
+    c.set_realm("LK-SW", "REALM-OLD")
+    assert asyncio.run(c.get("LK-SW")) == "REALM-OLD"
+    # The switch write-through — no TTL wait, no network.
+    c.set_realm("LK-SW", "REALM-NEW")
+    assert asyncio.run(c.get("LK-SW")) == "REALM-NEW"
+
+
+def test_set_realm_preserves_cached_read_only_flag():
+    import asyncio
+
+    from accountingqb.remote import DefaultRealmCache
+
+    c = DefaultRealmCache(ttl=9999)
+    c._cache["LK-RO"] = (time.monotonic(), "R1", True)
+    c.set_realm("LK-RO", "R2")  # switch company…
+    assert asyncio.run(c.read_only("LK-RO")) is True  # …read-only flag survives
+
+
+def test_note_default_realm_updates_module_cache():
+    import asyncio
+
+    from accountingqb import remote
+
+    remote.note_default_realm("LK-NOTE", "REALM-Z")
+    assert asyncio.run(remote._default_realm_cache.get("LK-NOTE")) == "REALM-Z"
