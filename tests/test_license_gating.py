@@ -138,6 +138,7 @@ def test_free_set_is_minimal_connectivity_only():
     # The free set must stay tiny — connectivity/connection-management only, with
     # NO financial-reporting value. Widening it back is a revenue leak; lock it.
     assert s.FREE_TOOLS == {
+        "qb_server_info",  # diagnostic only — no QuickBooks data
         "qb_company_info",
         "qb_list_companies",
         "qb_switch_company",
