@@ -97,7 +97,7 @@ export function trialWarningEmail(params: TrialWarningEmailParams): {
 
       ${infoBox(
         `<strong>To keep your ${tierName} plan (${price}/month):</strong> add a card before ${trialEndDate}.<br><br>
-        <strong>Prefer not to?</strong> Do nothing. Your trial simply ends, you move to our free read-only plan, and you're never charged — there's nothing to cancel.`,
+        <strong>Prefer not to?</strong> Do nothing. Your trial simply ends — your reports and tools pause (your data stays safe, you're never charged, nothing to cancel), and you can switch them back on anytime by picking a plan.`,
         isUrgent ? "warning" : "info",
       )}
 

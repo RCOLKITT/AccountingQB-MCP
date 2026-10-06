@@ -25,9 +25,9 @@ export function trialExpiredEmail(params: TrialExpiredEmailParams): {
 
     ${paragraph("Your 14-day free trial has come to an end — and since you didn't add a card, you were never charged.")}
 
-    ${paragraph("You're now on our <strong>free read-only plan</strong>: you keep 25 essential tools for reports and lookups. Your QuickBooks data stays safe and unchanged — we never store your financial information.")}
+    ${paragraph("Your reports, tax tools, and bookkeeping are paused until you pick a plan. Your QuickBooks stays connected and your data is untouched — we never store your books — so everything switches back on the moment you subscribe.")}
 
-    ${paragraph("Want the full 138 tools back — writes, tax prep, and the deduction finder? Pick a plan anytime:")}
+    ${paragraph("Want your full AccountingQB back — reports, tax prep, the deduction finder, and all 138 tools? Pick a plan anytime:")}
 
     ${primaryButton("Choose a plan", pricingUrl)}
 
@@ -42,7 +42,7 @@ export function trialExpiredEmail(params: TrialExpiredEmailParams): {
     subject: `Your AccountingQB trial has ended`,
     html: emailWrapper(
       content,
-      `Your trial has ended — you're on the free plan; pick a plan anytime to unlock all 138 tools`,
+      `Your trial has ended — your reports & tools are paused; pick a plan anytime to switch all 138 back on`,
     ),
   };
 }
