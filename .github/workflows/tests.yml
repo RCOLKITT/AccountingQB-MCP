@@ -46,7 +46,7 @@ jobs:
       - run: cd web && npm run format:check                          # prettier (BLOCKING — format gate, G10)
       - run: cd web && npm run lint                                  # ESLint (BLOCKING — G9; errors only, compiler-era rules are warnings)
       - run: cd web && npm run test:unit                             # vitest unit tests for lib logic (BLOCKING — token-crypto fail-closed, etc.)
-      - run: cd web && npm audit --audit-level=high                  # web dep advisories (BLOCKING — G7; clean since Next 16)
+      - run: cd web && npm audit --omit=dev --audit-level=high       # SHIPPED-dep advisories (BLOCKING — G7). --omit=dev: audit what we deploy, not build-time tooling (eslint/test). Prod deps (e.g. next) still block; a no-fix-available DoS in a dev-only transitive (braces→eslint-config-next) doesn't hold every PR hostage.
 
   web-e2e:
     runs-on: ubuntu-latest
