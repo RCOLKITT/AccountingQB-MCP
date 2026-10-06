@@ -21,6 +21,8 @@ const PUBLIC_PAGES: Array<[path: string, mustContain: RegExp]> = [
   ["/privacy", /privacy/i],
   ["/changelog", /change|release|version|v\d/i],
   ["/demo", /demo/i],
+  // Public "how to use it" hub — all four access methods + connector URL.
+  ["/connect", /how to use|mcp\.accountingqb\.com/i],
   ["/sign-in", /sign|log ?in|clerk/i],
 ];
 

@@ -37,7 +37,7 @@ const faqs: { q: string; a: string }[] = [
   },
   {
     q: "Which Claude apps does AccountingQB work with?",
-    a: "AccountingQB works with Claude on the web, desktop, and mobile via the remote connector (add it as a custom connector — no install needed), with Claude Desktop via the MCP extension, and with Cowork via the plugin. You can also download a standalone desktop app for macOS or Windows that runs locally without Claude Desktop or Cowork. Any app that supports MCP servers can use it.",
+    a: "AccountingQB works with Claude on the web, desktop, and mobile via the remote connector (add it as a custom connector — no install needed), with Claude Desktop via the MCP extension, and with Cowork via the plugin. You can also download a standalone desktop app for macOS or Windows that runs locally without Claude Desktop or Cowork. Any app that supports MCP servers can use it. Step-by-step instructions for each option are at accountingqb.com/connect.",
   },
   {
     q: "Does AccountingQB work with QuickBooks Desktop?",

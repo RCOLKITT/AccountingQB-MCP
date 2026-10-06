@@ -178,29 +178,28 @@ function SuccessContent() {
                   </span>
                   <div>
                     <h3 className="font-semibold text-white">
-                      Install the Extension
+                      Connect AccountingQB
                     </h3>
                     <p className="mt-1 text-sm text-gray-400">
-                      Follow our quick setup guide to add AccountingQB to Claude
-                      Desktop.
+                      Use it inside Claude (nothing to install), as a desktop
+                      app, or the Claude Desktop extension — pick whatever fits
+                      how you work.
                     </p>
                   </div>
                 </div>
                 <a
-                  href={`/setup-wizard?key=${encodeURIComponent(licenseKey || "")}`}
+                  href="/connect"
                   className="block w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 text-center text-lg font-semibold shadow-lg shadow-cyan-500/20 transition hover:shadow-cyan-500/40"
                 >
-                  Start Setup Guide
+                  See the ways to use it
                 </a>
                 <p className="text-xs text-center text-gray-500">
-                  Don&apos;t have Claude Desktop?{" "}
+                  Prefer the guided installer?{" "}
                   <a
-                    href="https://claude.ai/download"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={`/setup-wizard?key=${encodeURIComponent(licenseKey || "")}`}
                     className="text-cyan-400 hover:underline"
                   >
-                    Download it here first
+                    Open the setup guide
                   </a>
                 </p>
                 <button
