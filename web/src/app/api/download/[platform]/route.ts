@@ -10,10 +10,16 @@ import {
 
 /**
  * GET /api/download/macos   (or /windows)
- * Records the download (platform + salted hashes, non-blocking) then 302s to the
- * signed GitHub "latest" release asset. Site download buttons point here so we can
- * track macOS vs Windows demand in /admin/downloads. The redirect always works even
- * if tracking fails — a download must never be blocked by analytics.
+ *
+ * Trial gate (the single chokepoint for EVERY download link — footer, homepage,
+ * FAQ, even a pasted URL): a request with no trial context is redirected to the
+ * /download capture page, which collects an email, mints a tracked no-credit-card
+ * trial via /api/trial/start, and sends the user back here with `?key=LK-…&g=1`.
+ * A request that already carries a license key (or the g=1 "gated already" flag
+ * from that page) is recorded and 302'd to the signed GitHub asset. This is why
+ * downloads weren't becoming trials — the gate lived only on the homepage buttons
+ * while the footer linked straight here. Set TRIAL_AT_DOWNLOAD_ENABLED="false" to
+ * disable the gate (every request goes straight to the asset, as before).
  */
 const ASSETS: Record<string, string> = {
   macos:
@@ -41,13 +47,32 @@ export async function GET(
     if (!success) return rateLimitResponse(reset);
   }
 
+  const key = req.nextUrl.searchParams.get("key");
+  const hasKey = !!(key && key.startsWith("LK-"));
+  // `g=1` is set by the /download capture page after it has already run the
+  // trial gate (so a user whose trial issuance hiccuped still gets their
+  // download instead of bouncing back — no redirect loop).
+  const gatedAlready = req.nextUrl.searchParams.get("g") === "1";
+  const gateEnabled = process.env.TRIAL_AT_DOWNLOAD_ENABLED !== "false";
+
+  if (gateEnabled && !hasKey && !gatedAlready) {
+    // No trial context → send to the capture page, which mints a tracked trial
+    // then returns here with the key. This gates EVERY entry point at once.
+    return NextResponse.redirect(
+      new URL(
+        `/download?platform=${encodeURIComponent(platform)}`,
+        req.nextUrl.origin,
+      ),
+      302,
+    );
+  }
+
   // Record the download — privacy-preserving (salted hashes, never raw IP/UA).
   try {
     const ip = getClientIP(req);
     const ua = req.headers.get("user-agent") || "";
     const salt = process.env.IP_HASH_SALT || "";
     const sha = (s: string) => createHash("sha256").update(s).digest("hex");
-    const key = req.nextUrl.searchParams.get("key");
     await getSupabase()
       .from("app_downloads")
       .insert({

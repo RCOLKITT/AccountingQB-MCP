@@ -48,13 +48,22 @@ test("robots.txt and sitemap.xml serve", async ({ request }) => {
   expect((await request.get("/sitemap.xml")).status()).toBeLessThan(400);
 });
 
-test("download endpoint redirects to a signed release asset", async ({
+test("download endpoint gates to the trial capture page, then serves the asset", async ({
   request,
 }) => {
-  // Core conversion path: /api/download/macos → 3xx to the GitHub release.
-  const resp = await request.get("/api/download/macos", { maxRedirects: 0 });
-  expect([301, 302, 307, 308]).toContain(resp.status());
-  expect(resp.headers()["location"]).toMatch(/github\.com|releases/i);
+  // Trial gate: a download with no trial context goes to the /download capture
+  // page (email → tracked trial), NOT straight to the binary.
+  const gated = await request.get("/api/download/macos", { maxRedirects: 0 });
+  expect([302, 307]).toContain(gated.status());
+  expect(gated.headers()["location"]).toMatch(/\/download\?platform=macos/);
+
+  // Once gated (g=1, as the capture page sends them back), 3xx to the signed
+  // GitHub release asset — the actual download still works.
+  const asset = await request.get("/api/download/macos?g=1", {
+    maxRedirects: 0,
+  });
+  expect([301, 302, 307, 308]).toContain(asset.status());
+  expect(asset.headers()["location"]).toMatch(/github\.com|releases/i);
 });
 
 test("protected dashboard is not publicly readable", async ({ request }) => {
