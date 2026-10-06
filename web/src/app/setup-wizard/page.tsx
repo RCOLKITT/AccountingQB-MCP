@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import ConnectorInstructions, {
+  REMOTE_MCP_URL,
+} from "@/components/ConnectorInstructions";
 
 type Platform = "mac" | "windows" | "linux" | "unknown";
 type Step =
@@ -13,10 +16,6 @@ type Step =
   | "install-extension"
   | "connect-qb"
   | "done";
-
-// Remote MCP endpoint (e.g. https://mcp.accountingqb.com/mcp). When unset,
-// the "Connect instantly" option is hidden and the wizard behaves as before.
-const REMOTE_MCP_URL = process.env.NEXT_PUBLIC_REMOTE_MCP_URL || "";
 
 function detectPlatform(): Platform {
   if (typeof window === "undefined") return "unknown";
@@ -40,7 +39,6 @@ function SetupWizardContent() {
   const [platform, setPlatform] = useState<Platform>("unknown");
   const [step, setStep] = useState<Step>("detect");
   const [copied, setCopied] = useState(false);
-  const [copiedUrl, setCopiedUrl] = useState(false);
   const [hasClaudeDesktop, setHasClaudeDesktop] = useState<boolean | null>(
     null,
   );
@@ -100,12 +98,6 @@ function SetupWizardContent() {
     navigator.clipboard.writeText(configSnippet);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const copyConnectorUrl = () => {
-    navigator.clipboard.writeText(REMOTE_MCP_URL);
-    setCopiedUrl(true);
-    setTimeout(() => setCopiedUrl(false), 2000);
   };
 
   const handleConnectQB = () => {
@@ -246,7 +238,7 @@ function SetupWizardContent() {
           )}
 
         {/* Step 0: Choose how to connect (only when the remote connector is live) */}
-        {step === "choose" && REMOTE_MCP_URL && (
+        {step === "choose" && (
           <div className="space-y-6">
             <div className="text-center">
               <h2 className="text-2xl font-bold">
@@ -306,7 +298,7 @@ function SetupWizardContent() {
         )}
 
         {/* Step 0b: Remote connector instructions */}
-        {step === "connector" && REMOTE_MCP_URL && (
+        {step === "connector" && (
           <div className="space-y-6">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
               <h2 className="text-2xl font-bold">
@@ -319,50 +311,7 @@ function SetupWizardContent() {
               </p>
 
               <div className="mt-6">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm text-gray-400">Connector URL</span>
-                  <button
-                    onClick={copyConnectorUrl}
-                    className="px-3 py-1 text-xs rounded border border-white/10 hover:bg-white/10 transition"
-                  >
-                    {copiedUrl ? "✓ Copied!" : "Copy"}
-                  </button>
-                </div>
-                <code className="block rounded-lg bg-black/40 px-4 py-3 text-sm text-cyan-400 overflow-x-auto">
-                  {REMOTE_MCP_URL}
-                </code>
-              </div>
-
-              <div className="mt-6 space-y-3 text-sm text-gray-300">
-                <p>
-                  <strong className="text-white">Instructions:</strong>
-                </p>
-                <ol className="list-decimal list-inside space-y-2 text-gray-400">
-                  <li>
-                    In Claude, open{" "}
-                    <span className="text-white">Settings → Connectors</span>
-                  </li>
-                  <li>
-                    Click{" "}
-                    <span className="text-white">Add custom connector</span>
-                  </li>
-                  <li>
-                    Paste the URL above and click{" "}
-                    <span className="text-white">Add</span>
-                  </li>
-                  <li>
-                    Click <span className="text-white">Connect</span> and sign
-                    in with your AccountingQB account
-                  </li>
-                  <li>Approve access for your license — that&apos;s it</li>
-                </ol>
-              </div>
-
-              <div className="mt-6 rounded-xl border border-blue-400/20 bg-blue-400/5 p-4">
-                <p className="text-sm text-gray-300">
-                  <strong className="text-blue-400">Coming soon:</strong>{" "}
-                  one-click install from the Claude connector directory.
-                </p>
+                <ConnectorInstructions />
               </div>
             </div>
 

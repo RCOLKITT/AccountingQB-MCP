@@ -317,6 +317,12 @@ export default async function Home() {
                   />
                 </svg>
               </a>
+              <a
+                href="/connect"
+                className="text-sm font-medium text-gray-400 transition hover:text-white"
+              >
+                See the ways to use it
+              </a>
             </div>
 
             <p className="mt-5 text-sm text-gray-500">
@@ -933,10 +939,19 @@ export default async function Home() {
               Windows demand (and 302 to the signed GitHub release). */}
           <div className="mt-14 flex flex-col items-center gap-4">
             <p className="text-sm text-gray-400">
-              Prefer an app? Download it and run locally — your books never
-              leave your machine.
+              Use AccountingQB your way — add it to Claude (nothing to install)
+              or run the desktop app locally. Same 138 tools, same free trial.
             </p>
             <div className="flex flex-col items-center gap-3 sm:flex-row">
+              {/* Equal options: add-to-Claude (connector) alongside the
+                  desktop-app download. Full step-by-step for every method
+                  lives on /connect. */}
+              <a
+                href="/connect"
+                className="flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[#0a0e1a] shadow-lg shadow-black/20 transition hover:bg-slate-200"
+              >
+                Add to Claude
+              </a>
               {/* Desktop-app download = tracked no-credit-card trial (Door 2).
                   Captures an email, mints a trialing license, then starts the
                   key-tagged download. Flag off → plain direct links. */}
@@ -964,6 +979,12 @@ export default async function Home() {
                 Get it for Cowork
               </a>
             </div>
+            <a
+              href="/connect"
+              className="text-sm font-medium text-cyan-400 transition hover:text-cyan-300"
+            >
+              See step-by-step for every option →
+            </a>
           </div>
         </div>
       </section>

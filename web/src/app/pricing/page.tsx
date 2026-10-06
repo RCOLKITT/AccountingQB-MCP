@@ -61,8 +61,12 @@ export default async function PricingPage() {
         <p className="mx-auto mt-5 max-w-xl text-[16px] leading-relaxed text-gray-400">
           Every plan includes all 138 tools and US &amp; Canadian tax prep, and
           works with Claude, the downloadable desktop app, or our hosted
-          connector. Start with a 14-day free trial — no credit card required,
-          cancel anytime.
+          connector (
+          <a href="/connect" className="text-cyan-400 hover:underline">
+            see the ways to use it
+          </a>
+          ). Start with a 14-day free trial — no credit card required, cancel
+          anytime.
         </p>
       </section>
 

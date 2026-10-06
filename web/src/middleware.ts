@@ -14,6 +14,8 @@ const isPublicRoute = createRouteMatcher([
   "/security",
   "/faq",
   "/login",
+  // Public "how to use it" hub (all four access methods + steps).
+  "/connect",
   // Pre-signup desktop-app download / trial-capture page.
   "/download",
   // Stripe redirects new purchasers here before they have an account

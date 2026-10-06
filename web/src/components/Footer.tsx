@@ -110,6 +110,11 @@ export default function Footer() {
                 </a>
               </li>
               <li>
+                <a href="/connect" className="transition hover:text-white">
+                  How to connect
+                </a>
+              </li>
+              <li>
                 <a href="/#faq" className="transition hover:text-white">
                   FAQ
                 </a>
