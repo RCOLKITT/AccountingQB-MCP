@@ -76,7 +76,8 @@ export async function GET(req: NextRequest) {
       subscription_data: {
         trial_period_days: 14,
         // If the trial ends and no card was added, cancel cleanly instead of leaving
-        // an unpayable open invoice — the user simply reverts to the free read-only tier.
+        // an unpayable open invoice — the license lapses to the locked free tier
+        // (connectivity only; reports/tools require an active plan).
         trial_settings: {
           end_behavior: { missing_payment_method: "cancel" },
         },
