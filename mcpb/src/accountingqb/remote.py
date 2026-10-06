@@ -73,9 +73,14 @@ AS_URL = os.environ.get("AS_URL", "https://accountingqb.com")
 MCP_JWT_SECRET = os.environ.get("MCP_JWT_SECRET", "")
 QB_API_URL = os.environ.get("QB_API_URL", "https://accountingqb.com")
 
-# TTL for the per-license default-realm cache. The broker's own token cache
-# guidance is ~45 minutes; realm changes are rare, so the same TTL is fine.
-DEFAULT_REALM_TTL_SECONDS = 45 * 60
+# TTL for the per-license default-realm + read-only cache. Kept SHORT: a company
+# switch (qb_switch_company) persists the new active realm to the broker, and a
+# long TTL meant the stateless connector kept serving the OLD company for up to
+# the TTL — and with >1 warm machine, each had its own stale cache, so switching
+# appeared broken. 60s lets every machine converge within a minute; the serving
+# machine is updated instantly via note_default_realm(). Read-only toggles also
+# propagate within this window. The GET is cheap + rate-limited.
+DEFAULT_REALM_TTL_SECONDS = 60
 
 PROTECTED_RESOURCE_PATH = "/.well-known/oauth-protected-resource"
 
@@ -214,12 +219,28 @@ class DefaultRealmCache:
     def invalidate(self, license_key: str) -> None:
         self._cache.pop(license_key, None)
 
+    def set_realm(self, license_key: str, realm_id: Optional[str]) -> None:
+        """Write-through after a company switch: update this process's cache to
+        the new realm immediately (preserving the cached read-only flag) so the
+        next request on THIS machine resumes on the switched-to company. Other
+        machines converge within the (short) TTL."""
+        prev = self._cache.get(license_key)
+        read_only = prev[2] if prev else False
+        self._cache[license_key] = (time.monotonic(), realm_id, read_only)
+
 
 _default_realm_cache = DefaultRealmCache()
 
 
 async def _resolve_default_realm(license_key: str) -> Optional[str]:
     return await _default_realm_cache.get(license_key)
+
+
+def note_default_realm(license_key: str, realm_id: Optional[str]) -> None:
+    """Called by qb_switch_company (remote mode) right after it persists the new
+    active company, so this connector process reflects the switch on the next
+    request instead of serving the stale cached realm for the full TTL."""
+    _default_realm_cache.set_realm(license_key, realm_id)
 
 
 async def _resolve_read_only(license_key: str) -> bool:
