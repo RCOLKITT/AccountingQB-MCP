@@ -1,6 +1,6 @@
 ---
 name: accountingqb-tax-prep
-description: Tax preparation workflows for QuickBooks Online via AccountingQB — US (Schedule C, quarterly estimates, 1099s, depreciation) and Canada (GST/HST returns, T2125, CCA, T4A/T5018, CRA instalments). Use when the user mentions taxes, tax prep, tax season, Schedule C, T2125, GST/HST, deductions, quarterly estimates, instalments, 1099s, T4As, depreciation, CCA, the IRS, or the CRA.
+description: Tax preparation workflows for QuickBooks Online via AccountingQB — US (Schedule C, quarterly estimates, 1099s, depreciation) and Canada (GST/HST returns, T2125, T2 corporate workpapers, CCA, T4A/T5018, CRA instalments). Use when the user mentions taxes, tax prep, tax season, Schedule C, T2125, T2, GST/HST, deductions, quarterly estimates, instalments, 1099s, T4As, depreciation, CCA, the IRS, or the CRA.
 ---
 
 # AccountingQB - Tax Preparation Assistant
@@ -15,6 +15,7 @@ Before anything else, determine which tax regime applies:
 2. **Canadian company** (country CA, or GST/HST/PST tax codes like "HST ON") ⇒ follow the **Canada** workflow below.
 3. **US company** (US Automated Sales Tax, no manual tax codes) ⇒ follow the **United States** workflow.
 4. US-only tools automatically redirect Canadian companies to their CA counterparts (and vice versa), so a wrong guess is harmless — but detect first to avoid wasted calls.
+5. **Incorporated vs. unincorporated** matters for the year-end form: a Canadian **corporation** files a **T2** (`qb_t2_summary`), while an unincorporated sole proprietor files a **T2125** (`qb_t2125_summary`). Entity type is DECLARED via `qb_allocation_profile`, never guessed — ask if unsure.
 
 **If you cannot call `qb_company_info`** (QuickBooks not connected yet, or the
 tools are unavailable), do NOT default to the United States. Determine the region
@@ -82,13 +83,27 @@ When the user asks to file or reconcile GST/HST (sales tax):
    workpaper, not a filing
 3. Mention Quick Method eligibility if flagged (taxable supplies ≤ $400k)
 
-### Year-End T2125 (Statement of Business Activities)
-When the user preps their T1 self-employment schedule:
+### Year-End T2125 (Statement of Business Activities) — UNINCORPORATED
+For a **sole proprietor / unincorporated** business (files a T1 with a T2125):
 1. `qb_company_info` to confirm the fiscal year
 2. `qb_t2125_summary` with the tax year — maps QB expense accounts to T2125
    Part 4 lines (8521 Advertising, 8523 Meals at 50%, 8910 Rent, ...)
 3. Review the unmapped/line-9270 items with the user
 4. Remind: report revenue net of GST/HST if registered
+
+### Year-End T2 (Corporation) — INCORPORATED
+For an **incorporated** business (files a T2). Entity type is DECLARED, never
+guessed — if the books belong to a corporation:
+1. Declare it once: `qb_allocation_profile(tax_year=YYYY, entity_type='corporation')`
+2. `qb_t2_summary` with the tax year — builds a GIFI-coded **Schedule 125**
+   income statement from the books, plus a **Schedule 1** book-to-tax
+   reconciliation: book amortization added back (line 104), 50% of meals &
+   entertainment restricted (line 121, ITA s.67.1), and CCA deducted (line 403)
+3. Meals and amortization appear in FULL on Schedule 125 — the restrictions are
+   Schedule 1 adjustments, not applied on the income statement
+4. Run `qb_cca_schedule` for the Schedule 8 CCA total to drop into line 403
+5. It is **records only** — a workpaper your accountant files the T2 from.
+   AccountingQB never files, and it computes no corporate tax-liability figure
 
 ### Capital Cost Allowance (CCA)
 When the user mentions depreciation, assets, or CCA:
