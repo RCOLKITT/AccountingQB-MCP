@@ -1,6 +1,6 @@
-"""Import smoke tests: the canonical server registers exactly 138 tools."""
+"""Import smoke tests: the canonical server registers exactly 139 tools."""
 
-EXPECTED_TOOL_COUNT = 138
+EXPECTED_TOOL_COUNT = 139
 
 SPOT_CHECK_TOOLS = [
     "qb_create_invoice",
@@ -15,6 +15,7 @@ SPOT_CHECK_TOOLS = [
     # Phase 5 — Canada tax suite
     "qb_gst_hst_return",
     "qb_t2125_summary",
+    "qb_t2_summary",
     "qb_cca_schedule",
     "qb_t4a_contractor_report",
     "qb_estimate_instalments",

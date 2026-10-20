@@ -14,18 +14,19 @@ blockers were verified 2026-07-11 (see checklist at the bottom).
 - **Website / docs:** https://accountingqb.com · https://accountingqb.com/canada · https://github.com/RCOLKITT/AccountingQB-MCP
 
 **Short description (≤ ~140 chars):**
-> Your QuickBooks, powered by Claude — 138 tools for reports, bookkeeping
+> Your QuickBooks, powered by Claude — 139 tools for reports, bookkeeping
 > cleanup, and US & Canadian tax prep.
 
 **Long description:**
-> AccountingQB connects Claude to QuickBooks Online with 138 tools spanning
+> AccountingQB connects Claude to QuickBooks Online with 139 tools spanning
 > financial reports (P&L, balance sheet, cash flow, agings, general ledger),
 > bookkeeping cleanup (uncategorized transactions, duplicate and anomaly
 > detection, books health audit), transaction creation (invoices, expenses,
 > bills, estimates — with Canadian tax codes where required), and tax-prep
 > workpapers for both the US (Schedule C, 1099, quarterly estimates with
 > per-state rates) and Canada (GST/HST returns with province-aware
-> HST/PST/QST handling, T2125, CCA schedules, T4A, CRA instalments).
+> HST/PST/QST handling, T2125, T2 corporate workpapers, CCA schedules, T4A,
+> CRA instalments).
 > QuickBooks data is zero-retention pass-through — never stored, logged, or
 > used for analytics.
 

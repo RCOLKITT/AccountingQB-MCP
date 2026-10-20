@@ -595,6 +595,11 @@
     "write": true
   },
   {
+    "name": "qb_t2_summary",
+    "description": "CRA T2 (corporation income tax) WORKPAPER for a tax year: a GIFI-coded",
+    "write": false
+  },
+  {
     "name": "qb_t2125_summary",
     "description": "Generate a CRA T2125 (Statement of Business or Professional Activities)",
     "write": false

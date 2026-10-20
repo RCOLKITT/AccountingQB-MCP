@@ -6040,6 +6040,7 @@ def _fmt_allocation_profile(year: int, p: dict) -> str:
             "sole_prop": "Sole proprietor / SMLLC",
             "s_corp": "S corporation",
             "partnership": "Partnership / multi-member LLC",
+            "corporation": "Corporation (Canadian T2)",
         }
         lines.append(
             f"- **Entity:** {labels.get(ent.get('type'), ent.get('type', '?'))}"
@@ -6115,8 +6116,9 @@ async def qb_allocation_profile(
     misc_medical/misc_attorney = the matching 1099-MISC box; "exclude" = not
     reportable. QuickBooks doesn't expose its 1099 box mapping via the API, so this
     is how the 1099 reports know which accounts count). ENTITY (for S-corp / partnership
-    tax workpapers, DECLARED never guessed): entity_type ('sole_prop', 's_corp' or
-    'partnership' — incl. multi-member LLCs), shareholders_json (owners/partners, a
+    tax workpapers, DECLARED never guessed): entity_type ('sole_prop', 's_corp',
+    'partnership' — incl. multi-member LLCs — or 'corporation' for a Canadian
+    corporation that files a T2, used by qb_t2_summary), shareholders_json (owners/partners, a
     JSON array like [{"name":"A","ownership_pct":0.6},{"name":"B","ownership_pct":
     0.4}] — percentages must sum to 1.0), officer_comp_accounts_json (JSON array of
     the payroll accounts that hold OFFICER wages → 1120-S line 7),
@@ -6267,8 +6269,11 @@ async def qb_allocation_profile(
         ent = dict(profile.get("entity") or {})
         if entity_type:
             et = entity_type.lower().strip()
-            if et not in ("sole_prop", "s_corp", "partnership"):
-                return "entity_type must be 'sole_prop', 's_corp' or 'partnership'."
+            if et not in ("sole_prop", "s_corp", "partnership", "corporation"):
+                return (
+                    "entity_type must be 'sole_prop', 's_corp', 'partnership' or "
+                    "'corporation' (a Canadian corporation that files a T2)."
+                )
             ent["type"] = et
         if shareholders_json:
             try:
@@ -11861,7 +11866,7 @@ async def _gl_net_activity(acct: dict, start: str, end: str):
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-@require_region("US", "Canadian corporations file a T2 — not yet supported.")
+@require_region("US", "Canadian corporations file a T2 — use qb_t2_summary.")
 async def qb_form_1120s_summary(tax_year: str = "2025") -> str:
     """Form 1120-S (S corporation) book-to-tax WORKPAPER for a tax year: page-1
     ordinary income arranged from the books, separately-stated Schedule K items
@@ -12164,6 +12169,15 @@ def _CATALOG_1065() -> dict:
     from accountingqb.tax_tables import _1065_CATALOG
 
     return _1065_CATALOG
+
+
+def _CATALOG_T2() -> dict:
+    """GIFI line descriptions for the T2 workpaper: the T2125 income-statement
+    catalog (shared GIFI codes) overlaid with the T2-specific lines (8670, the
+    GIFI summary lines, and the Schedule 1 reconciliation lines)."""
+    from accountingqb.tax_tables import _T2_CATALOG, _T2125_CATALOG
+
+    return {**_T2125_CATALOG, **_T2_CATALOG}
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
@@ -16667,6 +16681,197 @@ async def qb_t2125_summary(year: int = 0) -> str:
     _audit_log(
         "T2125_SUMMARY",
         f"year={year} income={fmt(gross_business_income)} " f"net={fmt(net)}",
+    )
+    return "\n".join(lines) + tax_data_footer(year)
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+@require_region("CA", "US corporations file an 1120-S / 1120 — not a T2.")
+async def qb_t2_summary(year: int = 0) -> str:
+    """CRA T2 (corporation income tax) WORKPAPER for a tax year: a GIFI-coded
+    Schedule 125 income statement built from the books, plus a Schedule 1
+    book-to-tax reconciliation (add back book amortization on line 104 and the
+    50% non-deductible half of meals & entertainment on line 121 per ITA s.67.1;
+    deduct capital cost allowance on line 403 from Schedule 8 / qb_cca_schedule)
+    ending at net income for income tax purposes. This prepares the records your
+    accountant files the T2 from — AccountingQB never files, and no corporate
+    tax-liability figure is computed. Requires the entity declaration
+    (qb_allocation_profile: entity_type='corporation') — entity type is never
+    guessed. year: e.g. 2025 (default: current year)."""
+    import re as _re
+    from datetime import date as _date
+
+    year = int(year) or _date.today().year
+    start = f"{year}-01-01"
+    end = f"{year}-12-31"
+
+    profile = await _get_allocation_profile(year)
+    ent = profile.get("entity") or {}
+    if ent.get("type") != "corporation":
+        return (
+            f"## CRA T2 Workpaper — {year}\n\n"
+            "This company isn't declared as a corporation, and entity type is "
+            "never guessed. If it is incorporated (files a T2), declare it first:\n\n"
+            "  qb_allocation_profile(tax_year=" + str(year) + ", "
+            "entity_type='corporation')\n\n"
+            "Then re-run. (Unincorporated sole proprietors / partnerships use "
+            "qb_t2125_summary instead.)"
+        )
+
+    result = await qb_request(
+        "GET",
+        "reports/ProfitAndLoss",
+        params={"start_date": start, "end_date": end, "summarize_column_by": "Total"},
+    )
+    name_sub, _name_fqn = await _chart_maps()
+
+    # Income (Schedule 125): gross revenue + other income, via the shared,
+    # jurisdiction-neutral P&L breakdown. COGS is captured here (and excluded
+    # from the operating-expense extractor), so there is no double count.
+    gross, returns_allow, cogs, other_income = _pl_income_breakdown(result, name_sub)
+    net_sales = round(gross - returns_allow, 2)
+    total_revenue = round(net_sales + other_income, 2)
+
+    # Expenses (Schedule 125): classify each account onto its GIFI line. The
+    # corporate difference vs. T2125 — meals and book amortization are reported
+    # in FULL here (the financial statements); their tax restrictions are
+    # Schedule 1 ADD-BACKS, never applied on Schedule 125.
+    expense_accounts = _extract_pl_expense_accounts(result)
+    t2cat = _CATALOG_T2()
+    gifi: dict = {}  # line -> {"total", "accounts": [(name, amt)]}
+    meals_total = 0.0
+    amortization_total = 0.0
+    nonded_review: list = []  # corporate items to flag for review, never guessed
+
+    def _post(line, name, amt):
+        b = gifi.setdefault(line, {"total": 0.0, "accounts": []})
+        b["total"] = round(b["total"] + amt, 2)
+        b["accounts"].append((name, amt))
+
+    _amort = _re.compile(r"\b(depreciation|amortization|amortisation)\b", _re.I)
+
+    for name, amt in sorted(expense_accounts.items()):
+        amt = abs(amt)
+        subtype = name_sub.get(name, "")
+        # Book amortization/depreciation → GIFI 8670; added back on Schedule 1.
+        if (
+            _amort.search(name)
+            or "Depreciation" in subtype
+            or "Amortization" in subtype
+        ):
+            amortization_total += amt
+            _post("8670", name, amt)
+            continue
+        line, _desc, flags = classify_account(name, subtype, "CA")
+        if line == "8523":  # meals & entertainment — full here, 50% add-back on S1
+            meals_total += amt
+        if "nondeductible" in flags:
+            # CA 'NONDED' (e.g. charitable) is still a real BOOK expense — keep it
+            # in book income under Other expenses (9270) so net income is correct,
+            # and flag it; corporate charitable is a separate T2 deduction.
+            nonded_review.append((name, amt))
+            line = "9270"
+        _post(line, name, amt)
+
+    total_expenses = round(sum(b["total"] for b in gifi.values()), 2)
+    book_net_income = round(total_revenue - cogs - total_expenses, 2)
+
+    def _gifi_desc(line):
+        return t2cat.get(line, {}).get("desc", "Other expenses")
+
+    # --- Schedule 125 — income statement ---------------------------------
+    lines = [
+        f"## CRA T2 Workpaper — {year}",
+        f"**Period:** {start} to {end} · entity declared **corporation**",
+        "**Workpaper to prepare your records — AccountingQB never files.** Your "
+        "accountant files the T2 from these GIFI-coded records; no corporate "
+        "tax-liability figure is computed here.\n",
+        "### Schedule 125 — Income statement (GIFI)",
+        f"  Line 8000 — Sales/revenue: {fmt(gross)}",
+    ]
+    if returns_allow:
+        lines.append(
+            f"  Line 8000a — Returns, allowances & discounts: ({fmt(returns_allow)})"
+        )
+    if cogs:
+        lines.append(f"  Cost of goods sold: {fmt(cogs)}")
+    if other_income:
+        lines.append(
+            f"  Line 8230 — Other income (interest, etc.): {fmt(other_income)}"
+        )
+    lines.append(f"  **Line 8299 — Total revenue: {fmt(total_revenue)}**\n")
+    lines.append("  Operating expenses:")
+    for line in sorted(gifi, key=lambda x: int(x) if x.isdigit() else 10**9):
+        b = gifi[line]
+        lines.append(f"  Line {line} — {_gifi_desc(line)}: {fmt(b['total'])}")
+        for nm, amt in b["accounts"]:
+            lines.append(f"    - {nm}: {fmt(amt)}")
+    lines.append(f"  **Line 9368 — Total operating expenses: {fmt(total_expenses)}**")
+    lines.append(
+        f"  **Line 9999 — Net income/(loss) per financial statements: "
+        f"{fmt(book_net_income)}**\n"
+    )
+    lines.append(
+        "  *GST/HST registrants: revenue above is net of GST/HST collected when "
+        "tax codes are used.*\n"
+    )
+
+    # --- Schedule 1 — net income for income tax purposes ------------------
+    meals_factor, meals_cite = line_limitation("8523", "CA")  # 0.50, ITA s.67.1
+    meals_addback = round(meals_total * (1 - meals_factor), 2)
+    subtotal = round(book_net_income + amortization_total + meals_addback, 2)
+    lines.append("### Schedule 1 — Net income (loss) for income tax purposes")
+    lines.append(
+        f"  Net income/(loss) per financial statements (GIFI 9999): "
+        f"{fmt(book_net_income)}"
+    )
+    lines.append("  **Add (book-only / non-deductible amounts):**")
+    if amortization_total:
+        lines.append(
+            f"    Line 104 — Amortization of tangible assets "
+            f"(book, added back): {fmt(amortization_total)}"
+        )
+    if meals_addback:
+        lines.append(
+            f"    Line 121 — Non-deductible meals & entertainment "
+            f"({(1 - meals_factor):.0%} of {fmt(meals_total)}, {meals_cite}): "
+            f"{fmt(meals_addback)}"
+        )
+    if not amortization_total and not meals_addback:
+        lines.append("    (none detected in the books)")
+    lines.append(f"  Subtotal before CCA: {fmt(subtotal)}")
+    lines.append("  **Deduct:**")
+    lines.append(
+        "    Line 403 — Capital cost allowance (Schedule 8): run "
+        "**qb_cca_schedule** for the class-by-class CCA total, then subtract it "
+        "here. (Not computed — CCA needs your asset classes/acquisition dates.)"
+    )
+    lines.append(
+        f"  **Net income/(loss) for income tax purposes (T2 line 300): "
+        f"{fmt(subtotal)} − CCA (line 403)**"
+    )
+    if amortization_total:
+        lines.append(
+            "\n*Book amortization is added back (line 104) because it is not "
+            "deductible for tax; CCA (line 403, from Schedule 8) is the tax "
+            "equivalent of depreciation.*"
+        )
+    if nonded_review:
+        names = ", ".join(sorted({n for n, _a in nonded_review}))
+        lines.append(
+            f"\n*Review — {names}: corporate charitable donations are a separate "
+            f"T2 deduction (line 311, limited to 75% of net income), not a "
+            f"Schedule 1 add-back — confirm the treatment with your accountant.*"
+        )
+    lines.append(
+        "\n*Workpaper only — verify the GIFI mapping and every Schedule 1 "
+        "adjustment with your accountant; AccountingQB prepares records and never "
+        "files the T2.*"
+    )
+
+    _audit_log(
+        "T2_SUMMARY",
+        f"year={year} revenue={fmt(total_revenue)} book_net={fmt(book_net_income)}",
     )
     return "\n".join(lines) + tax_data_footer(year)
 

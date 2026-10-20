@@ -41,6 +41,7 @@ MUST_BE_GATED = {
     "qb_form_1065_summary": "US",
     "qb_tax_summary": "US",
     "qb_t2125_summary": "CA",
+    "qb_t2_summary": "CA",
     "qb_gst_hst_return": "CA",
     "qb_estimate_instalments": "CA",
 }

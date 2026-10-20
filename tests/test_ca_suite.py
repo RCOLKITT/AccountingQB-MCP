@@ -475,6 +475,150 @@ def test_t2125_maps_accounts_to_lines(qb_ctx):
 
 
 # ---------------------------------------------------------------------------
+# qb_t2_summary (Canadian corporate workpaper — records only, never files)
+# ---------------------------------------------------------------------------
+
+
+def _t2_pl_fixture():
+    """Synthetic corporate P&L: Sales 500,000; COGS 150,000; operating
+    expenses — Advertising 10,000 (8521), Meals & Entertainment 8,000 (8523,
+    full on Sch 125), Rent 36,000 (8910), Depreciation 20,000 (8670 → S1 line
+    104), Office supplies 5,000 (8811). Book net income = 271,000."""
+
+    def leaf(name, amt):
+        return {"ColData": [{"value": name}, {"value": str(amt)}]}
+
+    def section(title, leaves):
+        return {
+            "Header": {"ColData": [{"value": title}]},
+            "Rows": {"Row": leaves},
+            "Summary": {
+                "ColData": [
+                    {"value": f"Total {title}"},
+                    {
+                        "value": str(
+                            sum(float(l["ColData"][1]["value"]) for l in leaves)
+                        )
+                    },
+                ]
+            },
+        }
+
+    return {
+        "Rows": {
+            "Row": [
+                section("Income", [leaf("Sales", 500000.0)]),
+                section("Cost of Goods Sold", [leaf("Materials", 150000.0)]),
+                section(
+                    "Expenses",
+                    [
+                        leaf("Advertising", 10000.0),
+                        leaf("Meals & Entertainment", 8000.0),
+                        leaf("Rent", 36000.0),
+                        leaf("Depreciation", 20000.0),
+                        leaf("Office supplies", 5000.0),
+                    ],
+                ),
+            ]
+        }
+    }
+
+
+def _patch_t2(monkeypatch, entity_type="corporation"):
+    async def fake_request(method, endpoint, **kw):
+        if "ProfitAndLoss" in endpoint:
+            return _t2_pl_fixture()
+        return {}
+
+    async def fake_chart():
+        return (
+            {
+                "Sales": "SalesOfProductIncome",
+                "Materials": "SuppliesMaterialsCogs",
+                "Advertising": "AdvertisingPromotional",
+                "Meals & Entertainment": "TravelMeals",
+                "Rent": "RentOrLeaseOfBuildings",
+                "Office supplies": "SuppliesMaterials",
+            },
+            {},
+        )
+
+    async def fake_profile(year):
+        return {"entity": {"type": entity_type}} if entity_type else {}
+
+    async def fake_region():
+        return {
+            "region": "CA",
+            "subdivision": "ON",
+            "home_currency": "CAD",
+            "multicurrency": False,
+        }
+
+    monkeypatch.setattr(qb_server, "qb_request", fake_request)
+    monkeypatch.setattr(qb_server, "_chart_maps", fake_chart)
+    monkeypatch.setattr(qb_server, "_get_allocation_profile", fake_profile)
+    monkeypatch.setattr(qb_server, "_get_region", fake_region)
+
+
+def test_t2_golden_schedule_125_and_schedule_1(monkeypatch):
+    _patch_t2(monkeypatch)
+    out = asyncio.run(qb_server.qb_t2_summary(2025))
+
+    # Schedule 125 — GIFI income statement from the books.
+    assert "Line 8000 — Sales/revenue: $500,000.00" in out
+    assert "Cost of goods sold: $150,000.00" in out
+    assert "Line 8299 — Total revenue: $500,000.00" in out
+    assert "Line 8521 — Advertising: $10,000.00" in out
+    # Meals reported in FULL on 125 (NOT halved) — the restriction is on S1.
+    assert "Line 8523" in out and "$8,000.00" in out
+    assert "Line 8670" in out and "$20,000.00" in out  # depreciation → amortization
+    assert "Line 9368 — Total operating expenses: $79,000.00" in out
+    assert "Net income/(loss) per financial statements: $271,000.00" in out
+
+    # Schedule 1 — book-to-tax reconciliation.
+    assert (
+        "Line 104 — Amortization of tangible assets (book, added back): $20,000.00"
+        in out
+    )
+    assert "Line 121" in out and "50% of $8,000.00" in out and "ITA s.67.1" in out
+    assert "$4,000.00" in out  # 50% of meals
+    assert "Subtotal before CCA: $295,000.00" in out
+    # CCA deferred to the cited tool — never silently computed.
+    assert "Line 403" in out and "qb_cca_schedule" in out
+    assert "line 300" in out.lower()
+
+    # Records-only, never-files posture + no tax-liability figure.
+    assert "AccountingQB never files" in out
+    assert "prepares records and never" in out
+
+
+def test_t2_requires_corporation_declaration(monkeypatch):
+    # Entity type is never guessed — an undeclared company produces no numbers.
+    _patch_t2(monkeypatch, entity_type=None)
+    out = asyncio.run(qb_server.qb_t2_summary(2025))
+    assert "never guessed" in out and "entity_type='corporation'" in out
+    assert "Line 8299" not in out  # no workpaper without the declaration
+
+
+def test_t2_refuses_us_company(monkeypatch):
+    # Region gate: a T2 must never run on a US company's books.
+    _patch_t2(monkeypatch)
+
+    async def us_region():
+        return {
+            "region": "US",
+            "subdivision": "",
+            "home_currency": "USD",
+            "multicurrency": False,
+        }
+
+    monkeypatch.setattr(qb_server, "_get_region", us_region)
+    out = asyncio.run(qb_server.qb_t2_summary(2025))
+    assert "1120-S" in out  # redirect message, body never ran
+    assert "Line 8299" not in out
+
+
+# ---------------------------------------------------------------------------
 # qb_cca_schedule
 # ---------------------------------------------------------------------------
 

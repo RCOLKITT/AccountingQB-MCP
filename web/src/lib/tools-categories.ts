@@ -197,9 +197,11 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
   {
     category: "Tax — Canada",
     icon: "🇨🇦",
-    blurb: "T2125, GST/HST returns, CRA instalments, CCA, T4A.",
+    blurb:
+      "T2125, T2 corporate workpaper, GST/HST returns, CRA instalments, CCA, T4A.",
     tools: [
       "qb_t2125_summary",
+      "qb_t2_summary",
       "qb_gst_hst_return",
       "qb_estimate_instalments",
       "qb_cca_schedule",

@@ -15,7 +15,7 @@ import json
 import pathlib
 import re
 
-TAX_DATA_VERSION = "2026.9"  # bumped by every approved rates PR
+TAX_DATA_VERSION = "2026.10"  # bumped by every approved rates PR
 TAX_DATA_VERIFIED = "2026-09-01"  # date of the last full verification sweep
 
 
@@ -718,6 +718,87 @@ _T2125_CATALOG = {
 _T2125_CATALOG = {
     k: {"desc": v, "authority": "CRA-GIFI", "cite": _CRA_T2125}
     for k, v in _T2125_CATALOG.items()
+}
+
+# Form T2 (Canadian corporation) — the corporate workpaper line catalog. The
+# Schedule 125 income-statement DETAIL lines are the SAME GIFI codes as T2125
+# (reused, not duplicated — see classify_account/qb_t2_summary); this catalog
+# holds only the pieces T2125 does NOT have: the GIFI income-statement SUMMARY
+# lines and the Schedule 1 (T2SCH1) book-to-tax RECONCILIATION lines. The key
+# corporate difference vs. T2125: meals and book amortization are reported in
+# FULL on Schedule 125 (the financial statements), and their tax restrictions
+# are Schedule 1 ADD-BACKS (line 121 = 50% meals, ITA s.67.1; line 104 = book
+# amortization added back, replaced by CCA deducted on line 403 from Schedule
+# 8). Line numbers verified against CRA Schedule 1 (T2SCH1) and the T2 guide
+# (T4012), 2026-09-01.
+_CRA_T2 = "https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t2sch1.html"
+_CRA_GIFI = (
+    "https://www.canada.ca/en/revenue-agency/services/forms-publications/"
+    "publications/rc4088.html"
+)
+_T2_CATALOG = {
+    # GIFI income-statement summary lines (Schedule 125 totals).
+    "8299": {
+        "desc": "Total revenue (GIFI)",
+        "authority": "CRA-GIFI",
+        "cite": _CRA_GIFI,
+    },
+    "8670": {
+        "desc": "Amortization of tangible assets (book, GIFI)",
+        "authority": "CRA-GIFI",
+        "cite": _CRA_GIFI,
+    },
+    "8523": {
+        # Overrides the T2125 "(50%)" label: on Schedule 125 (financial
+        # statements) meals are reported in FULL; the 50% restriction is the
+        # Schedule 1 line 121 add-back, not applied on the income statement.
+        "desc": "Meals & entertainment (book, full amount; 50% restricted on "
+        "Schedule 1 line 121)",
+        "authority": "CRA-GIFI",
+        "cite": _CRA_GIFI,
+    },
+    "9368": {
+        "desc": "Total operating expenses (GIFI)",
+        "authority": "CRA-GIFI",
+        "cite": _CRA_GIFI,
+    },
+    "9999": {
+        "desc": "Net income/(loss) per financial statements (GIFI 9999)",
+        "authority": "CRA-GIFI",
+        "cite": _CRA_GIFI,
+    },
+    # Schedule 1 (T2SCH1) reconciliation — net income per F/S → net income for
+    # income tax purposes. Additions are added back to book income; deductions
+    # are subtracted; the result goes to line 300 of the T2 return.
+    "S1_104": {
+        "desc": "Schedule 1 line 104 — Amortization of tangible assets "
+        "(book depreciation added back; tax relief is CCA on line 403)",
+        "authority": "CRA-T2-S1",
+        "cite": _CRA_T2,
+    },
+    "S1_106": {
+        "desc": "Schedule 1 line 106 — Amortization of intangible assets "
+        "(book amortization added back)",
+        "authority": "CRA-T2-S1",
+        "cite": _CRA_T2,
+    },
+    "S1_121": {
+        "desc": "Schedule 1 line 121 — Non-deductible meals & entertainment "
+        "(the 50% restricted portion, ITA s.67.1)",
+        "authority": "CRA-T2-S1",
+        "cite": _CRA_T2,
+    },
+    "S1_403": {
+        "desc": "Schedule 1 line 403 — Capital cost allowance (deducted; the "
+        "class-by-class total from Schedule 8 / qb_cca_schedule)",
+        "authority": "CRA-T2-S1",
+        "cite": _CRA_T2,
+    },
+    "S1_300": {
+        "desc": "Net income/(loss) for income tax purposes (to T2 return line 300)",
+        "authority": "CRA-T2-S1",
+        "cite": _CRA_T2,
+    },
 }
 
 # Name-based FALLBACK rules (used only when AccountSubType is blank/custom).
@@ -1425,6 +1506,18 @@ TABLES: dict = {
         source="CRA Form T2125 (Statement of Business or Professional Activities)",
         source_url="https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t2125.html",
         verified="2026-08-03",
+        review="annual-january",
+        sanity={},
+    ),
+    "T2_CATALOG": dict(
+        values=_T2_CATALOG,
+        year_keyed=False,
+        jurisdiction="CA-federal",
+        kind="stable_statute",
+        description="Authoritative T2 corporate catalog — GIFI income-statement summary lines (Schedule 125) + Schedule 1 book-to-tax reconciliation lines (104 amortization, 121 50% meals ITA s.67.1, 403 CCA from Schedule 8)",
+        source="CRA Schedule 1 (T2SCH1) Net Income (Loss) for Income Tax Purposes; CRA T2 guide (T4012); GIFI guide (RC4088)",
+        source_url="https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/t2sch1.html",
+        verified="2026-09-01",
         review="annual-january",
         sanity={},
     ),

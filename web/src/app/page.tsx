@@ -67,7 +67,7 @@ const faqs = [
   },
   {
     q: "What happens after the 14-day trial?",
-    a: "You keep access to 25 essential read-only tools for free. To continue using all 138 tools including writes, tax prep, and advanced analytics, choose a paid plan.",
+    a: "You keep access to 25 essential read-only tools for free. To continue using all 139 tools including writes, tax prep, and advanced analytics, choose a paid plan.",
   },
   {
     q: "Can I use this with QuickBooks Desktop?",
@@ -281,7 +281,7 @@ export default async function Home() {
 
             {/* Subhead */}
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-400 sm:text-xl">
-              138 tools connecting Claude to your QuickBooks Online. Run
+              139 tools connecting Claude to your QuickBooks Online. Run
               reports, reconcile books, prep for taxes, detect anomalies — all
               through natural conversation.{" "}
               <span className="text-gray-300">
@@ -502,7 +502,7 @@ export default async function Home() {
               Features
             </div>
             <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
-              138 tools across every
+              139 tools across every
               <br />
               <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
                 accounting workflow
@@ -907,7 +907,7 @@ export default async function Home() {
               {
                 step: "03",
                 title: "Start Talking to Your Books",
-                desc: 'Ask Claude anything. "What\'s my burn rate?" "Find missing deductions." 138 tools ready.',
+                desc: 'Ask Claude anything. "What\'s my burn rate?" "Find missing deductions." 139 tools ready.',
                 gradient: "from-indigo-500 to-purple-500",
               },
             ].map((s) => (
@@ -940,7 +940,7 @@ export default async function Home() {
           <div className="mt-14 flex flex-col items-center gap-4">
             <p className="text-sm text-gray-400">
               Use AccountingQB your way — add it to Claude (nothing to install)
-              or run the desktop app locally. Same 138 tools, same free trial.
+              or run the desktop app locally. Same 139 tools, same free trial.
             </p>
             <div className="flex flex-col items-center gap-3 sm:flex-row">
               {/* Equal options: add-to-Claude (connector) alongside the
@@ -1109,7 +1109,7 @@ export default async function Home() {
               </span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-gray-400">
-              138 tools means 137 tasks that used to be manual. Tax prep,
+              139 tools means 138 tasks that used to be manual. Tax prep,
               invoice reconciliation, vendor cleanup, anomaly checks, month-end
               close — all in a conversation.
             </p>
@@ -1298,7 +1298,7 @@ export default async function Home() {
                   If you&apos;re managing 20+ clients, your team is spending
                   hundreds of hours a month on tasks AccountingQB handles in
                   minutes. Invoice reconciliation, month-end close, vendor
-                  cleanup, anomaly checks, tax prep — 138 tools covering every
+                  cleanup, anomaly checks, tax prep — 139 tools covering every
                   workflow that eats your margin.
                 </p>
               </div>

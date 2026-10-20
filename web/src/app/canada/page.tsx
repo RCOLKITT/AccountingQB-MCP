@@ -50,7 +50,7 @@ const caTiers = [
     description: "For freelancers & sole proprietors",
     savings: "Save ~5 hrs/mo on bookkeeping & tax prep",
     features: [
-      "All 138 QuickBooks tools",
+      "All 139 QuickBooks tools",
       "T2125 line mapping & GST/HST workpapers",
       "CRA instalment estimates (CPP + CPP2)",
       "Anomaly detection",
@@ -107,6 +107,10 @@ const caFeatures = [
   {
     title: "T2125 line mapping",
     body: "Your expense accounts mapped to T2125 Part 4 lines — 8521 advertising, 8523 meals at 50%, 8910 rent, 9281 vehicle — the way an accountant would prep the Statement of Business Activities.",
+  },
+  {
+    title: "T2 corporate workpaper",
+    body: "Incorporated? A GIFI-coded Schedule 125 income statement from your books plus a Schedule 1 book-to-tax reconciliation — book amortization added back (line 104), 50% of meals restricted (line 121, ITA s.67.1), CCA deducted (line 403). Records your accountant files the T2 from; AccountingQB never files.",
   },
   {
     title: "CCA schedules",
@@ -301,9 +305,9 @@ export default function CanadaPage() {
             </span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-400">
-            GST/HST return workpapers, T2125 line mapping, CCA schedules, T4A
-            reports, and CRA instalment estimates — 138 AI tools connecting
-            Claude to your QuickBooks Online, in plain English.
+            GST/HST return workpapers, T2125 and T2 corporate workpapers, CCA
+            schedules, T4A reports, and CRA instalment estimates — 139 AI tools
+            connecting Claude to your QuickBooks Online, in plain English.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <a

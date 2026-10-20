@@ -187,6 +187,15 @@ def test_bad_entity_type_rejected(monkeypatch):
     assert "sole_prop" in out and "s_corp" in out
 
 
+def test_corporation_entity_type_accepted(monkeypatch):
+    # A Canadian corporation (files a T2, via qb_t2_summary) is a valid entity.
+    saved = _profile_patch(monkeypatch)
+    out = asyncio.run(s.qb_allocation_profile(tax_year=2026, entity_type="corporation"))
+    assert "saved" in out.lower()
+    assert saved["entity"]["type"] == "corporation"
+    assert "Corporation (Canadian T2)" in out
+
+
 # --- qb_form_1120s_summary (PR C) — golden numbers ----------------------------
 
 
