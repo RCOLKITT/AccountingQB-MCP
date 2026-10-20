@@ -25,7 +25,8 @@ blockers were verified 2026-07-11 (see checklist at the bottom).
 > bills, estimates — with Canadian tax codes where required), and tax-prep
 > workpapers for both the US (Schedule C, 1099, quarterly estimates with
 > per-state rates) and Canada (GST/HST returns with province-aware
-> HST/PST/QST handling, T2125, CCA schedules, T4A, CRA instalments).
+> HST/PST/QST handling, T2125, T2 corporate workpapers, CCA schedules, T4A,
+> CRA instalments).
 > QuickBooks data is zero-retention pass-through — never stored, logged, or
 > used for analytics.
 

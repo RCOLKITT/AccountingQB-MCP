@@ -29,7 +29,7 @@ const faqs: { q: string; a: string }[] = [
   },
   {
     q: "Does AccountingQB support Canadian businesses?",
-    a: "Yes. It auto-detects the company's tax edition and ships a full Canadian suite: GST/HST (GST34) return workpapers, T2125 business statements, CCA depreciation schedules, T4A/T5018 contractor reporting, and CRA instalment + CPP estimates — with province-aware sales-tax handling and CAD pricing.",
+    a: "Yes. It auto-detects the company's tax edition and ships a full Canadian suite: GST/HST (GST34) return workpapers, T2125 business statements, a T2 corporate workpaper (GIFI Schedule 125 + Schedule 1 book-to-tax reconciliation) for incorporated businesses, CCA depreciation schedules, T4A/T5018 contractor reporting, and CRA instalment + CPP estimates — with province-aware sales-tax handling and CAD pricing. All tax output is a workpaper, never a filing.",
   },
   {
     q: "How much does AccountingQB cost?",

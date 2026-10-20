@@ -3,8 +3,8 @@
 > AccountingQB connects Claude (and any MCP-compatible AI) to QuickBooks
 > Online with 139 tools for reports, bookkeeping cleanup, transaction
 > creation, and tax preparation for the United States (Schedule C, 1099,
-> quarterly estimates) and Canada (GST/HST return workpapers, T2125, CCA,
-> T4A, CRA instalments). Built by Vaspera Capital.
+> quarterly estimates) and Canada (GST/HST return workpapers, T2125, T2
+> corporate workpapers, CCA, T4A, CRA instalments). Built by Vaspera Capital.
 
 ## What it does
 
@@ -18,7 +18,8 @@
   reconciliation tie-outs, tax payments made, owner's draws, tax organizer)
   exported to Excel for your accountant
 - Tax prep (workpapers, not filings): US Schedule C and 1099; Canadian
-  GST/HST returns, T2125, CCA schedules, T4A, CPP/instalment estimates
+  GST/HST returns, T2125, T2 corporate (GIFI Schedule 125 + Schedule 1),
+  CCA schedules, T4A, CPP/instalment estimates
 
 ## How to connect
 
