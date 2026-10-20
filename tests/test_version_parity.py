@@ -52,3 +52,18 @@ def test_all_connector_artifacts_match_pyproject():
         f"version drift from canonical {CANONICAL} (mcpb/pyproject.toml): {mismatches}. "
         "Bump these to match — the plugin/manifest ship the same connector."
     )
+
+
+def test_package_dunder_version_matches_pyproject():
+    # accountingqb.__version__ is what the LIVE connector serves at /version (see
+    # remote.py), so the deploy smoke gate fails if it drifts — this test catches
+    # that pre-merge. It is a SEPARATE source from the JSON artifacts above and was
+    # missed once (shipped 3.19.0 everywhere but __version__ stuck at 3.18.2).
+    text = (REPO / "mcpb" / "src" / "accountingqb" / "__init__.py").read_text()
+    m = re.search(r'^__version__\s*=\s*"([^"]+)"', text, re.MULTILINE)
+    assert m, "could not find __version__ in accountingqb/__init__.py"
+    assert m.group(1) == CANONICAL, (
+        f"accountingqb.__version__ ({m.group(1)}) != canonical {CANONICAL} "
+        "(mcpb/pyproject.toml) — the live /version endpoint reports __version__, "
+        "so this drift fails the deploy smoke gate. Bump it."
+    )
