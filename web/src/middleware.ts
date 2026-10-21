@@ -9,7 +9,8 @@ const isPublicRoute = createRouteMatcher([
   "/pricing(.*)",
   "/canada",
   "/changelog",
-  "/privacy",
+  "/privacy(.*)",
+  "/subprocessors",
   "/terms",
   "/security",
   "/faq",
@@ -54,6 +55,9 @@ const isPublicRoute = createRouteMatcher([
   // the body/query (validated server-side), not a Clerk session — same as /api/usage.
   "/api/allocations(.*)",
   "/api/unsubscribe(.*)",
+  // Data-subject request intake (access/delete/correction/export). Anonymous
+  // POST — validates + rate-limits itself; records to event_logs + alerts ops.
+  "/api/privacy(.*)",
   "/api/oauth(.*)",
   // Remote MCP connector OAuth 2.1 AS: RFC 8414 metadata, DCR/token/client-info
   // endpoints, and the consent page (which handles Clerk auth client-side).

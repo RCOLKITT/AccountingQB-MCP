@@ -816,3 +816,22 @@ CREATE TABLE IF NOT EXISTS account_links (
 );
 CREATE INDEX IF NOT EXISTS idx_account_links_key ON account_links (license_key);
 ALTER TABLE account_links ENABLE ROW LEVEL SECURITY;
+
+-- Legal acceptances: first-party ToS/Privacy consent ledger. Paid checkout
+-- records affirmative ToS consent in Stripe; this unifies that with the no-CC
+-- trial/download path and keeps who/which-document/which-version/when/from-where
+-- auditable. Append-only in practice (re-acceptances add rows). Service-role only.
+CREATE TABLE IF NOT EXISTS legal_acceptances (
+  id           UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  email        TEXT NOT NULL,
+  clerk_id     TEXT,
+  document     TEXT NOT NULL CHECK (document IN ('tos', 'privacy')),
+  version      TEXT NOT NULL,
+  accepted_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ip           TEXT,
+  user_agent   TEXT,
+  context      TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS legal_acceptances_email_idx ON legal_acceptances (email, document);
+ALTER TABLE legal_acceptances ENABLE ROW LEVEL SECURITY;

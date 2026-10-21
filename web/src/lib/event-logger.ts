@@ -5,7 +5,9 @@ export type EventType =
   | "oauth_connect"
   | "oauth_disconnect"
   | "oauth_refresh"
-  | "subscription_reconciled";
+  | "subscription_reconciled"
+  | "legal_acceptance"
+  | "privacy_request";
 
 export interface LogEventParams {
   eventType: EventType;

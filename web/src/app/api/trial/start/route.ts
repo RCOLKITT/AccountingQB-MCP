@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { ensureTrialLicenseForEmail } from "@/lib/license-issuance";
+import { recordAcceptance } from "@/lib/legal";
 import {
   getTrialStartLimiter,
   getClientIP,
@@ -62,6 +63,16 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabase();
   const nowIso = new Date().toISOString();
+
+  // Clickwrap: the download CTA states "by continuing you agree to the Terms &
+  // Privacy Policy", so record that affirmative acceptance first-party (the paid
+  // path records ToS consent in Stripe; this covers the no-credit-card path).
+  await recordAcceptance({
+    email,
+    context: "trial_download",
+    ip: getClientIP(req),
+    userAgent: req.headers.get("user-agent"),
+  });
 
   // Durable lead capture FIRST — this row means "we know this visitor" even if
   // license issuance below fails. Best-effort; never block the flow on it.

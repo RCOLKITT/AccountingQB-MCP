@@ -27,6 +27,10 @@ interface EmailData {
   subject: string;
   html: string;
   replyTo?: string;
+  // Marketing only: the recipient's unsubscribe URL. When present we attach the
+  // RFC 8058 one-click headers (List-Unsubscribe + List-Unsubscribe-Post) that
+  // Gmail/Yahoo bulk-sender rules expect. Omit for transactional mail.
+  listUnsubscribeUrl?: string;
 }
 
 interface SendEmailResult {
@@ -48,6 +52,17 @@ export async function sendEmail(data: EmailData): Promise<SendEmailResult> {
       subject: data.subject,
       html: data.html,
       replyTo: data.replyTo || "support@vasperacapital.com",
+      // One-click unsubscribe for marketing mail (the body already carries a
+      // visible unsubscribe link + postal address). /api/unsubscribe handles the
+      // POST that providers send for List-Unsubscribe-Post.
+      ...(data.listUnsubscribeUrl
+        ? {
+            headers: {
+              "List-Unsubscribe": `<${data.listUnsubscribeUrl}>`,
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
+          }
+        : {}),
     });
 
     if (result.error) {

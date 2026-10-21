@@ -117,7 +117,16 @@ function DownloadContent() {
               </button>
               {error && <p className="text-xs text-red-400">{error}</p>}
               <p className="text-center text-xs text-gray-500">
-                No credit card required. Cancel anytime.
+                No credit card required. Cancel anytime. By continuing you agree
+                to our{" "}
+                <a href="/terms" className="underline hover:text-gray-300">
+                  Terms of Service
+                </a>{" "}
+                and{" "}
+                <a href="/privacy" className="underline hover:text-gray-300">
+                  Privacy Policy
+                </a>
+                .
               </p>
             </form>
           )}

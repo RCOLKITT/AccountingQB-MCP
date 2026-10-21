@@ -4,6 +4,7 @@ import { getSupabase } from "@/lib/supabase";
 import { createStripeEventLogger, logEvent } from "@/lib/event-logger";
 import { scheduleEmail } from "@/lib/emails/schedule-email";
 import { ensureLicenseForSession } from "@/lib/license-issuance";
+import { recordAcceptance } from "@/lib/legal";
 import { sendAlert } from "@/lib/alerts";
 import { mapStripeStatus } from "@/lib/subscription";
 import Stripe from "stripe";
@@ -63,6 +64,15 @@ export async function POST(req: NextRequest) {
           email: result.email,
           tier: result.tier,
         });
+        // Mirror the ToS consent Stripe collected at checkout
+        // (consent_collection: terms_of_service) into our first-party ledger.
+        if (result.email && session.consent?.terms_of_service === "accepted") {
+          await recordAcceptance({
+            email: result.email,
+            documents: ["tos"],
+            context: "checkout",
+          });
+        }
         // Duplicate-subscription alert: if this email now has more than one live
         // license, flag it so a customer isn't silently billed on two subs (the
         // checkout guard only fires when the email is known up front).
