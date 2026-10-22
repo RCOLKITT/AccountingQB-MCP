@@ -580,6 +580,11 @@
     "write": false
   },
   {
+    "name": "qb_set_transaction_class",
+    "description": "Tag an existing transaction with a QuickBooks class by NAME (class",
+    "write": true
+  },
+  {
     "name": "qb_startup_cost_analysis",
     "description": "Compute the §195 startup-cost deduction and amortization schedule.",
     "write": false

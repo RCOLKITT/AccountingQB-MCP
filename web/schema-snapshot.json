@@ -505,6 +505,76 @@
       "nullable": "NO"
     },
     {
+      "type": "timestamp with time zone",
+      "table": "legal_acceptances",
+      "column": "accepted_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "legal_acceptances",
+      "column": "clerk_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "legal_acceptances",
+      "column": "context",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "legal_acceptances",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "legal_acceptances",
+      "column": "document",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "legal_acceptances",
+      "column": "email",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "legal_acceptances",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "legal_acceptances",
+      "column": "ip",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "legal_acceptances",
+      "column": "user_agent",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "legal_acceptances",
+      "column": "version",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
       "type": "integer",
       "table": "licenses",
       "column": "billing_amount_cents",
@@ -1635,6 +1705,16 @@
       "def": "CREATE INDEX idx_user_profiles_email ON public.user_profiles USING btree (email)",
       "name": "idx_user_profiles_email",
       "table": "user_profiles"
+    },
+    {
+      "def": "CREATE INDEX legal_acceptances_email_idx ON public.legal_acceptances USING btree (email, document)",
+      "name": "legal_acceptances_email_idx",
+      "table": "legal_acceptances"
+    },
+    {
+      "def": "CREATE UNIQUE INDEX legal_acceptances_pkey ON public.legal_acceptances USING btree (id)",
+      "name": "legal_acceptances_pkey",
+      "table": "legal_acceptances"
     },
     {
       "def": "CREATE UNIQUE INDEX licenses_key_key ON public.licenses USING btree (key)",

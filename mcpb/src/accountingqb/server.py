@@ -3709,12 +3709,23 @@ async def qb_list_classes() -> str:
             "(Account and Settings → Advanced → Categories) to use "
             "class-based reports like qb_sales_by_class."
         )
-    lines = [f"## Classes ({len(classes)})\n", "| Class | Status |", "|---|---|"]
+    lines = [
+        f"## Classes ({len(classes)})\n",
+        "| Class | ID | Status |",
+        "|---|---|---|",
+    ]
     for c in sorted(
         classes, key=lambda x: x.get("FullyQualifiedName") or x.get("Name", "")
     ):
         name = c.get("FullyQualifiedName") or c.get("Name", "?")
-        lines.append(f"| {name} | {'Active' if c.get('Active') else 'Inactive'} |")
+        lines.append(
+            f"| {name} | {c.get('Id', '?')} | "
+            f"{'Active' if c.get('Active') else 'Inactive'} |"
+        )
+    lines.append(
+        "\n*To tag a transaction with a class, use qb_set_transaction_class "
+        "with the class NAME — no need to copy the ID.*"
+    )
     return "\n".join(lines)
 
 
@@ -10179,6 +10190,99 @@ async def qb_reclassify_transaction(
         f"✅ Reclassified {entity_type} #{entity_id}\n"
         f"  From: {'; '.join(old_lines_info)}\n"
         f"  To: {target_acct['Name']}\n"
+        f"  SyncToken: {updated.get('SyncToken', '?')}"
+    )
+
+
+@mcp.tool(annotations={"destructiveHint": True})
+async def qb_set_transaction_class(
+    entity_type: str, entity_id: str, class_name: str
+) -> str:
+    """Tag an existing transaction with a QuickBooks class by NAME (class
+    tracking) — resolves the class name to its internal ID for you, so you never
+    need the ID. Sets the class on every class-capable line of the transaction.
+    entity_type: Deposit, JournalEntry, Invoice, Purchase, Bill, SalesReceipt,
+    etc. entity_id: the transaction ID. class_name: the class as shown by
+    qb_list_classes (use the full name for a sub-class, e.g. 'Programs:Outreach').
+    Requires class tracking to be ON in QuickBooks (Account and Settings →
+    Advanced → Categories)."""
+    entity_type = _sanitize_input(entity_type, "entity_type")
+    entity_id = _sanitize_input(entity_id, "entity_id")
+    class_name = _sanitize_input(class_name, "class_name")
+
+    # Resolve the class BY NAME → internal ID (Constitution: per-company IDs are
+    # resolved at call time, never required from the caller or hardcoded).
+    cls_res = await qb_query(
+        f"SELECT * FROM Class WHERE Name LIKE '%{class_name}%' MAXRESULTS 10"
+    )
+    classes = cls_res.get("QueryResponse", {}).get("Class", [])
+    # Prefer an exact match on Name or FullyQualifiedName when one exists, so
+    # 'Outreach' doesn't ambiguously match 'Outreach East' when it's exact.
+    exact = [
+        c
+        for c in classes
+        if c.get("Name") == class_name or c.get("FullyQualifiedName") == class_name
+    ]
+    if exact:
+        classes = exact
+    if not classes:
+        return (
+            f"Class '{class_name}' not found. Run qb_list_classes to see the "
+            "available classes (and confirm class tracking is on in QuickBooks)."
+        )
+    if len(classes) > 1:
+        names = ", ".join(c.get("FullyQualifiedName") or c["Name"] for c in classes)
+        return (
+            f"Multiple classes match '{class_name}': {names}. "
+            "Re-run with the exact (fully-qualified) class name."
+        )
+    cls = classes[0]
+    class_ref = {
+        "value": cls["Id"],
+        "name": cls.get("FullyQualifiedName") or cls["Name"],
+    }
+
+    # Read the current transaction (its Id + SyncToken + lines are needed to
+    # write it back without clobbering anything).
+    txn = await qb_read(entity_type.lower(), entity_id)
+    entity_data = txn.get(entity_type, {})
+    if not entity_data:
+        return f"{entity_type} #{entity_id} not found."
+
+    # The QBO line-detail objects that carry a ClassRef.
+    class_line_details = (
+        "DepositLineDetail",
+        "JournalEntryLineDetail",
+        "SalesItemLineDetail",
+        "AccountBasedExpenseLineDetail",
+        "ItemBasedExpenseLineDetail",
+    )
+    touched = 0
+    for line in entity_data.get("Line", []):
+        dt = line.get("DetailType")
+        if dt in class_line_details and isinstance(line.get(dt), dict):
+            line[dt]["ClassRef"] = class_ref
+            touched += 1
+
+    if touched == 0:
+        return (
+            f"{entity_type} #{entity_id} has no class-capable lines to tag "
+            "(its line types don't carry a class). Tell me the transaction type "
+            "and what you're trying to classify and I'll confirm the right path."
+        )
+
+    result = await qb_request("POST", entity_type.lower(), json_body=entity_data)
+    updated = result.get(entity_type, {})
+
+    _audit_log(
+        "SET_CLASS",
+        f"type={entity_type} id={entity_id} class={class_ref['name']} "
+        f"(ID:{cls['Id']}) lines={touched}",
+    )
+    return (
+        f"✅ Set class on {entity_type} #{entity_id}\n"
+        f"  Class: {class_ref['name']}\n"
+        f"  Lines tagged: {touched}\n"
         f"  SyncToken: {updated.get('SyncToken', '?')}"
     )
 
