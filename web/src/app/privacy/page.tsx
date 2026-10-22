@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { POLICY_LAST_UPDATED } from "@/lib/legal";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -27,7 +28,9 @@ export default function PrivacyPolicy() {
         <h1 className="text-3xl font-bold tracking-tight text-gray-100 sm:text-4xl">
           Privacy Policy
         </h1>
-        <p className="mt-2 text-sm text-gray-500">Last updated: July 2026</p>
+        <p className="mt-2 text-sm text-gray-500">
+          Last updated: {POLICY_LAST_UPDATED}
+        </p>
 
         <div className="prose prose-invert mt-12 max-w-none">
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">
@@ -119,14 +122,26 @@ export default function PrivacyPolicy() {
           </p>
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">
-            6. Third-Party Services
+            6. Third-Party Services &amp; Sub-processors
           </h2>
           <p className="text-gray-400 leading-relaxed">
-            We use the following third-party services: Stripe for payment
-            processing (see Stripe&apos;s privacy policy at stripe.com/privacy),
-            Vercel for hosting our website and API endpoints, and Supabase for
-            license database hosting. None of these services have access to your
-            QuickBooks data.
+            We rely on a small set of vetted service providers
+            (&ldquo;sub-processors&rdquo;) to operate AccountingQB. Each
+            receives only the data it needs for its function. The current,
+            itemized list — each provider, what it processes, and a link to its
+            own policy — is maintained on our{" "}
+            <a href="/subprocessors" className="text-cyan-400 hover:underline">
+              Sub-processors page
+            </a>
+            . In summary: Stripe (payments), Vercel (hosting), Supabase (our
+            database — license and billing metadata and encrypted OAuth tokens),
+            Clerk (sign-in/identity), Resend (email delivery), PostHog (product
+            analytics, no financial data), and Intuit (the QuickBooks connection
+            itself). When you use AccountingQB inside an AI assistant, your
+            prompts and the QuickBooks results you ask for are processed by that
+            assistant&apos;s AI provider — for Claude that is Anthropic, whose
+            commercial API does not train on or retain your data for model
+            training. We never sell your personal information (see §10).
           </p>
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">
@@ -139,30 +154,96 @@ export default function PrivacyPolicy() {
             tier, OAuth tokens are held encrypted at rest on our servers and
             used only to fulfill your requests. License validation uses HTTPS
             for all API calls. We follow industry best practices for securing
-            our infrastructure.
+            our infrastructure. We do not hold any security certification (such
+            as SOC&nbsp;2) today; our{" "}
+            <a href="/security" className="text-cyan-400 hover:underline">
+              Security page
+            </a>{" "}
+            describes exactly what we do and don&apos;t do.
           </p>
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">
-            8. Data Retention
+            8. International Data Transfers
           </h2>
           <p className="text-gray-400 leading-relaxed">
-            Account and license data is retained for the duration of your
-            subscription plus 90 days after cancellation. You may request
-            deletion of your data at any time by contacting us.
+            AccountingQB is operated from the United States, and the account,
+            license, and billing metadata we hold is stored and processed on US
+            infrastructure (Vercel and Supabase). If you are located in Canada,
+            the EU/UK, or elsewhere, using the service involves transferring
+            that metadata to the United States. For Canadian customers, this
+            means your personal information may be stored outside Canada and
+            accessible to US authorities under applicable law (PIPEDA
+            cross-border disclosure). Your QuickBooks financial data is not
+            stored by us in any region — on the local tier it never reaches us,
+            and on the hosted connector it transits per-request with zero
+            retention.
           </p>
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">
-            9. Your Rights
+            9. Data Retention
           </h2>
           <p className="text-gray-400 leading-relaxed">
-            You have the right to: access the personal data we hold about you,
-            request correction of inaccurate data, request deletion of your
-            data, export your data in a portable format, and withdraw consent at
-            any time by canceling your subscription.
+            We retain data only as long as needed for the purpose it was
+            collected:
+          </p>
+          <ul className="mt-3 list-disc space-y-1.5 pl-6 text-gray-400">
+            <li>
+              <strong>QuickBooks financial data:</strong> not retained — local
+              on your device, or zero-retention pass-through on the hosted
+              connector.
+            </li>
+            <li>
+              <strong>Account, license &amp; billing metadata:</strong> for the
+              life of your account and up to 90 days after cancellation, then
+              deleted or anonymized (longer only where law requires, e.g. tax
+              and payment records).
+            </li>
+            <li>
+              <strong>Usage metadata:</strong> raw rows up to ~90 days;
+              thereafter only aggregate, non-identifying totals.
+            </li>
+            <li>
+              <strong>Audit &amp; consent records</strong> (event logs,
+              acceptance ledger): retained for the integrity of the audit trail;
+              corrections are added as new rows rather than edits.
+            </li>
+            <li>
+              <strong>Backups:</strong> rolling, and expire on their own
+              schedule after the records above are removed.
+            </li>
+          </ul>
+
+          <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">
+            10. Your Rights &amp; Choices
+          </h2>
+          <p className="text-gray-400 leading-relaxed">
+            Depending on where you live — including under the EU/UK GDPR,
+            California&apos;s CCPA/CPRA, and Canada&apos;s PIPEDA — you have the
+            right to access the personal data we hold about you, correct
+            inaccurate data, request deletion, receive a portable copy, and
+            withdraw consent. <strong>We do not sell or share</strong> your
+            personal information, and we do not use it for cross-context
+            behavioral advertising. To exercise any of these rights, use our{" "}
+            <a
+              href="/privacy/request"
+              className="text-cyan-400 hover:underline"
+            >
+              privacy request form
+            </a>{" "}
+            or email{" "}
+            <a
+              href="mailto:privacy@vasperacapital.com"
+              className="text-cyan-400 hover:underline"
+            >
+              privacy@vasperacapital.com
+            </a>
+            ; we respond within 30 days and never discriminate against you for
+            exercising a right. You can unsubscribe from marketing email at any
+            time via the link in any such message.
           </p>
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">
-            10. Children&apos;s Privacy
+            11. Children&apos;s Privacy
           </h2>
           <p className="text-gray-400 leading-relaxed">
             AccountingQB is not intended for use by individuals under the age of
@@ -170,7 +251,7 @@ export default function PrivacyPolicy() {
           </p>
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">
-            11. Changes to This Policy
+            12. Changes to This Policy
           </h2>
           <p className="text-gray-400 leading-relaxed">
             We may update this privacy policy from time to time. We will notify
@@ -179,7 +260,7 @@ export default function PrivacyPolicy() {
           </p>
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">
-            12. Contact Us
+            13. Contact Us
           </h2>
           <p className="text-gray-400 leading-relaxed">
             If you have questions about this privacy policy or our data

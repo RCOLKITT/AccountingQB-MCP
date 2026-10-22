@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { POLICY_LAST_UPDATED } from "@/lib/legal";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -28,7 +29,9 @@ export default function TermsOfService() {
         <h1 className="text-3xl font-bold tracking-tight text-gray-100 sm:text-4xl">
           Terms of Service
         </h1>
-        <p className="mt-2 text-sm text-gray-500">Last updated: July 2026</p>
+        <p className="mt-2 text-sm text-gray-500">
+          Last updated: {POLICY_LAST_UPDATED}
+        </p>
 
         <div className="prose prose-invert mt-12 max-w-none">
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">
@@ -125,8 +128,12 @@ export default function TermsOfService() {
             our{" "}
             <a href="/privacy" className="text-cyan-400 hover:underline">
               Privacy Policy
-            </a>
-            , which is incorporated into these Terms by reference.
+            </a>{" "}
+            and{" "}
+            <a href="/subprocessors" className="text-cyan-400 hover:underline">
+              Sub-processors
+            </a>{" "}
+            page, which are incorporated into these Terms by reference.
           </p>
 
           <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-100">

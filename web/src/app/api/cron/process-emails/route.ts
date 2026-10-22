@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { sendEmail, EmailType } from "@/lib/emails/send-email";
-import { isSuppressed } from "@/lib/emails/unsubscribe";
+import { isSuppressed, unsubscribeUrl } from "@/lib/emails/unsubscribe";
 import {
   campaignEmail,
   type CampaignContent,
@@ -175,11 +175,15 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      // Send the email
+      // Send the email. Marketing types get the one-click List-Unsubscribe
+      // headers (the body already carries the visible unsubscribe + address).
       const sendResult = await sendEmail({
         to: license.email,
         subject: emailContent.subject,
         html: emailContent.html,
+        ...(MARKETING_TYPES.includes(schedule.email_type)
+          ? { listUnsubscribeUrl: unsubscribeUrl(license.email) }
+          : {}),
       });
 
       if (sendResult.success) {

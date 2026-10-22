@@ -180,6 +180,14 @@ export default function Footer() {
                 </a>
               </li>
               <li>
+                <a
+                  href="/subprocessors"
+                  className="transition hover:text-white"
+                >
+                  Sub-processors
+                </a>
+              </li>
+              <li>
                 <a href="/terms" className="transition hover:text-white">
                   Terms of Service
                 </a>
