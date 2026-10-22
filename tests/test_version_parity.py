@@ -1,5 +1,5 @@
 """Version-parity invariant — the connector version is ONE number across every artifact
-that ships the 139-tool connector.
+that ships the 140-tool connector.
 
 `mcpb/pyproject.toml` is canonical (it's what PyPI publishes and what the release tag is
 verified against — see .github/workflows/release.yml). The generated MCP manifest and the

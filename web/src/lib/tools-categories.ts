@@ -85,6 +85,7 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
       "qb_delete_transaction",
       "qb_void_transaction",
       "qb_reclassify_transaction",
+      "qb_set_transaction_class",
       "qb_list_attachments",
       "qb_upload_receipt",
       "qb_missing_receipts",
