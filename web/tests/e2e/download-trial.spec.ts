@@ -52,22 +52,24 @@ test.describe("download → trial funnel", () => {
       })
       .toBe(true);
 
-    // 2) The trial-key capture is present (what humans need to convert).
+    // 2) The trial-key capture fires. A signed-OUT visitor submits the form; a
+    // signed-IN visitor (as the authed CI job is) has it auto-sent. Handle both:
+    // wait for whichever appears, submit if it's the form.
     const submit = page.getByRole("button", {
       name: /email me my license key/i,
     });
-    await expect(submit).toBeVisible();
+    const success = page.getByText(/on their way to your inbox/i);
+    await expect(submit.or(success).first()).toBeVisible({ timeout: 15_000 });
+    if (await submit.isVisible()) {
+      await page
+        .getByPlaceholder("you@company.com")
+        .fill("e2e+download@example.com");
+      await submit.click();
+    }
 
-    await page
-      .getByPlaceholder("you@company.com")
-      .fill("e2e+download@example.com");
-    await submit.click();
-
-    // The capture calls /api/trial/start with the email, and the success state
-    // renders — the full path a download→trial conversion depends on.
-    await expect
-      .poll(() => trialPayload?.email, { timeout: 15_000 })
-      .toBe("e2e+download@example.com");
-    await expect(page.getByText(/on their way to your inbox/i)).toBeVisible();
+    // Either path calls /api/trial/start and lands on the success state — the
+    // full download→trial capture the funnel depends on.
+    await expect.poll(() => !!trialPayload, { timeout: 15_000 }).toBe(true);
+    await expect(success).toBeVisible({ timeout: 15_000 });
   });
 });
