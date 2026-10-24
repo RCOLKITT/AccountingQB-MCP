@@ -27,6 +27,8 @@ function monthKey(d: string): string {
   return new Date(d).toISOString().slice(0, 7); // YYYY-MM
 }
 
+const ROW_CAP = 100000;
+
 async function getData() {
   const supabase = getSupabase();
   const { data } = await supabase
@@ -35,7 +37,7 @@ async function getData() {
       "status, tier, stripe_subscription_id, created_at, updated_at, is_test",
     )
     .eq("is_test", false)
-    .limit(10000);
+    .limit(ROW_CAP);
   const rows = (data || []) as (Lic & { is_test: boolean })[];
 
   // Reliable cancellation dates come from the subscription-deleted webhook
@@ -50,7 +52,7 @@ async function getData() {
     .eq("action", "customer.subscription.deleted")
     .eq("success", true)
     .gte("created_at", sixMonthsAgo.toISOString())
-    .limit(10000);
+    .limit(ROW_CAP);
   const cancelsByMonth: Record<string, number> = {};
   for (const e of cancelEvents || []) {
     const k = monthKey(e.created_at as string);
@@ -111,6 +113,8 @@ async function getData() {
     trialingCount: rows.filter((r) => r.status === "trialing").length,
     byTier,
     trend,
+    // If either scan maxed out the cap, the aggregates above would undercount.
+    truncated: rows.length >= ROW_CAP || (cancelEvents || []).length >= ROW_CAP,
   };
 }
 
@@ -142,6 +146,14 @@ export default async function RevenuePage() {
           pulls live from Stripe, refreshed at most every 60s.
         </p>
       </div>
+
+      {d.truncated && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-200/90">
+          ⚠️ The license/event scan hit its {ROW_CAP.toLocaleString()}-row cap —
+          MRR, churn, and conversion below may undercount. Move these to a
+          server-side aggregate (SQL) before relying on them.
+        </div>
+      )}
 
       {/* Live from Stripe — actual billed revenue + dunning + refunds */}
       {stripe ? (

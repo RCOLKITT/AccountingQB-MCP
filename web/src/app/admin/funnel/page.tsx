@@ -24,7 +24,13 @@ interface FunnelData {
   churned: number;
   activeNow: number;
   trialingNow: number;
+  truncated: boolean;
 }
+
+// Row caps for the in-JS funnel aggregation. If a scan maxes out, the counts
+// would undercount — surfaced as a warning rather than silently wrong.
+const FUNNEL_LIC_CAP = 50000;
+const FUNNEL_MS_CAP = 50000;
 
 function median(nums: number[]): number | null {
   if (!nums.length) return null;
@@ -51,7 +57,7 @@ async function getFunnel(
     .from("licenses")
     .select("key, status, tier, created_at")
     .order("created_at", { ascending: false })
-    .limit(5000);
+    .limit(FUNNEL_LIC_CAP);
   if (!includeTest) lq = lq.eq("is_test", false);
   if (since) lq = lq.gte("created_at", since);
 
@@ -69,7 +75,7 @@ async function getFunnel(
         "claude_configured",
         "trial_converted",
       ])
-      .limit(20000),
+      .limit(FUNNEL_MS_CAP),
   ]);
   const rows = licenses || [];
   const keys = new Set(rows.map((r) => r.key));
@@ -141,6 +147,8 @@ async function getFunnel(
     ).length,
     activeNow: rows.filter((r) => r.status === "active").length,
     trialingNow: rows.filter((r) => r.status === "trialing").length,
+    truncated:
+      rows.length >= FUNNEL_LIC_CAP || (ms || []).length >= FUNNEL_MS_CAP,
   };
 }
 
@@ -208,6 +216,14 @@ export default async function FunnelPage({
           </div>
         </div>
       </div>
+
+      {f.truncated && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-200/90">
+          ⚠️ The funnel scan hit its row cap — the counts and conversion rates
+          below may undercount. Move to a server-side aggregate before relying
+          on them.
+        </div>
+      )}
 
       {/* Funnel bars */}
       <div className="bg-[#131a2e] rounded-xl border border-white/10 p-6 space-y-4">
