@@ -6,16 +6,13 @@ import {
   type ToolStat,
 } from "@/lib/usage-analytics";
 import { getEngagement, type Engagement } from "@/lib/engagement";
-import { unstable_cache } from "next/cache";
 
 export const dynamic = "force-dynamic";
 
-// Cache the usage + engagement aggregates per range for 60s.
-const getUsage = unstable_cache(
-  (days: number) => Promise.all([getUsageAnalytics(days), getEngagement()]),
-  ["admin-usage"],
-  { revalidate: 60 },
-);
+// Live per request — the usage/engagement aggregates come from fast Supabase
+// RPCs over the daily rollup, so there's no need to serve a cached snapshot.
+const getUsage = (days: number) =>
+  Promise.all([getUsageAnalytics(days), getEngagement()]);
 
 const RANGES = [
   { days: 7, label: "7 days" },

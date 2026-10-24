@@ -1,8 +1,8 @@
 import { getSupabase } from "@/lib/supabase";
-import { unstable_cache } from "next/cache";
 import Link from "next/link";
 
-const CACHE_SECONDS = 60;
+// Live on every load — these are small Supabase reads; no cached snapshot.
+export const dynamic = "force-dynamic";
 
 interface DownloadStats {
   total: number;
@@ -62,14 +62,6 @@ async function getDownloads(days: number): Promise<DownloadStats> {
   }
 }
 
-const getData = unstable_cache(
-  (days: number) => getDownloads(days),
-  ["admin-downloads"],
-  {
-    revalidate: CACHE_SECONDS,
-  },
-);
-
 interface InstallStats {
   total: number;
   activeInWindow: number;
@@ -121,12 +113,6 @@ async function getInstalls(days: number): Promise<InstallStats> {
   }
 }
 
-const getInstallData = unstable_cache(
-  (days: number) => getInstalls(days),
-  ["admin-installs"],
-  { revalidate: CACHE_SECONDS },
-);
-
 function Metric({
   label,
   value,
@@ -161,8 +147,8 @@ export default async function DownloadsPage({
   const sp = await searchParams;
   const days = sp.days === "7" ? 7 : sp.days === "90" ? 90 : 30;
   const [data, installs] = await Promise.all([
-    getData(days),
-    getInstallData(days),
+    getDownloads(days),
+    getInstalls(days),
   ]);
   const maxTotal = Math.max(1, ...data.trend.map((t) => t.total));
 

@@ -138,7 +138,8 @@ export default async function RevenuePage() {
       <div>
         <h1 className="text-2xl font-bold text-white">Revenue</h1>
         <p className="text-gray-400 mt-1">
-          Real paying subscriptions only (test &amp; comp accounts excluded).
+          Real paying subscriptions only (test &amp; comp accounts excluded) ·
+          pulls live from Stripe, refreshed at most every 60s.
         </p>
       </div>
 
