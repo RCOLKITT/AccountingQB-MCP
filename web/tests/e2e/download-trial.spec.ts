@@ -51,7 +51,9 @@ test.describe("download → trial funnel", () => {
       });
     });
 
-    await page.goto("/download?platform=macos");
+    // "commit" — don't wait for full load: the page kicks off the file download
+    // on mount, and that sub-navigation races the default load wait.
+    await page.goto("/download?platform=macos", { waitUntil: "commit" });
 
     // 0) The page actually rendered the download-first UI (not a redirect/blank).
     await expect(
