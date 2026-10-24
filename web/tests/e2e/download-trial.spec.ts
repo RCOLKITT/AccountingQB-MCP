@@ -26,11 +26,19 @@ test.describe("download → trial funnel", () => {
     page,
   }) => {
     const downloadHits: string[] = [];
-    // The auto-download navigates an <a> to /api/download/...; abort it so the
-    // page stays put, and record that it fired (that's the "download-first" bit).
+    // The auto-download navigates an <a> to /api/download/... — fulfill it as an
+    // attachment (like the real endpoint) so the browser downloads it and STAYS
+    // on /download (aborting would blank the page). Records that it fired.
     await page.route("**/api/download/**", (route) => {
       downloadHits.push(route.request().url());
-      return route.abort();
+      return route.fulfill({
+        status: 200,
+        headers: {
+          "content-type": "application/octet-stream",
+          "content-disposition": "attachment; filename=accountingqb-stub.bin",
+        },
+        body: "stub",
+      });
     });
 
     let trialPayload: { email?: string; platform?: string } | null = null;
@@ -44,6 +52,11 @@ test.describe("download → trial funnel", () => {
     });
 
     await page.goto("/download?platform=macos");
+
+    // 0) The page actually rendered the download-first UI (not a redirect/blank).
+    await expect(
+      page.getByRole("heading", { name: /is downloading/i }),
+    ).toBeVisible({ timeout: 15_000 });
 
     // 1) The download starts on its own — no email required to get the file.
     await expect
