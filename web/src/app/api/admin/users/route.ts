@@ -71,7 +71,9 @@ export async function GET(req: NextRequest) {
 
   // Cap high enough to avoid silently hiding users (the 'stuck' filter runs in
   // JS after this fetch). TODO: true cursor pagination when the list outgrows this.
-  const { data: licenses, error } = await query.limit(1000);
+  const USERS_CAP = 1000;
+  const { data: licenses, error } = await query.limit(USERS_CAP);
+  const truncated = ((licenses as LicenseRow[]) || []).length >= USERS_CAP;
 
   if (error) {
     console.error("Failed to fetch users:", error);
@@ -143,8 +145,8 @@ export async function GET(req: NextRequest) {
         new Date(u.created_at) < threeDaysAgo &&
         !u.qb_connected,
     );
-    return NextResponse.json({ users: stuckUsers });
+    return NextResponse.json({ users: stuckUsers, truncated });
   }
 
-  return NextResponse.json({ users });
+  return NextResponse.json({ users, truncated });
 }

@@ -4,12 +4,60 @@ import Link from "next/link";
 // Live on every load — these are small Supabase reads; no cached snapshot.
 export const dynamic = "force-dynamic";
 
+// The trial gate shipped at the download endpoint in PR #125. Downloads BEFORE
+// this date were never gated (went straight to the file), so they can't have
+// become trials — the conversion panel below separates the two eras honestly.
+const DOWNLOAD_GATE_DATE = "2026-10-06";
+const DOWNLOAD_ROW_CAP = 100000;
+
 interface DownloadStats {
   total: number;
   macos: number;
   windows: number;
   macosPercent: number;
   trend: { date: string; macos: number; windows: number; total: number }[];
+  truncated: boolean; // true if the row cap was hit (numbers would undercount)
+}
+
+// Honest download→trial conversion, computed with exact COUNT queries (no row
+// cap, so always accurate). A "real" conversion is a GATED-era download that
+// carried a trial license key; keyless gated hits are bots / abandoned captures.
+interface Conversion {
+  total: number;
+  preGate: number;
+  gated: number;
+  gatedKeyed: number;
+  trialStarts: number;
+}
+
+async function getConversion(): Promise<Conversion> {
+  try {
+    const sb = getSupabase();
+    const dl = () =>
+      sb.from("app_downloads").select("*", { count: "exact", head: true });
+    const [t, pre, g, gk, ts] = await Promise.all([
+      dl(),
+      dl().lt("downloaded_at", DOWNLOAD_GATE_DATE),
+      dl().gte("downloaded_at", DOWNLOAD_GATE_DATE),
+      dl()
+        .gte("downloaded_at", DOWNLOAD_GATE_DATE)
+        .not("license_key", "is", null),
+      sb
+        .from("event_logs")
+        .select("*", { count: "exact", head: true })
+        .eq("event_type", "trial")
+        .eq("action", "trial_start"),
+    ]);
+    return {
+      total: t.count || 0,
+      preGate: pre.count || 0,
+      gated: g.count || 0,
+      gatedKeyed: gk.count || 0,
+      trialStarts: ts.count || 0,
+    };
+  } catch {
+    return { total: 0, preGate: 0, gated: 0, gatedKeyed: 0, trialStarts: 0 };
+  }
 }
 
 async function getDownloads(days: number): Promise<DownloadStats> {
@@ -19,6 +67,7 @@ async function getDownloads(days: number): Promise<DownloadStats> {
     windows: 0,
     macosPercent: 0,
     trend: [],
+    truncated: false,
   };
   try {
     const since = new Date(Date.now() - days * 86400000).toISOString();
@@ -27,10 +76,11 @@ async function getDownloads(days: number): Promise<DownloadStats> {
       .select("platform, downloaded_at")
       .gte("downloaded_at", since)
       .order("downloaded_at", { ascending: false })
-      .limit(20000);
+      .limit(DOWNLOAD_ROW_CAP);
     if (error || !data) return empty;
 
     const rows = data as { platform: string; downloaded_at: string }[];
+    const truncated = rows.length >= DOWNLOAD_ROW_CAP;
     const daily: Record<string, { macos: number; windows: number }> = {};
     let macos = 0;
     let windows = 0;
@@ -56,6 +106,7 @@ async function getDownloads(days: number): Promise<DownloadStats> {
       windows,
       macosPercent: total ? Math.round((macos / total) * 100) : 0,
       trend,
+      truncated,
     };
   } catch {
     return empty;
@@ -146,11 +197,13 @@ export default async function DownloadsPage({
 }) {
   const sp = await searchParams;
   const days = sp.days === "7" ? 7 : sp.days === "90" ? 90 : 30;
-  const [data, installs] = await Promise.all([
+  const [data, installs, conv] = await Promise.all([
     getDownloads(days),
     getInstalls(days),
+    getConversion(),
   ]);
   const maxTotal = Math.max(1, ...data.trend.map((t) => t.total));
+  const gatedKeyless = conv.gated - conv.gatedKeyed;
 
   return (
     <div className="space-y-8">
@@ -195,6 +248,58 @@ export default async function DownloadsPage({
           sub={`${data.total ? 100 - data.macosPercent : 0}%`}
         />
         <Metric label="Avg / day" value={Math.round(data.total / days)} />
+      </div>
+
+      {data.truncated && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-200/90">
+          ⚠️ Showing the first {DOWNLOAD_ROW_CAP.toLocaleString()} rows — totals
+          above may undercount. Move to a server-side aggregate before relying
+          on them.
+        </div>
+      )}
+
+      {/* Honest download → trial conversion (all-time, exact counts). */}
+      <div className="rounded-xl border border-white/10 bg-[#131a2e] p-6">
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-white">
+            Download → trial conversion · all time
+          </h2>
+          <span className="text-xs text-gray-500">
+            gate live since {DOWNLOAD_GATE_DATE}
+          </span>
+        </div>
+        <p className="mb-4 text-xs text-gray-500">
+          A real conversion is a gated-era download that minted a trial (carried
+          a license key). Keyless gated hits are bots / abandoned email
+          captures.
+        </p>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <Metric label="Total download clicks" value={conv.total} />
+          <Metric
+            label="Pre-gate (ungated)"
+            value={conv.preGate}
+            sub="never had a trial"
+          />
+          <Metric
+            label="Trials started (gated)"
+            value={conv.trialStarts}
+            accent={conv.trialStarts > 0}
+          />
+          <Metric
+            label="Keyless gated hits"
+            value={gatedKeyless < 0 ? 0 : gatedKeyless}
+            sub="bots / abandoned"
+          />
+        </div>
+        {conv.gated > 0 && conv.gatedKeyed === 0 && (
+          <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-200/90">
+            ⚠️ {conv.gated} download{conv.gated === 1 ? "" : "s"} since the
+            gate, but <strong>0 completed the email capture</strong> (0 trials).
+            The gate redirect works; the funnel is leaking at{" "}
+            <code>/download</code> — real humans aren&rsquo;t finishing the
+            email step (or these are bots). Worth reducing the capture friction.
+          </p>
+        )}
       </div>
 
       <div className="rounded-xl border border-white/10 bg-[#131a2e] p-6">

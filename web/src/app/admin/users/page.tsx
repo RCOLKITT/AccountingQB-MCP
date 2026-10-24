@@ -21,6 +21,7 @@ export default function AdminUsersPage() {
   const initialSearch = searchParams.get("search") || "";
 
   const [users, setUsers] = useState<User[]>([]);
+  const [truncated, setTruncated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState(initialFilter);
   const [search, setSearch] = useState(initialSearch);
@@ -53,6 +54,7 @@ export default function AdminUsersPage() {
 
       if (res.ok) {
         setUsers(data.users || []);
+        setTruncated(!!data.truncated);
       }
     } catch (err) {
       console.error("Failed to fetch users:", err);
@@ -163,7 +165,9 @@ export default function AdminUsersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Users</h1>
-          <p className="text-gray-400 mt-1">Manage all AccountingQB users</p>
+          <p className="text-gray-400 mt-1">
+            Manage all AccountingQB users · excludes test accounts
+          </p>
         </div>
         {campaignFilter && (
           <button
@@ -175,6 +179,13 @@ export default function AdminUsersPage() {
           </button>
         )}
       </div>
+
+      {truncated && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-200/90">
+          ⚠️ Showing the first 1,000 users — some are hidden. Use search or a
+          status filter to narrow down, or ask for cursor pagination.
+        </div>
+      )}
 
       {/* Invite a tester */}
       <div className="bg-[#131a2e] rounded-xl border border-cyan-500/20 p-5">
