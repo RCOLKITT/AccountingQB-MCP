@@ -87,7 +87,8 @@ function Dashboard({
           <p className="text-gray-400 mt-1 text-sm">
             External visitors only (your team &amp; QA traffic filtered out).
             Tag campaign links with{" "}
-            <code className="text-gray-500">?utm_source=…</code>.
+            <code className="text-gray-500">?utm_source=…</code>. Pulls from
+            PostHog, refreshed at most every 5 min.
           </p>
         </div>
         <div className="flex items-center gap-3">

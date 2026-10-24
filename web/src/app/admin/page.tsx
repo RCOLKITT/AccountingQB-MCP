@@ -1,11 +1,11 @@
 import { getSupabase } from "@/lib/supabase";
-import { unstable_cache } from "next/cache";
 import Link from "next/link";
 
-// Admin dashboards don't need to be real-time to the second — cache the heavy
-// aggregate reads for 60s so clicking around the admin is instant instead of
-// re-running every query on every navigation.
-const ADMIN_CACHE_SECONDS = 60;
+// Live on every load: the headline metrics must be accurate and reconcile with
+// the Users/Revenue/Funnel pages, so we never serve a cached snapshot here.
+// (These are fast count/aggregate reads over a small table; force-dynamic also
+// keeps this page from being prerendered at build, which needs no DB.)
+export const dynamic = "force-dynamic";
 
 interface Stats {
   totalUsers: number;
@@ -146,21 +146,25 @@ async function getRecentUsers(): Promise<RecentUser[]> {
   return (data || []) as RecentUser[];
 }
 
-const getDashboardData = unstable_cache(
-  async () => Promise.all([getStats(), getRecentUsers()]),
-  ["admin-dashboard"],
-  { revalidate: ADMIN_CACHE_SECONDS },
-);
-
 export default async function AdminDashboard() {
-  const [stats, recentUsers] = await getDashboardData();
+  const [stats, recentUsers] = await Promise.all([
+    getStats(),
+    getRecentUsers(),
+  ]);
+  const asOf = new Date();
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-white">Dashboard</h1>
         <p className="text-gray-400 mt-1">
-          Overview of your AccountingQB users
+          Overview of your AccountingQB users · excludes test accounts · live as
+          of{" "}
+          {asOf.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            timeZoneName: "short",
+          })}
         </p>
       </div>
 

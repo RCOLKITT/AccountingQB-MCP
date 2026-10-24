@@ -32,11 +32,19 @@ export async function GET(req: NextRequest) {
 
   const filter = searchParams.get("filter") || "all";
   const search = searchParams.get("search") || "";
+  // Exclude test/demo accounts by DEFAULT so this list reconciles with the
+  // dashboard / revenue / funnel (all of which filter is_test=false). Pass
+  // ?includeTest=1 to see them (mirrors the funnel's include-test toggle).
+  const includeTest = searchParams.get("includeTest") === "1";
 
   let query = supabase
     .from("licenses")
     .select("key, email, tier, status, created_at, trial_ends_at")
     .order("created_at", { ascending: false });
+
+  if (!includeTest) {
+    query = query.eq("is_test", false);
+  }
 
   // Apply status filter
   if (filter === "trialing") {
