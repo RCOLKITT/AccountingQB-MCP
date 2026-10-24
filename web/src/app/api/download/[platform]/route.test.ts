@@ -22,8 +22,11 @@ vi.mock("@/lib/supabase", () => ({
 
 import { GET } from "./route";
 
-function call(url: string, platform = "macos") {
-  return GET(new NextRequest(url), {
+const BROWSER_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
+
+function call(url: string, platform = "macos", ua = BROWSER_UA) {
+  return GET(new NextRequest(url, { headers: { "user-agent": ua } }), {
     params: Promise.resolve({ platform }),
   });
 }
@@ -58,6 +61,24 @@ describe("GET /api/download/[platform] — trial gate", () => {
     const res = await call("https://x.com/api/download/windows?g=1", "windows");
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toContain(".exe");
+    expect(inserts).toHaveLength(1); // a real browser hit IS recorded
+  });
+
+  it("bot user-agent → serves the asset but is NOT counted", async () => {
+    const res = await call(
+      "https://x.com/api/download/macos?g=1",
+      "macos",
+      "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toContain(".dmg");
+    expect(inserts).toHaveLength(0); // bot hit not recorded
+  });
+
+  it("empty user-agent → served but not counted", async () => {
+    const res = await call("https://x.com/api/download/macos?g=1", "macos", "");
+    expect(res.headers.get("location")).toContain(".dmg");
+    expect(inserts).toHaveLength(0);
   });
 
   it("gate disabled → no key still goes straight to the asset", async () => {
