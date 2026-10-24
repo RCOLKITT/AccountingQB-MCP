@@ -15,106 +15,111 @@ const TIER_MRR: Record<string, number> = {
   firm: 299,
 };
 
-interface Lic {
-  status: string;
-  tier: string;
-  stripe_subscription_id: string | null;
-  created_at: string;
-  updated_at: string | null;
-}
-
-function monthKey(d: string): string {
-  return new Date(d).toISOString().slice(0, 7); // YYYY-MM
-}
-
-const ROW_CAP = 100000;
-
+// Everything on this page is a COUNT, so we ask Postgres for exact counts
+// (head: true — no rows transferred) instead of scanning a capped select. That
+// is accurate at any scale, with no row cap to undercount past.
 async function getData() {
   const supabase = getSupabase();
-  const { data } = await supabase
-    .from("licenses")
-    .select(
-      "status, tier, stripe_subscription_id, created_at, updated_at, is_test",
-    )
-    .eq("is_test", false)
-    .limit(ROW_CAP);
-  const rows = (data || []) as (Lic & { is_test: boolean })[];
+  const tiers = Object.keys(TIER_MRR);
 
-  // Reliable cancellation dates come from the subscription-deleted webhook
-  // events — licenses.updated_at is bumped by ANY edit, so it is not a valid
-  // cancel date for a churn-by-month trend.
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  sixMonthsAgo.setDate(1);
-  const { data: cancelEvents } = await supabase
-    .from("event_logs")
-    .select("created_at")
-    .eq("action", "customer.subscription.deleted")
-    .eq("success", true)
-    .gte("created_at", sixMonthsAgo.toISOString())
-    .limit(ROW_CAP);
-  const cancelsByMonth: Record<string, number> = {};
-  for (const e of cancelEvents || []) {
-    const k = monthKey(e.created_at as string);
-    cancelsByMonth[k] = (cancelsByMonth[k] || 0) + 1;
-  }
+  const lic = () =>
+    supabase
+      .from("licenses")
+      .select("*", { count: "exact", head: true })
+      .eq("is_test", false);
+  const countOf = async (
+    b: PromiseLike<{ count: number | null }>,
+  ): Promise<number> => (await b).count ?? 0;
 
-  const paying = rows.filter(
-    (r) => r.status === "active" && r.stripe_subscription_id,
-  );
-  const mrr = paying.reduce((s, r) => s + (TIER_MRR[r.tier] || 0), 0);
-
-  const byTier = Object.keys(TIER_MRR).map((tier) => {
-    const t = paying.filter((r) => r.tier === tier);
-    return { tier, count: t.length, mrr: t.length * (TIER_MRR[tier] || 0) };
+  // 6 calendar months (oldest→newest) with [start, end) bounds.
+  const now = new Date();
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    return {
+      key: d.toISOString().slice(0, 7),
+      start: d.toISOString(),
+      end: end.toISOString(),
+    };
   });
 
-  // Paid churn = canceled AND had a real subscription. Expired trials are not churn.
-  const paidChurn = rows.filter(
-    (r) => r.status === "canceled" && r.stripe_subscription_id,
-  );
-  const expiredTrials = rows.filter((r) => r.status === "expired");
+  const [
+    tierCounts,
+    trialingCount,
+    expiredTrials,
+    paidChurnCount,
+    pastTrialCount,
+    signupTrend,
+    churnTrend,
+  ] = await Promise.all([
+    Promise.all(
+      tiers.map((t) =>
+        countOf(
+          lic()
+            .eq("status", "active")
+            .not("stripe_subscription_id", "is", null)
+            .eq("tier", t),
+        ),
+      ),
+    ),
+    countOf(lic().eq("status", "trialing")),
+    countOf(lic().eq("status", "expired")),
+    countOf(
+      lic().eq("status", "canceled").not("stripe_subscription_id", "is", null),
+    ),
+    countOf(lic().neq("status", "trialing")),
+    Promise.all(
+      months.map((m) =>
+        countOf(lic().gte("created_at", m.start).lt("created_at", m.end)),
+      ),
+    ),
+    // Reliable cancel dates come from the subscription-deleted webhook events
+    // (licenses.updated_at is bumped by any edit, so it's not a valid date).
+    Promise.all(
+      months.map((m) =>
+        countOf(
+          supabase
+            .from("event_logs")
+            .select("*", { count: "exact", head: true })
+            .eq("action", "customer.subscription.deleted")
+            .eq("success", true)
+            .gte("created_at", m.start)
+            .lt("created_at", m.end),
+        ),
+      ),
+    ),
+  ]);
 
-  // Trial→paid conversion: of everyone past their trial (not currently trialing),
-  // how many are paying now.
-  const pastTrial = rows.filter((r) => r.status !== "trialing");
-  const conversion = pastTrial.length
-    ? (paying.length / pastTrial.length) * 100
-    : 0;
-
-  // Logo churn rate over the trailing window: paid cancels / (paying + paid cancels)
+  const byTier = tiers.map((tier, i) => ({
+    tier,
+    count: tierCounts[i],
+    mrr: tierCounts[i] * (TIER_MRR[tier] || 0),
+  }));
+  const payingCount = tierCounts.reduce((a, b) => a + b, 0);
+  const mrr = byTier.reduce((s, t) => s + t.mrr, 0);
+  const conversion = pastTrialCount ? (payingCount / pastTrialCount) * 100 : 0;
   const churnRate =
-    paying.length + paidChurn.length
-      ? (paidChurn.length / (paying.length + paidChurn.length)) * 100
+    payingCount + paidChurnCount
+      ? (paidChurnCount / (payingCount + paidChurnCount)) * 100
       : 0;
-
-  // 6-month trend: signups (created_at) + cancellations (webhook events)
-  const months: string[] = [];
-  const now = new Date();
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    months.push(d.toISOString().slice(0, 7));
-  }
-  const trend = months.map((m) => ({
-    month: m,
-    signups: rows.filter((r) => monthKey(r.created_at) === m).length,
-    churned: cancelsByMonth[m] || 0,
+  const trend = months.map((m, i) => ({
+    month: m.key,
+    signups: signupTrend[i],
+    churned: churnTrend[i],
   }));
 
   return {
     mrr,
     arr: mrr * 12,
-    payingCount: paying.length,
-    arpu: paying.length ? mrr / paying.length : 0,
+    payingCount,
+    arpu: payingCount ? mrr / payingCount : 0,
     conversion,
     churnRate,
-    paidChurnCount: paidChurn.length,
-    expiredTrials: expiredTrials.length,
-    trialingCount: rows.filter((r) => r.status === "trialing").length,
+    paidChurnCount,
+    expiredTrials,
+    trialingCount,
     byTier,
     trend,
-    // If either scan maxed out the cap, the aggregates above would undercount.
-    truncated: rows.length >= ROW_CAP || (cancelEvents || []).length >= ROW_CAP,
   };
 }
 
@@ -146,14 +151,6 @@ export default async function RevenuePage() {
           pulls live from Stripe, refreshed at most every 60s.
         </p>
       </div>
-
-      {d.truncated && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-200/90">
-          ⚠️ The license/event scan hit its {ROW_CAP.toLocaleString()}-row cap —
-          MRR, churn, and conversion below may undercount. Move these to a
-          server-side aggregate (SQL) before relying on them.
-        </div>
-      )}
 
       {/* Live from Stripe — actual billed revenue + dunning + refunds */}
       {stripe ? (
