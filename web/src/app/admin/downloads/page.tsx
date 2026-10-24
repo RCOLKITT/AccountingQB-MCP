@@ -203,7 +203,12 @@ export default async function DownloadsPage({
     getConversion(),
   ]);
   const maxTotal = Math.max(1, ...data.trend.map((t) => t.total));
-  const gatedKeyless = conv.gated - conv.gatedKeyed;
+  // Download-first model: the file downloads immediately and the trial is minted
+  // when the visitor submits their email, so conversion = trials started per
+  // gated-era download (keyed download rows no longer apply).
+  const convRate = conv.gated
+    ? Math.round((conv.trialStarts / conv.gated) * 1000) / 10
+    : 0;
 
   return (
     <div className="space-y-8">
@@ -269,9 +274,10 @@ export default async function DownloadsPage({
           </span>
         </div>
         <p className="mb-4 text-xs text-gray-500">
-          A real conversion is a gated-era download that minted a trial (carried
-          a license key). Keyless gated hits are bots / abandoned email
-          captures.
+          Downloads before the gate were never asked for an email. Since the
+          gate, the app downloads immediately and we offer to email a trial key
+          — so conversion = trials started per gated download. (Bot hits are
+          filtered out of these counts.)
         </p>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <Metric label="Total download clicks" value={conv.total} />
@@ -281,23 +287,22 @@ export default async function DownloadsPage({
             sub="never had a trial"
           />
           <Metric
-            label="Trials started (gated)"
-            value={conv.trialStarts}
-            accent={conv.trialStarts > 0}
+            label="Gated downloads"
+            value={conv.gated}
+            sub="eligible for a trial"
           />
           <Metric
-            label="Keyless gated hits"
-            value={gatedKeyless < 0 ? 0 : gatedKeyless}
-            sub="bots / abandoned"
+            label="Trials started → rate"
+            value={`${conv.trialStarts} · ${convRate}%`}
+            accent={conv.trialStarts > 0}
           />
         </div>
-        {conv.gated > 0 && conv.gatedKeyed === 0 && (
+        {conv.gated > 0 && conv.trialStarts === 0 && (
           <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-200/90">
-            ⚠️ {conv.gated} download{conv.gated === 1 ? "" : "s"} since the
-            gate, but <strong>0 completed the email capture</strong> (0 trials).
-            The gate redirect works; the funnel is leaking at{" "}
-            <code>/download</code> — real humans aren&rsquo;t finishing the
-            email step (or these are bots). Worth reducing the capture friction.
+            ⚠️ {conv.gated} gated download{conv.gated === 1 ? "" : "s"}, but{" "}
+            <strong>0 trials started</strong>. The file downloads fine; nobody
+            is submitting their email for a key yet. Watch this rate climb now
+            that the download no longer waits on the email.
           </p>
         )}
       </div>

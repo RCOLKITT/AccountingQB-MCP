@@ -30,6 +30,16 @@ const ASSETS: Record<string, string> = {
 const RELEASES_PAGE =
   "https://github.com/RCOLKITT/AccountingQB-MCP/releases/latest";
 
+// Crawlers/scanners hit these links (often with ?g=1 appended) and inflate the
+// download count with non-humans. We still SERVE them the asset, but don't
+// record the hit — keeps the downloads metric a real-demand signal. Empty UA is
+// treated as a bot too (every real browser sends one).
+const BOT_UA =
+  /bot|crawl|spider|slurp|curl|wget|python|go-http|java\/|headless|phantom|monitor|uptime|preview|facebookexternalhit|bingpreview|slackbot|discordbot|whatsapp|telegrambot|semrush|ahrefs|bytespider/i;
+function isBotUA(ua: string): boolean {
+  return !ua || BOT_UA.test(ua);
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ platform: string }> },
@@ -68,23 +78,27 @@ export async function GET(
   }
 
   // Record the download — privacy-preserving (salted hashes, never raw IP/UA).
-  try {
-    const ip = getClientIP(req);
-    const ua = req.headers.get("user-agent") || "";
-    const salt = process.env.IP_HASH_SALT || "";
-    const sha = (s: string) => createHash("sha256").update(s).digest("hex");
-    await getSupabase()
-      .from("app_downloads")
-      .insert({
-        platform,
-        version: req.nextUrl.searchParams.get("v") || null,
-        license_key: key && key.startsWith("LK-") ? key : null,
-        ip_hash: ip ? sha(ip + salt) : null,
-        user_agent_hash: ua ? sha(ua) : null,
-        referrer: (req.headers.get("referer") || "").slice(0, 300) || null,
-      });
-  } catch (err) {
-    console.error("download tracking failed:", err);
+  // Skip obvious bots/scanners so the metric reflects real humans (they still
+  // get the file below).
+  const ua = req.headers.get("user-agent") || "";
+  if (!isBotUA(ua)) {
+    try {
+      const ip = getClientIP(req);
+      const salt = process.env.IP_HASH_SALT || "";
+      const sha = (s: string) => createHash("sha256").update(s).digest("hex");
+      await getSupabase()
+        .from("app_downloads")
+        .insert({
+          platform,
+          version: req.nextUrl.searchParams.get("v") || null,
+          license_key: key && key.startsWith("LK-") ? key : null,
+          ip_hash: ip ? sha(ip + salt) : null,
+          user_agent_hash: ua ? sha(ua) : null,
+          referrer: (req.headers.get("referer") || "").slice(0, 300) || null,
+        });
+    } catch (err) {
+      console.error("download tracking failed:", err);
+    }
   }
 
   return NextResponse.redirect(dest, 302);
