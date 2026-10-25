@@ -3698,8 +3698,11 @@ async def qb_profit_loss_detail(
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_transaction_list(start_date: str = "", end_date: str = "") -> str:
     """A flexible transaction register — every transaction (date, type, num, name,
-    account, class, amount) in a date range, the workhorse for 'show me everything
-    that hit the books.' Dates YYYY-MM-DD (default: current year-to-date)."""
+    account, amount) in a date range, the workhorse for 'show me everything that
+    hit the books.' Dates YYYY-MM-DD (default: current year-to-date). NOTE: this
+    report does NOT carry class — QuickBooks' TransactionList report ignores the
+    class column even when requested. For a class-coded register use
+    qb_general_ledger (class column) or qb_transaction_detail (class per line)."""
     start_date, end_date = _ytd_range(start_date, end_date)
     report = await qb_request(
         "GET",
@@ -3707,11 +3710,11 @@ async def qb_transaction_list(start_date: str = "", end_date: str = "") -> str:
         params={
             "start_date": start_date,
             "end_date": end_date,
-            # Explicit columns so the CLASS (klass_name) is included — class
-            # tracking is otherwise absent from the default register.
+            # No klass_name: QBO's TransactionList report silently drops the
+            # class column (verified on real class-tracked books). Class lives
+            # in qb_general_ledger / qb_transaction_detail instead.
             "columns": (
-                "tx_date,txn_type,doc_num,name,memo,account_name,"
-                "klass_name,subt_nat_amount"
+                "tx_date,txn_type,doc_num,name,memo,account_name,subt_nat_amount"
             ),
         },
     )

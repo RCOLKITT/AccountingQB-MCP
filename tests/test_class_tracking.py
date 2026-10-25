@@ -154,16 +154,21 @@ def _report_with_class():
     }
 
 
-def test_transaction_list_renders_class_column(monkeypatch):
+def test_transaction_list_does_not_claim_class(monkeypatch):
+    # QBO's TransactionList report silently DROPS klass_name even when asked
+    # (verified live on real class-tracked books 2026-10). So the tool must NOT
+    # request it — requesting a column QBO ignores is a misleading contract.
+    # Class belongs to qb_general_ledger / qb_transaction_detail.
+    captured = {}
+
     async def fake_request(method, endpoint, **kw):
         assert "TransactionList" in endpoint
-        # the tool must ASK for the class column
-        assert "klass_name" in (kw.get("params", {}) or {}).get("columns", "")
+        captured["columns"] = (kw.get("params", {}) or {}).get("columns", "")
         return _report_with_class()
 
     monkeypatch.setattr(s, "qb_request", fake_request)
-    out = asyncio.run(s.qb_transaction_list("2026-07-01", "2026-08-31"))
-    assert "Class" in out and CLASS_A in out
+    asyncio.run(s.qb_transaction_list("2026-07-01", "2026-08-31"))
+    assert "klass_name" not in captured["columns"]
 
 
 def test_general_ledger_renders_class_column(monkeypatch):
