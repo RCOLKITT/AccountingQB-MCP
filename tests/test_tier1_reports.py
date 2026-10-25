@@ -98,10 +98,9 @@ def test_report_tools_use_exact_endpoint_names(monkeypatch):
             lambda: s.qb_profit_loss_detail("2026-01-01", "2026-12-31"),
             "reports/ProfitAndLossDetail",
         ),
-        (
-            lambda: s.qb_transaction_list("2026-01-01", "2026-12-31"),
-            "reports/TransactionList",
-        ),
+        # qb_transaction_list is NOT here: it's query-based (reads ClassRef off
+        # each transaction's lines) because QBO's TransactionList report drops
+        # the class column. See test_class_tracking.py.
         (
             lambda: s.qb_customer_balance_detail("2026-06-30"),
             "reports/CustomerBalanceDetail",
