@@ -154,21 +154,63 @@ def _report_with_class():
     }
 
 
-def test_transaction_list_does_not_claim_class(monkeypatch):
-    # QBO's TransactionList report silently DROPS klass_name even when asked
-    # (verified live on real class-tracked books 2026-10). So the tool must NOT
-    # request it — requesting a column QBO ignores is a misleading contract.
-    # Class belongs to qb_general_ledger / qb_transaction_detail.
-    captured = {}
+def test_transaction_list_reads_class_from_lines(monkeypatch):
+    # QBO's TransactionList *report* silently drops klass_name (verified live on
+    # real class-tracked books 2026-10), so qb_transaction_list is built on entity
+    # queries that read ClassRef off each line instead — class is ALWAYS present
+    # when the line carries one, immune to the report limitation.
+    bill = _bill("17677", "Acme Co", "1150", "WIP", 1200.0, CLASS_A)
+    # A two-class invoice — the register must list BOTH distinct classes.
+    invoice = {
+        "Id": "900",
+        "TxnDate": "2026-07-20",
+        "DocNumber": "INV-900",
+        "TotalAmt": 500.0,
+        "CustomerRef": {"value": "7", "name": "Lodge Guest"},
+        "Line": [
+            {
+                "Amount": 300.0,
+                "DetailType": "SalesItemLineDetail",
+                "SalesItemLineDetail": {"ClassRef": {"value": "9", "name": CLASS_A}},
+            },
+            {
+                "Amount": 200.0,
+                "DetailType": "SalesItemLineDetail",
+                "SalesItemLineDetail": {"ClassRef": {"value": "8", "name": CLASS_B}},
+            },
+        ],
+    }
 
-    async def fake_request(method, endpoint, **kw):
-        assert "TransactionList" in endpoint
-        captured["columns"] = (kw.get("params", {}) or {}).get("columns", "")
-        return _report_with_class()
+    async def fake_query_all(query, **kw):
+        if "FROM Bill " in query:
+            return {"QueryResponse": {"Bill": [bill]}}
+        if "FROM Invoice " in query:
+            return {"QueryResponse": {"Invoice": [invoice]}}
+        return {"QueryResponse": {}}
 
-    monkeypatch.setattr(s, "qb_request", fake_request)
-    asyncio.run(s.qb_transaction_list("2026-07-01", "2026-08-31"))
-    assert "klass_name" not in captured["columns"]
+    monkeypatch.setattr(s, "qb_query_all", fake_query_all)
+    out = asyncio.run(s.qb_transaction_list("2026-07-01", "2026-08-31"))
+    assert "| Class |" in out  # the register has a Class column
+    assert CLASS_A in out  # the bill's class renders
+    # The invoice lists BOTH of its line classes.
+    assert f"{CLASS_A}, {CLASS_B}" in out or f"{CLASS_B}, {CLASS_A}" in out
+    assert "2 transactions" in out  # count reflects both queried txns
+
+
+def test_transaction_list_display_cap_counts_all(monkeypatch):
+    # 60 bills, display capped at 50 — count/total must still reflect all 60.
+    bills = [
+        _bill(str(20000 + i), f"V{i}", "1150", "WIP", 10.0, CLASS_A) for i in range(60)
+    ]
+
+    async def fake_query_all(query, **kw):
+        if "FROM Bill " in query:
+            return {"QueryResponse": {"Bill": bills}}
+        return {"QueryResponse": {}}
+
+    monkeypatch.setattr(s, "qb_query_all", fake_query_all)
+    out = asyncio.run(s.qb_transaction_list("2026-07-01", "2026-08-31", max_results=50))
+    assert "60 transactions" in out and "showing the first 50" in out
 
 
 def test_general_ledger_renders_class_column(monkeypatch):

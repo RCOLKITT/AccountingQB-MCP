@@ -3696,33 +3696,128 @@ async def qb_profit_loss_detail(
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
-async def qb_transaction_list(start_date: str = "", end_date: str = "") -> str:
-    """A flexible transaction register — every transaction (date, type, num, name,
-    account, amount) in a date range, the workhorse for 'show me everything that
-    hit the books.' Dates YYYY-MM-DD (default: current year-to-date). NOTE: this
-    report does NOT carry class — QuickBooks' TransactionList report ignores the
-    class column even when requested. For a class-coded register use
-    qb_general_ledger (class column) or qb_transaction_detail (class per line)."""
+async def qb_transaction_list(
+    start_date: str = "", end_date: str = "", max_results: int = 500
+) -> str:
+    """A flexible transaction register — every posting transaction (date, type,
+    doc #, name, CLASS, amount) in a date range, the workhorse for 'show me
+    everything that hit the books.' Carries the class on each transaction, read
+    directly off the transaction's lines — QuickBooks' TransactionList *report*
+    silently drops class, so this queries the transactions themselves instead
+    (robust to that limitation). Rows with multiple classes list them; blank
+    class shows '—'. Covers Purchase/Expense, Bill, VendorCredit, BillPayment,
+    Invoice, CreditMemo, SalesReceipt, RefundReceipt, Payment, JournalEntry,
+    Deposit, Transfer. Dates YYYY-MM-DD (default: current year-to-date).
+    max_results caps DISPLAYED rows (default 500); the count/total always reflect
+    every matching transaction. For class per individual line use
+    qb_transaction_detail; for a class-coded register by account use
+    qb_general_ledger."""
     start_date, end_date = _ytd_range(start_date, end_date)
-    report = await qb_request(
-        "GET",
-        "reports/TransactionList",
-        params={
-            "start_date": start_date,
-            "end_date": end_date,
-            # No klass_name: QBO's TransactionList report silently drops the
-            # class column (verified on real class-tracked books). Class lives
-            # in qb_general_ledger / qb_transaction_detail instead.
-            "columns": (
-                "tx_date,txn_type,doc_num,name,memo,account_name,subt_nat_amount"
-            ),
-        },
-    )
-    h = report.get("Header", {})
-    lines = [
-        f"## Transaction List: {h.get('StartPeriod','')} to {h.get('EndPeriod','')}\n"
+    start_date = _validate_date(start_date, "start_date")
+    end_date = _validate_date(end_date, "end_date")
+
+    # One row per transaction, class read off its lines (QBO tracks class per
+    # LINE). Each type is fetched IN FULL (qb_query_all paginates) so the count
+    # and total are never silently truncated; max_results caps only display.
+    txn_types = [
+        "Purchase",
+        "Bill",
+        "VendorCredit",
+        "BillPayment",
+        "Invoice",
+        "CreditMemo",
+        "SalesReceipt",
+        "RefundReceipt",
+        "Payment",
+        "JournalEntry",
+        "Deposit",
+        "Transfer",
     ]
-    _format_report_table(report, lines)
+    # Friendlier labels; Purchase is refined by PaymentType below.
+    type_label = {
+        "Purchase": "Expense",
+        "VendorCredit": "Vendor Credit",
+        "BillPayment": "Bill Payment",
+        "CreditMemo": "Credit Memo",
+        "SalesReceipt": "Sales Receipt",
+        "RefundReceipt": "Refund Receipt",
+        "JournalEntry": "Journal Entry",
+    }
+
+    all_txns = []
+    for txn_type in txn_types:
+        query = (
+            f"SELECT * FROM {txn_type} "
+            f"WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
+        )
+        try:
+            rows = (
+                (await qb_query_all(query)).get("QueryResponse", {}).get(txn_type, [])
+            )
+        except Exception:
+            # A transaction type the realm doesn't use can 400 on query; skip it
+            # rather than fail the whole register.
+            continue
+
+        for txn in rows:
+            # Distinct, order-preserved classes across the transaction's lines.
+            classes = []
+            for line in txn.get("Line", []) or []:
+                c = _line_class_name(line)
+                if c and c not in classes:
+                    classes.append(c)
+
+            label = type_label.get(txn_type, txn_type)
+            if txn_type == "Purchase":
+                paytype = txn.get("PaymentType", "")
+                if txn.get("Credit"):
+                    label = "Credit Card Credit"
+                elif paytype == "Check":
+                    label = "Check"
+                elif paytype == "CreditCard":
+                    label = "CC Expense"
+
+            vendor = _txn_vendor_name(txn)
+            if not vendor and txn_type == "Transfer":
+                frm = txn.get("FromAccountRef", {}).get("name", "?")
+                to = txn.get("ToAccountRef", {}).get("name", "?")
+                vendor = f"{frm} → {to}"
+
+            all_txns.append(
+                {
+                    "date": txn.get("TxnDate", "?"),
+                    "type": label,
+                    "num": txn.get("DocNumber", "") or "",
+                    "name": vendor or "—",
+                    "class": ", ".join(classes) if classes else "",
+                    "amount": float(txn.get("TotalAmt", txn.get("Amount", 0)) or 0),
+                    "memo": (txn.get("PrivateNote", "") or txn.get("Memo", "") or "")[
+                        :80
+                    ],
+                }
+            )
+
+    all_txns.sort(key=lambda t: (t["date"], t["type"]))
+
+    lines = [f"## Transaction List: {start_date} to {end_date}\n"]
+    if not all_txns:
+        lines.append("No transactions found in this date range.")
+        return "\n".join(lines)
+
+    total = sum(t["amount"] for t in all_txns)
+    shown = all_txns[:max_results] if max_results else all_txns
+    cap = f" — showing the first {len(shown)}" if len(shown) < len(all_txns) else ""
+    lines.append(f"**{len(all_txns)} transactions | Total: {fmt(total)}**{cap}\n")
+    lines.append("| Date | Type | # | Name | Class | Amount | Memo |")
+    lines.append("|------|------|---|------|-------|--------|------|")
+    for t in shown:
+        memo = t["memo"][:40] + "…" if len(t["memo"]) > 40 else t["memo"]
+        cls = t["class"]
+        cls = (cls[:60] + "…") if len(cls) > 60 else (cls or "—")
+        lines.append(
+            f"| {t['date']} | {t['type']} | {t['num'] or '—'} | {t['name']} | "
+            f"{cls} | {fmt(t['amount'])} | {memo} |"
+        )
     return "\n".join(lines)
 
 
