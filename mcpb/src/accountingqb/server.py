@@ -1931,6 +1931,31 @@ async def qb_read(entity: str, entity_id: str) -> dict:
     return await qb_request("GET", f"{entity.lower()}/{entity_id}")
 
 
+def _line_class_name(line: dict) -> str:
+    """Class name tagged on a transaction line, from whichever line-detail type
+    carries the ClassRef (AccountBasedExpenseLineDetail, JournalEntryLineDetail,
+    SalesItemLineDetail, ItemBasedExpenseLineDetail, DepositLineDetail). Empty
+    string when the line has no class. QBO carries class per LINE, so this is the
+    only place it lives on most transactions."""
+    dt = line.get("DetailType")
+    detail = line.get(dt) if dt else None
+    if isinstance(detail, dict):
+        return (detail.get("ClassRef") or {}).get("name", "") or ""
+    return ""
+
+
+def _txn_vendor_name(txn: dict) -> str:
+    """Counterparty name on a transaction, across entity types. Bills/bill
+    payments/vendor credits use VendorRef; purchases/deposits use EntityRef;
+    invoices/sales receipts use CustomerRef. Reading only EntityRef (the old bug)
+    showed '(no vendor)' on every Bill."""
+    for ref in ("EntityRef", "VendorRef", "CustomerRef"):
+        name = (txn.get(ref) or {}).get("name", "")
+        if name:
+            return name
+    return ""
+
+
 def _account_ambiguity_msg(name: str, hits: list) -> str:
     listed = ", ".join(
         f"{a.get('Name')} (ID:{a.get('Id')}, {a.get('AccountType')})" for a in hits[:10]
@@ -2806,15 +2831,20 @@ async def qb_list_journal_entries(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_bills(
-    start_date: str, end_date: str, vendor_name: str = "", max_results: int = 100
+    start_date: str, end_date: str, vendor_name: str = "", max_results: int = 500
 ) -> str:
-    """List bills (accounts payable) within a date range. Dates in YYYY-MM-DD. Optionally filter by vendor_name. Shows what you owe to vendors."""
+    """List bills (accounts payable) within a date range. Dates in YYYY-MM-DD.
+    Optionally filter by vendor_name. Shows what you owe to vendors, with the
+    account AND class on each line. ALL bills in the range are fetched (paged, no
+    silent 200/1000 cap); max_results caps only how many are DISPLAYED (default
+    500) — the count/totals always reflect every matching bill."""
     query = f"SELECT * FROM Bill WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
     if vendor_name:
         query += f" AND VendorRef LIKE '%{vendor_name}%'"
-    query += f" MAXRESULTS {max_results}"
 
-    result = await qb_query(query)
+    # qb_query_all pages through EVERY matching bill (QBO caps at 1000/page), so
+    # a specific bill is never missing just because it fell past a flat cap.
+    result = await qb_query_all(query)
     bills = result.get("QueryResponse", {}).get("Bill", [])
 
     if not bills:
@@ -2824,15 +2854,17 @@ async def qb_list_bills(
     lines = [f"## Bills: {start_date} to {end_date}\n"]
     total = 0.0
     total_balance = 0.0
+    shown = bills[:max_results] if max_results else bills
     for b in bills:
+        total += float(b.get("TotalAmt", 0))
+        total_balance += float(b.get("Balance", 0))
+    for b in shown:
         amt = float(b.get("TotalAmt", 0))
         balance = float(b.get("Balance", 0))
         vendor = b.get("VendorRef", {}).get("name", "Unknown")
         date = b.get("TxnDate", "N/A")
         due = b.get("DueDate", "N/A")
         memo = b.get("PrivateNote", "")
-        total += amt
-        total_balance += balance
 
         status = "PAID" if balance == 0 else f"DUE: {fmt(balance)}"
         cur = _txn_currency_tag(b) if show_currency else ""
@@ -2849,11 +2881,20 @@ async def qb_list_bills(
                     .get("AccountRef", {})
                     .get("name", "")
                 )
-                lines.append(f"  - {cat}: {fmt(line.get('Amount'))}")
+                cls = _line_class_name(line)
+                cls_tag = f" [class: {cls}]" if cls else ""
+                lines.append(f"  - {cat}: {fmt(line.get('Amount'))}{cls_tag}")
         lines.append("")
 
+    cap_note = (
+        f" — showing the first {len(shown)}; filter by vendor_name or narrow the "
+        "dates to see the rest"
+        if len(shown) < len(bills)
+        else ""
+    )
     lines.append(
-        f"\n**Total Billed: {fmt(total)} | Outstanding: {fmt(total_balance)} ({len(bills)} bills)**"
+        f"\n**Total Billed: {fmt(total)} | Outstanding: {fmt(total_balance)} "
+        f"({len(bills)} bills{cap_note})**"
     )
     return "\n".join(lines)
 
@@ -3447,10 +3488,18 @@ async def qb_cash_flow(start_date: str = "", end_date: str = "") -> str:
 async def qb_general_ledger(
     start_date: str, end_date: str, account_name: str = ""
 ) -> str:
-    """Generate a General Ledger report showing all transactions by account. Dates in YYYY-MM-DD. Optionally filter by account_name."""
+    """Generate a General Ledger report showing all transactions by account,
+    including the CLASS on each line. Dates in YYYY-MM-DD. Optionally filter by
+    account_name."""
     params = {
         "start_date": start_date,
         "end_date": end_date,
+        # Request explicit columns so the class (klass_name) and running balance
+        # are included; rendered as a full table below so every column shows.
+        "columns": (
+            "tx_date,txn_type,doc_num,name,klass_name,memo,"
+            "split_acc,subt_nat_amount,rbal_nat_amount"
+        ),
     }
     if account_name:
         accounts = await qb_query(
@@ -3469,8 +3518,9 @@ async def qb_general_ledger(
     if account_name:
         lines.append(f"Filtered: {account_name}\n")
 
-    rows = report.get("Rows", {}).get("Row", [])
-    _parse_report_rows(rows, lines)
+    # Full multi-column table (keeps the class column); falls back to the
+    # summary parser if the report has no column metadata.
+    _format_report_table(report, lines)
     return "\n".join(lines)
 
 
@@ -3648,13 +3698,22 @@ async def qb_profit_loss_detail(
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_transaction_list(start_date: str = "", end_date: str = "") -> str:
     """A flexible transaction register — every transaction (date, type, num, name,
-    account, amount) in a date range, the workhorse for 'show me everything that
-    hit the books.' Dates YYYY-MM-DD (default: current year-to-date)."""
+    account, class, amount) in a date range, the workhorse for 'show me everything
+    that hit the books.' Dates YYYY-MM-DD (default: current year-to-date)."""
     start_date, end_date = _ytd_range(start_date, end_date)
     report = await qb_request(
         "GET",
         "reports/TransactionList",
-        params={"start_date": start_date, "end_date": end_date},
+        params={
+            "start_date": start_date,
+            "end_date": end_date,
+            # Explicit columns so the CLASS (klass_name) is included — class
+            # tracking is otherwise absent from the default register.
+            "columns": (
+                "tx_date,txn_type,doc_num,name,memo,account_name,"
+                "klass_name,subt_nat_amount"
+            ),
+        },
     )
     h = report.get("Header", {})
     lines = [
@@ -10846,8 +10905,9 @@ async def qb_account_transactions(
     account_name: str, start_date: str = "", end_date: str = "", max_results: int = 100
 ) -> str:
     """Get all transactions for a specific account within a date range.
-    Shows every debit and credit hitting the account with vendor names, memos,
-    transaction types, and IDs. Useful for account reconciliation and verifying balances.
+    Shows every debit and credit hitting the account with vendor names, class
+    (per line), memos, transaction types, and IDs. Useful for account
+    reconciliation and verifying balances/classes.
     account_name: exact or partial account name. Dates YYYY-MM-DD (default: current year-to-date).
     """
     start_date, end_date = _ytd_range(start_date, end_date)
@@ -10902,6 +10962,7 @@ async def qb_account_transactions(
             # Check if this transaction touches our account
             touches_account = False
             amount = float(txn.get("TotalAmt", 0))
+            line_class = ""  # class on the matched line (QBO tracks class per line)
 
             if txn_type == "Purchase":
                 if txn.get("AccountRef", {}).get("value") == acct_id:
@@ -10911,6 +10972,7 @@ async def qb_account_transactions(
                     if detail.get("AccountRef", {}).get("value") == acct_id:
                         touches_account = True
                         amount = float(line.get("Amount", amount))
+                        line_class = _line_class_name(line) or line_class
 
             elif txn_type == "Deposit":
                 if txn.get("DepositToAccountRef", {}).get("value") == acct_id:
@@ -10920,6 +10982,7 @@ async def qb_account_transactions(
                     if detail.get("AccountRef", {}).get("value") == acct_id:
                         touches_account = True
                         amount = float(line.get("Amount", amount))
+                        line_class = _line_class_name(line) or line_class
 
             elif txn_type == "JournalEntry":
                 for line in txn.get("Line", []):
@@ -10927,6 +10990,7 @@ async def qb_account_transactions(
                     if detail.get("AccountRef", {}).get("value") == acct_id:
                         touches_account = True
                         amount = float(line.get("Amount", amount))
+                        line_class = _line_class_name(line) or line_class
 
             elif txn_type == "Transfer":
                 if (
@@ -10941,11 +11005,12 @@ async def qb_account_transactions(
                     if detail.get("AccountRef", {}).get("value") == acct_id:
                         touches_account = True
                         amount = float(line.get("Amount", amount))
+                        line_class = _line_class_name(line) or line_class
                 if txn.get("APAccountRef", {}).get("value") == acct_id:
                     touches_account = True
 
             if touches_account:
-                vendor = txn.get("EntityRef", {}).get("name", "")
+                vendor = _txn_vendor_name(txn)
                 if not vendor and txn_type == "Transfer":
                     from_name = txn.get("FromAccountRef", {}).get("name", "?")
                     to_name = txn.get("ToAccountRef", {}).get("name", "?")
@@ -10958,6 +11023,7 @@ async def qb_account_transactions(
                         "date": txn.get("TxnDate", "?"),
                         "amount": amount,
                         "vendor": vendor or "(no vendor)",
+                        "class": line_class,
                         "memo": (
                             txn.get("PrivateNote", "") or txn.get("Memo", "") or ""
                         )[:80],
@@ -10992,13 +11058,14 @@ async def qb_account_transactions(
     lines.append(
         f"**Transactions Found:** {len(all_txns)} | **Total:** {fmt(total_amount)}{cap_note}\n"
     )
-    lines.append("| Date | Type | ID | Vendor | Amount | Memo |")
-    lines.append("|------|------|----|--------|--------|------|")
+    lines.append("| Date | Type | ID | Vendor | Class | Amount | Memo |")
+    lines.append("|------|------|----|--------|-------|--------|------|")
 
     for t in shown:
         memo_short = t["memo"][:40] + "..." if len(t["memo"]) > 40 else t["memo"]
         lines.append(
-            f"| {t['date']} | {t['type']} | {t['id']} | {t['vendor']} | {fmt(t['amount'])} | {memo_short} |"
+            f"| {t['date']} | {t['type']} | {t['id']} | {t['vendor']} | "
+            f"{t.get('class') or '—'} | {fmt(t['amount'])} | {memo_short} |"
         )
 
     # Summary by vendor
@@ -11186,7 +11253,8 @@ async def qb_create_sub_account(
 async def qb_transaction_detail(entity_type: str, entity_id: str) -> str:
     """Get complete details for a single transaction. entity_type: Purchase, Deposit,
     Transfer, JournalEntry, Bill, Invoice, Payment, SalesReceipt, BillPayment, etc.
-    entity_id: the transaction ID. Returns all fields including line items, memo, metadata.
+    entity_id: the transaction ID. Returns all fields including line items (with
+    account AND class per line), memo, metadata.
     """
     entity_type = _sanitize_input(entity_type, "entity_type")
     entity_id = _sanitize_input(entity_id, "entity_id")
@@ -11292,6 +11360,12 @@ async def qb_transaction_detail(entity_type: str, entity_id: str) -> str:
             elif detail_type == "ItemBasedExpenseLineDetail":
                 detail = line.get("ItemBasedExpenseLineDetail", {})
                 lines.append(f"  Item: {detail.get('ItemRef', {}).get('name', '?')}")
+
+            # Class tracking: surface the class on each line (QBO carries it per
+            # line, so this is the only place to read/verify it).
+            cls = _line_class_name(line)
+            if cls:
+                lines.append(f"  Class: {cls}")
 
     # Metadata
     meta = entity_data.get("MetaData", {})

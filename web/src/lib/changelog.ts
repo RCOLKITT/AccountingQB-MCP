@@ -14,6 +14,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.21.0",
+    date: "2026-10-25",
+    title: "Read class tracking everywhere + Bill vendor fix",
+    tag: "Feature",
+    summary:
+      "Class tracking is now readable, not just writable. Transaction detail, the bill list, account transactions, the general ledger, and the transaction register all surface the class on each line — so you can verify and audit classes without opening QuickBooks. Also fixed bills showing no vendor, and removed the silent 200-bill cap.",
+    highlights: [
+      "qb_transaction_detail, qb_list_bills, qb_account_transactions, qb_general_ledger, qb_transaction_list now show the class per line",
+      "qb_account_transactions now shows the vendor on bills (was blank — it read the wrong field) and adds a Class column",
+      "qb_list_bills pages through every bill in the range (no more silent stop at ~200) and shows the account + class per line",
+    ],
+  },
+  {
     version: "3.20.0",
     date: "2026-10-22",
     title: "Set a class on a transaction — by name",
