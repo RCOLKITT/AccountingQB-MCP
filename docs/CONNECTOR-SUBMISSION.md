@@ -14,11 +14,11 @@ blockers were verified 2026-07-11 (see checklist at the bottom).
 - **Website / docs:** https://accountingqb.com · https://accountingqb.com/canada · https://github.com/RCOLKITT/AccountingQB-MCP
 
 **Short description (≤ ~140 chars):**
-> Your QuickBooks, powered by Claude — 140 tools for reports, bookkeeping
+> Your QuickBooks, powered by Claude — 142 tools for reports, bookkeeping
 > cleanup, and US & Canadian tax prep.
 
 **Long description:**
-> AccountingQB connects Claude to QuickBooks Online with 140 tools spanning
+> AccountingQB connects Claude to QuickBooks Online with 142 tools spanning
 > financial reports (P&L, balance sheet, cash flow, agings, general ledger),
 > bookkeeping cleanup (uncategorized transactions, duplicate and anomaly
 > detection, books health audit), transaction creation (invoices, expenses,
@@ -75,7 +75,7 @@ blockers were verified 2026-07-11 (see checklist at the bottom).
 - [x] Demo license `LK-DEMO-REVIEW2026` active in prod.
 - [x] Demo mode covers ALL tools (data-layer fallback in qb_request) and
       works through the **hosted** connector (per-request ctx.license_key,
-      not just the local env var) — full-registry sweep: 94 tools return
+      not just the local env var) — full-registry sweep at the time (94-tool registry): all returned
       sample data, 5 region-gated tools correctly redirect, 0 credential
       errors.
 - [ ] Intuit app "Countries you accept connections from" includes Canada

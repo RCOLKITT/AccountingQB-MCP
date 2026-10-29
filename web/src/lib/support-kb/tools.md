@@ -1,4 +1,4 @@
-# AccountingQB Tools (130 Total)
+# AccountingQB Tools (142 Total)
 
 ## Company & Entities (14)
 | Tool | Description |
@@ -40,7 +40,7 @@
 | qb_transaction_detail | Full detail for any single transaction |
 | qb_account_transactions | All transactions hitting a specific account |
 
-## Create & Modify (22)
+## Create & Modify (27)
 | Tool | Description |
 |------|-------------|
 | qb_create_expense | Record a purchase/expense |
@@ -60,13 +60,18 @@
 | qb_delete_transaction | Delete a transaction permanently |
 | qb_delete_journal_entry | Permanently delete a JE |
 | qb_reclassify_transaction | Move transaction to different account |
+| qb_set_transaction_class | Tag a transaction with a class by name (all lines, or one line via line_number) |
+| qb_bulk_set_class | Bulk class reclassification — move every line from one class (or Not Specified) to another; previews first |
+| qb_record_depreciation | Record period depreciation correctly (accumulated-depreciation contra account) |
+| qb_send_invoice | Email an invoice to the customer via QuickBooks |
+| qb_send_payment_reminders | Send payment reminders for overdue invoices |
 | qb_bulk_update_vendor | Bulk-assign vendor to multiple transactions |
 | qb_bulk_update_vendors_multi | Bulk-assign multiple vendors in one call |
 | qb_batch_create_expenses | Bulk expense import |
 | qb_batch_create_bills | Bulk bill import |
 | qb_batch_create_journal_entries | Bulk JE import |
 
-## Reports & Analysis (29)
+## Reports & Analysis (32)
 | Tool | Description |
 |------|-------------|
 | qb_profit_loss | P&L by total, month, quarter, or year |
@@ -83,6 +88,9 @@
 | qb_customer_balance_detail | Open invoices per customer with line detail (AR drill-down) |
 | qb_vendor_balance_detail | Open bills per vendor with line detail (AP drill-down) |
 | qb_balance_sheet | Balance sheet as of any date |
+| qb_balance_sheet_by_class | Balance Sheet with a column per class — spot amounts stranded in the wrong class column |
+| qb_comparative_statements | P&L + balance sheet vs the prior period, side by side |
+| qb_owner_draws | Owner draws/distributions for a period |
 | qb_cash_flow | Statement of cash flows |
 | qb_cash_flow_forecast | Multi-period cash flow projections |
 | qb_general_ledger | All transactions by account |
@@ -99,7 +107,7 @@
 | qb_budget_vs_actual | Compare budget to actual spending |
 | qb_anomaly_detection | Statistical anomaly and fraud detection |
 
-## Tax Preparation (16)
+## Tax Preparation (24)
 | Tool | Description |
 |------|-------------|
 | qb_tax_summary | Expenses mapped to Schedule C lines |
@@ -111,19 +119,27 @@
 | qb_1099_contractor_report | 1099-NEC contractor reporting |
 | qb_home_office_calculator | Form 8829 home office deduction |
 | qb_vehicle_depreciation_calculator | Vehicle depreciation with business use % |
+| qb_1099_misc_report | 1099-MISC (rents/royalties/other income) contractor reporting |
+| qb_form_1120s_summary | S-corporation Form 1120-S workpaper (US) |
+| qb_form_1065_summary | Partnership Form 1065 workpaper (US) |
+| qb_startup_cost_analysis | §195 startup-cost deduction and amortization schedule |
+| qb_tax_payments_made | Estimated-tax payments recorded in the books |
+| qb_allocation_profile | Declare entity type + allocation percentages (home office, vehicle) for tax workpapers |
+| qb_tax_data_info | Tax-data provenance — version, sources, hash-chained ledger status |
 
 ### Canadian Tax
 | Tool | Description |
 |------|-------------|
 | qb_gst_hst_return | GST/HST return workpaper (Canada) |
 | qb_t2125_summary | CRA T2125 statement of business activities mapping (Canada) |
+| qb_t2_summary | T2 corporate workpaper — GIFI Schedule 125 + Schedule 1 reconciliation (Canada) |
 | qb_cca_schedule | CCA (capital cost allowance) depreciation schedule (Canada) |
 | qb_t4a_contractor_report | T4A/T5018 contractor report (Canada) |
 | qb_estimate_instalments | CRA instalments + CPP estimator (Canada) |
 | qb_list_tax_codes | List sales tax codes (GST/HST/PST) |
 | qb_list_tax_rates | List sales tax rates |
 
-## Smart Features (10)
+## Smart Features (13)
 | Tool | Description |
 |------|-------------|
 | qb_uncategorized_transactions | Find uncategorized transactions |
@@ -136,8 +152,11 @@
 | qb_books_hygiene | Structural audit — deleted-account postings, wrong-sign balances, misfiled card payments, dormant balances, statement attestation |
 | qb_month_end_close | Month-end close checklist with status checks |
 | qb_unknown_vendor_report | Find transactions with missing vendor names |
+| qb_categorization_rules | List/define saved categorization rules |
+| qb_apply_categorization_rules | Apply saved categorization rules to uncategorized transactions |
+| qb_payroll_checklist | Payroll setup / compliance checklist |
 
-## Reconciliation & Attachments (9)
+## Reconciliation & Attachments (10)
 | Tool | Description |
 |------|-------------|
 | qb_reconcile_invoices | Match invoices against transactions |
@@ -148,14 +167,16 @@
 | qb_change_audit_trail | What changed since a date — created/updated/deleted (QuickBooks CDC) |
 | qb_bank_reconciliation | Tie a bank/credit-card statement CSV to the books (matched/missing/uncleared) |
 | qb_stripe_reconcile | Reconcile Stripe activity — nets processing + platform fees (Sigma/Billing/Radar) through a clearing account and ties to the Stripe balance |
+| qb_reconciliation_status | Per-account reconciliation status (last reconciled, uncleared) |
 | qb_account_balance | Check any account balance |
 
-## Connection & Multi-Company (3)
+## Connection & Multi-Company (4)
 | Tool | Description |
 |------|-------------|
 | qb_list_companies | List connected QuickBooks companies |
 | qb_switch_company | Switch to a different company |
 | qb_refresh_connection | Refresh connection to AccountingQB |
+| qb_server_info | Server version, deployment mode, and tool count |
 
 ---
 

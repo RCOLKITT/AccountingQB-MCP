@@ -282,6 +282,9 @@ def test_tool_count_copy_matches_manifest():
             root / "README.md",
             root / "mcpb/manifest.json",
             root / "mcpb/src/accountingqb/__init__.py",
+            # the public reviewer package drifted to a stale count once (said
+            # 140 at 142) because it wasn't scanned — keep it in the gate
+            root / "docs/CONNECTOR-SUBMISSION.md",
         ]
     ):
         if not path.is_file():
