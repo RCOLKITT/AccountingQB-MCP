@@ -55,8 +55,13 @@
     "write": false
   },
   {
+    "name": "qb_balance_sheet_by_class",
+    "description": "Balance Sheet with a column per CLASS — the 'Balance Sheet by Class' view",
+    "write": false
+  },
+  {
     "name": "qb_bank_reconciliation",
-    "description": "Reconcile a bank / credit-card statement against the books. QuickBooks",
+    "description": "Reconcile a bank / credit-card statement against the books.",
     "write": false
   },
   {
@@ -88,6 +93,11 @@
     "name": "qb_budget_vs_actual",
     "description": "Budget vs actual spending",
     "write": false
+  },
+  {
+    "name": "qb_bulk_set_class",
+    "description": "Bulk class reclassification: move every line currently in from_class to",
+    "write": true
   },
   {
     "name": "qb_bulk_update_vendor",
@@ -131,7 +141,7 @@
   },
   {
     "name": "qb_comparative_statements",
-    "description": "Two-year comparative statement — the format CPAs read first. Renders",
+    "description": "Two-year comparative statement — the format CPAs read first.",
     "write": false
   },
   {
@@ -451,7 +461,7 @@
   },
   {
     "name": "qb_payroll_checklist",
-    "description": "Payroll boundary checklist. AccountingQB does NOT run payroll or compute",
+    "description": "Payroll boundary checklist.",
     "write": false
   },
   {
@@ -466,12 +476,7 @@
   },
   {
     "name": "qb_profit_loss_by_department",
-    "description": "Generate a P&L broken down by department/location. Dates in YYYY-MM-DD",
-    "write": false
-  },
-  {
-    "name": "qb_balance_sheet_by_class",
-    "description": "Balance Sheet with a column per class — spot amounts stranded in the wrong class column",
+    "description": "Generate a P&L broken down by department/location.",
     "write": false
   },
   {
@@ -536,7 +541,7 @@
   },
   {
     "name": "qb_sales_by_department",
-    "description": "Sales broken out by department/location for a date range. Dates YYYY-MM-DD",
+    "description": "Sales broken out by department/location for a date range.",
     "write": false
   },
   {
@@ -571,7 +576,7 @@
   },
   {
     "name": "qb_send_invoice",
-    "description": "Email an existing invoice to the customer through QuickBooks. This sends a",
+    "description": "Email an existing invoice to the customer through QuickBooks.",
     "write": true
   },
   {
@@ -587,11 +592,6 @@
   {
     "name": "qb_set_transaction_class",
     "description": "Tag an existing transaction with a QuickBooks class by NAME (class",
-    "write": true
-  },
-  {
-    "name": "qb_bulk_set_class",
-    "description": "Bulk class reclassification — move every line from one class to another; preview-first",
     "write": true
   },
   {

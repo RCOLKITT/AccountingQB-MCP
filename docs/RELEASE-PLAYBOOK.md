@@ -41,23 +41,45 @@ is restored.
 | pyproject == manifest == both plugin.json == `__version__` | `test_version_parity.py` | connector-artifact version drift |
 | Tag `vX.Y.Z` == pyproject | `release.yml` verify step | tagging the wrong commit |
 | Live `/version` == tag after deploy | `release.yml` smoke gate | partial deploys |
-| Support KB lists **every** manifest tool, no ghosts, header + section counts correct | `test_channel_parity.py` | the "130 Total / 21 tools missing" drift |
+| **Tool docs are build artifacts**: `tools-catalog.json` + `support-kb/tools.md` must equal regeneration **byte-for-byte** | `generate-tools-catalog.mjs --check` in web-checks | hand-edited or stale tool docs — descriptions included, not just counts |
+| Support KB lists **every** manifest tool, no ghosts, header + section counts correct | `test_channel_parity.py` | the "130 Total / 21 tools missing" drift (belt to the byte-check's suspenders) |
 | Newest changelog entry matches the shipping minor | `test_channel_parity.py` | feature releases with no public release notes |
 | Desktop's two version files agree | `test_channel_parity.py` | half-bumped desktop versions |
 | Tool-count copy everywhere (web, README, llms.txt, plugin, **CONNECTOR-SUBMISSION.md**) | `test_tax_data_policy.py` copy gate | stale "N tools" marketing copy |
 | Web tools catalog == manifest; every tool categorized once; write flags match | `web` vitest | /tools page drift |
+
+### The tool-docs pipeline (nothing is prose)
+
+```
+server.py docstrings ──generate-schemas.py──▶ mcpb/manifest.json (source of truth)
+                                                    │
+tools-categories.json (the ONE human input:         │ generate-tools-catalog.mjs
+a name→category mapping — data, not prose) ─────────┤
+                                                    ▼
+                              tools-catalog.json  +  support-kb/tools.md
+                              (GENERATED — CI fails on any hand edit)
+```
+
+To change a tool's description anywhere, change its **docstring** and regenerate —
+the manifest, /tools page, and support KB all update together and cannot disagree.
+The changelog is the one deliberately-prose surface (release notes are narrative);
+its gate enforces existence-per-release, not wording.
 | Latest `desktop-v*` bundles the just-shipped server, else **issue opened** | `release.yml` `channel-parity` job | the desktop lag itself |
 
 ## Adding a new tool — the full checklist
 
 Most of this is CI-enforced (the gates above will fail the PR if skipped):
 
-1. Tool in `mcpb/src/accountingqb/server.py` (+ tests; region-gate if jurisdictional).
+1. Tool in `mcpb/src/accountingqb/server.py` with a good first docstring sentence —
+   it becomes the tool's description on the /tools page and in the support KB
+   (+ tests; region-gate if jurisdictional).
 2. `python3 scripts/generate-schemas.py` (regenerates `mcpb/manifest.json`).
-3. Bump versions: `mcpb/pyproject.toml`, `__init__.py`, manifest, 2× plugin.json.
-4. Web wiring: `tools-catalog.json`, `tools-categories.ts`, `time-saved.ts`.
-5. `web/src/lib/support-kb/tools.md`: add the tool to its section, bump the
-   section count and the `(N Total)` header.
+3. Add the tool's name to **one** category in `web/src/lib/tools-categories.json`
+   (the single human input — a mapping, not prose). Optionally a minutes entry in
+   `time-saved.ts` (defaults to 5).
+4. `node scripts/generate-tools-catalog.mjs` (regenerates `tools-catalog.json` +
+   `support-kb/tools.md` — never edit those by hand; CI byte-checks them).
+5. Bump versions: `mcpb/pyproject.toml`, `__init__.py`, manifest, 2× plugin.json.
 6. Tool-count copy: bump "N tools" strings repo-wide (the copy gate lists offenders).
 7. Changelog entry in `web/src/lib/changelog.ts` (newest-first).
 8. Merge → tag `vX.Y.Z` → after release, cut the desktop release (above).
