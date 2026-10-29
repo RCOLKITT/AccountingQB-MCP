@@ -470,6 +470,11 @@
     "write": false
   },
   {
+    "name": "qb_balance_sheet_by_class",
+    "description": "Balance Sheet with a column per class — spot amounts stranded in the wrong class column",
+    "write": false
+  },
+  {
     "name": "qb_profit_loss_detail",
     "description": "Profit & Loss DETAIL — every transaction behind each P&L line, grouped by",
     "write": false

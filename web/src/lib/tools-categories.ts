@@ -128,6 +128,7 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
       "qb_profit_loss_by_class",
       "qb_profit_loss_by_department",
       "qb_balance_sheet",
+      "qb_balance_sheet_by_class",
       "qb_cash_flow",
       "qb_cash_flow_forecast",
       "qb_trial_balance",
