@@ -27,7 +27,7 @@ export function trialExpiredEmail(params: TrialExpiredEmailParams): {
 
     ${paragraph("Your reports, tax tools, and bookkeeping are paused until you pick a plan. Your QuickBooks stays connected and your data is untouched — we never store your books — so everything switches back on the moment you subscribe.")}
 
-    ${paragraph("Want your full AccountingQB back — reports, tax prep, the deduction finder, and all 141 tools? Pick a plan anytime:")}
+    ${paragraph("Want your full AccountingQB back — reports, tax prep, the deduction finder, and all 142 tools? Pick a plan anytime:")}
 
     ${primaryButton("Choose a plan", pricingUrl)}
 

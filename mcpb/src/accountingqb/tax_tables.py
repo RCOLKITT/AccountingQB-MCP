@@ -15,8 +15,8 @@ import json
 import pathlib
 import re
 
-TAX_DATA_VERSION = "2026.10"  # bumped by every approved rates PR
-TAX_DATA_VERIFIED = "2026-09-01"  # date of the last full verification sweep
+TAX_DATA_VERSION = "2026.11"  # bumped by every approved rates PR
+TAX_DATA_VERIFIED = "2026-10-29"  # newest per-table verification date (L3-enforced)
 
 
 class TaxDataError(ValueError):
@@ -29,7 +29,8 @@ class TaxDataError(ValueError):
 # =========================================================================
 
 # Social Security wage base (OASDI cap). SSA COLA announcements.
-_SS_WAGE_BASE = {2025: 176_100, 2026: 184_500}
+# 2027: SSA announcement 2026-10-14 (3.6% COLA).
+_SS_WAGE_BASE = {2025: 176_100, 2026: 184_500, 2027: 192_300}
 
 # Federal bracket thresholds per Rev. Proc. 2024-40 (2025) and
 # Rev. Proc. 2025-32 (2026, post-OBBBA). Review annually.
@@ -1206,9 +1207,13 @@ TABLES: dict = {
         jurisdiction="US-federal",
         kind="exact",
         description="Social Security wage base (SE tax OASDI cap)",
-        source="SSA COLA fact sheet; Rev. Proc. 2025-32 context",
+        source=(
+            "SSA COLA fact sheet; Rev. Proc. 2025-32 context; "
+            "2027: SSA 2027 COLA announcement (2026-10-14, 3.6% COLA, "
+            "wage base $192,300)"
+        ),
         source_url="https://www.ssa.gov/oact/cola/cbb.html",
-        verified="2026-07-12",
+        verified="2026-10-29",
         review="annual-december",
         sanity={"min": 100_000, "max": 500_000, "max_yoy_pct": 0.10},
     ),

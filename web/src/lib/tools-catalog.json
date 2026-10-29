@@ -590,6 +590,11 @@
     "write": true
   },
   {
+    "name": "qb_bulk_set_class",
+    "description": "Bulk class reclassification — move every line from one class to another; preview-first",
+    "write": true
+  },
+  {
     "name": "qb_startup_cost_analysis",
     "description": "Compute the §195 startup-cost deduction and amortization schedule.",
     "write": false

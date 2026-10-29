@@ -14,6 +14,59 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.25.0",
+    date: "2026-10-29",
+    title: "Bulk class reclassification + class-filtered General Ledger",
+    tag: "Feature",
+    summary:
+      "Class cleanup at scale: move every line from one class to another (or from Not Specified to a class) in one sweep — with a preview-first mode that shows exactly what would change before anything is written. The General Ledger can now be filtered to a single class, and the 2027 Social Security wage base is already encoded.",
+    highlights: [
+      "New qb_bulk_set_class — from_class → to_class across a date range (optionally one account); previews by default, applies with per-transaction success/failure reporting, capped per call so a partial run is never silent",
+      "qb_general_ledger accepts class_name — QuickBooks filters the ledger server-side to that class",
+      "Tax data: 2027 Social Security wage base ($192,300, SSA announcement Oct 14, 2026) encoded with full ledger provenance",
+      "142 tools total across US & Canada",
+    ],
+  },
+  {
+    version: "3.24.0",
+    date: "2026-10-29",
+    title: "Balance Sheet by Class, unclassed finder, and complete list counts",
+    tag: "Feature",
+    summary:
+      "Three upgrades for class-tracked books: a Balance Sheet by Class report (spot offsetting amounts stranded in different class columns), an 'unclassed only' view that lists exactly the transactions missing a class, and complete counts on the payment/invoice/transaction lists — which previously stopped quietly at 100 rows.",
+    highlights: [
+      "New qb_balance_sheet_by_class — a column per class; says so honestly when class tracking is off instead of rendering a misleading single-column sheet",
+      "qb_transaction_list: filter to one class (class_name) or to unclassed-only (unclassed_only=True) — the Not-Specified cleanup list",
+      "qb_list_payments, qb_list_invoices, qb_list_transactions now page through everything: counts and totals reflect every matching row, never a truncated page",
+    ],
+  },
+  {
+    version: "3.23.0",
+    date: "2026-10-29",
+    title: "Class on each journal-entry line",
+    tag: "Feature",
+    summary:
+      "Journal entries now take a class per line — so class-only reclassification entries (the same account debited in one class and credited in another, changing no balance) post directly instead of via CSV import. Setting a class on an existing transaction can also target a single line.",
+    highlights: [
+      "qb_create_journal_entry and qb_batch_create_journal_entries accept class_name (or class_id) on each line; omit it to leave that line Not Specified",
+      "Different lines can carry different classes — one entry can move an amount between class columns on the Balance Sheet by Class",
+      "qb_set_transaction_class gained line_number to tag exactly one line (default still tags all class-capable lines)",
+    ],
+  },
+  {
+    version: "3.22.0",
+    date: "2026-10-25",
+    title: "Transaction register rebuilt — class on every row",
+    tag: "Feature",
+    summary:
+      "QuickBooks' own TransactionList report silently drops the class column no matter how it's requested. Rather than ship a register that can't show class, qb_transaction_list now reads the transactions themselves — every row carries its class, counts are fully paginated, and multi-class transactions list each class.",
+    highlights: [
+      "qb_transaction_list queries all 12 posting transaction types directly and reads the class off each line (immune to the report API's limitation)",
+      "Counts and totals reflect every matching transaction; max_results caps only what's displayed",
+      "Vendor names, payment-type labels (Check / CC Expense / Credit Card Credit), and memos on every row",
+    ],
+  },
+  {
     version: "3.21.0",
     date: "2026-10-25",
     title: "Read class tracking everywhere + Bill vendor fix",
@@ -37,7 +90,7 @@ export const RELEASES: Release[] = [
       "New qb_set_transaction_class tool — give it the class NAME; it resolves the internal ID and applies the class to every class-capable line",
       "qb_list_classes now shows each class's ID and full name",
       "Ambiguous or unknown class names are refused with the candidates, never guessed",
-      "141 tools total across US & Canada",
+      "142 tools total across US & Canada",
     ],
   },
   {
@@ -51,7 +104,7 @@ export const RELEASES: Release[] = [
       "New qb_t2_summary tool — declare the entity with qb_allocation_profile (entity_type='corporation'); region-gated to Canada and never guessed",
       "Schedule 125 reports meals and book amortization in full; the 50% meals restriction (ITA s.67.1, line 121) and amortization add-back (line 104) are Schedule 1 adjustments, with CCA deducted on line 403 via qb_cca_schedule",
       "Records only — the GIFI mappings and Schedule 1 line numbers are cited in the hash-chained tax ledger; no tax-liability estimate",
-      "141 tools total across US & Canada",
+      "142 tools total across US & Canada",
     ],
   },
   {
@@ -208,7 +261,7 @@ export const RELEASES: Release[] = [
       "You can also designate any account as home-indirect in qb_allocation_profile (home_office_accounts) — for a home utility that isn't nested under a 'Home office' parent",
       "The reconciliation footer now shows the Form 8829 carryforward as its own line, so every P&L dollar stays visibly accounted for",
       "qb_server_info reports deployment mode from a static process signal, so it's correct even with an expired token",
-      "141 tools total across US & Canada",
+      "142 tools total across US & Canada",
     ],
   },
   {
@@ -224,7 +277,7 @@ export const RELEASES: Release[] = [
       "Home-office accounts route to Form 8829 (Line 30) with the gross-income limit and carryforward; vehicle supports standard mileage (miles × IRS rate, replacing actual expenses) or a business-use % of actuals",
       "Nothing is dropped: every dollar is reported as deductible, statutorily-limited, personal (allocation), home-office, or non-deductible — and until a percentage is set, mixed accounts are flagged, never silently over-claimed",
       "Allocation percentages are per-taxpayer inputs, stored separately from the sourced statutory tax data — as they should be",
-      "141 tools total across US & Canada",
+      "142 tools total across US & Canada",
     ],
   },
   {
@@ -239,7 +292,7 @@ export const RELEASES: Release[] = [
       "Statutory limits (law-set, same for everyone) live in the sourced, ledger-gated control plane alongside the tax rates; taxpayer allocation percentages deliberately do not",
       "Reconciliation now balances three buckets — deductible + statutorily-disallowed + non-deductible — so nothing is dropped and the personal/limited share is reported, not hidden",
       "Safety net: accounts deducted at 100% that likely include a personal share (utilities, phone/internet, vehicle, home office) are flagged as needing a business-use percentage — silent over-claiming is never the default",
-      "141 tools total across US & Canada",
+      "142 tools total across US & Canada",
     ],
   },
   {
@@ -256,7 +309,7 @@ export const RELEASES: Release[] = [
       "Charitable contributions are treated as non-deductible on the business return (a sole proprietor claims them on Schedule A / a T1 credit, IRC §170); political contributions too (§162(e))",
       "New books-hygiene check: flags accounts whose name and QuickBooks type disagree (e.g. a phone bill typed as Travel), which would otherwise flow to the wrong tax line",
       "qb_server_info reports version, tools, build, and deployment even when the QuickBooks token is expired",
-      "141 tools total across US & Canada",
+      "142 tools total across US & Canada",
     ],
   },
   {
@@ -270,7 +323,7 @@ export const RELEASES: Release[] = [
       "Logging hygiene: the connector no longer emits request URLs at info level, and web endpoints log identifiers instead of emails, license keys, or upstream response bodies",
       "Token encryption fails closed in production — OAuth tokens are never written to the database unencrypted; they remain AES-256-GCM at rest",
       "Added explicit multi-tenant isolation tests (a license can only ever reach its own connected companies) and a CI secret/realm-id scan to catch accidental leaks",
-      "141 tools total across US & Canada",
+      "142 tools total across US & Canada",
     ],
   },
   {
@@ -285,7 +338,7 @@ export const RELEASES: Release[] = [
       "One classification engine for both the US and Canada, anchored to IRS Schedule C lines and CRA GIFI codes, with every mapping carrying a citation and gated by a new drift test",
       "Entertainment is now correctly treated as non-deductible in the US (IRC §274) — shown separately and excluded from Line 28; equipment leases map to Line 20a; subcontractor costs map to Line 11 (US) / 8340 (CA)",
       "Books without those specific account types see identical numbers; the change is precision, not disruption",
-      "141 tools total across US & Canada",
+      "142 tools total across US & Canada",
     ],
   },
   {
@@ -302,7 +355,7 @@ export const RELEASES: Release[] = [
       "qb_missing_receipts now excludes card payments booked to a deleted/inactive credit-card account (previously those slipped through)",
       "New qb_server_info tool: reports the running version, tool count, build timestamp, and QuickBooks connection — so you can confirm which build is actually serving you after an update",
       "Profit & Loss by class/department now says the breakdown is unavailable when tracking is off, instead of returning an ungrouped P&L that looks like a single-segment result",
-      "141 tools total across US & Canada",
+      "142 tools total across US & Canada",
     ],
   },
   {
@@ -318,7 +371,7 @@ export const RELEASES: Release[] = [
       "Trial Balance rewritten: real Debit/Credit columns, correct signs, an as-of date (not a range), no blank accounts, and a debits-equal-credits check",
       "Stripe reconcile: platform fees now include their sales tax (reconciled on net), the Activity and Tie-out figures can no longer disagree, historical periods tie to the period-start balance, accounts are validated in dry-run, and a manually-posted entry for the period blocks a double-book",
       "qb_missing_receipts no longer flags credit-card payments, transfers, or interest; qb_find_duplicates now matches same-vendor + same-amount + same-day by default and suppresses recurring charges, with a count that reconciles to the health audit",
-      "141 tools total across US & Canada",
+      "142 tools total across US & Canada",
     ],
   },
   {
@@ -332,7 +385,7 @@ export const RELEASES: Release[] = [
       "Fixed qb_profit_loss_by_class: it asked QuickBooks for the wrong (singular) grouping value, so it always came back empty — now returns real class breakdowns",
       "qb_profit_loss_by_department: the same P&L broken out by department/location",
       "qb_vendor_expenses: total spend by vendor; qb_list_purchase_orders: open/closed POs with vendor, amount, and status",
-      "141 tools total across US & Canada",
+      "142 tools total across US & Canada",
     ],
   },
   {
@@ -398,7 +451,7 @@ export const RELEASES: Release[] = [
       "qb_stripe_reconcile: posts a monthly journal entry through a Stripe Clearing account and ties the clearing balance to your Stripe balance",
       "Splits processing fees from platform fees (Sigma/Billing/Radar/Connect/Terminal) — in testing those platform fees were 3× the processing fees",
       "Dry-run by default (proposes the entry first), refuses to post if it doesn't tie or has unmapped transactions, and won't double-post a month",
-      "141 tools total across US & Canada",
+      "142 tools total across US & Canada",
     ],
   },
   {
@@ -425,7 +478,7 @@ export const RELEASES: Release[] = [
       "qb_sales_by_class and qb_sales_by_department: segment, program, and location performance",
       "qb_inventory_valuation: on-hand quantity, asset value, and average cost per item",
       "qb_list_classes and qb_list_departments: see the class/location dimensions your company tracks",
-      "141 tools total across US & Canada",
+      "142 tools total across US & Canada",
     ],
   },
   {
@@ -440,7 +493,7 @@ export const RELEASES: Release[] = [
       "qb_transaction_list: the flexible register — every transaction in a date range with full columns",
       "qb_profit_loss_detail: drill from any P&L number down to the transactions behind it",
       "qb_customer_balance_detail and qb_vendor_balance_detail: the line-item drill-down behind AR/AP aging",
-      "141 tools total across US & Canada",
+      "142 tools total across US & Canada",
     ],
   },
   {
@@ -494,7 +547,7 @@ export const RELEASES: Release[] = [
       "Reconciliation tie-outs, prior-year comparative statements (P&L + balance sheet), tax payments made, and owner's draws — the questions a CPA asks first, pre-answered",
       "A structured Tax Organizer replaces free-text notes: mileage, home office, health premiums, assets bought/sold, estimated payments",
       "Export the whole binder to Excel in one message",
-      "141 tools total across US & Canada",
+      "142 tools total across US & Canada",
     ],
   },
   {
