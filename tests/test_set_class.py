@@ -66,7 +66,8 @@ def test_sets_class_on_all_deposit_lines(monkeypatch):
     _patch(monkeypatch, [_INTEREST], _deposit_two_lines(), captured)
     out = asyncio.run(s.qb_set_transaction_class("Deposit", "42", "Interest Income"))
     assert "Set class on Deposit #42" in out
-    assert "Interest Income" in out and "Lines tagged: 2" in out
+    assert "Interest Income" in out and "(2 lines)" in out
+    assert "Lines tagged: 1, 2" in out
     # Both lines carry the resolved ClassRef (name resolved to ID 5).
     posted = captured["body"]["Line"]
     assert all(
@@ -104,7 +105,7 @@ def test_exact_match_wins_over_substring(monkeypatch):
     ]
     _patch(monkeypatch, classes, _deposit_two_lines(), captured)
     out = asyncio.run(s.qb_set_transaction_class("Deposit", "42", "Travel"))
-    assert "Lines tagged: 2" in out
+    assert "(2 lines)" in out
     assert captured["body"]["Line"][0]["DepositLineDetail"]["ClassRef"]["value"] == "5"
 
 
