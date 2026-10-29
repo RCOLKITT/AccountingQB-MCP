@@ -7033,13 +7033,22 @@ async def qb_create_invoice(
 
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") -> str:
-    """Create a journal entry for reclassifications or adjustments. date: YYYY-MM-DD. lines_json is a JSON string: [{"account_name": "...", "amount": 100.00, "type": "Debit"}, {"account_name": "...", "amount": 100.00, "type": "Credit"}]. Debits and credits must balance."""
+    """Create a journal entry for reclassifications or adjustments. date: YYYY-MM-DD. lines_json is a JSON string: [{"account_name": "...", "amount": 100.00, "type": "Debit"}, {"account_name": "...", "amount": 100.00, "type": "Credit"}]. Debits and credits must balance. Each line may optionally carry a class: add "class_name" (resolved by name, e.g. "Ahous Adventures" or a sub-class "Programs:Outreach") or "class_id" — omit both to leave that line unclassed (Not Specified). Different lines may use different classes, so this handles class-only reclassification entries (same account debited and credited in two different classes)."""
     entries = json.loads(lines_json) if isinstance(lines_json, str) else lines_json
 
     je_lines = []
+    line_classes = []
     total_debit = 0.0
     total_credit = 0.0
-    _allowed_keys = {"account_name", "account_id", "amount", "type", "description"}
+    _allowed_keys = {
+        "account_name",
+        "account_id",
+        "amount",
+        "type",
+        "description",
+        "class_name",
+        "class_id",
+    }
 
     for i, entry in enumerate(entries, 1):
         unknown = set(entry) - _allowed_keys
@@ -7089,15 +7098,27 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
         else:
             total_credit += amount
 
+        line_detail = {
+            "PostingType": posting_type,
+            "AccountRef": {"value": acct["Id"], "name": acct["Name"]},
+        }
+        # Optional per-line class (QBO carries ClassRef on each
+        # JournalEntryLineDetail). Omitting both leaves the line unclassed.
+        class_ref, cerr = await _resolve_class(
+            entry.get("class_name", ""), entry.get("class_id", "")
+        )
+        if cerr:
+            return f"Journal line {i}: {cerr}"
+        if class_ref:
+            line_detail["ClassRef"] = class_ref
+        line_classes.append(class_ref["name"] if class_ref else "")
+
         je_lines.append(
             {
                 "DetailType": "JournalEntryLineDetail",
                 "Amount": amount,
                 "Description": entry.get("description", ""),
-                "JournalEntryLineDetail": {
-                    "PostingType": posting_type,
-                    "AccountRef": {"value": acct["Id"], "name": acct["Name"]},
-                },
+                "JournalEntryLineDetail": line_detail,
             }
         )
 
@@ -7113,12 +7134,20 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
 
     result = await qb_request("POST", "journalentry", json_body=je_body)
     je = result.get("JournalEntry", {})
+
+    classed = [c for c in line_classes if c]
+    class_line = f"\n- Classes: {', '.join(sorted(set(classed)))}" if classed else ""
+    _audit_log(
+        "CREATE_JE",
+        f"id={je.get('Id')} date={date} total={fmt(total_debit)} "
+        f"lines={len(je_lines)} classes={sorted(set(classed))}",
+    )
     return (
         f"Journal entry created!\n"
         f"- ID: {je.get('Id')}\n"
         f"- Date: {date}\n"
         f"- Total: {fmt(total_debit)}\n"
-        f"- Lines: {len(je_lines)}" + (f"\n- Memo: {memo}" if memo else "")
+        f"- Lines: {len(je_lines)}" + class_line + (f"\n- Memo: {memo}" if memo else "")
     )
 
 
@@ -10351,30 +10380,42 @@ async def qb_reclassify_transaction(
     )
 
 
-@mcp.tool(annotations={"destructiveHint": True})
-async def qb_set_transaction_class(
-    entity_type: str, entity_id: str, class_name: str
-) -> str:
-    """Tag an existing transaction with a QuickBooks class by NAME (class
-    tracking) — resolves the class name to its internal ID for you, so you never
-    need the ID. Sets the class on every class-capable line of the transaction.
-    entity_type: Deposit, JournalEntry, Invoice, Purchase, Bill, SalesReceipt,
-    etc. entity_id: the transaction ID. class_name: the class as shown by
-    qb_list_classes (use the full name for a sub-class, e.g. 'Programs:Outreach').
-    Requires class tracking to be ON in QuickBooks (Account and Settings →
-    Advanced → Categories)."""
-    entity_type = _sanitize_input(entity_type, "entity_type")
-    entity_id = _sanitize_input(entity_id, "entity_id")
-    class_name = _sanitize_input(class_name, "class_name")
+async def _resolve_class(class_name: str = "", class_id: str = ""):
+    """Resolve a QBO class to a ClassRef ``{"value", "name"}`` by ID or NAME.
 
-    # Resolve the class BY NAME → internal ID (Constitution: per-company IDs are
-    # resolved at call time, never required from the caller or hardcoded).
-    cls_res = await qb_query(
-        f"SELECT * FROM Class WHERE Name LIKE '%{class_name}%' MAXRESULTS 10"
+    Returns ``(class_ref, error)``. Both inputs empty → ``(None, None)`` meaning
+    'no class' — leave the line unclassed (Not Specified). Name resolution prefers
+    an exact Name/FullyQualifiedName match and errors on ambiguity, so a caller
+    never has to pass an internal ID (Constitution: per-company IDs are resolved
+    at call time, never hardcoded). Requires class tracking ON in QuickBooks."""
+    class_id = str(class_id or "").strip()
+    class_name = str(class_name or "").strip()
+
+    if class_id:
+        safe_id = _sanitize_input(class_id, "class_id").replace("'", "")
+        res = await qb_query(f"SELECT * FROM Class WHERE Id = '{safe_id}'")
+        hits = res.get("QueryResponse", {}).get("Class", [])
+        if not hits:
+            return None, (
+                f"class_id '{class_id}' not found. Run qb_list_classes to see the "
+                "available classes (and confirm class tracking is on)."
+            )
+        c = hits[0]
+        return {
+            "value": c["Id"],
+            "name": c.get("FullyQualifiedName") or c["Name"],
+        }, None
+
+    if not class_name:
+        return None, None
+
+    safe_name = _sanitize_input(class_name, "class_name")
+    res = await qb_query(
+        f"SELECT * FROM Class WHERE Name LIKE '%{safe_name}%' MAXRESULTS 10"
     )
-    classes = cls_res.get("QueryResponse", {}).get("Class", [])
-    # Prefer an exact match on Name or FullyQualifiedName when one exists, so
-    # 'Outreach' doesn't ambiguously match 'Outreach East' when it's exact.
+    classes = res.get("QueryResponse", {}).get("Class", [])
+    # Prefer an exact match on Name or FullyQualifiedName so 'Outreach' doesn't
+    # ambiguously match 'Outreach East' when it's exact.
     exact = [
         c
         for c in classes
@@ -10383,21 +10424,43 @@ async def qb_set_transaction_class(
     if exact:
         classes = exact
     if not classes:
-        return (
+        return None, (
             f"Class '{class_name}' not found. Run qb_list_classes to see the "
             "available classes (and confirm class tracking is on in QuickBooks)."
         )
     if len(classes) > 1:
         names = ", ".join(c.get("FullyQualifiedName") or c["Name"] for c in classes)
-        return (
+        return None, (
             f"Multiple classes match '{class_name}': {names}. "
             "Re-run with the exact (fully-qualified) class name."
         )
-    cls = classes[0]
-    class_ref = {
-        "value": cls["Id"],
-        "name": cls.get("FullyQualifiedName") or cls["Name"],
-    }
+    c = classes[0]
+    return {"value": c["Id"], "name": c.get("FullyQualifiedName") or c["Name"]}, None
+
+
+@mcp.tool(annotations={"destructiveHint": True})
+async def qb_set_transaction_class(
+    entity_type: str, entity_id: str, class_name: str, line_number: int = 0
+) -> str:
+    """Tag an existing transaction with a QuickBooks class by NAME (class
+    tracking) — resolves the class name to its internal ID for you, so you never
+    need the ID. By default sets the class on EVERY class-capable line; pass
+    line_number (1-based, in the order lines appear on the transaction) to tag a
+    SINGLE line instead — so you can give different lines different classes, or
+    class one line and leave another as Not Specified (e.g. class-only
+    reclassification journal entries). entity_type: Deposit, JournalEntry,
+    Invoice, Purchase, Bill, SalesReceipt, etc. entity_id: the transaction ID.
+    class_name: the class as shown by qb_list_classes (use the full name for a
+    sub-class, e.g. 'Programs:Outreach'). Requires class tracking to be ON in
+    QuickBooks (Account and Settings → Advanced → Categories)."""
+    entity_type = _sanitize_input(entity_type, "entity_type")
+    entity_id = _sanitize_input(entity_id, "entity_id")
+
+    # Resolve the class BY NAME → internal ID (Constitution: per-company IDs are
+    # resolved at call time, never required from the caller or hardcoded).
+    class_ref, err = await _resolve_class(class_name=class_name)
+    if err:
+        return err
 
     # Read the current transaction (its Id + SyncToken + lines are needed to
     # write it back without clobbering anything).
@@ -10414,14 +10477,33 @@ async def qb_set_transaction_class(
         "AccountBasedExpenseLineDetail",
         "ItemBasedExpenseLineDetail",
     )
-    touched = 0
-    for line in entity_data.get("Line", []):
+    all_lines = entity_data.get("Line", [])
+
+    # line_number targets ONE line (1-based); 0 = all class-capable lines.
+    if line_number:
+        if line_number < 1 or line_number > len(all_lines):
+            return (
+                f"{entity_type} #{entity_id} has {len(all_lines)} lines; "
+                f"line_number {line_number} is out of range (use 1–{len(all_lines)})."
+            )
+        targets = [(line_number, all_lines[line_number - 1])]
+    else:
+        targets = list(enumerate(all_lines, 1))
+
+    tagged = []
+    for ln, line in targets:
         dt = line.get("DetailType")
         if dt in class_line_details and isinstance(line.get(dt), dict):
             line[dt]["ClassRef"] = class_ref
-            touched += 1
+            tagged.append(ln)
 
-    if touched == 0:
+    if not tagged:
+        if line_number:
+            return (
+                f"{entity_type} #{entity_id} line {line_number} isn't class-capable "
+                "(its line type doesn't carry a class). Pass a different line_number, "
+                "or omit it to tag all class-capable lines."
+            )
         return (
             f"{entity_type} #{entity_id} has no class-capable lines to tag "
             "(its line types don't carry a class). Tell me the transaction type "
@@ -10431,15 +10513,16 @@ async def qb_set_transaction_class(
     result = await qb_request("POST", entity_type.lower(), json_body=entity_data)
     updated = result.get(entity_type, {})
 
+    scope = f"line {tagged[0]}" if line_number else f"{len(tagged)} lines"
     _audit_log(
         "SET_CLASS",
         f"type={entity_type} id={entity_id} class={class_ref['name']} "
-        f"(ID:{cls['Id']}) lines={touched}",
+        f"(ID:{class_ref['value']}) lines={tagged}",
     )
     return (
-        f"✅ Set class on {entity_type} #{entity_id}\n"
+        f"✅ Set class on {entity_type} #{entity_id} ({scope})\n"
         f"  Class: {class_ref['name']}\n"
-        f"  Lines tagged: {touched}\n"
+        f"  Lines tagged: {', '.join(str(n) for n in tagged)}\n"
         f"  SyncToken: {updated.get('SyncToken', '?')}"
     )
 
@@ -10453,7 +10536,10 @@ async def qb_set_transaction_class(
 async def qb_batch_create_journal_entries(entries_json: str) -> str:
     """Create multiple journal entries in one call. entries_json is a JSON array:
     [{"date": "YYYY-MM-DD", "memo": "...", "lines": [{"account_name": "...", "amount": 100.00, "type": "Debit"}, ...]}].
-    Each entry must have balanced debits and credits. Returns summary of created JEs."""
+    Each entry must have balanced debits and credits. Each line may optionally
+    carry "class_name" (resolved by name) or "class_id"; omit both to leave the
+    line unclassed (Not Specified) — so different lines can take different classes
+    (e.g. class-only reclassification entries). Returns summary of created JEs."""
     entries = (
         json.loads(entries_json) if isinstance(entries_json, str) else entries_json
     )
@@ -10511,15 +10597,26 @@ async def qb_batch_create_journal_entries(entries_json: str) -> str:
                 else:
                     total_credit += amount
 
+                line_detail = {
+                    "PostingType": posting_type,
+                    "AccountRef": {"value": acct["Id"], "name": acct["Name"]},
+                }
+                # Optional per-line class; omitting leaves the line unclassed.
+                class_ref, cerr = await _resolve_class(
+                    line.get("class_name", ""), line.get("class_id", "")
+                )
+                if cerr:
+                    errors.append(f"Entry {i+1}: {cerr}")
+                    break
+                if class_ref:
+                    line_detail["ClassRef"] = class_ref
+
                 je_lines.append(
                     {
                         "DetailType": "JournalEntryLineDetail",
                         "Amount": amount,
                         "Description": line.get("description", ""),
-                        "JournalEntryLineDetail": {
-                            "PostingType": posting_type,
-                            "AccountRef": {"value": acct["Id"], "name": acct["Name"]},
-                        },
+                        "JournalEntryLineDetail": line_detail,
                     }
                 )
 
