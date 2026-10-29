@@ -636,7 +636,14 @@ function DashboardContent() {
                 <span className="text-gray-400">
                   {selectedLicense.status === "trialing" &&
                   selectedLicense.trial_ends_at
-                    ? `Trial ends ${new Date(selectedLicense.trial_ends_at).toLocaleDateString()}`
+                    ? `Trial ends ${new Date(
+                        selectedLicense.trial_ends_at,
+                      ).toLocaleDateString("en-US", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                        timeZone: "UTC", // match the trial emails exactly
+                      })}`
                     : selectedLicense.status === "canceled"
                       ? "Subscription canceled — you won't be charged"
                       : "Manage your plan, payment method, or cancel"}

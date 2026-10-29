@@ -86,7 +86,13 @@ export function formatCurrency(cents: number): string {
 }
 
 /**
- * Format date for display in emails
+ * Format date for display in emails.
+ *
+ * timeZone pinned to UTC: every surface (email, dashboard, settings) must
+ * render the SAME calendar date for the same instant. A trial ending
+ * 2026-11-05T01:28Z once showed "November 5" in the email (server renders in
+ * UTC) but "November 4" on the settings page (browser renders in the user's
+ * local zone) — a user wrote in asking which date was real.
  */
 export function formatDate(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
@@ -95,6 +101,7 @@ export function formatDate(date: Date | string): string {
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: "UTC",
   });
 }
 
