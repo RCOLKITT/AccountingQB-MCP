@@ -615,10 +615,13 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function formatDate(date: string): string {
+  // timeZone pinned to UTC so this matches the trial emails exactly — the same
+  // instant must never render as different calendar dates on different surfaces.
   return new Date(date).toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 }
 

@@ -25,11 +25,13 @@ async function withReconciledStatus<
  * GET /api/user/licenses
  * Get licenses linked to the authenticated Clerk user.
  *
- * Resolution order:
+ * Resolution:
  * 1. Resolve (or create) the user_profiles row by clerk_id.
  * 2. Look up user_licenses by user_id = profile.id.
- * 3. Fall back to matching licenses by email — and persist any matches
- *    into user_licenses so they're durable for future requests.
+ * 3. ALWAYS also match licenses by email (licenses are issued email-keyed with
+ *    no user_licenses row) and persist the union — email matching is not a
+ *    fallback; treating it as one stranded a user's new trial behind their old
+ *    expired license.
  */
 export async function GET() {
   const { userId } = await auth();
@@ -86,50 +88,68 @@ export async function GET() {
     userLicenses = data || [];
   }
 
-  if (userLicenses.length === 0) {
-    if (!userEmail) {
-      return NextResponse.json({ licenses: [] });
-    }
-
-    // Try getting licenses by email directly from licenses table
-    // This handles existing users who purchased before the dashboard existed
-    // Use ilike for case-insensitive matching
-    const { data: licenses } = await supabase
+  // ALWAYS also match licenses by email — not only when user_licenses is empty.
+  // Licenses are issued keyed by email (trial start, download trial, Stripe
+  // checkout) without a user_licenses row, so a user with an OLD linked license
+  // who started a NEW trial never saw it: the dashboard showed only the expired
+  // license and the OAuth consent page said "No active license found" (real
+  // incident, 2026-10). Email matches are persisted so the union is durable.
+  let emailLicenses: {
+    key: string;
+    tier: string;
+    status: string;
+    trial_ends_at: string | null;
+    stripe_subscription_id: string | null;
+  }[] = [];
+  if (userEmail) {
+    const { data } = await supabase
       .from("licenses")
       .select("key, tier, status, trial_ends_at, stripe_subscription_id")
       .ilike("email", userEmail);
-
-    // Persist fallback matches into user_licenses so they're durable
-    if (userProfile && licenses && licenses.length > 0) {
-      await supabase.from("user_licenses").upsert(
-        licenses.map((l) => ({
-          user_id: String(userProfile.id),
-          license_key: l.key,
-          role: "owner",
-        })),
-        { onConflict: "user_id,license_key" },
-      );
-    }
-
-    const reconciled = await withReconciledStatus(licenses || []);
-    return NextResponse.json({
-      licenses: reconciled.map((l) => ({
-        key: l.key,
-        tier: l.tier,
-        status: l.status,
-        trial_ends_at: l.trial_ends_at,
-      })),
-    });
+    emailLicenses = data || [];
   }
 
-  // Get full license info
-  const licenseKeys = userLicenses.map((ul) => ul.license_key);
-  const { data: licenses } = await supabase
-    .from("licenses")
-    .select("key, tier, status, trial_ends_at, stripe_subscription_id")
-    .in("key", licenseKeys);
+  const linkedKeys = new Set(userLicenses.map((ul) => ul.license_key));
+  const discovered = emailLicenses.filter((l) => !linkedKeys.has(l.key));
+  if (userProfile && discovered.length > 0) {
+    await supabase.from("user_licenses").upsert(
+      discovered.map((l) => ({
+        user_id: String(userProfile.id),
+        license_key: l.key,
+        role: "owner",
+      })),
+      { onConflict: "user_id,license_key" },
+    );
+  }
 
-  const reconciled = await withReconciledStatus(licenses || []);
+  if (userLicenses.length === 0 && emailLicenses.length === 0) {
+    return NextResponse.json({ licenses: [] });
+  }
+
+  // Full info for linked licenses the email query didn't already cover
+  // (e.g. a license shared with this user under a different email).
+  const linkedOnlyKeys = [...linkedKeys].filter(
+    (k) => !emailLicenses.some((l) => l.key === k),
+  );
+  let linkedOnly: typeof emailLicenses = [];
+  if (linkedOnlyKeys.length > 0) {
+    const { data } = await supabase
+      .from("licenses")
+      .select("key, tier, status, trial_ends_at, stripe_subscription_id")
+      .in("key", linkedOnlyKeys);
+    linkedOnly = data || [];
+  }
+
+  const reconciled = await withReconciledStatus([
+    ...emailLicenses,
+    ...linkedOnly,
+  ]);
+  // Usable licenses first (active/trialing before expired/canceled) so UIs
+  // that preselect the first entry pick one the user can actually use.
+  const usable = (s: string) => s !== "expired" && s !== "canceled";
+  reconciled.sort(
+    (a, b) => Number(usable(b.status)) - Number(usable(a.status)),
+  );
   return NextResponse.json({
     licenses: reconciled.map((l) => {
       const link = userLicenses.find((ul) => ul.license_key === l.key);
@@ -138,7 +158,7 @@ export async function GET() {
         tier: l.tier,
         status: l.status,
         trial_ends_at: l.trial_ends_at,
-        role: link?.role,
+        role: link?.role ?? "owner",
       };
     }),
   });
