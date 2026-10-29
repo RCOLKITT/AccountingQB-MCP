@@ -189,3 +189,37 @@ jobs:
                 '{version: $v, notes: $notes, pub_date: $date, platforms: $p[0]}' > latest.json
           echo "----- latest.json -----"; cat latest.json
           gh release upload "$TAG" latest.json --repo "$RELEASES_REPO" --clobber
+
+  # Close the loop with release.yml's channel-parity job: if this desktop release
+  # bundles the server version the connector last shipped, close the open
+  # "Desktop app is behind the connector" tracking issue (if any).
+  close-parity-issue:
+    needs: [updater-manifest]
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-rc') }}
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Close the parity issue when this release restores parity
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BUNDLED="$(grep -m1 '^version' mcpb/pyproject.toml | sed 's/.*"\(.*\)".*/\1/')"
+          LATEST_V="$(git tag -l 'v*' --sort=-v:refname | grep -E '^v[0-9]' | head -1)"
+          SHIPPED="${LATEST_V#v}"
+          echo "this desktop build bundles $BUNDLED · newest connector release: $SHIPPED"
+          if [ "$BUNDLED" != "$SHIPPED" ]; then
+            echo "::warning::desktop still bundles $BUNDLED (connector is $SHIPPED) — leaving the parity issue open"
+            exit 0
+          fi
+          N="$(gh issue list --state open --search 'Desktop app is behind the connector in:title' --json number -q '.[0].number' || true)"
+          if [ -n "$N" ]; then
+            gh issue close "$N" --comment "Parity restored: $GITHUB_REF_NAME bundles server v$BUNDLED."
+            echo "closed parity issue #$N"
+          else
+            echo "no open parity issue — nothing to close"
+          fi

@@ -67,3 +67,51 @@ jobs:
           exit 1
         env:
           MCP_JWT_SECRET: ${{ secrets.MCP_JWT_SECRET }}
+
+  # The desktop app BUNDLES the server at build time (PyInstaller), so a
+  # connector release does NOT reach desktop users until a `desktop-v*` tag
+  # rebuilds it. CI can't push that tag (signed/notarized release = a human
+  # decision), so this job makes the lag impossible to miss: if the latest
+  # desktop release bundles an older server than the one just shipped, it
+  # opens (or updates) a tracking issue. See docs/RELEASE-PLAYBOOK.md.
+  channel-parity:
+    name: Channel parity (desktop bundles the shipped server?)
+    runs-on: ubuntu-latest
+    needs: [connector]
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0 # need tags to inspect the latest desktop release
+      - name: Compare the latest desktop tag's bundled server to this release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SHIPPED="$(grep -m1 '^version' mcpb/pyproject.toml | sed 's/.*"\(.*\)".*/\1/')"
+          DT="$(git tag -l 'desktop-v*' --sort=-v:refname | head -1)"
+          if [ -z "$DT" ]; then echo "no desktop tags yet — nothing to compare"; exit 0; fi
+          BUNDLED="$(git show "$DT:mcpb/pyproject.toml" | grep -m1 '^version' | sed 's/.*"\(.*\)".*/\1/')"
+          echo "connector just shipped: $SHIPPED · latest desktop ($DT) bundles: $BUNDLED"
+          if [ "$BUNDLED" = "$SHIPPED" ]; then
+            echo "✅ desktop is at parity"
+            exit 0
+          fi
+          TITLE="Desktop app is behind the connector (bundles $BUNDLED, shipped $SHIPPED)"
+          BODY="The connector just released **v$SHIPPED** (hosted + PyPI + plugin), but the latest desktop release \`$DT\` bundles server **$BUNDLED** — desktop users don't have the new capability yet.
+
+          To restore parity (see docs/RELEASE-PLAYBOOK.md):
+          1. Bump \`accountingqb-desktop-tauri/src-tauri/tauri.conf.json\` + \`package.json\` (patch bump) via PR.
+          2. \`git tag desktop-vX.Y.Z && git push origin desktop-vX.Y.Z\` → signed macOS/Windows builds + auto-updater manifest.
+
+          _Opened automatically by the channel-parity job in release.yml._"
+          EXISTING="$(gh issue list --state open --search 'Desktop app is behind the connector in:title' --json number -q '.[0].number' || true)"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "Still behind after **v$SHIPPED**: latest desktop \`$DT\` bundles **$BUNDLED**."
+            gh issue edit "$EXISTING" --title "$TITLE"
+            echo "::warning::desktop lags the connector — updated issue #$EXISTING"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+            echo "::warning::desktop lags the connector — opened a tracking issue"
+          fi
