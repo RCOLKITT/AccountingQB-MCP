@@ -8,7 +8,7 @@ import DownloadTrial from "@/components/DownloadTrial";
 export const metadata: Metadata = {
   title: "How to use AccountingQB — pick what fits you",
   description:
-    "Four ways to use AccountingQB with your QuickBooks: inside Claude via the hosted connector, the standalone desktop app, the Claude Desktop extension, or the Cowork plugin. Same 140 tools, same free trial — pick whichever fits how you work.",
+    "Four ways to use AccountingQB with your QuickBooks: inside Claude via the hosted connector, the standalone desktop app, the Claude Desktop extension, or the Cowork plugin. Same 141 tools, same free trial — pick whichever fits how you work.",
 };
 
 function Card({
@@ -66,7 +66,7 @@ export default function ConnectPage() {
         </h1>
         <p className="mt-4 text-lg text-gray-400">
           There are four ways to use AccountingQB with your QuickBooks — they
-          all run the same 140 tools and the same free 14-day trial (no credit
+          all run the same 141 tools and the same free 14-day trial (no credit
           card). Pick whichever fits how you like to work.
         </p>
         <p className="mt-2 text-sm text-gray-500">
