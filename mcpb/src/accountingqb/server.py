@@ -3500,11 +3500,14 @@ async def qb_cash_flow(start_date: str = "", end_date: str = "") -> str:
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_general_ledger(
-    start_date: str, end_date: str, account_name: str = ""
+    start_date: str, end_date: str, account_name: str = "", class_name: str = ""
 ) -> str:
     """Generate a General Ledger report showing all transactions by account,
     including the CLASS on each line. Dates in YYYY-MM-DD. Optionally filter by
-    account_name."""
+    account_name and/or class_name (one class, resolved by name — QuickBooks
+    filters the GL server-side by class ID). NOTE: QuickBooks' API cannot filter
+    a report to 'Not Specified' (unclassed) — for that use qb_transaction_list
+    with unclassed_only=True."""
     params = {
         "start_date": start_date,
         "end_date": end_date,
@@ -3523,6 +3526,13 @@ async def qb_general_ledger(
         if acct_list:
             params["account"] = acct_list[0]["Id"]
 
+    class_ref = None
+    if class_name:
+        class_ref, cerr = await _resolve_class(class_name=class_name)
+        if cerr:
+            return cerr
+        params["classid"] = class_ref["value"]
+
     report = await qb_request("GET", "reports/GeneralLedger", params=params)
 
     header = report.get("Header", {})
@@ -3531,6 +3541,8 @@ async def qb_general_ledger(
     ]
     if account_name:
         lines.append(f"Filtered: {account_name}\n")
+    if class_ref:
+        lines.append(f"Class: {class_ref['name']}\n")
 
     # Full multi-column table (keeps the class column); falls back to the
     # summary parser if the report has no column metadata.
@@ -10626,6 +10638,181 @@ async def qb_set_transaction_class(
         f"  Lines tagged: {', '.join(str(n) for n in tagged)}\n"
         f"  SyncToken: {updated.get('SyncToken', '?')}"
     )
+
+
+# The QBO entity types whose lines can carry a ClassRef, and are queryable by
+# date — the scope qb_bulk_set_class sweeps. (Payments/Transfers can't carry
+# class in QuickBooks.)
+_BULK_CLASS_TYPES = (
+    "Purchase",
+    "Bill",
+    "VendorCredit",
+    "Invoice",
+    "CreditMemo",
+    "SalesReceipt",
+    "RefundReceipt",
+    "JournalEntry",
+    "Deposit",
+)
+
+_CLASS_LINE_DETAILS = (
+    "DepositLineDetail",
+    "JournalEntryLineDetail",
+    "SalesItemLineDetail",
+    "AccountBasedExpenseLineDetail",
+    "ItemBasedExpenseLineDetail",
+)
+
+
+@mcp.tool(annotations={"destructiveHint": True})
+async def qb_bulk_set_class(
+    from_class: str,
+    to_class: str,
+    start_date: str = "",
+    end_date: str = "",
+    account_name: str = "",
+    confirm: bool = False,
+    max_transactions: int = 25,
+) -> str:
+    """Bulk class reclassification: move every line currently in from_class to
+    to_class across a date range — the repetitive step of class cleanup, done in
+    one sweep. from_class: a class name, or 'Not Specified' / 'unclassed' to
+    target lines with NO class (the usual cleanup). to_class: the destination
+    class (by name). Optional account_name limits the sweep to lines hitting
+    that account. Dates YYYY-MM-DD (default: current year-to-date).
+
+    SAFE BY DEFAULT: with confirm=False (the default) this only PREVIEWS — it
+    lists exactly which transactions/lines would change and writes nothing.
+    Re-run with confirm=True to apply. Applies to at most max_transactions
+    (default 25) per call and reports per-transaction success/failure plus how
+    many remain, so a partial run is never silent. Only lines whose class
+    matches from_class are touched; other lines keep their class."""
+    start_date, end_date = _ytd_range(start_date, end_date)
+    start_date = _validate_date(start_date, "start_date")
+    end_date = _validate_date(end_date, "end_date")
+
+    want_unclassed = from_class.strip().lower() in ("not specified", "unclassed", "")
+    from_ref = None
+    if not want_unclassed:
+        from_ref, err = await _resolve_class(class_name=from_class)
+        if err:
+            return f"from_class: {err}"
+    to_ref, err = await _resolve_class(class_name=to_class)
+    if err:
+        return f"to_class: {err}"
+    if from_ref and from_ref["value"] == to_ref["value"]:
+        return "from_class and to_class are the same class — nothing to do."
+
+    acct_id = ""
+    if account_name:
+        acct, err = await _resolve_account(account_name)
+        if err:
+            return err
+        acct_id = acct["Id"]
+
+    def _line_matches(line: dict) -> bool:
+        dt = line.get("DetailType")
+        if dt not in _CLASS_LINE_DETAILS or not isinstance(line.get(dt), dict):
+            return False
+        detail = line[dt]
+        if acct_id and (detail.get("AccountRef") or {}).get("value") != acct_id:
+            return False
+        current = (detail.get("ClassRef") or {}).get("value", "")
+        return (not current) if want_unclassed else (current == from_ref["value"])
+
+    # Sweep: find every transaction with at least one matching line.
+    matches = []  # (entity_type, txn, [line indices 1-based])
+    for etype in _BULK_CLASS_TYPES:
+        query = (
+            f"SELECT * FROM {etype} "
+            f"WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
+        )
+        try:
+            rows = (await qb_query_all(query)).get("QueryResponse", {}).get(etype, [])
+        except Exception:
+            continue
+        for txn in rows:
+            hit = [
+                i
+                for i, line in enumerate(txn.get("Line", []) or [], 1)
+                if _line_matches(line)
+            ]
+            if hit:
+                matches.append((etype, txn, hit))
+
+    from_label = "Not Specified (no class)" if want_unclassed else from_ref["name"]
+    scope_note = f" · account: {account_name}" if account_name else ""
+    header = (
+        f"## Bulk class move: {from_label} → {to_ref['name']}\n"
+        f"**Period:** {start_date} to {end_date}{scope_note}\n"
+    )
+
+    if not matches:
+        return header + "\nNo matching lines found — nothing to change."
+
+    if not confirm:
+        lines = [
+            header,
+            f"**PREVIEW — nothing changed.** {len(matches)} transaction(s) would be updated:\n",
+        ]
+        lines.append("| Date | Type | ID | # | Name | Lines to retag | Amount |")
+        lines.append("|------|------|----|---|------|----------------|--------|")
+        for etype, txn, hit in matches[:100]:
+            lines.append(
+                f"| {txn.get('TxnDate','?')} | {etype} | {txn.get('Id','?')} | "
+                f"{txn.get('DocNumber','') or '—'} | {_txn_vendor_name(txn) or '—'} | "
+                f"{', '.join(map(str, hit))} | {fmt(float(txn.get('TotalAmt', 0) or 0))} |"
+            )
+        if len(matches) > 100:
+            lines.append(f"\n…and {len(matches) - 100} more.")
+        lines.append(
+            f"\nRe-run with confirm=True to apply (up to {max_transactions} "
+            "transactions per call)."
+        )
+        return "\n".join(lines)
+
+    # Apply — capped per call, per-item results, never a silent partial state.
+    max_transactions = max(1, min(int(max_transactions or 25), 100))
+    to_apply = matches[:max_transactions]
+    remaining = len(matches) - len(to_apply)
+    results, errors = [], []
+    for etype, txn, hit in to_apply:
+        try:
+            for i in hit:
+                line = txn["Line"][i - 1]
+                line[line["DetailType"]]["ClassRef"] = {
+                    "value": to_ref["value"],
+                    "name": to_ref["name"],
+                }
+            await qb_request("POST", etype.lower(), json_body=txn)
+            results.append(
+                f"  ✅ {etype} #{txn.get('Id')} ({txn.get('TxnDate')}) — "
+                f"lines {', '.join(map(str, hit))}"
+            )
+        except Exception as e:
+            errors.append(f"  ❌ {etype} #{txn.get('Id')}: {e}")
+
+    _audit_log(
+        "BULK_SET_CLASS",
+        f"from={from_label} to={to_ref['name']} (ID:{to_ref['value']}) "
+        f"period={start_date}..{end_date} applied={len(results)} "
+        f"failed={len(errors)} remaining={remaining}",
+    )
+
+    out = [
+        header,
+        f"**Applied: {len(results)} | Failed: {len(errors)} | Remaining: {remaining}**\n",
+    ]
+    out.extend(results)
+    if errors:
+        out.append("\n**Failures (books unchanged for these):**")
+        out.extend(errors)
+    if remaining:
+        out.append(
+            f"\n{remaining} matching transaction(s) not yet updated (per-call cap "
+            f"{max_transactions}) — run the same call again to continue."
+        )
+    return "\n".join(out)
 
 
 # ===================================================================

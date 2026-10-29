@@ -38,6 +38,7 @@ export const TIME_SAVED_MINUTES: Record<string, number> = {
   qb_profit_loss_by_customer: 20, // 20 min - P&L by customer
   qb_balance_sheet: 15, // 15 min - balance sheet
   qb_balance_sheet_by_class: 25, // 25 min - balance sheet by class (cleanup)
+  qb_bulk_set_class: 45, // 45 min - bulk class reclassification sweep
   qb_cash_flow: 20, // 20 min - cash flow statement
   qb_general_ledger: 25, // 25 min - general ledger
   qb_trial_balance: 15, // 15 min - trial balance
