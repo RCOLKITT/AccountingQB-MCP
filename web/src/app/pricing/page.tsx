@@ -59,7 +59,7 @@ export default async function PricingPage() {
           </span>
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-[16px] leading-relaxed text-gray-400">
-          Every plan includes all 140 tools and US &amp; Canadian tax prep, and
+          Every plan includes all 141 tools and US &amp; Canadian tax prep, and
           works with Claude, the downloadable desktop app, or our hosted
           connector (
           <a href="/connect" className="text-cyan-400 hover:underline">

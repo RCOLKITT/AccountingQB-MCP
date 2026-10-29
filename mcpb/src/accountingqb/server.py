@@ -2619,23 +2619,41 @@ async def qb_list_transactions(
     """List QuickBooks transactions (purchases, expenses) within a date range. Dates in YYYY-MM-DD format. Optionally filter by vendor_name, min_amount, max_amount."""
     # Demo mode: return mock transactions
     if _demo_active():
-        purchases = DEMO_TRANSACTIONS[:max_results]
+        purchases = DEMO_TRANSACTIONS
     else:
+        # Full pagination — the amount/vendor filters below run in Python, so a
+        # bare MAXRESULTS cap would truncate BEFORE filtering and both drop
+        # matches and misreport the total. qb_query_all walks every page.
         query = (
             f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' "
-            f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
+            f"AND TxnDate <= '{end_date}'"
         )
-        result = await qb_query(query)
+        result = await qb_query_all(query)
         purchases = result.get("QueryResponse", {}).get("Purchase", [])
 
     if not purchases:
         return f"No transactions found between {start_date} and {end_date}."
 
+    # Apply filters to the FULL set first (so the count/total are complete).
+    matched = []
+    for p in purchases:
+        amt = float(p.get("TotalAmt", 0))
+        vendor = p.get("EntityRef", {}).get("name", "Unknown")
+        if min_amount and amt < min_amount:
+            continue
+        if max_amount and amt > max_amount:
+            continue
+        if vendor_name and vendor_name.lower() not in vendor.lower():
+            continue
+        matched.append(p)
+
+    total = sum(float(p.get("TotalAmt", 0)) for p in matched)
+    shown = matched[:max_results] if max_results else matched
+    cap = f" — showing the first {len(shown)}" if len(shown) < len(matched) else ""
+
     show_currency = await _multicurrency_enabled()
     lines = [f"## Transactions: {start_date} to {end_date}\n"]
-    total = 0.0
-    count = 0
-    for p in purchases:
+    for p in shown:
         amt = float(p.get("TotalAmt", 0))
         vendor = p.get("EntityRef", {}).get("name", "Unknown")
         date = p.get("TxnDate", "N/A")
@@ -2643,15 +2661,6 @@ async def qb_list_transactions(
         pay_type = p.get("PaymentType", "")
         acct = p.get("AccountRef", {}).get("name", "")
 
-        if min_amount and amt < min_amount:
-            continue
-        if max_amount and amt > max_amount:
-            continue
-        if vendor_name and vendor_name.lower() not in vendor.lower():
-            continue
-
-        total += amt
-        count += 1
         detail_lines = []
         for line in p.get("Line", []):
             if line.get("DetailType") == "AccountBasedExpenseLineDetail":
@@ -2671,7 +2680,7 @@ async def qb_list_transactions(
         lines.extend(detail_lines)
         lines.append("")
 
-    lines.append(f"\n**Total: {fmt(total)} ({count} transactions)**")
+    lines.append(f"\n**Total: {fmt(total)} ({len(matched)} transactions){cap}**")
     return "\n".join(lines)
 
 
@@ -3006,29 +3015,32 @@ async def qb_list_payments(
     start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM Payment WHERE TxnDate >= '{start_date}' "
-        f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
+        f"AND TxnDate <= '{end_date}'"
     )
-    result = await qb_query(query)
+    # Full pagination: a bare MAXRESULTS cap silently undercounts a busy period
+    # AND makes the printed total wrong. qb_query_all walks every page; the count
+    # and total reflect ALL payments, max_results caps only the displayed rows.
+    result = await qb_query_all(query)
     payments = result.get("QueryResponse", {}).get("Payment", [])
 
     if not payments:
         return f"No customer payments found between {start_date} and {end_date}."
 
+    total = sum(float(p.get("TotalAmt", 0)) for p in payments)
+    shown = payments[:max_results] if max_results else payments
+    cap = f" — showing the first {len(shown)}" if len(shown) < len(payments) else ""
     lines = [f"## Customer Payments: {start_date} to {end_date}\n"]
-    total = 0.0
-    for p in payments:
+    for p in shown:
         amt = float(p.get("TotalAmt", 0))
         customer = p.get("CustomerRef", {}).get("name", "Unknown")
         date = p.get("TxnDate", "N/A")
         deposit_acct = p.get("DepositToAccountRef", {}).get("name", "Undeposited")
-        total += amt
-
         lines.append(
             f"**{date}** | {customer} | {fmt(amt)} → {deposit_acct} | ID: {p.get('Id', '')}"
         )
         lines.append("")
 
-    lines.append(f"\n**Total Received: {fmt(total)} ({len(payments)} payments)**")
+    lines.append(f"\n**Total Received: {fmt(total)} ({len(payments)} payments){cap}**")
     return "\n".join(lines)
 
 
@@ -3048,32 +3060,25 @@ async def qb_list_invoices(
     """List invoices within a date range. Dates in YYYY-MM-DD. Filter by customer_name and/or status (Paid, Unpaid, Overdue). Shows accounts receivable."""
     # Demo mode: return mock invoices
     if _demo_active():
-        invoices = DEMO_INVOICES[:max_results]
+        invoices = DEMO_INVOICES
     else:
+        # Full pagination — customer/status filters run in Python below, so a
+        # MAXRESULTS cap would truncate before filtering and misreport totals.
         query = f"SELECT * FROM Invoice WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
-        query += f" MAXRESULTS {max_results}"
-        result = await qb_query(query)
+        result = await qb_query_all(query)
         invoices = result.get("QueryResponse", {}).get("Invoice", [])
 
     if not invoices:
         return f"No invoices found between {start_date} and {end_date}."
 
-    show_currency = await _multicurrency_enabled()
-    lines = [f"## Invoices: {start_date} to {end_date}\n"]
-    total = 0.0
-    total_balance = 0.0
-    count = 0
+    # Filter the FULL set first so the counts/totals are complete.
+    matched = []
     for inv in invoices:
         customer = inv.get("CustomerRef", {}).get("name", "Unknown")
         if customer_name and customer_name.lower() not in customer.lower():
             continue
-
-        amt = float(inv.get("TotalAmt", 0))
         balance = float(inv.get("Balance", 0))
-        date = inv.get("TxnDate", "N/A")
         due = inv.get("DueDate", "N/A")
-        doc = inv.get("DocNumber", "")
-
         inv_status = "PAID" if balance == 0 else "UNPAID"
         if balance > 0 and due != "N/A":
             try:
@@ -3081,27 +3086,36 @@ async def qb_list_invoices(
                     inv_status = "OVERDUE"
             except ValueError:
                 pass
-
-        # "unpaid" means any open balance — overdue invoices are still unpaid
         want = status.lower()
         if want == "unpaid":
             if balance <= 0:
                 continue
         elif want and want != inv_status.lower():
             continue
+        inv["_status"] = inv_status  # cache for display
+        matched.append(inv)
 
-        total += amt
-        total_balance += balance
-        count += 1
+    total = sum(float(inv.get("TotalAmt", 0)) for inv in matched)
+    total_balance = sum(float(inv.get("Balance", 0)) for inv in matched)
+    shown = matched[:max_results] if max_results else matched
+    cap = f" — showing the first {len(shown)}" if len(shown) < len(matched) else ""
 
+    show_currency = await _multicurrency_enabled()
+    lines = [f"## Invoices: {start_date} to {end_date}\n"]
+    for inv in shown:
+        customer = inv.get("CustomerRef", {}).get("name", "Unknown")
+        amt = float(inv.get("TotalAmt", 0))
+        date = inv.get("TxnDate", "N/A")
+        due = inv.get("DueDate", "N/A")
+        doc = inv.get("DocNumber", "")
         cur = _txn_currency_tag(inv) if show_currency else ""
         lines.append(
-            f"**{date}** | #{doc} | {customer} | {fmt(amt)}{cur} | {inv_status} | Due: {due} | ID: {inv.get('Id', '')}"
+            f"**{date}** | #{doc} | {customer} | {fmt(amt)}{cur} | {inv['_status']} | Due: {due} | ID: {inv.get('Id', '')}"
         )
         lines.append("")
 
     lines.append(
-        f"\n**Total Invoiced: {fmt(total)} | Outstanding: {fmt(total_balance)} ({count} invoices)**"
+        f"\n**Total Invoiced: {fmt(total)} | Outstanding: {fmt(total_balance)} ({len(matched)} invoices){cap}**"
     )
     return "\n".join(lines)
 
@@ -3697,7 +3711,11 @@ async def qb_profit_loss_detail(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_transaction_list(
-    start_date: str = "", end_date: str = "", max_results: int = 500
+    start_date: str = "",
+    end_date: str = "",
+    max_results: int = 500,
+    class_name: str = "",
+    unclassed_only: bool = False,
 ) -> str:
     """A flexible transaction register — every posting transaction (date, type,
     doc #, name, CLASS, amount) in a date range, the workhorse for 'show me
@@ -3708,13 +3726,30 @@ async def qb_transaction_list(
     class shows '—'. Covers Purchase/Expense, Bill, VendorCredit, BillPayment,
     Invoice, CreditMemo, SalesReceipt, RefundReceipt, Payment, JournalEntry,
     Deposit, Transfer. Dates YYYY-MM-DD (default: current year-to-date).
-    max_results caps DISPLAYED rows (default 500); the count/total always reflect
-    every matching transaction. For class per individual line use
-    qb_transaction_detail; for a class-coded register by account use
-    qb_general_ledger."""
+    class_name: show only transactions carrying that class (substring match).
+    unclassed_only=True: show only class-CAPABLE transactions with NO class on
+    any line — the 'Not Specified' cleanup list (excludes payments/transfers,
+    which can't carry a class in QuickBooks). max_results caps DISPLAYED rows
+    (default 500); the count/total always reflect every matching transaction.
+    For class per individual line use qb_transaction_detail; for a class-coded
+    register by account use qb_general_ledger."""
     start_date, end_date = _ytd_range(start_date, end_date)
     start_date = _validate_date(start_date, "start_date")
     end_date = _validate_date(end_date, "end_date")
+
+    # Types whose lines can carry a ClassRef — used by unclassed_only so that
+    # payments/transfers (which never carry class) aren't flagged as 'missing'.
+    class_capable_types = {
+        "Purchase",
+        "Bill",
+        "VendorCredit",
+        "Invoice",
+        "CreditMemo",
+        "SalesReceipt",
+        "RefundReceipt",
+        "JournalEntry",
+        "Deposit",
+    }
 
     # One row per transaction, class read off its lines (QBO tracks class per
     # LINE). Each type is fetched IN FULL (qb_query_all paginates) so the count
@@ -3790,6 +3825,7 @@ async def qb_transaction_list(
                     "num": txn.get("DocNumber", "") or "",
                     "name": vendor or "—",
                     "class": ", ".join(classes) if classes else "",
+                    "capable": txn_type in class_capable_types,
                     "amount": float(txn.get("TotalAmt", txn.get("Amount", 0)) or 0),
                     "memo": (txn.get("PrivateNote", "") or txn.get("Memo", "") or "")[
                         :80
@@ -3797,11 +3833,31 @@ async def qb_transaction_list(
                 }
             )
 
+    # Optional class filters (applied before counts so totals stay accurate).
+    filter_note = ""
+    if unclassed_only:
+        all_txns = [t for t in all_txns if t["capable"] and not t["class"]]
+        filter_note = " · unclassed (Not Specified) only"
+    elif class_name:
+        needle = class_name.lower()
+        all_txns = [t for t in all_txns if needle in t["class"].lower()]
+        filter_note = f" · class ~ '{class_name}'"
+
     all_txns.sort(key=lambda t: (t["date"], t["type"]))
 
-    lines = [f"## Transaction List: {start_date} to {end_date}\n"]
+    lines = [f"## Transaction List: {start_date} to {end_date}{filter_note}\n"]
     if not all_txns:
-        lines.append("No transactions found in this date range.")
+        empty = (
+            "No unclassed (Not Specified) transactions found — everything that can "
+            "carry a class has one. 🎉"
+            if unclassed_only
+            else (
+                "No transactions found in this date range."
+                if not class_name
+                else f"No transactions carrying a class matching '{class_name}' found."
+            )
+        )
+        lines.append(empty)
         return "\n".join(lines)
 
     total = sum(t["amount"] for t in all_txns)
@@ -9642,6 +9698,51 @@ async def qb_profit_loss_by_department(start_date: str = "", end_date: str = "")
         "department",
         "location tracking to be enabled",
     )
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+async def qb_balance_sheet_by_class(as_of_date: str = "", basis: str = "") -> str:
+    """Balance Sheet with a column per CLASS — the 'Balance Sheet by Class' view
+    for spotting offsetting amounts stranded in different class columns (e.g. an
+    asset sitting in 'Not Specified' against a matching entry in a program class),
+    the thing class-only reclassification entries clean up. as_of_date: YYYY-MM-DD
+    (defaults to today). basis: '' (QuickBooks default), 'cash', or 'accrual'.
+    Requires class tracking ON in QuickBooks. NOTE: QuickBooks' own Balance Sheet
+    by Class can be out of balance within a column when transactions aren't fully
+    classed — this reports exactly what QuickBooks returns and never rebalances
+    it (Constitution: never fabricate numbers)."""
+    as_of_date = _as_of_or_today(as_of_date)
+    params = {
+        "start_date": as_of_date,
+        "end_date": as_of_date,
+        # PLURAL 'Classes' — the singular is silently ignored by QBO (same quirk
+        # as the by-class P&L).
+        "summarize_column_by": "Classes",
+    }
+    method = _accounting_method(basis)
+    if method:
+        params["accounting_method"] = method
+    report = await qb_request("GET", "reports/BalanceSheet", params=params)
+
+    col_names = [
+        c.get("ColTitle", "") for c in report.get("Columns", {}).get("Column", [])
+    ]
+    dim_cols = [c.strip() for c in col_names[1:-1]] if len(col_names) >= 2 else []
+    meaningful = [
+        c for c in dim_cols if c and c.lower() not in ("not specified", "total")
+    ]
+    if not meaningful:
+        return (
+            "No class breakdown available — Balance Sheet by Class requires class "
+            "tracking ON in QuickBooks and balances carrying a class. (QuickBooks "
+            "returned an ungrouped Balance Sheet, which is NOT a single-class "
+            "result.) Use qb_balance_sheet for the standard statement."
+        )
+
+    basis_note = f" · {method} basis" if method else ""
+    lines = [f"## Balance Sheet by Class — as of {as_of_date}{basis_note}\n"]
+    _parse_report_rows(report.get("Rows", {}).get("Row", []), lines)
+    return "\n".join(lines)
 
 
 @mcp.tool(annotations={"readOnlyHint": True})
