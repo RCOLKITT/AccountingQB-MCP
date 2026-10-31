@@ -165,6 +165,11 @@
     "write": true
   },
   {
+    "name": "qb_create_class",
+    "description": "Create a QuickBooks class (a class-tracking segment, e.g.",
+    "write": true
+  },
+  {
     "name": "qb_create_credit_memo",
     "description": "Create customer credit memo",
     "write": true
@@ -243,6 +248,11 @@
     "name": "qb_depreciation_schedule",
     "description": "Asset depreciation schedules",
     "write": false
+  },
+  {
+    "name": "qb_enable_class_tracking",
+    "description": "Turn ON class tracking for this QuickBooks company (per-line, the mode",
+    "write": true
   },
   {
     "name": "qb_estimate_instalments",

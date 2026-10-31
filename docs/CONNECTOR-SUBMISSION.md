@@ -14,11 +14,11 @@ blockers were verified 2026-07-11 (see checklist at the bottom).
 - **Website / docs:** https://accountingqb.com · https://accountingqb.com/canada · https://github.com/RCOLKITT/AccountingQB-MCP
 
 **Short description (≤ ~140 chars):**
-> Your QuickBooks, powered by Claude — 142 tools for reports, bookkeeping
+> Your QuickBooks, powered by Claude — 144 tools for reports, bookkeeping
 > cleanup, and US & Canadian tax prep.
 
 **Long description:**
-> AccountingQB connects Claude to QuickBooks Online with 142 tools spanning
+> AccountingQB connects Claude to QuickBooks Online with 144 tools spanning
 > financial reports (P&L, balance sheet, cash flow, agings, general ledger),
 > bookkeeping cleanup (uncategorized transactions, duplicate and anomaly
 > detection, books health audit), transaction creation (invoices, expenses,

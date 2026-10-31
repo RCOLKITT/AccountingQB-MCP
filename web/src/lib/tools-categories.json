@@ -73,6 +73,8 @@
       "qb_delete_transaction",
       "qb_void_transaction",
       "qb_reclassify_transaction",
+      "qb_enable_class_tracking",
+      "qb_create_class",
       "qb_set_transaction_class",
       "qb_bulk_set_class",
       "qb_list_attachments",
