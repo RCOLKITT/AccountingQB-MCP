@@ -73,14 +73,25 @@ AS_URL = os.environ.get("AS_URL", "https://accountingqb.com")
 MCP_JWT_SECRET = os.environ.get("MCP_JWT_SECRET", "")
 QB_API_URL = os.environ.get("QB_API_URL", "https://accountingqb.com")
 
-# TTL for the per-license default-realm + read-only cache. Kept SHORT: a company
-# switch (qb_switch_company) persists the new active realm to the broker, and a
-# long TTL meant the stateless connector kept serving the OLD company for up to
-# the TTL — and with >1 warm machine, each had its own stale cache, so switching
-# appeared broken. 60s lets every machine converge within a minute; the serving
-# machine is updated instantly via note_default_realm(). Read-only toggles also
-# propagate within this window. The GET is cheap + rate-limited.
-DEFAULT_REALM_TTL_SECONDS = 60
+# Success-TTL for the per-license default-realm + read-only cache. This is a
+# BURST ABSORBER, not a freshness policy: the realm is resolved once per MCP
+# request (middleware pins it into the request context), and this TTL only
+# coalesces same-moment requests into one broker GET. It must stay TINY — a
+# company switch persists the new realm to the broker, but with >1 warm machine
+# only the machine that served the switch gets the write-through; every OTHER
+# machine serves the OLD company until its cache expires. At 60s that meant a
+# user who switched and immediately asked a question got the previous company's
+# numbers (observed live, 2026-10-30: three switch retries, wrong-company
+# responses for 40–65s). 2s makes the cross-machine window shorter than any
+# human (or model) round-trip.
+DEFAULT_REALM_TTL_SECONDS = 2.0
+
+# When the broker lookup FAILS, serve the last-known realm/read-only values and
+# don't retry for this long — a down broker must not become a per-request hot
+# loop, and stale-but-real values beat resetting to None/False (the old code
+# cached read_only=False on failure, silently disabling read-only protection
+# for the TTL).
+REALM_FAILURE_BACKOFF_SECONDS = 30.0
 
 PROTECTED_RESOURCE_PATH = "/.well-known/oauth-protected-resource"
 
@@ -160,60 +171,79 @@ def _augment_tools_list(body: bytes) -> bytes:
 # Default-realm TTL cache
 # ---------------------------------------------------------------------------
 class DefaultRealmCache:
-    """In-process TTL cache: license_key -> default realm id (or None).
+    """Near-fresh resolver: license_key -> (default realm id, read-only flag).
 
     Backed by ``GET {QB_API_URL}/api/license/default-realm?license_key=...``
-    (see web/src/app/api/license/default-realm/route.ts). Lookup failures are
-    cached as ``None`` for the TTL as well, so a down broker never turns into
-    a per-request hot loop; ``get_access_token()`` falls back to the first
-    connected company when realm_id is empty.
+    (see web/src/app/api/license/default-realm/route.ts). Semantics:
+
+    * SUCCESS is cached only for a tiny burst window (``ttl``, ~2s) — each MCP
+      request effectively resolves the realm fresh, so a company switch takes
+      effect on the user's next request on EVERY machine, not just the one that
+      served the switch (the 60s TTL made switching look broken cross-machine).
+    * FAILURE serves the LAST-KNOWN values and backs off (``failure_backoff``)
+      — a down broker never hot-loops, and never resets read_only to False
+      (that would silently disable read-only protection) or the realm to None.
+    * ``get_access_token()`` falls back to the first connected company when the
+      resolved realm is empty.
     """
 
     def __init__(
-        self, api_url: str = QB_API_URL, ttl: float = DEFAULT_REALM_TTL_SECONDS
+        self,
+        api_url: str = QB_API_URL,
+        ttl: float = DEFAULT_REALM_TTL_SECONDS,
+        failure_backoff: float = REALM_FAILURE_BACKOFF_SECONDS,
     ):
         self._api_url = api_url.rstrip("/")
         self._ttl = ttl
-        # license_key -> (ts, realm, read_only)
-        self._cache: dict[str, tuple[float, Optional[str], bool]] = {}
+        self._backoff = failure_backoff
+        # license_key -> (ts, realm, read_only, fetch_ok)
+        self._cache: dict[str, tuple[float, Optional[str], bool, bool]] = {}
 
-    def _fresh(self, license_key: str) -> Optional[tuple[float, Optional[str], bool]]:
-        hit = self._cache.get(license_key)
-        if hit and time.monotonic() - hit[0] < self._ttl:
-            return hit
-        return None
-
-    async def _refresh(self, license_key: str) -> tuple[Optional[str], bool]:
-        """One broker call fetching BOTH the default realm and the read-only flag."""
-        realm: Optional[str] = None
-        read_only = False
+    async def _fetch(self, license_key: str) -> tuple[Optional[str], bool, bool]:
+        """One broker call fetching BOTH the default realm and the read-only
+        flag. Returns (realm, read_only, ok) — ok=False on any network error or
+        non-200, so the caller can keep last-known values instead."""
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(
                     f"{self._api_url}/api/license/default-realm",
                     params={"license_key": license_key},
                 )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    realm = data.get("realmId") or None
-                    read_only = bool(data.get("readOnly"))
+            if resp.status_code == 200:
+                data = resp.json()
+                return data.get("realmId") or None, bool(data.get("readOnly")), True
+            logger.warning("default-realm lookup HTTP %s", resp.status_code)
         except Exception as exc:  # network errors are non-fatal
             logger.warning("default-realm lookup failed: %s", exc)
-        self._cache[license_key] = (time.monotonic(), realm, read_only)
-        return realm, read_only
+        return None, False, False
+
+    async def _resolve(self, license_key: str) -> tuple[Optional[str], bool]:
+        now = time.monotonic()
+        hit = self._cache.get(license_key)
+        if hit:
+            age = now - hit[0]
+            window = self._ttl if hit[3] else self._backoff
+            if age < window:
+                return hit[1], hit[2]
+
+        realm, read_only, ok = await self._fetch(license_key)
+        if ok:
+            self._cache[license_key] = (now, realm, read_only, True)
+            return realm, read_only
+
+        # Fetch failed: keep serving the last-known values (stale beats wrong —
+        # especially read_only, which must not fail open) and start the backoff.
+        prev_realm = hit[1] if hit else None
+        prev_read_only = hit[2] if hit else False
+        self._cache[license_key] = (now, prev_realm, prev_read_only, False)
+        return prev_realm, prev_read_only
 
     async def get(self, license_key: str) -> Optional[str]:
-        hit = self._fresh(license_key)
-        if hit:
-            return hit[1]
-        realm, _ = await self._refresh(license_key)
+        realm, _ = await self._resolve(license_key)
         return realm
 
     async def read_only(self, license_key: str) -> bool:
-        hit = self._fresh(license_key)
-        if hit:
-            return hit[2]
-        _, read_only = await self._refresh(license_key)
+        _, read_only = await self._resolve(license_key)
         return read_only
 
     def invalidate(self, license_key: str) -> None:
@@ -223,10 +253,10 @@ class DefaultRealmCache:
         """Write-through after a company switch: update this process's cache to
         the new realm immediately (preserving the cached read-only flag) so the
         next request on THIS machine resumes on the switched-to company. Other
-        machines converge within the (short) TTL."""
+        machines re-resolve within the (tiny) success TTL."""
         prev = self._cache.get(license_key)
         read_only = prev[2] if prev else False
-        self._cache[license_key] = (time.monotonic(), realm_id, read_only)
+        self._cache[license_key] = (time.monotonic(), realm_id, read_only, True)
 
 
 _default_realm_cache = DefaultRealmCache()

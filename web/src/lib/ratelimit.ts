@@ -126,11 +126,17 @@ export function getTrialStartLimiter(): Ratelimit {
   });
 }
 
-// Rate limiter for default-realm lookups (remote MCP service): 30/min per IP
+// Rate limiter for default-realm lookups (remote MCP service). The "IP" here
+// is a Fly MACHINE's egress IP serving MANY licenses, and the connector now
+// resolves the realm near-fresh per request (tiny 2s burst cache) so company
+// switches take effect immediately on every machine — so the budget must cover
+// a whole machine's request volume, not one user's. The query is a single
+// indexed select; 600/min ≈ 10 req/s per machine, far above normal load but
+// still a real ceiling against abuse.
 export function getDefaultRealmLimiter(): Ratelimit {
   return new Ratelimit({
     redis: getRedis(),
-    limiter: Ratelimit.slidingWindow(30, "1 m"),
+    limiter: Ratelimit.slidingWindow(600, "1 m"),
     prefix: "ratelimit:default-realm",
     analytics: true,
   });
