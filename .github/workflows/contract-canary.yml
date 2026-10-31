@@ -1,0 +1,64 @@
+name: QBO contract canary
+
+# Weekly read-only probes against the LIVE connector + a real QuickBooks realm,
+# asserting the QBO API behaviors our code (and our mocked tests) rely on.
+# Why: unit tests mock QBO, so they encode OUR assumptions — not Intuit's
+# actual behavior. That gap shipped a real bug once (tests asserted a class
+# column on the TransactionList report that the real API silently drops).
+# On drift this opens/updates an issue instead of silently rotting.
+#
+# Secrets: MCP_JWT_SECRET (already present for the deploy smoke) and
+# CANARY_LICENSE_KEY (an OWNER-controlled license — never a customer's).
+# The script exits 0 with a skip message when either is absent.
+
+on:
+  schedule:
+    - cron: "17 9 * * 1" # Mondays 09:17 UTC
+  workflow_dispatch: {}
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Run the contract canary
+        id: canary
+        env:
+          MCP_JWT_SECRET: ${{ secrets.MCP_JWT_SECRET }}
+          CANARY_LICENSE_KEY: ${{ secrets.CANARY_LICENSE_KEY }}
+        run: |
+          python3 -m pip install --quiet pyjwt
+          set +e
+          OUT="$(python3 scripts/contract-canary.py 2>&1)"
+          CODE=$?
+          set -e
+          echo "$OUT"
+          {
+            echo "output<<EOF"
+            echo "$OUT"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          exit $CODE
+      - name: Open/update a drift issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="QBO contract drift detected by the weekly canary"
+          BODY="The contract canary found the live QuickBooks API (or the connector) no longer behaves the way our code was built against. Mocked unit tests will NOT catch this — it must be triaged against real behavior.
+
+          \`\`\`
+          ${{ steps.canary.outputs.output }}
+          \`\`\`
+
+          Runbook: scripts/contract-canary.py documents each contract and why it matters. _Opened automatically by contract-canary.yml._"
+          EXISTING="$(gh issue list --state open --search 'QBO contract drift detected in:title' --json number -q '.[0].number' || true)"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

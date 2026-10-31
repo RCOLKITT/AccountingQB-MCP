@@ -83,3 +83,27 @@ Most of this is CI-enforced (the gates above will fail the PR if skipped):
 6. Tool-count copy: bump "N tools" strings repo-wide (the copy gate lists offenders).
 7. Changelog entry in `web/src/lib/changelog.ts` (newest-first).
 8. Merge → tag `vX.Y.Z` → after release, cut the desktop release (above).
+
+## Regression testing — the incident→test rule
+
+**Every customer-reported bug gets a test that reproduces the exact incident
+shape, written BEFORE the fix and named after the failure mode.** Not a nearby
+test — the shape the user actually hit. Three incidents in one week each mapped
+to a missing test *class*; these lanes now exist and new work should extend the
+right one:
+
+| Test class | Where | The incident that created it |
+|---|---|---|
+| **Contract tests** — assert real QBO behavior, not our assumptions | `scripts/contract-canary.py`, weekly via `contract-canary.yml` (drift → auto-issue) | Mocked tests asserted a class column on TransactionList that the real API silently drops |
+| **Route-logic tests** — auth/license-critical API routes | `web/src/app/api/**/route.test.ts` (vitest; chainable supabase/Clerk mocks — follow `user/licenses/route.test.ts`) | `/api/user/licenses` treated email matching as a fallback; a new trial was invisible behind an old linked license |
+| **Multi-instance simulation** — anything cached per-machine | `tests/test_remote.py` (model machine B explicitly: no write-through, TTL expiry) | Company switch: write-through fixed machine A while machine B served the old company for the full TTL |
+
+Mock-fidelity rule: a mocked QBO response shape used in tests must either come
+from a captured real response or be covered by a canary contract. If you mock a
+behavior the canary doesn't probe, add the probe.
+
+The canary needs `CANARY_LICENSE_KEY` (owner-controlled license, read-only
+probes only — never a customer's). Its realm currently has NO class tracking,
+so the GL-honors-klass_name contract runs in reduced form; connecting a
+class-tracked sandbox company to the canary license upgrades it to the full
+assertion automatically.
