@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """QBO contract canary — asserts, against the LIVE connector and real books,
-the QuickBooks API behaviors our code (and our mocked tests) RELY on.
+the QuickBooks API behaviors our code (and our offline test fixtures) RELY on.
 
-Why this exists: unit tests mock QBO responses, so they encode OUR assumptions
-about Intuit's API — not its actual behavior. That class of gap shipped a real
-bug (2026-10: tests asserted a class column on the TransactionList report that
-the real API silently drops). This canary runs read-only probes on a real
-realm weekly and fails loudly when Intuit's behavior drifts from what we built
-against — in either direction.
+Why this exists: offline unit tests use simulated QBO responses, so they encode
+OUR assumptions about Intuit's API — not its actual behavior. That class of gap
+shipped a real bug (2026-10: tests asserted a class column on the
+TransactionList report that the real API silently drops). This canary runs
+read-only probes on a real realm weekly and fails loudly when Intuit's behavior
+drifts from what we built against — in either direction.
 
 Env (both required; the workflow skips cleanly when absent):
   MCP_JWT_SECRET      — mints the connector JWT (same secret the smoke test uses)
@@ -111,9 +111,7 @@ def call_tool(hdrs: dict, name: str, args: dict) -> str:
     body = _parse(raw)
     content = body.get("result", {}).get("content", [])
     if isinstance(content, list):
-        return "\n".join(
-            c.get("text", "") for c in content if isinstance(c, dict)
-        )
+        return "\n".join(c.get("text", "") for c in content if isinstance(c, dict))
     return json.dumps(body)
 
 
@@ -143,9 +141,7 @@ def main() -> int:
     #    So: tracked realm → column REQUIRED; untracked → absence expected.
     classes = call_tool(hdrs, "qb_list_classes", {})
     realm_has_classes = "No classes found" not in classes
-    gl = call_tool(
-        hdrs, "qb_general_ledger", {"start_date": start, "end_date": end}
-    )
+    gl = call_tool(hdrs, "qb_general_ledger", {"start_date": start, "end_date": end})
     if realm_has_classes:
         check(
             "QBO contract: GeneralLedger honors klass_name on a class-tracked realm",
