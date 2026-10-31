@@ -47,6 +47,7 @@ is restored.
 | Desktop's two version files agree | `test_channel_parity.py` | half-bumped desktop versions |
 | Tool-count copy everywhere (web, README, llms.txt, plugin, **CONNECTOR-SUBMISSION.md**) | `test_tax_data_policy.py` copy gate | stale "N tools" marketing copy |
 | Web tools catalog == manifest; every tool categorized once; write flags match | `web` vitest | /tools page drift |
+| Latest `desktop-v*` bundles the just-shipped server, else **issue opened** | `release.yml` `channel-parity` job | the desktop lag itself |
 
 ### The tool-docs pipeline (nothing is prose)
 
@@ -64,7 +65,6 @@ To change a tool's description anywhere, change its **docstring** and regenerate
 the manifest, /tools page, and support KB all update together and cannot disagree.
 The changelog is the one deliberately-prose surface (release notes are narrative);
 its gate enforces existence-per-release, not wording.
-| Latest `desktop-v*` bundles the just-shipped server, else **issue opened** | `release.yml` `channel-parity` job | the desktop lag itself |
 
 ## Adding a new tool — the full checklist
 
@@ -103,7 +103,10 @@ from a captured real response or be covered by a canary contract. If you mock a
 behavior the canary doesn't probe, add the probe.
 
 The canary needs `CANARY_LICENSE_KEY` (owner-controlled license, read-only
-probes only — never a customer's). Its realm currently has NO class tracking,
-so the GL-honors-klass_name contract runs in reduced form; connecting a
-class-tracked sandbox company to the canary license upgrades it to the full
-assertion automatically.
+probes only — never a customer's). NOTE: an Intuit *sandbox* company cannot
+connect to the hosted connector (the API base is production-wide via
+`QB_ENVIRONMENT`); the way to a class-tracked canary realm is to enable class
+tracking on the owner's production company — `qb_enable_class_tracking` +
+`qb_create_class` do it through the product (QBO Plus/Advanced required). The
+canary detects class tracking per realm and upgrades its assertions
+automatically.

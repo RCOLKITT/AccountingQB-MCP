@@ -3954,6 +3954,97 @@ async def qb_list_classes() -> str:
     return "\n".join(lines)
 
 
+@mcp.tool(annotations={"destructiveHint": True})
+async def qb_enable_class_tracking() -> str:
+    """Turn ON class tracking for this QuickBooks company (per-line, the mode
+    every class tool here reads and writes). Equivalent to Account and Settings →
+    Advanced → Categories → Track classes. Reversible in QuickBooks settings;
+    changes no transactions or balances. Requires a QuickBooks Online plan with
+    class tracking (Plus/Advanced) — the QuickBooks error is reported verbatim
+    if the plan doesn't support it. After enabling, create classes with
+    qb_create_class."""
+    prefs = (await qb_request("GET", "preferences")).get("Preferences", {})
+    acct = prefs.get("AccountingInfoPrefs", {}) or {}
+    if acct.get("ClassTrackingPerTxnLine") or acct.get("ClassTrackingPerTxn"):
+        mode = "per line" if acct.get("ClassTrackingPerTxnLine") else "per transaction"
+        return (
+            f"Class tracking is already ON ({mode}) for this company. "
+            "Use qb_create_class to add classes and qb_list_classes to see them."
+        )
+    if not prefs.get("Id") or prefs.get("SyncToken") is None:
+        return (
+            "Could not read this company's preferences (no Id/SyncToken) — "
+            "unable to enable class tracking. Check the connection with "
+            "qb_company_info."
+        )
+    body = {
+        "Id": prefs["Id"],
+        "SyncToken": prefs["SyncToken"],
+        "sparse": True,
+        "AccountingInfoPrefs": {"ClassTrackingPerTxnLine": True},
+    }
+    try:
+        result = await qb_request("POST", "preferences", json_body=body)
+    except Exception as e:
+        return (
+            f"QuickBooks refused the preferences update: {e}. This usually "
+            "means the company's plan doesn't include class tracking "
+            "(requires QuickBooks Online Plus or Advanced) — it can also be "
+            "toggled manually under Account and Settings → Advanced → Categories."
+        )
+    updated = (result.get("Preferences", {}) or {}).get("AccountingInfoPrefs", {})
+    if not updated.get("ClassTrackingPerTxnLine"):
+        return (
+            "QuickBooks accepted the update but class tracking does not read "
+            "as enabled — verify under Account and Settings → Advanced → "
+            "Categories (plan limits can silently apply)."
+        )
+    _audit_log("ENABLE_CLASS_TRACKING", "ClassTrackingPerTxnLine=true")
+    return (
+        "✅ Class tracking is now ON (per line) for this company.\n"
+        "Next: create classes with qb_create_class, tag existing transactions "
+        "with qb_set_transaction_class / qb_bulk_set_class, and view results "
+        "with qb_profit_loss_by_class or qb_balance_sheet_by_class."
+    )
+
+
+@mcp.tool(annotations={"destructiveHint": True})
+async def qb_create_class(name: str, parent_name: str = "") -> str:
+    """Create a QuickBooks class (a class-tracking segment, e.g. a program,
+    product line, or location). name: the class name. parent_name: optional —
+    creates a sub-class under an existing class (resolved by name). Requires
+    class tracking to be ON (qb_enable_class_tracking). Duplicate names are
+    refused by QuickBooks and reported honestly."""
+    name = _sanitize_input(name, "name").strip()
+    if not name:
+        return "name is required — what should the class be called?"
+    body: dict = {"Name": name}
+    if parent_name:
+        parent_ref, err = await _resolve_class(class_name=parent_name)
+        if err:
+            return f"parent_name: {err}"
+        body["SubClass"] = True
+        body["ParentRef"] = {"value": parent_ref["value"]}
+    try:
+        result = await qb_request("POST", "class", json_body=body)
+    except Exception as e:
+        return (
+            f"QuickBooks refused the class creation: {e}. Common causes: a "
+            "class with this name already exists (qb_list_classes shows all), "
+            "or class tracking is off (qb_enable_class_tracking)."
+        )
+    cls = result.get("Class", {})
+    if not cls.get("Id"):
+        return f"Class creation did not return an Id — raw response: {result}"
+    full = cls.get("FullyQualifiedName") or cls.get("Name", name)
+    _audit_log("CREATE_CLASS", f"name={full} id={cls['Id']}")
+    return (
+        f"✅ Class created: {full} (ID: {cls['Id']})\n"
+        "Tag transactions with qb_set_transaction_class or sweep many at once "
+        "with qb_bulk_set_class."
+    )
+
+
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_departments() -> str:
     """List QuickBooks departments/locations (the Location-tracking dimension).
