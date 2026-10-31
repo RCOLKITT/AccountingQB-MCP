@@ -305,12 +305,15 @@ def test_non_tools_response_untouched_but_versioned():
 # ---------------------------------------------------------------------------
 # Company-switch realm cache (fix: switching was masked by a 45-min stale cache)
 # ---------------------------------------------------------------------------
-def test_default_realm_ttl_is_short_enough_for_switching():
-    # A long TTL meant a persisted company switch didn't take effect for up to
-    # the TTL (per machine). Lock it short so switches converge quickly.
+def test_default_realm_success_ttl_is_a_burst_absorber_only():
+    # The success TTL must be TINY: with >1 warm machine, only the machine that
+    # served qb_switch_company gets the write-through — every other machine
+    # serves the OLD company until its cache expires. At 60s a user who
+    # switched and immediately asked a question got the previous company's
+    # numbers (observed live 2026-10-30). ≤2s is shorter than any round-trip.
     from accountingqb.remote import DEFAULT_REALM_TTL_SECONDS
 
-    assert DEFAULT_REALM_TTL_SECONDS <= 120
+    assert DEFAULT_REALM_TTL_SECONDS <= 2.0
 
 
 def test_set_realm_write_through_serves_new_company_immediately():
@@ -332,9 +335,63 @@ def test_set_realm_preserves_cached_read_only_flag():
     from accountingqb.remote import DefaultRealmCache
 
     c = DefaultRealmCache(ttl=9999)
-    c._cache["LK-RO"] = (time.monotonic(), "R1", True)
+    c._cache["LK-RO"] = (time.monotonic(), "R1", True, True)
     c.set_realm("LK-RO", "R2")  # switch company…
     assert asyncio.run(c.read_only("LK-RO")) is True  # …read-only flag survives
+
+
+def test_other_machine_picks_up_switch_after_tiny_ttl(monkeypatch):
+    # Simulates the SECOND machine (no write-through): once its tiny success
+    # TTL lapses, the next request re-resolves from the broker and gets the
+    # switched-to company — the Jonathan bug (40–65s of wrong-company answers).
+    import asyncio
+
+    from accountingqb.remote import DefaultRealmCache
+
+    c = DefaultRealmCache(ttl=2.0)
+    broker = {"realm": "REALM-OLD"}
+
+    async def fake_fetch(license_key):
+        return broker["realm"], False, True
+
+    monkeypatch.setattr(c, "_fetch", fake_fetch)
+    assert asyncio.run(c.get("LK-M2")) == "REALM-OLD"
+    # The user switches on the OTHER machine; broker now has the new realm.
+    broker["realm"] = "REALM-NEW"
+    # Within the burst window this machine may still serve the old value…
+    assert asyncio.run(c.get("LK-M2")) == "REALM-OLD"
+    # …but as soon as the TTL lapses it must re-resolve, not serve 60s stale.
+    c._cache["LK-M2"] = (time.monotonic() - 2.1, "REALM-OLD", False, True)
+    assert asyncio.run(c.get("LK-M2")) == "REALM-NEW"
+
+
+def test_broker_failure_serves_last_known_and_backs_off(monkeypatch):
+    # A broker outage must NOT reset read_only to False (fail-open) or the
+    # realm to None — it serves the last-known values and stops refetching for
+    # the backoff window.
+    import asyncio
+
+    from accountingqb.remote import DefaultRealmCache
+
+    c = DefaultRealmCache(ttl=0.0, failure_backoff=30.0)
+    calls = {"n": 0}
+
+    async def fake_fetch(license_key):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return "REALM-A", True, True  # first fetch succeeds, read-only ON
+        return None, False, False  # broker down afterwards
+
+    monkeypatch.setattr(c, "_fetch", fake_fetch)
+    assert asyncio.run(c.get("LK-DOWN")) == "REALM-A"
+    assert asyncio.run(c.read_only("LK-DOWN")) is True  # (ttl=0 → refetch fails)
+    # Failure kept last-known values — realm intact, read-only STILL enforced.
+    assert asyncio.run(c.get("LK-DOWN")) == "REALM-A"
+    # And the backoff means the failed fetch isn't retried per request.
+    n_after_failure = calls["n"]
+    asyncio.run(c.get("LK-DOWN"))
+    asyncio.run(c.read_only("LK-DOWN"))
+    assert calls["n"] == n_after_failure
 
 
 def test_note_default_realm_updates_module_cache():
