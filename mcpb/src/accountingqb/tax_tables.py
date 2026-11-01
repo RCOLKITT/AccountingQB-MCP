@@ -1154,7 +1154,9 @@ _CPP_PARAMS = {
 _CPP_BASIC_EXEMPTION = 3_500.0
 _CPP_RATE_SELF = 0.119  # 5.95% employee + 5.95% employer (through 2026)
 _CPP2_RATE_SELF = 0.08  # 4% employee + 4% employer
-_CPP_RATE_SELF_2027 = 0.115  # 5.75% employee + 5.75% employer (Bill C-30, eff. 2027-01-01)
+_CPP_RATE_SELF_2027 = (
+    0.115  # 5.75% employee + 5.75% employer (Bill C-30, eff. 2027-01-01)
+)
 
 # APPROXIMATE federal brackets (2025 threshold values; Bill C-4 lowered the
 # first rate — 14.5% blended for 2025, 14% for 2026; labelled approximate).
