@@ -15,8 +15,8 @@ import json
 import pathlib
 import re
 
-TAX_DATA_VERSION = "2026.11"  # bumped by every approved rates PR
-TAX_DATA_VERIFIED = "2026-10-29"  # newest per-table verification date (L3-enforced)
+TAX_DATA_VERSION = "2026.12"  # bumped by every approved rates PR
+TAX_DATA_VERIFIED = "2026-11-01"  # newest per-table verification date (L3-enforced)
 
 
 class TaxDataError(ValueError):
@@ -1152,8 +1152,9 @@ _CPP_PARAMS = {
     2026: {"ympe": 74_600.0, "yampe": 85_000.0},
 }
 _CPP_BASIC_EXEMPTION = 3_500.0
-_CPP_RATE_SELF = 0.119  # 5.95% employee + 5.95% employer
+_CPP_RATE_SELF = 0.119  # 5.95% employee + 5.95% employer (through 2026)
 _CPP2_RATE_SELF = 0.08  # 4% employee + 4% employer
+_CPP_RATE_SELF_2027 = 0.115  # 5.75% employee + 5.75% employer (Bill C-30, eff. 2027-01-01)
 
 # APPROXIMATE federal brackets (2025 threshold values; Bill C-4 lowered the
 # first rate — 14.5% blended for 2025, 14% for 2026; labelled approximate).
@@ -1607,14 +1608,15 @@ TABLES: dict = {
             "basic_exemption": _CPP_BASIC_EXEMPTION,
             "rate_self": _CPP_RATE_SELF,
             "cpp2_rate_self": _CPP2_RATE_SELF,
+            "rate_self_2027": _CPP_RATE_SELF_2027,
         },
         year_keyed=True,
         jurisdiction="CA-federal",
         kind="exact",
         description="CPP/CPP2 self-employed parameters (YMPE/YAMPE by year)",
-        source="CRA payroll deductions tables (2026: YMPE $74,600 / YAMPE $85,000)",
+        source="CRA payroll deductions tables (2026: YMPE $74,600 / YAMPE $85,000); Bill C-30 (royal assent 2026-06-19) cuts combined CPP rate 9.9%→9.5% (self-employed 11.9%→11.5%) eff. 2027-01-01",
         source_url="https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/payroll/payroll-deductions-contributions/canada-pension-plan-cpp.html",
-        verified="2026-07-12",
+        verified="2026-11-01",
         review="annual-december",
         sanity={"max_yoy_pct": 0.10},
     ),  # values mix rates and dollar ceilings
@@ -1752,8 +1754,9 @@ def iter_table_rows(name: str, entry: dict):
     elif name == "CPP":
         for year in sorted(v["params"]):
             yield f"{year}:params", v["params"][year]
-        for k in ("basic_exemption", "rate_self", "cpp2_rate_self"):
-            yield k, v[k]
+        for k in ("basic_exemption", "rate_self", "cpp2_rate_self", "rate_self_2027"):
+            if k in v:
+                yield k, v[k]
     else:
         yield "-", v
 
