@@ -117,4 +117,8 @@ Two canaries, two blast surfaces:
   touched. Intuit rotates refresh tokens; the workflow persists the rotation
   via actions/cache, and the auto-issue carries the 5-minute re-auth runbook.
   Secrets: `SANDBOX_QB_CLIENT_ID/SECRET` (Development keys, Intuit portal),
-  `SANDBOX_REALM_ID`, `SANDBOX_REFRESH_TOKEN` (OAuth 2.0 Playground).
+  `SANDBOX_REALM_ID`, `SANDBOX_REFRESH_TOKEN` (OAuth 2.0 Playground). Source
+  of truth is Doppler (`accountingqb-mcp/dev`, seeded with `PENDING_*`
+  placeholders); after filling them run `bash scripts/sync-sandbox-secrets.sh`
+  — it refuses placeholders, pushes to GitHub secrets, and fires the first
+  run.
