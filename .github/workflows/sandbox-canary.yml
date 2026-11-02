@@ -1,0 +1,88 @@
+name: Sandbox class-contract canary
+
+# Weekly FULL class-tracking contract against an Intuit SANDBOX company —
+# the assertions the hosted canary can't make (its realm lacks class tracking,
+# which needs QBO Plus; sandbox companies get Plus features free). Runs the
+# LOCAL server in-process with QB_ENVIRONMENT=sandbox + the app's DEVELOPMENT
+# keys: no production connector, database, or customer realm is ever touched.
+#
+# Token rotation: Intuit rotates refresh tokens, so the canary persists the
+# rotated token via actions/cache between runs; the SANDBOX_REFRESH_TOKEN
+# secret is only the bootstrap. If both go stale (cache evicted + secret old),
+# the run fails and the issue it opens includes the 5-minute re-auth steps.
+#
+# Secrets: SANDBOX_QB_CLIENT_ID / SANDBOX_QB_CLIENT_SECRET (Development keys),
+# SANDBOX_REALM_ID, SANDBOX_REFRESH_TOKEN. Script skips cleanly when absent.
+
+on:
+  schedule:
+    - cron: "41 9 * * 2" # Tuesdays 09:41 UTC (prod canary runs Mondays)
+  workflow_dispatch: {}
+
+jobs:
+  sandbox-canary:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Restore the rotated refresh token from the last run
+        uses: actions/cache/restore@v4
+        with:
+          path: .sandbox-token
+          key: sandbox-qb-token-${{ github.run_id }}
+          restore-keys: sandbox-qb-token-
+      - name: Run the sandbox contract canary
+        id: canary
+        env:
+          QB_ENVIRONMENT: sandbox
+          QB_CLIENT_ID: ${{ secrets.SANDBOX_QB_CLIENT_ID }}
+          QB_CLIENT_SECRET: ${{ secrets.SANDBOX_QB_CLIENT_SECRET }}
+          SANDBOX_REALM_ID: ${{ secrets.SANDBOX_REALM_ID }}
+          SANDBOX_REFRESH_TOKEN: ${{ secrets.SANDBOX_REFRESH_TOKEN }}
+          SANDBOX_TOKEN_FILE: .sandbox-token
+        run: |
+          python3 -m pip install --quiet -r requirements.txt
+          set +e
+          OUT="$(python3 scripts/sandbox-contract-canary.py 2>&1)"
+          CODE=$?
+          set -e
+          echo "$OUT"
+          {
+            echo "output<<EOF"
+            echo "$OUT"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          exit $CODE
+      - name: Save the rotated refresh token for the next run
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .sandbox-token
+          key: sandbox-qb-token-${{ github.run_id }}
+      - name: Open/update a drift issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Sandbox class-contract canary failed"
+          BODY="The weekly sandbox canary (full class-tracking contract against Intuit sandbox) failed:
+
+          \`\`\`
+          ${{ steps.canary.outputs.output }}
+          \`\`\`
+
+          If the failure is an auth error, the refresh token likely went stale (cache evicted + 100-day expiry). Re-auth takes ~5 minutes:
+          1. developer.intuit.com → Workspace → the AccountingQB app → **Development** keys.
+          2. OAuth 2.0 Playground → select the sandbox company → authorize with scope \`com.intuit.quickbooks.accounting\` → copy the **refresh token** + **realm id**.
+          3. \`gh secret set SANDBOX_REFRESH_TOKEN\` (and \`SANDBOX_REALM_ID\` if the company changed) → re-run this workflow.
+
+          Otherwise it is real contract drift — triage against scripts/sandbox-contract-canary.py. _Opened automatically by sandbox-canary.yml._"
+          EXISTING="$(gh issue list --state open --search 'Sandbox class-contract canary failed in:title' --json number -q '.[0].number' || true)"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

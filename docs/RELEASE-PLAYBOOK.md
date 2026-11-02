@@ -94,7 +94,7 @@ right one:
 
 | Test class | Where | The incident that created it |
 |---|---|---|
-| **Contract tests** — assert real QBO behavior, not our assumptions | `scripts/contract-canary.py`, weekly via `contract-canary.yml` (drift → auto-issue) | Mocked tests asserted a class column on TransactionList that the real API silently drops |
+| **Contract tests** — assert real QBO behavior, not our assumptions | `scripts/contract-canary.py` (hosted, Mondays) + `scripts/sandbox-contract-canary.py` (full class contract vs Intuit sandbox, Tuesdays); drift → auto-issue | Mocked tests asserted a class column on TransactionList that the real API silently drops |
 | **Route-logic tests** — auth/license-critical API routes | `web/src/app/api/**/route.test.ts` (vitest; chainable supabase/Clerk mocks — follow `user/licenses/route.test.ts`) | `/api/user/licenses` treated email matching as a fallback; a new trial was invisible behind an old linked license |
 | **Multi-instance simulation** — anything cached per-machine | `tests/test_remote.py` (model machine B explicitly: no write-through, TTL expiry) | Company switch: write-through fixed machine A while machine B served the old company for the full TTL |
 
@@ -102,11 +102,19 @@ Mock-fidelity rule: a mocked QBO response shape used in tests must either come
 from a captured real response or be covered by a canary contract. If you mock a
 behavior the canary doesn't probe, add the probe.
 
-The canary needs `CANARY_LICENSE_KEY` (owner-controlled license, read-only
-probes only — never a customer's). NOTE: an Intuit *sandbox* company cannot
-connect to the hosted connector (the API base is production-wide via
-`QB_ENVIRONMENT`); the way to a class-tracked canary realm is to enable class
-tracking on the owner's production company — `qb_enable_class_tracking` +
-`qb_create_class` do it through the product (QBO Plus/Advanced required). The
-canary detects class tracking per realm and upgrades its assertions
-automatically.
+Two canaries, two blast surfaces:
+
+* **Hosted** (`contract-canary.py`, Mondays): read-only probes through the
+  production connector with `CANARY_LICENSE_KEY` (owner license — never a
+  customer's). Its realm has no class tracking (QBO Plus required), so the
+  class contract runs in reduced form there.
+* **Sandbox** (`sandbox-contract-canary.py`, Tuesdays): the FULL class
+  contract — enable tracking → create class → class-tagged JE → GL returns the
+  Class column with values → class-filtered register → cleanup — against an
+  Intuit sandbox company (Plus features free, disposable sample data). Runs
+  the LOCAL server in-process with `QB_ENVIRONMENT=sandbox` + the Intuit app's
+  **Development** keys: no production connector, DB, or customer realm is
+  touched. Intuit rotates refresh tokens; the workflow persists the rotation
+  via actions/cache, and the auto-issue carries the 5-minute re-auth runbook.
+  Secrets: `SANDBOX_QB_CLIENT_ID/SECRET` (Development keys, Intuit portal),
+  `SANDBOX_REALM_ID`, `SANDBOX_REFRESH_TOKEN` (OAuth 2.0 Playground).
