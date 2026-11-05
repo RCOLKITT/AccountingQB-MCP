@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import { getStripe } from "@/lib/stripe";
 import { currentUser } from "@clerk/nextjs/server";
 import { rescheduleTrialEmails } from "@/lib/emails/schedule-email";
 
 /**
  * POST /api/admin/users/[key]/extend-trial
  * Extend a user's trial period.
+ *
+ * When the license has a Stripe subscription, Stripe's `trial_end` is moved
+ * FIRST — Stripe is what actually starts billing, and the reconcile job syncs
+ * our status FROM Stripe, so extending only `licenses.trial_ends_at` would
+ * promise the user one date while Stripe bills (or kills the sub) on the old
+ * one and then overwrites our extension. If Stripe refuses, nothing is
+ * changed and the error is returned.
  */
 export async function POST(
   req: NextRequest,
@@ -39,7 +47,7 @@ export async function POST(
   // Get current license
   const { data: license, error } = await supabase
     .from("licenses")
-    .select("key, email, tier, status, trial_ends_at")
+    .select("key, email, tier, status, trial_ends_at, stripe_subscription_id")
     .eq("key", key)
     .single();
 
@@ -66,6 +74,27 @@ export async function POST(
   const newTrialEnd = new Date(
     currentTrialEnd.getTime() + days * 24 * 60 * 60 * 1000,
   );
+
+  // Move Stripe's trial_end FIRST — it is what actually starts billing, and
+  // the reconcile job syncs our status FROM Stripe. If this fails, abort with
+  // nothing changed rather than promise a date Stripe won't honor.
+  if (license.stripe_subscription_id) {
+    try {
+      await getStripe().subscriptions.update(license.stripe_subscription_id, {
+        trial_end: Math.floor(newTrialEnd.getTime() / 1000),
+        proration_behavior: "none",
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("Stripe trial_end update failed:", msg);
+      return NextResponse.json(
+        {
+          error: `Stripe refused the trial extension (nothing was changed): ${msg}`,
+        },
+        { status: 502 },
+      );
+    }
+  }
 
   // Update license
   const { error: updateError } = await supabase
