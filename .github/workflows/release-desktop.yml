@@ -25,7 +25,7 @@ env:
 
 jobs:
   macos-arm64:
-    runs-on: macos-14
+    runs-on: macos-latest # pinned macos-14 rotted when GH retired the image (2026-11) — latest + signed artifacts is safer than a stale pin
     defaults:
       run:
         working-directory: accountingqb-desktop-tauri
