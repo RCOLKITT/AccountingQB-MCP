@@ -91,6 +91,7 @@ export const TIME_SAVED_MINUTES: Record<string, number> = {
   // ============================================
   qb_create_expense: 2, // 2 min
   qb_create_invoice: 5, // 5 min
+  qb_create_sales_receipt: 5, // 5 min
   qb_create_bill: 3, // 3 min
   qb_create_bill_payment: 3, // 3 min
   qb_create_estimate: 5, // 5 min

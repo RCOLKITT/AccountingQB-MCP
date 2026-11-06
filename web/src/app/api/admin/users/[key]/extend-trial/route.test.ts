@@ -117,9 +117,9 @@ describe("POST /api/admin/users/[key]/extend-trial", () => {
     const { id, params } = state.stripeCalls[0];
     expect(id).toBe("sub_123");
     expect(params.proration_behavior).toBe("none");
-    // Stripe gets the SAME instant as the DB (seconds vs ISO).
-    expect((params.trial_end as number) * 1000).toBe(
-      new Date(body.newTrialEnd).getTime(),
+    // Stripe gets the SAME instant as the DB (whole seconds vs ISO ms).
+    expect(params.trial_end).toBe(
+      Math.floor(new Date(body.newTrialEnd).getTime() / 1000),
     );
     // DB updated too.
     expect(state.updates[0].trial_ends_at).toBe(body.newTrialEnd);

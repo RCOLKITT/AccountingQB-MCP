@@ -91,6 +91,7 @@
     "tools": [
       "qb_list_invoices",
       "qb_create_invoice",
+      "qb_create_sales_receipt",
       "qb_send_invoice",
       "qb_list_estimates",
       "qb_create_estimate",

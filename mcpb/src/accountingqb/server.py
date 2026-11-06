@@ -1956,6 +1956,68 @@ def _txn_vendor_name(txn: dict) -> str:
     return ""
 
 
+async def _duplicate_guard(
+    entity: str,
+    txn_date: Optional[str],
+    total: float,
+    allow_duplicate: bool,
+    *,
+    extra_where: str = "",
+) -> Optional[str]:
+    """Refuse a create when a same-day, same-amount transaction already exists
+    (user-reported: several accidental duplicates would have been prevented by
+    exactly this check). Returns a refusal message, or None to proceed.
+
+    allow_duplicate=True skips the check (legitimate same-day duplicates
+    exist). The check itself fails OPEN on query errors — a broken guard must
+    never block real bookkeeping."""
+    if allow_duplicate:
+        return None
+    day = txn_date or _utcnow().date().isoformat()
+    where = f"TxnDate = '{day}' AND TotalAmt = '{total:.2f}'"
+    if extra_where:
+        where += f" AND {extra_where}"
+    try:
+        res = await qb_query(
+            f"SELECT Id, DocNumber, TotalAmt FROM {entity} WHERE {where} MAXRESULTS 5"
+        )
+        hits = res.get("QueryResponse", {}).get(entity, [])
+    except Exception:
+        return None  # fail open — never block a create on a guard error
+    if not hits:
+        return None
+    listed = ", ".join(
+        f"#{h.get('DocNumber') or h.get('Id')} (ID {h.get('Id')})" for h in hits
+    )
+    return (
+        f"⚠️ Possible duplicate — {len(hits)} existing {entity}(s) on {day} "
+        f"for {fmt(total)}: {listed}. Nothing was created. If this new one is "
+        "intentional, re-run with allow_duplicate=True; otherwise use "
+        "qb_transaction_detail to inspect the existing transaction."
+    )
+
+
+async def _resolve_name_entity(kind: str, name: str):
+    """Resolve a Customer/Vendor/Employee by display name for line-level
+    Entity refs (journal-entry and deposit lines). Returns (ref_dict, error):
+    ref_dict = {"value": id, "name": display}. Exact DisplayName match
+    preferred; ambiguity is refused with candidates, never guessed."""
+    safe = _sanitize_input(name, kind.lower()).replace("'", "\\'")
+    res = await qb_query(
+        f"SELECT * FROM {kind} WHERE DisplayName LIKE '%{safe}%' MAXRESULTS 10"
+    )
+    hits = res.get("QueryResponse", {}).get(kind, [])
+    exact = [h for h in hits if h.get("DisplayName") == name]
+    if exact:
+        hits = exact
+    if not hits:
+        return None, f"{kind} '{name}' not found."
+    if len(hits) > 1:
+        names = ", ".join(h.get("DisplayName", "?") for h in hits)
+        return None, f"Multiple {kind}s match '{name}': {names}. Use the exact name."
+    return {"value": hits[0]["Id"], "name": hits[0].get("DisplayName", name)}, None
+
+
 def _account_ambiguity_msg(name: str, hits: list) -> str:
     listed = ", ".join(
         f"{a.get('Name')} (ID:{a.get('Id')}, {a.get('AccountType')})" for a in hits[:10]
@@ -3410,8 +3472,14 @@ async def qb_profit_loss(
     lines = [
         f"## Profit & Loss: {header.get('StartPeriod', '')} to {header.get('EndPeriod', '')}{basis_note}\n"
     ]
-    rows = report.get("Rows", {}).get("Row", [])
-    _parse_report_rows(rows, lines)
+    if summarize_by and summarize_by != "Total":
+        # Period columns (Month/Quarter/Year) — render the FULL table. The
+        # two-column summary parser silently discarded every period column, so
+        # 'monthly P&L' came back as annual totals only (user-reported).
+        _format_report_table(report, lines)
+    else:
+        rows = report.get("Rows", {}).get("Row", [])
+        _parse_report_rows(rows, lines)
     return "\n".join(lines)
 
 
@@ -7000,9 +7068,11 @@ async def qb_create_expense(
     payment_method: str = "",
     tax_code: str = "",
     tax_inclusive: bool = False,
+    allow_duplicate: bool = False,
 ) -> str:
-    """Create a new expense/purchase in QuickBooks. vendor_name: payee, amount: total, account_name: expense category, date: YYYY-MM-DD, description: memo, payment_method: bank/card account name.
+    """Create a new expense/purchase in QuickBooks. vendor_name: payee, amount: total, account_name: any category account — usually an expense, but balance-sheet accounts (e.g. a shareholder loan for owner draws) are allowed, as in QuickBooks. date: YYYY-MM-DD, description: memo, payment_method: bank/card account name.
     Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; tax_inclusive=True when amount already includes tax.
+    If a purchase with the same date and total already exists, creation is refused unless allow_duplicate=True.
     """
     # Demo mode: simulate success
     if _demo_active():
@@ -7023,9 +7093,25 @@ async def qb_create_expense(
         return f"Vendor '{vendor_name}' not found. Use qb_list_vendors to find existing vendors, or qb_create_vendor to create one."
     vendor = vendor_list[0]
 
+    # Prefer an Expense account, but accept ANY account type — QuickBooks
+    # allows balance-sheet categories on purchase lines (e.g. a shareholder
+    # loan for owner draws / personal charges), and rejecting them forced
+    # users into payee-less journal entries (user-reported).
     account, err = await _resolve_account(account_name, account_type="Expense")
+    non_expense_note = ""
     if err:
-        return err
+        account, err2 = await _resolve_account(account_name)
+        if err2:
+            return err  # keep the clearer Expense-first error
+        non_expense_note = (
+            f"\n- Note: '{account['Name']}' is a "
+            f"{account.get('AccountType', '?')} account (not an expense) — "
+            "allowed, posting there as the category."
+        )
+
+    dup = await _duplicate_guard("Purchase", date, amount, allow_duplicate)
+    if dup:
+        return dup
 
     purchase_body = {
         "PaymentType": "Cash",
@@ -7079,7 +7165,7 @@ async def qb_create_expense(
         f"- Vendor: {vendor['DisplayName']}\n"
         f"- Amount: {fmt(amount)}\n"
         f"- Category: {account['Name']}\n"
-        f"- Date: {date}"
+        f"- Date: {date}" + non_expense_note
     )
 
 
@@ -7096,9 +7182,14 @@ async def qb_create_invoice(
     memo: str = "",
     tax_code: str = "",
     tax_inclusive: bool = False,
+    txn_date: str = "",
+    invoice_number: str = "",
+    allow_duplicate: bool = False,
 ) -> str:
     """Create a customer invoice. line_items is a JSON string: [{"description": "...", "amount": 100}]. due_date in YYYY-MM-DD.
+    txn_date: invoice date YYYY-MM-DD (default: today) — set this when importing historical invoices. invoice_number: explicit invoice/doc number (default: QuickBooks auto-numbers).
     Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; per-line override via 'tax_code' key in line_items JSON; tax_inclusive=True when amounts already include tax.
+    If an invoice with the same customer, date, and total already exists, creation is refused unless allow_duplicate=True.
     """
     # Demo mode: simulate success
     if _demo_active():
@@ -7161,10 +7252,26 @@ async def qb_create_invoice(
         "CustomerRef": {"value": customer["Id"]},
         "Line": inv_lines,
     }
+    if txn_date:
+        invoice_body["TxnDate"] = _validate_date(txn_date, "txn_date")
+    if invoice_number:
+        invoice_body["DocNumber"] = _sanitize_input(invoice_number, "invoice_number")[
+            :21
+        ]  # QBO DocNumber max length
     if due_date:
         invoice_body["DueDate"] = due_date
     if memo:
         invoice_body["CustomerMemo"] = {"value": memo}
+
+    dup = await _duplicate_guard(
+        "Invoice",
+        txn_date or None,
+        sum(i.get("amount", 0) for i in items),
+        allow_duplicate,
+        extra_where=f"CustomerRef = '{customer['Id']}'",
+    )
+    if dup:
+        return dup
     _apply_global_tax(
         invoice_body,
         "Line",
@@ -7185,20 +7292,150 @@ async def qb_create_invoice(
     )
 
 
+@mcp.tool(annotations={"destructiveHint": True})
+async def qb_create_sales_receipt(
+    customer_name: str,
+    line_items: str,
+    txn_date: str = "",
+    receipt_number: str = "",
+    deposit_to_account: str = "",
+    memo: str = "",
+    tax_code: str = "",
+    tax_inclusive: bool = False,
+    allow_duplicate: bool = False,
+) -> str:
+    """Create a sales receipt — a completed sale paid at the time of sale (the
+    right record for Stripe/card/cash sales; recording these as deposits makes
+    GST/HST returns misstate lines 101/103/108 because the tax posts as a
+    negative ITC instead of tax collected). line_items is a JSON string:
+    [{"description": "...", "amount": 100, "quantity": 1, "tax_code": "HST ON"}].
+    txn_date: sale date YYYY-MM-DD (default today) — set when importing
+    historical sales. receipt_number: explicit doc number (default
+    auto-numbered). deposit_to_account: where the money lands (default:
+    Undeposited Funds, so qb_create_deposit can batch it to the bank later).
+    Canada/global editions: tax_code applies to all lines (per-line override in
+    line_items); tax_inclusive=True when amounts already include tax.
+    Same-customer/date/total duplicates are refused unless allow_duplicate=True."""
+    customers = await qb_query(
+        f"SELECT * FROM Customer WHERE DisplayName LIKE '%{customer_name}%' MAXRESULTS 1"
+    )
+    customer_list = customers.get("QueryResponse", {}).get("Customer", [])
+    if not customer_list:
+        return (
+            f"Customer '{customer_name}' not found. Use qb_list_customers or "
+            "qb_create_customer."
+        )
+    customer = customer_list[0]
+
+    items = json.loads(line_items) if isinstance(line_items, str) else line_items
+
+    region = (await _get_region())["region"]
+    default_tax_id = None
+    tax_cache: dict = {}
+    if region != "US" and tax_code:
+        try:
+            default_tax_id, _ = await _resolve_tax_code(tax_code)
+        except ValueError as e:
+            return str(e)
+
+    sr_lines = []
+    for item in items:
+        line = {
+            "DetailType": "SalesItemLineDetail",
+            "Amount": item.get("amount", 0),
+            "Description": item.get("description", ""),
+            "SalesItemLineDetail": {
+                "Qty": item.get("quantity", 1),
+                "UnitPrice": item.get("amount", 0) / max(item.get("quantity", 1), 1),
+            },
+        }
+        try:
+            line_tax = await _line_tax_code_ref(item, region, tax_cache)
+        except ValueError as e:
+            return str(e)
+        if line_tax:
+            line["SalesItemLineDetail"]["TaxCodeRef"] = line_tax
+        sr_lines.append(line)
+
+    if (
+        region != "US"
+        and not default_tax_id
+        and not any("TaxCodeRef" in l["SalesItemLineDetail"] for l in sr_lines)
+    ):
+        return _TAX_CODE_REQUIRED_MSG
+
+    sr_body: dict = {
+        "CustomerRef": {"value": customer["Id"]},
+        "Line": sr_lines,
+    }
+    if txn_date:
+        sr_body["TxnDate"] = _validate_date(txn_date, "txn_date")
+    if receipt_number:
+        sr_body["DocNumber"] = _sanitize_input(receipt_number, "receipt_number")[:21]
+    if memo:
+        sr_body["CustomerMemo"] = {"value": memo}
+    if deposit_to_account:
+        dep_acct, dep_err = await _resolve_account(deposit_to_account)
+        if dep_err:
+            return dep_err
+        sr_body["DepositToAccountRef"] = {
+            "value": dep_acct["Id"],
+            "name": dep_acct["Name"],
+        }
+    _apply_global_tax(
+        sr_body, "Line", "SalesItemLineDetail", default_tax_id, tax_inclusive, region
+    )
+
+    dup = await _duplicate_guard(
+        "SalesReceipt",
+        txn_date or None,
+        sum(i.get("amount", 0) for i in items),
+        allow_duplicate,
+        extra_where=f"CustomerRef = '{customer['Id']}'",
+    )
+    if dup:
+        return dup
+
+    result = await qb_request("POST", "salesreceipt", json_body=sr_body)
+    sr = result.get("SalesReceipt", {})
+    _audit_log(
+        "CREATE_SALES_RECEIPT",
+        f"id={sr.get('Id')} customer={customer['Id']} total={sr.get('TotalAmt')}",
+    )
+    return (
+        f"Sales receipt created!\n"
+        f"- ID: {sr.get('Id')}\n"
+        f"- Receipt #: {sr.get('DocNumber', 'auto')}\n"
+        f"- Customer: {customer.get('DisplayName', customer_name)}\n"
+        f"- Date: {sr.get('TxnDate', txn_date or 'today')}\n"
+        f"- Total: {fmt(sr.get('TotalAmt'))}\n"
+        f"- Deposited to: {deposit_to_account or 'Undeposited Funds (batch to the bank with qb_create_deposit)'}"
+    )
+
+
 # ===================================================================
 # TRANSACTION CREATION — Journal Entries (Reclassify)
 # ===================================================================
 
 
 @mcp.tool(annotations={"destructiveHint": True})
-async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") -> str:
-    """Create a journal entry for reclassifications or adjustments. date: YYYY-MM-DD. lines_json is a JSON string: [{"account_name": "...", "amount": 100.00, "type": "Debit"}, {"account_name": "...", "amount": 100.00, "type": "Credit"}]. Debits and credits must balance. Each line may optionally carry a class: add "class_name" (resolved by name, e.g. "Ahous Adventures" or a sub-class "Programs:Outreach") or "class_id" — omit both to leave that line unclassed (Not Specified). Different lines may use different classes, so this handles class-only reclassification entries (same account debited and credited in two different classes)."""
+async def qb_create_journal_entry(
+    date: str, lines_json: str, memo: str = "", allow_duplicate: bool = False
+) -> str:
+    """Create a journal entry for reclassifications or adjustments. date: YYYY-MM-DD. lines_json is a JSON string: [{"account_name": "...", "amount": 100.00, "type": "Debit"}, {"account_name": "...", "amount": 100.00, "type": "Credit"}]. Debits and credits must balance. Optional per-line keys:
+    - "class_name" (or "class_id") — class tracking; omit to leave the line unclassed. Different lines may use different classes.
+    - "customer_name" / "vendor_name" / "employee_name" — the NAME on the line. REQUIRED by QuickBooks for lines hitting Accounts Receivable (customer) or Accounts Payable (vendor); also makes the entry appear in vendor/customer reports and name searches.
+    - "tax_code" (Canada/global editions) — sales tax code on the line (e.g. 'HST ON') so GST/HST adjustments flow to the Sales Tax Centre return; optional "tax_applicable_on": "Sales" or "Purchase" (default: Purchase on debits, Sales on credits).
+    If a journal entry with the same date and total already exists, creation is refused unless allow_duplicate=True.
+    """
     entries = json.loads(lines_json) if isinstance(lines_json, str) else lines_json
 
     je_lines = []
     line_classes = []
     total_debit = 0.0
     total_credit = 0.0
+    region = None  # detected lazily, only when a line carries a tax_code
+    name_cache: dict = {}
     _allowed_keys = {
         "account_name",
         "account_id",
@@ -7207,6 +7444,11 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
         "description",
         "class_name",
         "class_id",
+        "customer_name",
+        "vendor_name",
+        "employee_name",
+        "tax_code",
+        "tax_applicable_on",
     }
 
     for i, entry in enumerate(entries, 1):
@@ -7215,7 +7457,9 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
             return (
                 f"Journal line {i} has unrecognized field(s): "
                 f"{', '.join(sorted(unknown))}. Allowed per line: account_name "
-                "(or account_id), amount, type ('Debit' or 'Credit'), description."
+                "(or account_id), amount, type ('Debit' or 'Credit'), "
+                "description, class_name/class_id, customer_name/vendor_name/"
+                "employee_name, tax_code, tax_applicable_on."
             )
         posting_type = entry.get("type", "Debit")
         if posting_type not in ("Debit", "Credit"):
@@ -7272,6 +7516,57 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
             line_detail["ClassRef"] = class_ref
         line_classes.append(class_ref["name"] if class_ref else "")
 
+        # Optional per-line NAME (customer/vendor/employee). QuickBooks
+        # requires one on A/R (customer) and A/P (vendor) lines, and without
+        # it the entry never shows in vendor/customer reports or searches.
+        entity_specs = [
+            ("Customer", entry.get("customer_name", "")),
+            ("Vendor", entry.get("vendor_name", "")),
+            ("Employee", entry.get("employee_name", "")),
+        ]
+        named = [(k, n) for k, n in entity_specs if n]
+        if len(named) > 1:
+            return (
+                f"Journal line {i}: give ONE of customer_name / vendor_name / "
+                "employee_name, not several."
+            )
+        if named:
+            kind, nm = named[0]
+            cache_key = f"{kind}:{nm}"
+            if cache_key not in name_cache:
+                name_cache[cache_key] = await _resolve_name_entity(kind, nm)
+            ref, nerr = name_cache[cache_key]
+            if nerr:
+                return f"Journal line {i}: {nerr}"
+            line_detail["Entity"] = {"Type": kind, "EntityRef": ref}
+
+        # Optional per-line sales tax code (Canada/global) so GST/HST
+        # adjustments posted by JE flow to the Sales Tax Centre return.
+        line_tax = str(entry.get("tax_code", "") or "").strip()
+        if line_tax:
+            if region is None:
+                region = (await _get_region())["region"]
+            if region == "US":
+                return (
+                    f"Journal line {i}: tax_code on journal-entry lines is for "
+                    "Canada/global tax editions — US journal entries don't "
+                    "carry sales tax codes."
+                )
+            try:
+                tax_id, _ = await _resolve_tax_code(line_tax)
+            except ValueError as e:
+                return f"Journal line {i}: {e}"
+            line_detail["TaxCodeRef"] = {"value": tax_id}
+            applicable = str(entry.get("tax_applicable_on", "") or "").strip() or (
+                "Purchase" if posting_type == "Debit" else "Sales"
+            )
+            if applicable not in ("Sales", "Purchase"):
+                return (
+                    f"Journal line {i}: tax_applicable_on must be 'Sales' or "
+                    f"'Purchase' (got '{applicable}')."
+                )
+            line_detail["TaxApplicableOn"] = applicable
+
         je_lines.append(
             {
                 "DetailType": "JournalEntryLineDetail",
@@ -7283,6 +7578,10 @@ async def qb_create_journal_entry(date: str, lines_json: str, memo: str = "") ->
 
     if abs(total_debit - total_credit) > 0.01:
         return f"Journal entry does not balance. Debits: {fmt(total_debit)}, Credits: {fmt(total_credit)}. They must be equal."
+
+    dup = await _duplicate_guard("JournalEntry", date, total_debit, allow_duplicate)
+    if dup:
+        return dup
 
     je_body = {
         "TxnDate": date,
@@ -7438,19 +7737,56 @@ async def qb_record_depreciation(
 async def qb_create_deposit(
     date: str,
     deposit_to_account: str,
-    lines_json: str,
+    lines_json: str = "",
     memo: str = "",
     tax_code: str = "",
+    linked_txns_json: str = "",
 ) -> str:
-    """Create a bank deposit. date: YYYY-MM-DD. deposit_to_account: name of bank account receiving deposit. lines_json: JSON string [{"account_name": "...", "amount": 100.00, "description": "..."}].
-    Canada/global editions: optional tax_code applies a sales tax code to each deposit line, e.g. 'HST ON' (deposits do not require one).
+    """Create a bank deposit. date: YYYY-MM-DD. deposit_to_account: name of bank account receiving deposit.
+    lines_json: JSON string for direct lines [{"account_name": "...", "amount": 100.00, "description": "...", "customer_name": "..."}] — the optional customer_name puts the NAME on the deposit line so customer sales reports stay complete.
+    linked_txns_json: JSON string to deposit payments/sales receipts sitting in UNDEPOSITED FUNDS — the API equivalent of ticking them on the Bank Deposit screen: [{"txn_id": "123", "txn_type": "Payment", "amount": 50.00}] (txn_type: Payment or SalesReceipt; find IDs with qb_list_payments / qb_list_sales_receipts). Either or both of lines_json / linked_txns_json may be given.
+    Canada/global editions: optional tax_code applies a sales tax code to each direct deposit line, e.g. 'HST ON' (deposits do not require one).
     """
     dep_acct, dep_err = await _resolve_account(deposit_to_account)
     if dep_err:
         return dep_err
 
-    entries = json.loads(lines_json) if isinstance(lines_json, str) else lines_json
+    entries = (
+        (json.loads(lines_json) if isinstance(lines_json, str) else lines_json)
+        if lines_json
+        else []
+    )
+    linked = (
+        (
+            json.loads(linked_txns_json)
+            if isinstance(linked_txns_json, str)
+            else linked_txns_json
+        )
+        if linked_txns_json
+        else []
+    )
+    if not entries and not linked:
+        return "Give lines_json (direct lines) and/or linked_txns_json (Undeposited Funds payments) — the deposit needs at least one line."
+
     dep_lines = []
+    linked_count = 0
+    for lt in linked:
+        txn_type = str(lt.get("txn_type", "Payment")).strip()
+        if txn_type not in ("Payment", "SalesReceipt"):
+            return (
+                f"linked_txns_json: txn_type must be 'Payment' or 'SalesReceipt' "
+                f"(got '{txn_type}')."
+            )
+        txn_id = str(lt.get("txn_id", "")).strip()
+        if not txn_id:
+            return "linked_txns_json: each entry needs a txn_id."
+        line: dict = {
+            "Amount": float(lt.get("amount", 0)),
+            "LinkedTxn": [{"TxnId": txn_id, "TxnType": txn_type, "TxnLineId": "0"}],
+        }
+        dep_lines.append(line)
+        linked_count += 1
+
     for entry in entries:
         acct_name = entry.get("account_name", "")
         amount = float(entry.get("amount", 0))
@@ -7460,14 +7796,23 @@ async def qb_create_deposit(
         if err:
             return err
 
+        detail: dict = {
+            "AccountRef": {"value": acct["Id"], "name": acct["Name"]},
+        }
+        # Optional NAME on the line — keeps customer sales reports complete.
+        cust_name = str(entry.get("customer_name", "") or "").strip()
+        if cust_name:
+            ref, nerr = await _resolve_name_entity("Customer", cust_name)
+            if nerr:
+                return nerr
+            detail["Entity"] = {"value": ref["value"], "name": ref["name"]}
+
         dep_lines.append(
             {
                 "DetailType": "DepositLineDetail",
                 "Amount": amount,
                 "Description": desc,
-                "DepositLineDetail": {
-                    "AccountRef": {"value": acct["Id"], "name": acct["Name"]},
-                },
+                "DepositLineDetail": detail,
             }
         )
 
@@ -7492,8 +7837,13 @@ async def qb_create_deposit(
 
     result = await qb_request("POST", "deposit", json_body=deposit_body)
     dep = result.get("Deposit", {})
+    linked_note = (
+        f"\n- Linked from Undeposited Funds: {linked_count} payment(s)"
+        if linked_count
+        else ""
+    )
     return (
-        f"Deposit created!\n"
+        f"Deposit created!{linked_note}\n"
         f"- ID: {dep.get('Id')}\n"
         f"- Date: {date}\n"
         f"- Total: {fmt(dep.get('TotalAmt'))}\n"
@@ -13401,6 +13751,10 @@ async def qb_bank_reconciliation(
         "Payment",
         "SalesReceipt",
         "JournalEntry",
+        # Transfer was missing: transfers already in the books were reported
+        # as "missing from books", prompting duplicate entries (user-reported).
+        # Note Transfer carries "Amount", not "TotalAmt".
+        "Transfer",
     ):
         try:
             r = await qb_query_all(
@@ -13408,7 +13762,7 @@ async def qb_bank_reconciliation(
                 f"AND TxnDate <= '{end}' MAXRESULTS 1000"
             )
             for t in r.get("QueryResponse", {}).get(entity, []):
-                amt = float(t.get("TotalAmt", 0) or 0)
+                amt = float(t.get("TotalAmt", t.get("Amount", 0)) or 0)
                 if amt == 0:
                     continue
                 party = (
@@ -13417,6 +13771,10 @@ async def qb_bank_reconciliation(
                     or t.get("CustomerRef")
                     or {}
                 ).get("name", "")
+                if not party and entity == "Transfer":
+                    frm = (t.get("FromAccountRef") or {}).get("name", "?")
+                    to = (t.get("ToAccountRef") or {}).get("name", "?")
+                    party = f"{frm} → {to}"
                 book.append(
                     {
                         "date": (t.get("TxnDate", "") or "")[:10],
@@ -18199,6 +18557,48 @@ def require_not_readonly(func):
     return wrapper
 
 
+def company_context_footer(func):
+    """Append the ACTIVE COMPANY to every tool response when more than one
+    company is connected — so a report from the wrong file is obvious at a
+    glance (user-requested after a company-switch incident: with multiple
+    corporations, nothing in the output said which books answered).
+    Single-company connections stay noise-free. Never fails the tool."""
+
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        result = await func(*args, **kwargs)
+        if not isinstance(result, str):
+            return result
+        try:
+            ctx = get_ctx()
+            companies = getattr(ctx, "hosted_companies", None) or []
+            if len(companies) > 1 and ctx.realm_id:
+                name = next(
+                    (
+                        c.get("companyName")
+                        for c in companies
+                        if c.get("realmId") == ctx.realm_id
+                    ),
+                    None,
+                )
+                if name:
+                    result += f"\n\n🏢 *Active company: {name}*"
+        except Exception:  # the footer must never break a tool response
+            pass
+        return result
+
+    return wrapper
+
+
+def _apply_company_footer():
+    """Wrap every tool with the active-company footer (cf. _apply_usage_tracking
+    — unconditional; the wrapper itself no-ops for single-company contexts)."""
+    for tool_name in list(mcp._tool_manager._tools.keys()):
+        tool = mcp._tool_manager._tools[tool_name]
+        tool.fn = company_context_footer(tool.fn)
+    logger.info("Active-company footer installed on all tools (multi-company only)")
+
+
 def _apply_readonly_gating():
     """Wrap every book-mutating tool with require_not_readonly (cf.
     _apply_license_gating). Read-only/report tools are left untouched."""
@@ -18224,6 +18624,7 @@ def _apply_readonly_gating():
 _apply_license_gating()
 _apply_usage_tracking()
 _apply_readonly_gating()
+_apply_company_footer()
 
 
 # ===================================================================

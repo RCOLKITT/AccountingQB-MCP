@@ -205,6 +205,11 @@
     "write": true
   },
   {
+    "name": "qb_create_sales_receipt",
+    "description": "Create a sales receipt — a completed sale paid at the time of sale (the",
+    "write": true
+  },
+  {
     "name": "qb_create_sub_account",
     "description": "Create a sub-account",
     "write": true
