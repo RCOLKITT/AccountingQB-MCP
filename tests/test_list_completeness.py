@@ -125,7 +125,7 @@ def _classed_bill(bill_id, cls):
 
 
 def test_transaction_list_class_filter(monkeypatch):
-    classed = _classed_bill("1", "Ahous Adventures")
+    classed = _classed_bill("1", "North Shore Tours")
     unclassed = _classed_bill("2", "")
 
     async def fake_query_all(query, **kw):
@@ -135,14 +135,14 @@ def test_transaction_list_class_filter(monkeypatch):
 
     monkeypatch.setattr(s, "qb_query_all", fake_query_all)
     out = asyncio.run(
-        s.qb_transaction_list("2026-07-01", "2026-08-31", class_name="Ahous")
+        s.qb_transaction_list("2026-07-01", "2026-08-31", class_name="North Shore")
     )
-    assert "Ahous Adventures" in out and "1 transactions" in out
-    assert "class ~ 'Ahous'" in out
+    assert "North Shore Tours" in out and "1 transactions" in out
+    assert "class ~ 'North Shore'" in out
 
 
 def test_transaction_list_unclassed_only(monkeypatch):
-    classed = _classed_bill("1", "Ahous Adventures")
+    classed = _classed_bill("1", "North Shore Tours")
     unclassed = _classed_bill("2", "")
 
     async def fake_query_all(query, **kw):
@@ -180,7 +180,7 @@ def test_balance_sheet_by_class_renders_when_tracked(monkeypatch):
     async def fake_request(method, endpoint, **kw):
         assert "BalanceSheet" in endpoint
         assert kw["params"]["summarize_column_by"] == "Classes"
-        return _bs_report(["", "Ahous Adventures", "Wahous Lodge", "Total"])
+        return _bs_report(["", "North Shore Tours", "Cedar Lodge", "Total"])
 
     monkeypatch.setattr(s, "qb_request", fake_request)
     out = asyncio.run(s.qb_balance_sheet_by_class("2026-12-31"))

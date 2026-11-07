@@ -1,6 +1,6 @@
 # AccountingQB v3.10.0 — End-to-End Test Report
 
-**Date:** 2026-08-01 · **Build:** 3.10.0 (126 tools) · **Company:** NutriFitAI LLC, realm `9341453706844727`
+**Date:** 2026-08-01 · **Build:** 3.10.0 (126 tools) · **Company:** NutriFitAI LLC, realm `93414…-redacted`
 **Data:** 230 card transactions YTD, live QuickBooks + live Stripe.
 
 **Verdict: the v3.9.x/v3.10.0 fixes are real and they hold. All 7 previously-reported bugs

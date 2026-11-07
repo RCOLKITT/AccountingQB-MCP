@@ -97,7 +97,7 @@ async def main() -> int:
     classes = await s.qb_list_classes()
     check("setup: canary class exists", CLASS_NAME in classes, classes[:300])
 
-    # 3. Post a class-tagged journal entry (per-line class — the Shayla
+    # 3. Post a class-tagged journal entry (per-line class — the per-line class
     #    feature) between the first two active accounts in the sample chart.
     accts = (
         (await s.qb_query_all("SELECT * FROM Account WHERE Active = true"))

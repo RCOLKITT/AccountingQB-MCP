@@ -23,7 +23,7 @@ export const RELEASES: Release[] = [
       "Four fixes from a CPA running multi-company books. The important one: a connection hiccup can never silently switch your active company again — reconnects preserve it, and when we genuinely can't tell which company is active, tools refuse with a clear retry message instead of guessing.",
     highlights: [
       "Active company is preserved across reconnects and token refreshes; a failed lookup now refuses rather than silently running against the first connected company — and 'no companies connected' is never claimed when the real issue is a temporary service blip",
-      "Names with apostrophes (Rod's Power Marine, O'Brien & Sons) work in every search and filter — the whole query layer now escapes them",
+      "Names with apostrophes (O'Hara's Marine, O'Brien & Sons) work in every search and filter — the whole query layer now escapes them",
       "Account numbers: set AcctNum when creating accounts and sub-accounts, and a new qb_update_account adds or changes the number, name, or description on existing accounts",
       "qb_reclassify_transaction takes line_number — recode one line on a 22-line bill without touching the other 21",
       "146 tools total across US & Canada",

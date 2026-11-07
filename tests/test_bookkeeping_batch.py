@@ -390,8 +390,8 @@ def test_company_footer_names_active_company_when_multi(monkeypatch):
     ctx = QBContext(persist_tokens=False, hosted_mode=True)
     ctx.realm_id = "222"
     ctx.hosted_companies = [
-        {"realmId": "111", "companyName": "OPSTART, INC."},
-        {"realmId": "222", "companyName": "Reign Innovations Inc."},
+        {"realmId": "111", "companyName": "Northwind Corp"},
+        {"realmId": "222", "companyName": "Lakeside Corp"},
     ]
     token = set_ctx(ctx)
     try:
@@ -401,7 +401,7 @@ def test_company_footer_names_active_company_when_multi(monkeypatch):
 
         wrapped = s.company_context_footer(tool)
         out = asyncio.run(wrapped())
-        assert "Active company: Reign Innovations Inc." in out
+        assert "Active company: Lakeside Corp" in out
     finally:
         reset_ctx(token)
 

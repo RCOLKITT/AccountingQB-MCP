@@ -10909,7 +10909,7 @@ def _sanitize_input(value: str, field_name: str = "input") -> str:
 def _q_escape(value) -> str:
     """Escape a user-provided value for interpolation inside single quotes in a
     QBO query. Bare apostrophes raise QueryParserError 4000 (user-reported via
-    vendor "Rod's Power Marine"); stripping them (the old ad-hoc approach)
+    vendor "O'Hara's Marine"); stripping them (the old ad-hoc approach)
     silently broke exact-name matches instead. Sanitize, then backslash-escape
     quotes — QuickBooks' documented quoting rule."""
     return _sanitize_input(str(value or ""), "query value").replace("'", "\\'")
