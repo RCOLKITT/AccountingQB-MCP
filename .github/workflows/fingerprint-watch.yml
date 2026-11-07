@@ -1,0 +1,75 @@
+name: Code fingerprint watch
+
+# Weekly sweep of public GitHub for this codebase's distinctive fingerprints —
+# unique tool names and signature phrases that exist nowhere else. The repo is
+# deliberately PUBLIC under a proprietary license (showing HOW we build is part
+# of the trust story; the moat is the feedback→enhancement velocity, not the
+# code's secrecy) — this watch is the tripwire for license-violating COPIES of
+# the expression. Zero hits is the expected steady state; any hit opens/updates
+# an issue for human review (indexers/mirrors of our own name are excluded by
+# using code-level fingerprints, not the product name).
+
+on:
+  schedule:
+    - cron: "23 10 * * 3" # Wednesdays 10:23 UTC (canaries run Mon/Tue)
+  workflow_dispatch: {}
+
+jobs:
+  fingerprint-watch:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Search public GitHub for our fingerprints
+        id: sweep
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          FINGERPRINTS=(
+            "qb_bulk_set_class"
+            "qb_enable_class_tracking"
+            "qb_t2125_summary"
+            "qb_books_hygiene"
+            "Workpapers, Never Filings"
+            "Never Wrong-Jurisdiction Numbers"
+            "tax_ledger.jsonl"
+          )
+          FOUND=""
+          for fp in "${FINGERPRINTS[@]}"; do
+            result=$(gh api -X GET search/code \
+              -f q="\"$fp\" -repo:RCOLKITT/AccountingQB-MCP" \
+              -q '{n: .total_count, repos: [.items[:5][].repository.full_name]}' \
+              2>/dev/null || echo '{"n":0,"repos":[]}')
+            n=$(echo "$result" | jq -r .n)
+            if [ "$n" != "0" ]; then
+              repos=$(echo "$result" | jq -r '.repos | join(", ")')
+              FOUND="$FOUND\n- \`$fp\`: $n hit(s) → $repos"
+              echo "❌ \"$fp\": $n hit(s) → $repos"
+            else
+              echo "✅ \"$fp\": clean"
+            fi
+            sleep 3 # search API rate limit
+          done
+          {
+            echo "found<<EOF"
+            echo -e "$FOUND"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          [ -z "$FOUND" ] || exit 1
+      - name: Open/update an issue on any hit
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Fingerprint watch: our code may have been copied"
+          BODY="The weekly fingerprint sweep found our distinctive code strings in other public repositories. This repo is public under a PROPRIETARY license — copies of the expression are violations. Review each hit (could be a fork-in-disguise, a tutorial quoting us, or an indexer false-positive):
+          ${{ steps.sweep.outputs.found }}
+
+          Runbook: verify the repo, check its license/attribution, and if it is a copy, start with a polite takedown request before a DMCA. _Opened automatically by fingerprint-watch.yml._"
+          EXISTING="$(gh issue list --state open --search 'Fingerprint watch in:title' --json number -q '.[0].number' || true)"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi
