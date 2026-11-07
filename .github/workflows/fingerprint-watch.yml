@@ -7,7 +7,9 @@ name: Code fingerprint watch
 # code's secrecy) — this watch is the tripwire for license-violating COPIES of
 # the expression. Zero hits is the expected steady state; any hit opens/updates
 # an issue for human review (indexers/mirrors of our own name are excluded by
-# using code-level fingerprints, not the product name).
+# using code-level fingerprints, not the product name). Fingerprints must
+# be STRONG: generic-looking filenames false-positive ("tax_ledger.jsonl"
+# matched two unrelated projects on day one — investigated, benign, removed).
 
 on:
   schedule:
@@ -36,7 +38,6 @@ jobs:
             "qb_books_hygiene"
             "Workpapers, Never Filings"
             "Never Wrong-Jurisdiction Numbers"
-            "tax_ledger.jsonl"
           )
           FOUND=""
           for fp in "${FINGERPRINTS[@]}"; do
