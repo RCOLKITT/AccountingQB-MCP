@@ -218,7 +218,7 @@ Ask Claude naturally:
 - "Run my Schedule C for tax year 2025"
 - "Find any uncategorized transactions"
 - "Show the Balance Sheet by Class and find amounts stuck in Not Specified"
-- "Move everything unclassed in Work in progress to the Ahous Adventures class"
+- "Move everything unclassed in Work in progress to the North Shore Tours class"
 - "What's my monthly burn rate, and how much runway do I have?"
 - "Compare Q1 vs Q2 profit and loss"
 - "Find potential duplicate transactions"

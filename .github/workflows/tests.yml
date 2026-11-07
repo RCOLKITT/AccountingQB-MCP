@@ -31,6 +31,13 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - run: bash scripts/scan-theater.sh
+      # PII gate (BLOCKING): no customer/client names, realm IDs, or books
+      # data in this PUBLIC repo — incident→test keeps the shape, never the
+      # data. Generic rules always run; the customer-identifier blocklist
+      # lives ONLY in the secret (committing it would be the leak).
+      - run: bash scripts/scan-pii.sh
+        env:
+          PII_BLOCKLIST: ${{ secrets.PII_BLOCKLIST }}
 
   web-checks:
     runs-on: ubuntu-latest

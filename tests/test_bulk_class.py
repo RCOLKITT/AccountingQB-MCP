@@ -7,8 +7,8 @@ import asyncio
 
 import accountingqb.server as s
 
-CLASS_A = "Ahous Adventures"
-CLASS_B = "Wahous Wilderness Lodge"
+CLASS_A = "North Shore Tours"
+CLASS_B = "Cedar Grove Lodge"
 IDS = {CLASS_A: "9", CLASS_B: "8"}
 
 

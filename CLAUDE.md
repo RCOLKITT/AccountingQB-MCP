@@ -28,6 +28,12 @@ Constitution wins where they conflict.
 
 ## Non-obvious facts
 - Secrets live in Doppler (→ Vercel/Fly). Never commit or log them.
+- **This repo is PUBLIC — no customer PII, ever**: no customer or client
+  names, emails, QuickBooks realm IDs, or books data (vendors, classes,
+  transaction IDs tied to a real company) in code, tests, commits, PR/issue
+  text, or docs. Incident→test keeps the SHAPE of a report, never the data —
+  fictionalize before committing. CI enforces via scripts/scan-pii.sh
+  (+ PII_BLOCKLIST secret; local mirror: gitignored .pii-blocklist).
 - Region gating: `_get_region()` + `require_region` — every jurisdiction-
   specific tool must be gated (Constitution: "Never Wrong-Jurisdiction Numbers").
 - Token refresh must go through the `claim_token_refresh` single-flight lock.

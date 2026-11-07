@@ -7,8 +7,8 @@ import asyncio
 
 import accountingqb.server as s
 
-CLASS_A = "Wahous Wilderness Lodge"
-CLASS_B = "Ahous Adventures"
+CLASS_A = "Cedar Grove Lodge"
+CLASS_B = "North Shore Tours"
 
 
 async def _no_multicurrency():
@@ -49,7 +49,7 @@ def test_transaction_detail_shows_class(monkeypatch):
     monkeypatch.setattr(s, "_multicurrency_enabled", _no_multicurrency)
     out = asyncio.run(s.qb_transaction_detail("Bill", "17677"))
     assert "Work in progress" in out
-    assert f"Class: {CLASS_A}" in out  # the gap Shayla reported
+    assert f"Class: {CLASS_A}" in out  # the gap a CPA reported
 
 
 # --- qb_list_bills: class per line + full pagination -----------------------
@@ -100,7 +100,7 @@ def test_account_transactions_vendor_and_class(monkeypatch):
         "Active": True,
         "CurrentBalance": 5000.0,
     }
-    bill = _bill("18924", "Maaqutusiis Supplier", "1150040006", "WIP", 800.0, CLASS_A)
+    bill = _bill("18924", "Island Supply Co", "1150040006", "WIP", 800.0, CLASS_A)
 
     async def fake_resolve(name, **kw):
         return acct, None
@@ -116,7 +116,7 @@ def test_account_transactions_vendor_and_class(monkeypatch):
         s.qb_account_transactions("Work in progress", "2026-07-01", "2026-08-31")
     )
     # Vendor is read from VendorRef now (was "(no vendor)" on every Bill).
-    assert "Maaqutusiis Supplier" in out
+    assert "Island Supply Co" in out
     assert "(no vendor)" not in out
     # Class column carries the line's class.
     assert CLASS_A in out

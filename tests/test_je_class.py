@@ -9,8 +9,8 @@ import json
 
 import accountingqb.server as s
 
-CLASS_A = "Ahous Adventures"
-CLASS_B = "Wahous Wilderness Lodge"
+CLASS_A = "North Shore Tours"
+CLASS_B = "Cedar Grove Lodge"
 
 
 def _acct(acct_id, name):

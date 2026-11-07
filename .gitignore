@@ -45,3 +45,4 @@ mcpb/server/
 
 # Internal strategy/ops docs — kept local, never published (repo is public)
 private-docs/
+.pii-blocklist

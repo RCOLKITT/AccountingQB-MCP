@@ -1,4 +1,4 @@
-"""Shayla's third report (v3.28.0) — four gaps, each test reproduces the exact
+"""a CPA's third report (v3.28.0) — four gaps, each test reproduces the exact
 incident shape. The serious one is #2: a token expiry or broker hiccup must
 NEVER silently switch the active company (wrong-company-write risk)."""
 
@@ -8,8 +8,8 @@ import json
 import accountingqb.server as s
 from accountingqb.context import QBContext, reset_ctx, set_ctx
 
-MHEI = {"realmId": "222", "companyName": "MHEI", "refreshToken": "rt-mhei"}
-AHOUS = {"realmId": "111", "companyName": "Ahous Business", "refreshToken": "rt-ahous"}
+CO_A = {"realmId": "222", "companyName": "Northwind Corp", "refreshToken": "rt-co-a"}
+CO_B = {"realmId": "111", "companyName": "Lakeside Corp", "refreshToken": "rt-co-b"}
 
 
 # --- #2a: reconnect preserves the active company -----------------------------
@@ -17,19 +17,19 @@ AHOUS = {"realmId": "111", "companyName": "Ahous Business", "refreshToken": "rt-
 
 def test_adopt_hosted_companies_preserves_active_realm():
     ctx = QBContext(persist_tokens=False, hosted_mode=True)
-    ctx.realm_id = "222"  # working in MHEI
-    # Broker returns Ahous FIRST — the old code reset realm to companies[0].
-    s._adopt_hosted_companies(ctx, [AHOUS, MHEI])
-    assert ctx.realm_id == "222"  # still MHEI
-    assert ctx.refresh_token == "rt-mhei"  # and the MATCHING token
+    ctx.realm_id = "222"  # working in company A
+    # Broker returns company B FIRST — the old code reset realm to companies[0].
+    s._adopt_hosted_companies(ctx, [CO_B, CO_A])
+    assert ctx.realm_id == "222"  # still company A
+    assert ctx.refresh_token == "rt-co-a"  # and the MATCHING token
 
 
 def test_adopt_hosted_companies_defaults_only_when_unset_or_stale():
     ctx = QBContext(persist_tokens=False, hosted_mode=True)
-    s._adopt_hosted_companies(ctx, [AHOUS, MHEI])
+    s._adopt_hosted_companies(ctx, [CO_B, CO_A])
     assert ctx.realm_id == "111"  # no realm set → first company (unchanged)
     ctx.realm_id = "999"  # disconnected company
-    s._adopt_hosted_companies(ctx, [AHOUS, MHEI])
+    s._adopt_hosted_companies(ctx, [CO_B, CO_A])
     assert ctx.realm_id == "111"  # stale realm → falls back, not an error
 
 
@@ -44,8 +44,8 @@ def test_failed_realm_lookup_refuses_silent_first_company(monkeypatch, respx_moc
             200,
             json={
                 "companies": [
-                    {**AHOUS, "accessToken": "at", "expiresAt": None},
-                    {**MHEI, "accessToken": "at2", "expiresAt": None},
+                    {**CO_B, "accessToken": "at", "expiresAt": None},
+                    {**CO_A, "accessToken": "at2", "expiresAt": None},
                 ]
             },
         )
@@ -62,7 +62,7 @@ def test_failed_realm_lookup_refuses_silent_first_company(monkeypatch, respx_moc
         except (RuntimeError, ValueError) as e:
             msg = str(e)
         assert "wrong company" in msg or "company selection is safe" in msg
-        assert ctx.realm_id == ""  # did NOT silently become Ahous
+        assert ctx.realm_id == ""  # did NOT silently become company B
     finally:
         reset_ctx(token)
 
@@ -74,7 +74,7 @@ def test_no_default_set_still_uses_first_company(respx_mock):
     respx_mock.post(f"{s.QB_API_URL}/api/oauth/token").mock(
         return_value=_httpx.Response(
             200,
-            json={"companies": [{**AHOUS, "accessToken": "at", "expiresAt": None}]},
+            json={"companies": [{**CO_B, "accessToken": "at", "expiresAt": None}]},
         )
     )
     ctx = QBContext(persist_tokens=False, hosted_mode=True)
@@ -134,7 +134,7 @@ def test_vendor_credit_search_escapes_apostrophe(monkeypatch):
     async def fake_query(q, **kw):
         queries.append(q)
         return {
-            "QueryResponse": {"Vendor": [{"Id": "7", "DisplayName": "Rod's Power"}]}
+            "QueryResponse": {"Vendor": [{"Id": "7", "DisplayName": "O'Hara's Marine"}]}
         }
 
     async def fake_query_all(q, **kw):
@@ -145,14 +145,14 @@ def test_vendor_credit_search_escapes_apostrophe(monkeypatch):
     monkeypatch.setattr(s, "qb_query_all", fake_query_all)
     asyncio.run(
         s.qb_list_vendor_credits(
-            "2026-01-01", "2026-12-31", vendor_name="Rod's Power Marine - AA"
+            "2026-01-01", "2026-12-31", vendor_name="O'Hara's Marine - AA"
         )
     )
-    name_queries = [q for q in queries if "Rod" in q]
+    name_queries = [q for q in queries if "Hara" in q]
     assert name_queries, "vendor lookup query not issued"
     for q in name_queries:
-        assert "Rod\\'s" in q  # escaped — QueryParserError 4000 shape gone
-        assert "'%Rod's" not in q  # no bare apostrophe inside the literal
+        assert "O\\'Hara\\'s" in q  # escaped — QueryParserError 4000 shape gone
+        assert "'%O'Hara" not in q  # no bare apostrophe inside the literal
 
 
 def test_q_escape_is_used_across_name_lookups(monkeypatch):
