@@ -149,8 +149,17 @@ jobs:
           if ($sig.Status -ne 'Valid') { "signature: $($sig.Status)"; exit 1 }
           Copy-Item $exe.FullName AccountingQB-Windows-Setup.exe
           $TAG = if ($env:GITHUB_REF_NAME -match '^desktop-v') { $env:GITHUB_REF_NAME } else { "manual-win-$(Get-Date -Format yyyyMMddHHmm)" }
-          $PRE = if ($TAG -match '-beta|-rc') { '--prerelease' } else { '' }
-          gh release create $TAG --repo $env:RELEASES_REPO $PRE --title "AccountingQB $($TAG -replace '^desktop-v','')" --notes "Signed & notarized macOS (Apple Silicon) + signed Windows build. Auto-updates from here on." 2>$null
+          # Args as an ARRAY: PowerShell passes an empty '' as a REAL argument
+          # (unlike bash), so the old `$PRE = ''` made this create silently
+          # fail on every stable tag — masked for months because the macOS job
+          # always created the release first, until a macOS queue delay let
+          # Windows finish first ("release not found", desktop-v0.3.5).
+          $createArgs = @('release','create',$TAG,'--repo',$env:RELEASES_REPO,'--title',"AccountingQB $($TAG -replace '^desktop-v','')",'--notes','Signed & notarized macOS (Apple Silicon) + signed Windows build. Auto-updates from here on.')
+          if ($TAG -match '-beta|-rc') { $createArgs += '--prerelease' }
+          gh @createArgs 2>$null
+          # Either job may create the release; verify before uploading.
+          $null = gh release view $TAG --repo $env:RELEASES_REPO 2>$null
+          if ($LASTEXITCODE -ne 0) { throw "release $TAG missing and create failed" }
           $upSig = "$($exe.FullName).sig"
           gh release upload $TAG $exe.FullName AccountingQB-Windows-Setup.exe $upSig --repo $env:RELEASES_REPO --clobber
           $base = $exe.Name
