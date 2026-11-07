@@ -1,6 +1,6 @@
-"""Import smoke tests: the canonical server registers exactly 145 tools."""
+"""Import smoke tests: the canonical server registers exactly 146 tools."""
 
-EXPECTED_TOOL_COUNT = 145
+EXPECTED_TOOL_COUNT = 146
 
 SPOT_CHECK_TOOLS = [
     "qb_create_invoice",
@@ -26,7 +26,7 @@ def _registered_tools(server) -> dict:
     return server.mcp._tool_manager._tools
 
 
-def test_tool_count_is_145(server):
+def test_tool_count_is_146(server):
     assert len(_registered_tools(server)) == EXPECTED_TOOL_COUNT
 
 

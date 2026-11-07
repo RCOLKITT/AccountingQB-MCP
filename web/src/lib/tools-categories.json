@@ -22,6 +22,7 @@
       "qb_list_accounts",
       "qb_create_account",
       "qb_create_sub_account",
+      "qb_update_account",
       "qb_inactivate_account",
       "qb_list_items",
       "qb_list_classes",

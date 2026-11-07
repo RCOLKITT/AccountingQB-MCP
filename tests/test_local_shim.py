@@ -32,7 +32,7 @@ def test_healthz(client):
 
 def test_status_reports_tools(client):
     data = client.get("/api/status").json()
-    assert data["toolCount"] == 145
+    assert data["toolCount"] == 146
     assert data["connected"] is False  # no QB in tests
 
 

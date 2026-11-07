@@ -33,6 +33,11 @@ class QBContext:
 
     # Active company
     realm_id: str = ""
+    # True when the per-request default-realm lookup FAILED (broker unreachable
+    # with no cached value) — distinct from "no default set". With multiple
+    # companies connected, tools must refuse rather than silently fall back to
+    # the first company (wrong-company-write risk).
+    realm_lookup_failed: bool = False
 
     # Hosted mode (tokens brokered by the AccountingQB API)
     hosted_mode: bool = False

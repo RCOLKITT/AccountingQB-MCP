@@ -224,6 +224,12 @@ class DefaultRealmCache:
             age = now - hit[0]
             window = self._ttl if hit[3] else self._backoff
             if age < window:
+                if not hit[3] and hit[1] is None:
+                    # Backoff window after a failure with NO last-known value:
+                    # keep surfacing the failure (don't read as "no default").
+                    raise RuntimeError(
+                        "default-realm lookup failed with no cached value"
+                    )
                 return hit[1], hit[2]
 
         realm, read_only, ok = await self._fetch(license_key)
@@ -236,6 +242,12 @@ class DefaultRealmCache:
         prev_realm = hit[1] if hit else None
         prev_read_only = hit[2] if hit else False
         self._cache[license_key] = (now, prev_realm, prev_read_only, False)
+        if hit is None:
+            # No last-known value to serve — surface the failure instead of
+            # returning None, which downstream reads as "no default set" and
+            # silently falls back to the FIRST connected company. With multiple
+            # companies that risks running against the wrong books.
+            raise RuntimeError("default-realm lookup failed with no cached value")
         return prev_realm, prev_read_only
 
     async def get(self, license_key: str) -> Optional[str]:
@@ -468,10 +480,14 @@ class BearerAuthMiddleware:
         license_key = claims["license_key"]
 
         realm_id: Optional[str] = None
+        realm_lookup_failed = False
         if self.realm_resolver is not None:
             try:
                 realm_id = await self.realm_resolver(license_key)
             except Exception as exc:  # never fail the request on realm lookup
+                # …but DO mark it: downstream must not read a failed lookup as
+                # "no default set" and silently use the first company.
+                realm_lookup_failed = True
                 logger.warning("realm resolver failed: %s", exc)
 
         # Fresh per-request tenant context. persist_tokens=False: the remote
@@ -488,6 +504,7 @@ class BearerAuthMiddleware:
 
         ctx = QBContext(persist_tokens=False, hosted_mode=True)
         ctx.realm_id = realm_id or ""
+        ctx.realm_lookup_failed = realm_lookup_failed
         ctx.license_key = license_key
         ctx.read_only = read_only
         ctx.user_id = claims.get("sub", "")  # type: ignore[attr-defined]
