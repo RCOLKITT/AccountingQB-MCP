@@ -23,7 +23,10 @@ jobs:
       - name: Search public GitHub for our fingerprints
         id: sweep
         env:
-          GH_TOKEN: ${{ github.token }}
+          # Code-search API rejects the built-in Actions token — a (classic,
+          # public_repo-scope) PAT is required. Falls back to the built-in
+          # token, which makes the sweep report "unavailable" rather than lie.
+          GH_TOKEN: ${{ secrets.FINGERPRINT_PAT || github.token }}
         run: |
           set -euo pipefail
           FINGERPRINTS=(
@@ -42,6 +45,11 @@ jobs:
               -q '{n: .total_count, repos: [.items[:5][].repository.full_name]}' \
               2>/dev/null || echo '{"n":0,"repos":[]}')
             n=$(echo "$result" | jq -r .n)
+            if [ "$n" = "null" ] || [ -z "$n" ]; then
+              echo "⚠️  \"$fp\": search unavailable (code-search API needs the FINGERPRINT_PAT secret)"
+              UNAVAILABLE=1
+              continue
+            fi
             if [ "$n" != "0" ]; then
               repos=$(echo "$result" | jq -r '.repos | join(", ")')
               FOUND="$FOUND\n- \`$fp\`: $n hit(s) → $repos"
@@ -56,6 +64,10 @@ jobs:
             echo -e "$FOUND"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
+          if [ "${UNAVAILABLE:-0}" = "1" ] && [ -z "$FOUND" ]; then
+            echo "::warning::fingerprint sweep could not run — set the FINGERPRINT_PAT secret (classic PAT, public_repo scope)"
+            exit 0
+          fi
           [ -z "$FOUND" ] || exit 1
       - name: Open/update an issue on any hit
         if: failure()
