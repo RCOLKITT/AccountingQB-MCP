@@ -44,7 +44,9 @@ jobs:
             result=$(gh api -X GET search/code \
               -f q="\"$fp\" -repo:RCOLKITT/AccountingQB-MCP" \
               -q '{n: .total_count, repos: [.items[:5][].repository.full_name]}' \
-              2>/dev/null || echo '{"n":0,"repos":[]}')
+              2>/dev/null || echo '{"n":null,"repos":[]}')
+            # null (not 0) on API failure: a bad token must surface as
+            # UNAVAILABLE — the old 0-fallback read "clean", a silent lie.
             n=$(echo "$result" | jq -r .n)
             if [ "$n" = "null" ] || [ -z "$n" ]; then
               echo "⚠️  \"$fp\": search unavailable (code-search API needs the FINGERPRINT_PAT secret)"
