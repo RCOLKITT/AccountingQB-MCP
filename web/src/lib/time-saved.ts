@@ -114,7 +114,7 @@ export const TIME_SAVED_MINUTES: Record<string, number> = {
   qb_update_customer: 2, // 2 min
   qb_update_vendor: 2, // 2 min
   qb_update_item: 2, // 2 min
-  qb_update_account: 2, // 2 min
+
   qb_void_invoice: 2, // 2 min
 
   // ============================================

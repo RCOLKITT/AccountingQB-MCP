@@ -2,9 +2,9 @@
   "manifest_version": "0.3",
   "name": "accountingqb",
   "display_name": "AccountingQB \u2014 QuickBooks for Claude",
-  "version": "3.27.0",
+  "version": "3.28.0",
   "icon": "icon.png",
-  "description": "145 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
+  "description": "146 AI tools connecting Claude to QuickBooks Online. Reports, reconciliation, tax prep (US Schedule C + Canada GST/HST, T2125), anomaly detection \u2014 all through natural conversation.",
   "long_description": "Connect Claude to your QuickBooks Online with one click. Run P&L reports, reconcile transactions, prep for taxes, detect anomalies, and more. Full US and Canada support: Schedule C, quarterly estimates and 1099s for the US; GST/HST returns, T2125, CCA schedules, T4A reporting and CRA instalments for Canada. Your data stays on your machine \u2014 zero cloud routing.\n\n**Getting Started:**\n1. Enter your license key (get one at accountingqb.com)\n2. Click 'Connect QuickBooks' when prompted\n3. Start asking Claude about your books!\n\n**Requirements:** Python 3.10 or newer on your machine (all Python package dependencies are bundled with the extension).",
   "author": {
     "name": "Vaspera Capital",
@@ -2523,6 +2523,11 @@
             "type": "string",
             "description": "Description",
             "default": ""
+          },
+          "account_number": {
+            "type": "string",
+            "description": "Account Number",
+            "default": ""
           }
         },
         "required": [
@@ -2913,6 +2918,11 @@
             "type": "string",
             "description": "Memo",
             "default": ""
+          },
+          "line_number": {
+            "type": "integer",
+            "description": "Line Number",
+            "default": 0
           }
         },
         "required": [
@@ -3307,11 +3317,53 @@
             "type": "string",
             "description": "Description",
             "default": ""
+          },
+          "account_number": {
+            "type": "string",
+            "description": "Account Number",
+            "default": ""
           }
         },
         "required": [
           "name",
           "parent_account_name"
+        ]
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "codeExecution": false
+    },
+    {
+      "name": "qb_update_account",
+      "description": "Update an existing account's name, number (AcctNum), or description \u2014",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_name": {
+            "type": "string",
+            "description": "Account Name"
+          },
+          "new_name": {
+            "type": "string",
+            "description": "New Name",
+            "default": ""
+          },
+          "account_number": {
+            "type": "string",
+            "description": "Account Number",
+            "default": ""
+          },
+          "description": {
+            "type": "string",
+            "description": "Description",
+            "default": ""
+          }
+        },
+        "required": [
+          "account_name"
         ]
       },
       "annotations": {

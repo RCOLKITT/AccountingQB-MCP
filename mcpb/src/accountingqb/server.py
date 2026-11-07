@@ -542,15 +542,25 @@ def _parse_token_expiry(expires_at: Optional[str]) -> datetime:
 def _adopt_hosted_companies(ctx: "QBContext", companies: list) -> None:
     """Install a freshly fetched hosted-company list into the context.
 
-    Selects the first company as active (matching historic behavior of the
-    company-list fetch) and caches the list on disk when allowed.
+    PRESERVES the active company: if ctx.realm_id is already set and still in
+    the fetched list, it stays active — a token refresh or qb_refresh_connection
+    must never silently switch the user's company (user-reported: after an
+    expiry the active company reset from their working file to the FIRST
+    connected company, and later calls ran against the wrong books — a
+    wrong-company-write risk). Falls back to the first company only when no
+    realm is set or the previous realm is no longer connected.
     """
     ctx.hosted_companies = companies
     ctx.hosted_mode = True
     ctx.hosted_loaded = True
-    first = companies[0]
-    ctx.realm_id = first["realmId"]
-    ctx.refresh_token = first["refreshToken"]
+    active = next(
+        (c for c in companies if c["realmId"] == ctx.realm_id),
+        None,
+    )
+    if active is None:
+        active = companies[0]
+        ctx.realm_id = active["realmId"]
+    ctx.refresh_token = active["refreshToken"]
     if ctx.persist_tokens:
         # Cache tokens locally for offline resilience
         _save_hosted_tokens(companies)
@@ -625,9 +635,13 @@ def _load_hosted_tokens(ctx: Optional["QBContext"] = None) -> bool:
             ctx.hosted_companies = companies
             ctx.hosted_mode = True
             ctx.hosted_loaded = True
-            first = companies[0]
-            ctx.realm_id = first["realmId"]
-            ctx.refresh_token = first["refreshToken"]
+            # Preserve the active company (same contract as
+            # _adopt_hosted_companies) — offline fallback must not switch files.
+            active = next((c for c in companies if c["realmId"] == ctx.realm_id), None)
+            if active is None:
+                active = companies[0]
+                ctx.realm_id = active["realmId"]
+            ctx.refresh_token = active["refreshToken"]
             logger.info(f"Loaded {len(companies)} cached company(s) (offline mode)")
             return True
     except Exception as e:
@@ -1725,49 +1739,77 @@ async def get_access_token() -> str:
     if ctx.hosted_mode:
         logger.debug("Refreshing access token via AccountingQB API...")
         no_companies_connected = False
-        try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post(
-                    f"{QB_API_URL}/api/oauth/token",
-                    json={
-                        "licenseKey": ctx.license_key or LICENSE_KEY,
-                        "realmId": ctx.realm_id or None,
-                    },
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    companies = data.get("companies", [])
-                    if companies:
-                        ctx.hosted_companies = companies
-                        ctx.hosted_loaded = True
-                        if not ctx.realm_id:
-                            # First use: default to the first connected company
-                            ctx.realm_id = companies[0]["realmId"]
-                        if ctx.persist_tokens:
-                            _save_hosted_tokens(companies)
-                        for company in companies:
-                            if company["realmId"] == ctx.realm_id:
-                                ctx.access_token = company["accessToken"]
-                                ctx.refresh_token = company["refreshToken"]
-                                ctx.token_expiry = _parse_token_expiry(
-                                    company.get("expiresAt")
-                                )
-                                return ctx.access_token
-                    else:
-                        # Broker reachable, license valid, but nothing connected
+        # Two attempts: a single transient broker hiccup must not surface as
+        # "connection expired, please reconnect" (user-reported: long batches
+        # failed intermittently, then worked on plain retry).
+        for attempt in (1, 2):
+            try:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.post(
+                        f"{QB_API_URL}/api/oauth/token",
+                        json={
+                            "licenseKey": ctx.license_key or LICENSE_KEY,
+                            "realmId": ctx.realm_id or None,
+                        },
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        companies = data.get("companies", [])
+                        if companies:
+                            ctx.hosted_companies = companies
+                            ctx.hosted_loaded = True
+                            if not ctx.realm_id:
+                                if (
+                                    getattr(ctx, "realm_lookup_failed", False)
+                                    and len(companies) > 1
+                                ):
+                                    # The active-company lookup FAILED (vs. no
+                                    # default set). With several companies,
+                                    # silently using the first risks running
+                                    # against the wrong books — refuse instead.
+                                    raise RuntimeError(
+                                        "Temporary hiccup resolving your active "
+                                        "company — nothing was run against the "
+                                        "wrong company. Please retry in a few "
+                                        "seconds; your company selection is safe."
+                                    )
+                                # First use: default to the first connected company
+                                ctx.realm_id = companies[0]["realmId"]
+                            if ctx.persist_tokens:
+                                _save_hosted_tokens(companies)
+                            for company in companies:
+                                if company["realmId"] == ctx.realm_id:
+                                    ctx.access_token = company["accessToken"]
+                                    ctx.refresh_token = company["refreshToken"]
+                                    ctx.token_expiry = _parse_token_expiry(
+                                        company.get("expiresAt")
+                                    )
+                                    return ctx.access_token
+                        else:
+                            # Broker reachable, license valid, nothing connected
+                            ctx.hosted_loaded = True
+                            no_companies_connected = True
+                    elif resp.status_code == 404:
                         ctx.hosted_loaded = True
                         no_companies_connected = True
-                elif resp.status_code == 404:
-                    ctx.hosted_loaded = True
-                    no_companies_connected = True
-                if not no_companies_connected:
-                    raise ValueError("Could not refresh token from AccountingQB API")
-        except Exception as e:
-            logger.warning(f"Hosted token refresh failed: {e}")
-            # Offline resilience: fall back to cached hosted tokens, then to
-            # local refresh if we have credentials
-            if not ctx.hosted_companies:
-                _load_hosted_tokens(ctx)
+                    if not no_companies_connected:
+                        raise ValueError(
+                            "Could not refresh token from AccountingQB API"
+                        )
+                break
+            except RuntimeError:
+                raise  # the wrong-company refusal above — never retried away
+            except Exception as e:
+                logger.warning(
+                    f"Hosted token refresh failed (attempt {attempt}/2): {e}"
+                )
+                if attempt == 2:
+                    # Offline resilience: fall back to cached hosted tokens,
+                    # then to local refresh if we have credentials
+                    if not ctx.hosted_companies:
+                        _load_hosted_tokens(ctx)
+            else:
+                break
         if no_companies_connected:
             raise RuntimeError(_NO_COMPANY_CONNECTED_MSG)
 
@@ -2002,9 +2044,9 @@ async def _resolve_name_entity(kind: str, name: str):
     Entity refs (journal-entry and deposit lines). Returns (ref_dict, error):
     ref_dict = {"value": id, "name": display}. Exact DisplayName match
     preferred; ambiguity is refused with candidates, never guessed."""
-    safe = _sanitize_input(name, kind.lower()).replace("'", "\\'")
+    safe = _sanitize_input(name, kind.lower())
     res = await qb_query(
-        f"SELECT * FROM {kind} WHERE DisplayName LIKE '%{safe}%' MAXRESULTS 10"
+        f"SELECT * FROM {kind} WHERE DisplayName LIKE '%{_q_escape(safe)}%' MAXRESULTS 10"
     )
     hits = res.get("QueryResponse", {}).get(kind, [])
     exact = [h for h in hits if h.get("DisplayName") == name]
@@ -2450,10 +2492,23 @@ async def qb_list_companies() -> str:
         )
 
     # Lazy hosted mode: fetch the company list on first use
+    fetch_ok = True
     if not ctx.hosted_loaded:
-        _fetch_hosted_tokens(ctx)
+        fetch_ok = _fetch_hosted_tokens(ctx)
+        if not fetch_ok and not ctx.hosted_companies:
+            # One immediate retry — a single broker hiccup shouldn't surface.
+            fetch_ok = _fetch_hosted_tokens(ctx)
 
     if not ctx.hosted_companies:
+        if not fetch_ok:
+            # FAILED fetch is not the same as "nothing connected" — saying
+            # "No companies connected" here was false and alarming
+            # (user-reported: refresh said 4 companies, this said none).
+            return (
+                "Couldn't reach the AccountingQB connection service just now — "
+                "this is temporary and your connected companies are unchanged. "
+                "Please try again in a few seconds."
+            )
         return (
             "No QuickBooks companies connected yet.\n\n"
             "Visit accountingqb.com to connect your QuickBooks account."
@@ -2479,8 +2534,17 @@ async def qb_switch_company(realm_id: str) -> str:
         return "This tool is only available in hosted mode."
 
     # Lazy hosted mode: fetch the company list on first use
+    switch_fetch_ok = True
     if not ctx.hosted_loaded:
-        _fetch_hosted_tokens(ctx)
+        switch_fetch_ok = _fetch_hosted_tokens(ctx)
+        if not switch_fetch_ok and not ctx.hosted_companies:
+            switch_fetch_ok = _fetch_hosted_tokens(ctx)
+    if not ctx.hosted_companies and not switch_fetch_ok:
+        return (
+            "Couldn't reach the AccountingQB connection service just now, so the "
+            "switch was NOT performed — your active company is unchanged. "
+            "Please try again in a few seconds."
+        )
 
     # Find the company
     for company in ctx.hosted_companies:
@@ -2911,7 +2975,7 @@ async def qb_list_bills(
     500) — the count/totals always reflect every matching bill."""
     query = f"SELECT * FROM Bill WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
     if vendor_name:
-        query += f" AND VendorRef LIKE '%{vendor_name}%'"
+        query += f" AND VendorRef LIKE '%{_q_escape(vendor_name)}%'"
 
     # qb_query_all pages through EVERY matching bill (QBO caps at 1000/page), so
     # a specific bill is never missing just because it fell past a flat cap.
@@ -3588,7 +3652,7 @@ async def qb_general_ledger(
     }
     if account_name:
         accounts = await qb_query(
-            f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 1"
+            f"SELECT * FROM Account WHERE Name LIKE '%{_q_escape(account_name)}%' MAXRESULTS 1"
         )
         acct_list = accounts.get("QueryResponse", {}).get("Account", [])
         if acct_list:
@@ -6894,7 +6958,7 @@ async def qb_list_vendors(name: str = "", max_results: int = 50) -> str:
         # stops mid-alphabet with no disclosure); cap the DISPLAY, not the fetch.
         query = "SELECT * FROM Vendor"
         if name:
-            query += f" WHERE DisplayName LIKE '%{name}%'"
+            query += f" WHERE DisplayName LIKE '%{_q_escape(name)}%'"
         result = await qb_query_all(query)
         vendors = result.get("QueryResponse", {}).get("Vendor", [])
 
@@ -6965,7 +7029,7 @@ async def qb_list_customers(name: str = "", max_results: int = 50) -> str:
         # Page through EVERY customer; cap the DISPLAY, not the fetch.
         query = "SELECT * FROM Customer"
         if name:
-            query += f" WHERE DisplayName LIKE '%{name}%'"
+            query += f" WHERE DisplayName LIKE '%{_q_escape(name)}%'"
         result = await qb_query_all(query)
         customers = result.get("QueryResponse", {}).get("Customer", [])
 
@@ -7025,7 +7089,7 @@ async def qb_list_items(name: str = "", max_results: int = 100) -> str:
     """List products and services (items) in QuickBooks. Optionally filter by name. Items are used on invoices and sales receipts."""
     query = "SELECT * FROM Item"
     if name:
-        query += f" WHERE Name LIKE '%{name}%'"
+        query += f" WHERE Name LIKE '%{_q_escape(name)}%'"
     query += f" MAXRESULTS {max_results}"
 
     result = await qb_query(query)
@@ -7086,7 +7150,7 @@ async def qb_create_expense(
             f"*In production, this would create a real expense in QuickBooks.*"
         )
     vendors = await qb_query(
-        f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1"
+        f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{_q_escape(vendor_name)}%' MAXRESULTS 1"
     )
     vendor_list = vendors.get("QueryResponse", {}).get("Vendor", [])
     if not vendor_list:
@@ -7204,7 +7268,7 @@ async def qb_create_invoice(
             f"*In production, this would create a real invoice in QuickBooks.*"
         )
     customers = await qb_query(
-        f"SELECT * FROM Customer WHERE DisplayName LIKE '%{customer_name}%' MAXRESULTS 1"
+        f"SELECT * FROM Customer WHERE DisplayName LIKE '%{_q_escape(customer_name)}%' MAXRESULTS 1"
     )
     customer_list = customers.get("QueryResponse", {}).get("Customer", [])
     if not customer_list:
@@ -7317,7 +7381,7 @@ async def qb_create_sales_receipt(
     line_items); tax_inclusive=True when amounts already include tax.
     Same-customer/date/total duplicates are refused unless allow_duplicate=True."""
     customers = await qb_query(
-        f"SELECT * FROM Customer WHERE DisplayName LIKE '%{customer_name}%' MAXRESULTS 1"
+        f"SELECT * FROM Customer WHERE DisplayName LIKE '%{_q_escape(customer_name)}%' MAXRESULTS 1"
     )
     customer_list = customers.get("QueryResponse", {}).get("Customer", [])
     if not customer_list:
@@ -8062,7 +8126,7 @@ async def qb_reconcile_invoices(
 async def qb_account_balance(account_name: str) -> str:
     """Get the current balance of a specific account by name. Returns account details and balance."""
     accounts = await qb_query(
-        f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 5"
+        f"SELECT * FROM Account WHERE Name LIKE '%{_q_escape(account_name)}%' MAXRESULTS 5"
     )
     acct_list = accounts.get("QueryResponse", {}).get("Account", [])
 
@@ -8625,7 +8689,7 @@ async def qb_batch_create_expenses(expenses_json: str, tax_code: str = "") -> st
 
             # Look up vendor
             vendors = await qb_query(
-                f"SELECT Id, DisplayName FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1"
+                f"SELECT Id, DisplayName FROM Vendor WHERE DisplayName LIKE '%{_q_escape(vendor_name)}%' MAXRESULTS 1"
             )
             vendor_list = vendors.get("QueryResponse", {}).get("Vendor", [])
             if not vendor_list:
@@ -8642,7 +8706,7 @@ async def qb_batch_create_expenses(expenses_json: str, tax_code: str = "") -> st
 
             # Look up expense account
             accounts = await qb_query(
-                f"SELECT Id, Name FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 1"
+                f"SELECT Id, Name FROM Account WHERE Name LIKE '%{_q_escape(account_name)}%' MAXRESULTS 1"
             )
             acct_list = accounts.get("QueryResponse", {}).get("Account", [])
             if not acct_list:
@@ -8654,7 +8718,7 @@ async def qb_batch_create_expenses(expenses_json: str, tax_code: str = "") -> st
             pay_ref = None
             if payment_method:
                 pay_accts = await qb_query(
-                    f"SELECT Id, Name FROM Account WHERE Name LIKE '%{payment_method}%' MAXRESULTS 1"
+                    f"SELECT Id, Name FROM Account WHERE Name LIKE '%{_q_escape(payment_method)}%' MAXRESULTS 1"
                 )
                 pay_list = pay_accts.get("QueryResponse", {}).get("Account", [])
                 if pay_list:
@@ -8752,7 +8816,7 @@ async def qb_batch_create_bills(bills_json: str, tax_code: str = "") -> str:
 
             # Look up or create vendor
             vendors = await qb_query(
-                f"SELECT Id, DisplayName FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1"
+                f"SELECT Id, DisplayName FROM Vendor WHERE DisplayName LIKE '%{_q_escape(vendor_name)}%' MAXRESULTS 1"
             )
             vendor_list = vendors.get("QueryResponse", {}).get("Vendor", [])
             if not vendor_list:
@@ -8768,7 +8832,7 @@ async def qb_batch_create_bills(bills_json: str, tax_code: str = "") -> str:
 
             # Look up expense account
             accounts = await qb_query(
-                f"SELECT Id, Name FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 1"
+                f"SELECT Id, Name FROM Account WHERE Name LIKE '%{_q_escape(account_name)}%' MAXRESULTS 1"
             )
             acct_list = accounts.get("QueryResponse", {}).get("Account", [])
             if not acct_list:
@@ -9941,7 +10005,11 @@ async def qb_inactivate_account(account_name: str) -> str:
 
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_create_account(
-    name: str, account_type: str, account_sub_type: str = "", description: str = ""
+    name: str,
+    account_type: str,
+    account_sub_type: str = "",
+    description: str = "",
+    account_number: str = "",
 ) -> str:
     """Create a new account in the chart of accounts.
     account_type: Bank, Accounts Receivable, Other Current Asset, Fixed Asset, Other Asset,
@@ -9963,11 +10031,14 @@ async def qb_create_account(
         body["AccountSubType"] = account_sub_type
     if description:
         body["Description"] = description
+    if account_number:
+        body["AcctNum"] = _sanitize_input(account_number, "account_number")[:20]
 
     result = await qb_request("POST", "account", json_body=body)
     new_acct = result.get("Account", {})
+    num = f" · #{new_acct.get('AcctNum')}" if new_acct.get("AcctNum") else ""
     return (
-        f"✅ Created account '{new_acct.get('Name')}' (ID: {new_acct.get('Id')})\n"
+        f"✅ Created account '{new_acct.get('Name')}' (ID: {new_acct.get('Id')}){num}\n"
         f"  Type: {new_acct.get('AccountType')} / {new_acct.get('AccountSubType', '')}"
     )
 
@@ -10037,7 +10108,7 @@ async def qb_create_bill(
 
     # Look up or create vendor
     vendors = await qb_query(
-        f"SELECT Id, DisplayName FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 1"
+        f"SELECT Id, DisplayName FROM Vendor WHERE DisplayName LIKE '%{_q_escape(vendor_name)}%' MAXRESULTS 1"
     )
     vendor_list = vendors.get("QueryResponse", {}).get("Vendor", [])
     if not vendor_list:
@@ -10835,6 +10906,15 @@ def _sanitize_input(value: str, field_name: str = "input") -> str:
     return value
 
 
+def _q_escape(value) -> str:
+    """Escape a user-provided value for interpolation inside single quotes in a
+    QBO query. Bare apostrophes raise QueryParserError 4000 (user-reported via
+    vendor "Rod's Power Marine"); stripping them (the old ad-hoc approach)
+    silently broke exact-name matches instead. Sanitize, then backslash-escape
+    quotes — QuickBooks' documented quoting rule."""
+    return _sanitize_input(str(value or ""), "query value").replace("'", "\\'")
+
+
 def _validate_date(date_str: str, field_name: str = "date") -> str:
     """Validate date format is YYYY-MM-DD."""
     if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
@@ -10867,11 +10947,19 @@ def _audit_log(action: str, details: str):
 
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_reclassify_transaction(
-    entity_type: str, entity_id: str, new_account_name: str, memo: str = ""
+    entity_type: str,
+    entity_id: str,
+    new_account_name: str,
+    memo: str = "",
+    line_number: int = 0,
 ) -> str:
     """Reclassify a transaction to a different expense/income account. Simpler than manual update.
     entity_type: Purchase, Deposit, Bill, etc. entity_id: the transaction ID.
-    new_account_name: name of the account to reclassify to."""
+    new_account_name: name of the account to reclassify to.
+    line_number (1-based, in the order lines appear on the transaction): recode
+    ONE line instead of every line — e.g. fix a single miscoded line on a
+    22-line contractor bill without touching the rest (mirrors
+    qb_set_transaction_class). Default 0 = all account-based lines."""
     entity_type = _sanitize_input(entity_type, "entity_type")
     entity_id = _sanitize_input(entity_id, "entity_id")
     new_account_name = _sanitize_input(new_account_name, "new_account_name")
@@ -10883,7 +10971,7 @@ async def qb_reclassify_transaction(
 
     # Find the new account
     acct_result = await qb_query(
-        f"SELECT * FROM Account WHERE Name LIKE '%{new_account_name}%' MAXRESULTS 5"
+        f"SELECT * FROM Account WHERE Name LIKE '%{_q_escape(new_account_name)}%' MAXRESULTS 5"
     )
     accounts = acct_result.get("QueryResponse", {}).get("Account", [])
     if not accounts:
@@ -10899,9 +10987,20 @@ async def qb_reclassify_transaction(
     if not entity_data:
         return f"{entity_type} #{entity_id} not found."
 
+    all_lines = entity_data.get("Line", [])
+    if line_number:
+        if line_number < 1 or line_number > len(all_lines):
+            return (
+                f"{entity_type} #{entity_id} has {len(all_lines)} lines; "
+                f"line_number {line_number} is out of range (use 1–{len(all_lines)})."
+            )
+        targets = [all_lines[line_number - 1]]
+    else:
+        targets = all_lines
+
     old_lines_info = []
-    # Update all AccountBasedExpenseLineDetail lines
-    for line in entity_data.get("Line", []):
+    # Update the targeted AccountBasedExpenseLineDetail lines (one, or all)
+    for line in targets:
         if line.get("DetailType") == "AccountBasedExpenseLineDetail":
             old_acct = (
                 line.get("AccountBasedExpenseLineDetail", {})
@@ -10913,6 +11012,18 @@ async def qb_reclassify_transaction(
                 "value": target_acct["Id"],
                 "name": target_acct["Name"],
             }
+
+    if not old_lines_info:
+        if line_number:
+            return (
+                f"{entity_type} #{entity_id} line {line_number} isn't an "
+                "account-based line — nothing was changed. Use "
+                "qb_transaction_detail to see the line types."
+            )
+        return (
+            f"{entity_type} #{entity_id} has no account-based lines to "
+            "reclassify — nothing was changed."
+        )
 
     if memo:
         entity_data["PrivateNote"] = memo
@@ -10926,8 +11037,9 @@ async def qb_reclassify_transaction(
         f"type={entity_type} id={entity_id} new_acct={target_acct['Name']} (ID:{target_acct['Id']})",
     )
 
+    scope = f"line {line_number}" if line_number else f"{len(old_lines_info)} line(s)"
     return (
-        f"✅ Reclassified {entity_type} #{entity_id}\n"
+        f"✅ Reclassified {entity_type} #{entity_id} ({scope})\n"
         f"  From: {'; '.join(old_lines_info)}\n"
         f"  To: {target_acct['Name']}\n"
         f"  SyncToken: {updated.get('SyncToken', '?')}"
@@ -10965,7 +11077,7 @@ async def _resolve_class(class_name: str = "", class_id: str = ""):
 
     safe_name = _sanitize_input(class_name, "class_name")
     res = await qb_query(
-        f"SELECT * FROM Class WHERE Name LIKE '%{safe_name}%' MAXRESULTS 10"
+        f"SELECT * FROM Class WHERE Name LIKE '%{_q_escape(safe_name)}%' MAXRESULTS 10"
     )
     classes = res.get("QueryResponse", {}).get("Class", [])
     # Prefer an exact match on Name or FullyQualifiedName so 'Outreach' doesn't
@@ -11313,7 +11425,7 @@ async def qb_batch_create_journal_entries(entries_json: str) -> str:
                     break
 
                 acct_result = await qb_query(
-                    f"SELECT * FROM Account WHERE Name LIKE '%{acct_name}%' MAXRESULTS 1"
+                    f"SELECT * FROM Account WHERE Name LIKE '%{_q_escape(acct_name)}%' MAXRESULTS 1"
                 )
                 acct_list = acct_result.get("QueryResponse", {}).get("Account", [])
                 if not acct_list:
@@ -12117,23 +12229,27 @@ async def qb_create_sub_account(
     account_type: str = "",
     account_sub_type: str = "",
     description: str = "",
+    account_number: str = "",
 ) -> str:
     """Create a sub-account under an existing parent account. Simpler than qb_create_account
     for building account hierarchies. name: new sub-account name.
     parent_account_name: name of existing parent account.
-    account_type/account_sub_type: inherited from parent if not specified."""
+    account_type/account_sub_type: inherited from parent if not specified.
+    account_number: the chart-of-accounts number (AcctNum) — set it at creation
+    so it never has to be typed into QuickBooks by hand; qb_update_account can
+    add or change it later."""
     name = _sanitize_input(name, "name")
     parent_account_name = _sanitize_input(parent_account_name, "parent_account_name")
 
     # Find parent account
     parent_result = await qb_query(
-        f"SELECT * FROM Account WHERE Name = '{parent_account_name}' MAXRESULTS 5"
+        f"SELECT * FROM Account WHERE Name = '{_q_escape(parent_account_name)}' MAXRESULTS 5"
     )
     parents = parent_result.get("QueryResponse", {}).get("Account", [])
     if not parents:
         # Try partial match
         parent_result = await qb_query(
-            f"SELECT * FROM Account WHERE Name LIKE '%{parent_account_name}%' MAXRESULTS 5"
+            f"SELECT * FROM Account WHERE Name LIKE '%{_q_escape(parent_account_name)}%' MAXRESULTS 5"
         )
         parents = parent_result.get("QueryResponse", {}).get("Account", [])
     if not parents:
@@ -12152,6 +12268,8 @@ async def qb_create_sub_account(
     }
     if description:
         body["Description"] = description
+    if account_number:
+        body["AcctNum"] = _sanitize_input(account_number, "account_number")[:20]
 
     result = await qb_request("POST", "account", json_body=body)
     new_acct = result.get("Account", {})
@@ -12165,6 +12283,53 @@ async def qb_create_sub_account(
         f"✅ Created sub-account '{new_acct.get('FullyQualifiedName', name)}' (ID: {new_acct.get('Id')})\n"
         f"  Parent: {parent['Name']} (ID: {parent['Id']})\n"
         f"  Type: {new_acct.get('AccountType', '?')} / {new_acct.get('AccountSubType', '')}"
+    )
+
+
+@mcp.tool(annotations={"destructiveHint": True})
+async def qb_update_account(
+    account_name: str,
+    new_name: str = "",
+    account_number: str = "",
+    description: str = "",
+) -> str:
+    """Update an existing account's name, number (AcctNum), or description —
+    e.g. add the chart-of-accounts number to an account created without one.
+    account_name: the current account (exact or unambiguous partial name, or
+    a fully qualified 'Parent:Child'). Only the fields you pass change; sparse
+    update, so everything else on the account is untouched."""
+    if not (new_name or account_number or description):
+        return (
+            "Nothing to change — pass new_name, account_number, and/or " "description."
+        )
+    acct, err = await _resolve_account(account_name)
+    if err:
+        return err
+    body = {
+        "Id": acct["Id"],
+        "SyncToken": acct.get("SyncToken", "0"),
+        "sparse": True,
+        # Name is REQUIRED on Account updates even when unchanged.
+        "Name": _sanitize_input(new_name, "new_name") if new_name else acct["Name"],
+    }
+    if account_number:
+        body["AcctNum"] = _sanitize_input(account_number, "account_number")[:20]
+    if description:
+        body["Description"] = description
+    result = await qb_request("POST", "account", json_body=body)
+    updated = result.get("Account", {})
+    if not updated.get("Id"):
+        return f"Account update did not return an Id — raw response: {result}"
+    _audit_log(
+        "UPDATE_ACCOUNT",
+        f"id={acct['Id']} name={updated.get('Name')} "
+        f"acctnum={updated.get('AcctNum', '')}",
+    )
+    num = f"\n  Number: {updated.get('AcctNum')}" if updated.get("AcctNum") else ""
+    desc = f"\n  Description: {updated.get('Description')}" if description else ""
+    return (
+        f"✅ Account updated: {updated.get('FullyQualifiedName', updated.get('Name'))} "
+        f"(ID: {updated.get('Id')}){num}{desc}"
     )
 
 
@@ -14185,7 +14350,7 @@ async def qb_list_credit_memos(
         customer_name = _sanitize_input(customer_name, "customer_name")
         # Look up customer first
         cust_result = await qb_query(
-            f"SELECT * FROM Customer WHERE DisplayName LIKE '%{customer_name}%' MAXRESULTS 5"
+            f"SELECT * FROM Customer WHERE DisplayName LIKE '%{_q_escape(customer_name)}%' MAXRESULTS 5"
         )
         customers = cust_result.get("QueryResponse", {}).get("Customer", [])
         if customers:
@@ -14241,7 +14406,7 @@ async def qb_create_credit_memo(
 
     # Find customer
     cust_result = await qb_query(
-        f"SELECT * FROM Customer WHERE DisplayName LIKE '%{customer_name}%' MAXRESULTS 5"
+        f"SELECT * FROM Customer WHERE DisplayName LIKE '%{_q_escape(customer_name)}%' MAXRESULTS 5"
     )
     customers = cust_result.get("QueryResponse", {}).get("Customer", [])
     if not customers:
@@ -14337,7 +14502,7 @@ async def qb_list_vendor_credits(
     if vendor_name:
         vendor_name = _sanitize_input(vendor_name, "vendor_name")
         vend_result = await qb_query(
-            f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 5"
+            f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{_q_escape(vendor_name)}%' MAXRESULTS 5"
         )
         vendors = vend_result.get("QueryResponse", {}).get("Vendor", [])
         if vendors:
@@ -14402,7 +14567,7 @@ async def qb_create_vendor_credit(
 
     # Find vendor
     vend_result = await qb_query(
-        f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name}%' MAXRESULTS 5"
+        f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{_q_escape(vendor_name)}%' MAXRESULTS 5"
     )
     vendors = vend_result.get("QueryResponse", {}).get("Vendor", [])
     if not vendors:
@@ -14414,7 +14579,7 @@ async def qb_create_vendor_credit(
 
     # Find account
     acct_result = await qb_query(
-        f"SELECT * FROM Account WHERE Name LIKE '%{account_name}%' MAXRESULTS 5"
+        f"SELECT * FROM Account WHERE Name LIKE '%{_q_escape(account_name)}%' MAXRESULTS 5"
     )
     accounts = acct_result.get("QueryResponse", {}).get("Account", [])
     if not accounts:
@@ -16228,7 +16393,7 @@ async def qb_bulk_update_vendor(transaction_ids: str, vendor_name: str) -> str:
     vendors = (
         (
             await qb_query(
-                f"SELECT * FROM Vendor WHERE DisplayName = '{vendor_name.replace(chr(39), '')}' MAXRESULTS 5"
+                f"SELECT * FROM Vendor WHERE DisplayName = '{_q_escape(vendor_name)}' MAXRESULTS 5"
             )
         )
         .get("QueryResponse", {})
@@ -16240,7 +16405,7 @@ async def qb_bulk_update_vendor(transaction_ids: str, vendor_name: str) -> str:
         vendors = (
             (
                 await qb_query(
-                    f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{vendor_name.replace(chr(39), '')}%' MAXRESULTS 5"
+                    f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{_q_escape(vendor_name)}%' MAXRESULTS 5"
                 )
             )
             .get("QueryResponse", {})
@@ -16319,11 +16484,11 @@ async def qb_bulk_update_vendors_multi(vendor_mapping: str) -> str:
             continue
 
         # Look up vendor
-        safe_name = vendor_name.replace("'", "")
+        safe_name = vendor_name
         vendors = (
             (
                 await qb_query(
-                    f"SELECT * FROM Vendor WHERE DisplayName = '{safe_name}' MAXRESULTS 5"
+                    f"SELECT * FROM Vendor WHERE DisplayName = '{_q_escape(safe_name)}' MAXRESULTS 5"
                 )
             )
             .get("QueryResponse", {})
@@ -16334,7 +16499,7 @@ async def qb_bulk_update_vendors_multi(vendor_mapping: str) -> str:
             vendors = (
                 (
                     await qb_query(
-                        f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
+                        f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{_q_escape(safe_name)}%' MAXRESULTS 5"
                     )
                 )
                 .get("QueryResponse", {})
@@ -16726,11 +16891,11 @@ async def qb_update_vendor(
     vendor_name: current display name to find the vendor.
     Provide any fields to update: email, phone, company_name, display_name, vendor_1099, tax_id.
     """
-    safe_name = vendor_name.replace("'", "")
+    safe_name = vendor_name
     vendors = (
         (
             await qb_query(
-                f"SELECT * FROM Vendor WHERE DisplayName = '{safe_name}' MAXRESULTS 5"
+                f"SELECT * FROM Vendor WHERE DisplayName = '{_q_escape(safe_name)}' MAXRESULTS 5"
             )
         )
         .get("QueryResponse", {})
@@ -16741,7 +16906,7 @@ async def qb_update_vendor(
         vendors = (
             (
                 await qb_query(
-                    f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
+                    f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{_q_escape(safe_name)}%' MAXRESULTS 5"
                 )
             )
             .get("QueryResponse", {})
@@ -16798,11 +16963,11 @@ async def qb_update_customer(
     """Update an existing customer's details.
     customer_name: current display name to find the customer.
     Provide any fields to update: email, phone, company_name, display_name."""
-    safe_name = customer_name.replace("'", "")
+    safe_name = customer_name
     customers = (
         (
             await qb_query(
-                f"SELECT * FROM Customer WHERE DisplayName = '{safe_name}' MAXRESULTS 5"
+                f"SELECT * FROM Customer WHERE DisplayName = '{_q_escape(safe_name)}' MAXRESULTS 5"
             )
         )
         .get("QueryResponse", {})
@@ -16813,7 +16978,7 @@ async def qb_update_customer(
         customers = (
             (
                 await qb_query(
-                    f"SELECT * FROM Customer WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
+                    f"SELECT * FROM Customer WHERE DisplayName LIKE '%{_q_escape(safe_name)}%' MAXRESULTS 5"
                 )
             )
             .get("QueryResponse", {})
@@ -16881,11 +17046,11 @@ async def qb_record_bill_payment(
         date = datetime.now().strftime("%Y-%m-%d")
 
     # Find vendor
-    safe_name = vendor_name.replace("'", "")
+    safe_name = vendor_name
     vendors = (
         (
             await qb_query(
-                f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
+                f"SELECT * FROM Vendor WHERE DisplayName LIKE '%{_q_escape(safe_name)}%' MAXRESULTS 5"
             )
         )
         .get("QueryResponse", {})
@@ -16901,7 +17066,7 @@ async def qb_record_bill_payment(
         accts = (
             (
                 await qb_query(
-                    f"SELECT * FROM Account WHERE Name LIKE '%{safe_acct}%' AND AccountType IN ('Bank', 'Credit Card') MAXRESULTS 5"
+                    f"SELECT * FROM Account WHERE Name LIKE '%{_q_escape(safe_acct)}%' AND AccountType IN ('Bank', 'Credit Card') MAXRESULTS 5"
                 )
             )
             .get("QueryResponse", {})
@@ -17001,11 +17166,11 @@ async def qb_record_invoice_payment(
         date = datetime.now().strftime("%Y-%m-%d")
 
     # Find customer
-    safe_name = customer_name.replace("'", "")
+    safe_name = customer_name
     customers = (
         (
             await qb_query(
-                f"SELECT * FROM Customer WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
+                f"SELECT * FROM Customer WHERE DisplayName LIKE '%{_q_escape(safe_name)}%' MAXRESULTS 5"
             )
         )
         .get("QueryResponse", {})
@@ -17055,7 +17220,7 @@ async def qb_record_invoice_payment(
         accts = (
             (
                 await qb_query(
-                    f"SELECT * FROM Account WHERE Name LIKE '%{safe_acct}%' AND AccountType = 'Bank' MAXRESULTS 5"
+                    f"SELECT * FROM Account WHERE Name LIKE '%{_q_escape(safe_acct)}%' AND AccountType = 'Bank' MAXRESULTS 5"
                 )
             )
             .get("QueryResponse", {})
@@ -17072,7 +17237,7 @@ async def qb_record_invoice_payment(
         pm_result = (
             (
                 await qb_query(
-                    f"SELECT * FROM PaymentMethod WHERE Name LIKE '%{payment_method}%' MAXRESULTS 5"
+                    f"SELECT * FROM PaymentMethod WHERE Name LIKE '%{_q_escape(payment_method)}%' MAXRESULTS 5"
                 )
             )
             .get("QueryResponse", {})
@@ -17273,11 +17438,11 @@ async def qb_create_estimate(
     Canada/global editions: tax_code applies a sales tax code to all lines, e.g. 'HST ON'; per-line override via 'tax_code' key in line_items JSON; tax_inclusive=True when amounts already include tax.
     """
     # Find customer
-    safe_name = customer_name.replace("'", "")
+    safe_name = customer_name
     customers = (
         (
             await qb_query(
-                f"SELECT * FROM Customer WHERE DisplayName LIKE '%{safe_name}%' MAXRESULTS 5"
+                f"SELECT * FROM Customer WHERE DisplayName LIKE '%{_q_escape(safe_name)}%' MAXRESULTS 5"
             )
         )
         .get("QueryResponse", {})

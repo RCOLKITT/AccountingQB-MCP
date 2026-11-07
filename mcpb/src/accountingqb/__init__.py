@@ -1,3 +1,3 @@
-"""AccountingQB — 145 AI tools connecting Claude to QuickBooks Online."""
+"""AccountingQB — 146 AI tools connecting Claude to QuickBooks Online."""
 
-__version__ = "3.27.0"
+__version__ = "3.28.0"

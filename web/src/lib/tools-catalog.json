@@ -680,6 +680,11 @@
     "write": false
   },
   {
+    "name": "qb_update_account",
+    "description": "Update an existing account's name, number (AcctNum), or description —",
+    "write": true
+  },
+  {
     "name": "qb_update_customer",
     "description": "Update customer details",
     "write": true
