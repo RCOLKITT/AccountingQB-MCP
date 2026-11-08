@@ -263,9 +263,8 @@ export default function TermsOfService() {
           <p className="text-gray-400 leading-relaxed mt-3">
             NutriFitAI LLC, d/b/a Vaspera Capital
             <br />
-            12 Autumn Hill Ln
-            <br />
-            Southborough, MA 01772
+            Massachusetts, USA · postal address available on request via
+            support@accountingqb.com
           </p>
         </div>
       </article>

@@ -2,6 +2,18 @@
  * Base email template wrapper
  * All emails use this consistent layout
  */
+function requireMarketingAddress(): string {
+  const addr = process.env.MARKETING_POSTAL_ADDRESS;
+  if (!addr) {
+    throw new Error(
+      "Marketing email blocked: MARKETING_POSTAL_ADDRESS is not set " +
+        "(CAN-SPAM/CASL requires a postal address; a business address, " +
+        "never a home address).",
+    );
+  }
+  return addr;
+}
+
 export function emailWrapper(
   content: string,
   preheader?: string,
@@ -9,6 +21,10 @@ export function emailWrapper(
 ): string {
   // Marketing emails must carry a one-click unsubscribe + physical mailing
   // address (CAN-SPAM / CASL). Transactional emails omit both.
+  // The postal address comes ONLY from MARKETING_POSTAL_ADDRESS (a business
+  // address — registered agent / PO box). FAIL-CLOSED: marketing email is
+  // blocked when it's unset, because the alternative that actually happened
+  // was mailing the owner's HOME address to customers (2026-11-08).
   const marketingFooter = opts?.unsubscribeUrl
     ? `
               <p style="margin: 16px 0 0 0; color: #4b5563; font-size: 11px;">
@@ -16,7 +32,7 @@ export function emailWrapper(
                 You'll still get essential account emails.
               </p>
               <p style="margin: 8px 0 0 0; color: #4b5563; font-size: 11px;">
-                NutriFitAI LLC (d/b/a Vaspera Capital) · 12 Autumn Hill Ln, Southborough, MA 01772
+                NutriFitAI LLC (d/b/a Vaspera Capital) · ${requireMarketingAddress()}
               </p>`
     : "";
   return `
