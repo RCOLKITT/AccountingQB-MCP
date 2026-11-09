@@ -2101,8 +2101,13 @@ async def _resolve_account(acct_name: str, *, account_type: str = ""):
     tclause = f" AND AccountType = '{esc(account_type)}'" if account_type else ""
 
     async def _q(where):
+        # Active IN (true, false): QBO hides inactive accounts by default,
+        # which made a deleted account's residual activity unauditable — it
+        # couldn't be resolved even by exact name (user regression, v3.29.0).
+        # Callers surface Active=false loudly (e.g. "⚠️ DELETED/INACTIVE").
         r = await qb_query(
-            f"SELECT * FROM Account WHERE {where}{tclause} MAXRESULTS 25"
+            f"SELECT * FROM Account WHERE {where}{tclause} "
+            f"AND Active IN (true, false) MAXRESULTS 25"
         )
         return r.get("QueryResponse", {}).get("Account", [])
 
@@ -3469,7 +3474,10 @@ async def qb_expense_summary(start_date: str = "", end_date: str = "") -> str:
     # (user-reported). Classification == "Expense" covers Expense, Other
     # Expense, and Cost of Goods Sold.
     acct_rows = (
-        (await qb_query_all("SELECT * FROM Account"))
+        # Active IN (true, false): QBO omits INACTIVE accounts by default, so
+        # a deleted credit-card account had no classification and its lines
+        # fell through as deductible expense (user regression, v3.29.0).
+        (await qb_query_all("SELECT * FROM Account WHERE Active IN (true, false)"))
         .get("QueryResponse", {})
         .get("Account", [])
     )
@@ -8528,6 +8536,11 @@ async def qb_find_duplicates(
     if len(shown) < len(clusters):
         lines.append(f"*Showing the {len(shown)} largest of {len(clusters)} clusters.*")
     lines.append("")
+    import re as _re2
+
+    descriptor = _re2.compile(
+        r"X{2,}\d{3,4}|\bper (Amex|card|bank) (stat|feed)", _re2.I
+    )
     for vendor, amt, txns in shown:
         name = txns[0].get("EntityRef", {}).get("name", "Unknown")
         lines.append(f"**{name}** — {fmt(amt)} × {len(txns)}:")
@@ -8536,9 +8549,26 @@ async def qb_find_duplicates(
                 f"  - {t['TxnDate']} (ID: {t['Id']}) — "
                 f"{t.get('PrivateNote', '') or 'no memo'}"
             )
+        # Both-from-feed clusters: bank descriptors on 2+ members with
+        # near-adjacent IDs usually means two REAL charges (pending+posted
+        # pairs bulk-accepted) — deleting one loses a real transaction, and
+        # feed-matched rows can't be deleted via the API anyway (error 6480).
+        feedish = [t for t in txns if descriptor.search(t.get("PrivateNote", "") or "")]
+        ids = sorted(int(t["Id"]) for t in txns if str(t.get("Id", "")).isdigit())
+        adjacent = len(ids) >= 2 and (ids[-1] - ids[0]) <= 10
+        if len(feedish) >= 2 and adjacent:
+            lines.append(
+                "  ⚠️ *Both entries carry bank-feed descriptors with adjacent "
+                "IDs — likely two REAL charges (a pending+posted pair). Verify "
+                "on the statement before removing anything; if truly "
+                "duplicated, fix it in QBO Banking (Undo → Exclude), not by "
+                "deleting.*"
+            )
         lines.append("")
     lines.append(
-        "Review each cluster and void the extra copies with `qb_void_transaction`."
+        "To remove a confirmed extra copy use `qb_delete_transaction` "
+        "(purchases cannot be voided). Feed-matched copies must be fixed in "
+        "QBO Banking via Undo → Exclude."
     )
     return "\n".join(lines)
 

@@ -332,3 +332,99 @@ def test_stripe_dry_run_names_unposted_gaps(monkeypatch):
     assert "Gap" in out
     assert "2026-08" in out and "2026-09" in out
     assert "post periods in order" in out
+
+
+# ---------------------------------------------------------------------------
+# v3.29.1 — owner's regression pass: 1 partial + 2 new
+# ---------------------------------------------------------------------------
+
+
+def test_expense_summary_queries_inactive_accounts_too(monkeypatch):
+    # QBO omits inactive accounts by default; the deleted credit-card account
+    # had no classification and fell through as expense (regression on #2).
+    queries = []
+
+    async def fake_query_all(query, **kw):
+        queries.append(query)
+        if "FROM Purchase" in query:
+            return {
+                "QueryResponse": {
+                    "Purchase": [
+                        {
+                            "EntityRef": {"name": "Card Issuer"},
+                            "Line": [
+                                {
+                                    "DetailType": "AccountBasedExpenseLineDetail",
+                                    "Amount": 1500.0,
+                                    "AccountBasedExpenseLineDetail": {
+                                        "AccountRef": {"name": "Old Card (deleted)"}
+                                    },
+                                }
+                            ],
+                        }
+                    ]
+                }
+            }
+        return {
+            "QueryResponse": {
+                "Account": [
+                    {"Name": "Old Card", "Classification": "Liability", "Active": False}
+                ]
+            }
+        }
+
+    monkeypatch.setattr(s, "qb_query_all", fake_query_all)
+    out = asyncio.run(s.qb_expense_summary("2026-01-01", "2026-12-31"))
+    acct_q = next(q for q in queries if "FROM Account" in q)
+    assert "Active IN (true, false)" in acct_q  # inactive must be fetched
+    assert "**Grand Total: $0.00**" in out  # liability line fully excluded
+    assert "Liability" in out and "$1,500.00" in out  # ...and itemized
+
+
+def test_resolve_account_reaches_inactive_by_exact_name(monkeypatch):
+    # New #8: a deleted account's residual activity was unauditable — not
+    # resolvable even by exact name.
+    queries = []
+
+    async def fake_query(query, **kw):
+        queries.append(query)
+        if "Name = 'Old Card (deleted)'" in query:
+            return {
+                "QueryResponse": {
+                    "Account": [
+                        {"Id": "88", "Name": "Old Card (deleted)", "Active": False}
+                    ]
+                }
+            }
+        return {"QueryResponse": {}}
+
+    monkeypatch.setattr(s, "qb_query", fake_query)
+    acct, err = asyncio.run(s._resolve_account("Old Card (deleted)"))
+    assert err is None and acct["Id"] == "88" and acct["Active"] is False
+    assert all("Active IN (true, false)" in q for q in queries)
+
+
+def test_find_duplicates_labels_feed_pairs_and_never_says_void(monkeypatch):
+    # New #9: pending+posted Amex pairs look like duplicates but are two real
+    # charges — and purchases can't be voided anyway.
+    pair = [
+        {
+            "Id": str(i),
+            "TxnDate": "2026-08-01",
+            "TotalAmt": 212.50,
+            "EntityRef": {"name": "Cloud Vendor"},
+            "PrivateNote": "CLOUD SVC XXXX1008 - per Amex statement",
+        }
+        for i in (2336, 2338)
+    ]
+
+    async def fake_query_all(query, **kw):
+        if "FROM Purchase" in query:
+            return {"QueryResponse": {"Purchase": pair}}
+        return {"QueryResponse": {}}
+
+    monkeypatch.setattr(s, "qb_query_all", fake_query_all)
+    out = asyncio.run(s.qb_find_duplicates("2026-08-01", "2026-08-31"))
+    assert "qb_void_transaction" not in out  # never recommends voiding a Purchase
+    assert "two REAL charges" in out and "Undo → Exclude" in out
+    assert "qb_delete_transaction" in out
