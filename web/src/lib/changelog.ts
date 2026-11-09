@@ -14,6 +14,22 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.29.0",
+    date: "2026-11-09",
+    title: "Trust the numbers: seven fixes from a live reconciliation session",
+    tag: "Feature",
+    summary:
+      "A full books-catch-up session surfaced seven defects — three of them answers that were confidently wrong rather than visibly broken. All seven are fixed: month-end close now notices when expected transactions never arrived, the expense summary counts only true expenses, and business-loss guidance is framed correctly for your entity type.",
+    highlights: [
+      "Month-end close checks volume against your 6-month baseline — a month missing most of its card feed can no longer get a green READY; it names the For Review queue as the first place to look",
+      "Expense summary counts only Expense/COGS accounts — owner-card payments to equity and inactive accounts are excluded and itemized in an auditable footnote instead of inflating deductible spend",
+      "Business-loss guidance is entity-aware: sole proprietors see current-year offset treatment (not NOL carryforward); pass-throughs see basis limits; undeclared entity types get asked, never guessed",
+      "Stripe reconciliation defaults to QuickBooks' stock account names, proposes near-matches instead of creating duplicate accounts, and flags unposted earlier months in previews",
+      "Voiding an unsupported type (like a card charge) now explains the right alternative up front, and feed-matched transactions that can't be deleted come with the exact QuickBooks Banking steps to fix them",
+      "146 tools total across US & Canada",
+    ],
+  },
+  {
     version: "3.28.0",
     date: "2026-11-07",
     title:

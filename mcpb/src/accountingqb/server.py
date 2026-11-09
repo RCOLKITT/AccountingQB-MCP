@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import time
+from calendar import monthrange
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -1868,6 +1869,17 @@ def _raise_qb_fault(resp: httpx.Response) -> None:
         return
     friendly = f"QuickBooks error {code}: {message} — {detail}"
     detail_upper = detail.upper()
+    if code == "6480":
+        # Feed-matched transaction: the API cannot unlink it — only the QBO
+        # Banking UI can. Eight consecutive dead-end deletes before the cause
+        # was clear (user-reported); say the fix up front.
+        friendly += (
+            " — This transaction is matched to a downloaded bank-feed item and "
+            "cannot be deleted or voided through the API. In QuickBooks: "
+            "Banking → the account → Categorized → Undo, then Exclude the feed "
+            "item. If this is one of a duplicate pair, undo the one added most "
+            "recently (compare MetaData.CreateTime via qb_transaction_detail)."
+        )
     if code == "6000" and ("GST" in detail_upper or "HST" in detail_upper):
         friendly += (
             " Every line on this transaction needs a sales tax code. "
@@ -3438,7 +3450,11 @@ async def qb_search_transactions(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_expense_summary(start_date: str = "", end_date: str = "") -> str:
-    """Get expenses grouped by category/account for a date range. Useful for Schedule C and tax deduction tracking. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    """Get expenses grouped by category/account for a date range. Useful for Schedule C and tax deduction tracking. Dates in YYYY-MM-DD (default: current year-to-date).
+    Only true EXPENSE accounts (Expense / Other Expense / Cost of Goods Sold) are
+    counted — purchase lines hitting equity (e.g. owner draws), credit-card, or
+    other balance-sheet accounts are excluded and itemized in a footnote so the
+    total is auditable."""
     start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' "
@@ -3447,8 +3463,24 @@ async def qb_expense_summary(start_date: str = "", end_date: str = "") -> str:
     result = await qb_query_all(query)
     purchases = result.get("QueryResponse", {}).get("Purchase", [])
 
+    # Account classification map (one fetch): a Purchase line can hit ANY
+    # account — summing every line as "expense" counted $12K of owner-card
+    # payments (equity) and a deleted credit-card account as deductible spend
+    # (user-reported). Classification == "Expense" covers Expense, Other
+    # Expense, and Cost of Goods Sold.
+    acct_rows = (
+        (await qb_query_all("SELECT * FROM Account"))
+        .get("QueryResponse", {})
+        .get("Account", [])
+    )
+    acct_info = {
+        a.get("Name", ""): (a.get("Classification", ""), a.get("Active", True))
+        for a in acct_rows
+    }
+
     categories = {}
     vendor_totals = {}
+    excluded = {}  # account -> [classification, total]
     grand_total = 0.0
 
     for p in purchases:
@@ -3461,8 +3493,17 @@ async def qb_expense_summary(start_date: str = "", end_date: str = "") -> str:
                     .get("name", "Uncategorized")
                 )
                 amt = float(line.get("Amount", 0))
-                categories.setdefault(acct, 0.0)
-                categories[acct] += amt
+                classification, active = acct_info.get(
+                    acct, acct_info.get(acct.split(" (deleted)")[0], ("", True))
+                )
+                if classification and classification != "Expense":
+                    key = acct if active else f"{acct} (inactive)"
+                    excluded.setdefault(key, [classification, 0.0])
+                    excluded[key][1] += amt
+                    continue
+                label = acct if active else f"{acct} (inactive)"
+                categories.setdefault(label, 0.0)
+                categories[label] += amt
                 vendor_totals.setdefault(vendor, 0.0)
                 vendor_totals[vendor] += amt
                 grand_total += amt
@@ -3477,6 +3518,15 @@ async def qb_expense_summary(start_date: str = "", end_date: str = "") -> str:
         lines.append(f"- {v}: {fmt(vendor_totals[v])}")
 
     lines.append(f"\n**Grand Total: {fmt(grand_total)}**")
+    if excluded:
+        total_ex = sum(v[1] for v in excluded.values())
+        detail = "; ".join(
+            f"{cls} {fmt(amt)} ({name})" for name, (cls, amt) in excluded.items()
+        )
+        lines.append(
+            f"\n*Excluded {len(excluded)} non-expense account(s) totaling "
+            f"{fmt(total_ex)} — not deductible spend: {detail}.*"
+        )
     return "\n".join(lines)
 
 
@@ -4532,13 +4582,18 @@ async def qb_stripe_reconcile(
     report_json: str = "",
     dry_run: bool = True,
     income_account: str = "Sales",
-    fee_account: str = "Merchant Fees",
+    # Defaults match QBO's STOCK chart-of-accounts names — "Merchant Fees" /
+    # "Refunds" missed the stock "Merchant account fees" / "Refunds to
+    # customers" and offered to fork fee history into duplicate accounts
+    # (user-reported).
+    fee_account: str = "Merchant account fees",
     platform_fee_account: str = "Software & Apps",
-    refund_account: str = "Refunds",
+    refund_account: str = "Refunds to customers",
     clearing_account: str = "Stripe Clearing",
     payout_bank_account: str = "",
     expected_ending_balance: float = 0.0,
     amounts_in_cents: bool = True,
+    create_missing_accounts: bool = False,
 ) -> str:
     """Reconcile a month of Stripe activity into QuickBooks the right way: net
     revenue against BOTH processing fees AND platform fees (Sigma, Billing,
@@ -4696,6 +4751,11 @@ async def qb_stripe_reconcile(
         if n not in resolved_accts:
             resolved_accts[n] = await _resolve_account(n)
     map_notes, unresolved = [], []
+    all_accounts_for_nearmiss = (
+        (await qb_query_all("SELECT * FROM Account"))
+        .get("QueryResponse", {})
+        .get("Account", [])
+    )
     for n in resolved_accts:
         acct, err = resolved_accts[n]
         if acct:
@@ -4709,7 +4769,39 @@ async def qb_stripe_reconcile(
                 )
             )
         elif n in auto_creatable:
-            map_notes.append(f"- {n} → _not found; will be created on posting_")
+            # Token-set near-miss before EVER offering to create: "Merchant
+            # Fees" must find the stock "Merchant account fees" (all requested
+            # words present, any order) instead of forking history into a
+            # duplicate account (user-reported).
+            tokens = [t for t in n.lower().split() if t]
+            near = [
+                a.get("FullyQualifiedName") or a.get("Name", "")
+                for a in all_accounts_for_nearmiss
+                if all(t in (a.get("Name", "") or "").lower() for t in tokens)
+            ]
+            if len(near) == 1:
+                unresolved.append(n)
+                map_notes.append(
+                    f"- ⚠️ {n} → not found, but **{near[0]}** matches every "
+                    f"word. Re-run with the exact name to use it — nothing "
+                    f"will be created while a near-match exists."
+                )
+            elif near:
+                unresolved.append(n)
+                map_notes.append(
+                    f"- ⚠️ {n} → not found; {len(near)} similar accounts: "
+                    + ", ".join(near[:4])
+                    + ". Re-run with the exact name."
+                )
+            elif not create_missing_accounts:
+                unresolved.append(n)
+                map_notes.append(
+                    f"- 🔴 {n} → not found. No similar account exists; re-run "
+                    f"with create_missing_accounts=True to create it, or pass "
+                    f"an existing account name."
+                )
+            else:
+                map_notes.append(f"- {n} → _not found; will be created on posting_")
         else:
             unresolved.append(n)
             map_notes.append(f"- 🔴 {n} → {err or 'could not be resolved'}")
@@ -4749,6 +4841,52 @@ async def qb_stripe_reconcile(
                 our_marker_seen = True
             else:
                 manual_hits.append(je.get("Id"))
+
+    # Gap detection: the prior-balance figure assumes every earlier period is
+    # posted. Previewing Aug/Sep/Oct in a row showed the SAME prior balance on
+    # all three (user-reported) — name the unposted months instead.
+    if clr_id:
+        gap_months = []
+        gy, gm = period_start.year, period_start.month
+        for _back in range(6):
+            gm -= 1
+            if gm < 1:
+                gm, gy = 12, gy - 1
+            g_label = f"{gy:04d}-{gm:02d}"
+            g_start = f"{g_label}-01"
+            g_end = f"{g_label}-{monthrange(gy, gm)[1]:02d}"
+            try:
+                g_jes = await qb_query(
+                    f"SELECT * FROM JournalEntry WHERE TxnDate >= '{g_start}' "
+                    f"AND TxnDate <= '{g_end}'"
+                )
+            except Exception:
+                break
+            posted = any(
+                f"[stripe:{g_label}]" in (je.get("PrivateNote", "") or "")
+                for je in g_jes.get("QueryResponse", {}).get("JournalEntry", [])
+            )
+            if posted:
+                break
+            had_activity = any(
+                (
+                    (l.get("JournalEntryLineDetail", {}) or {}).get("AccountRef", {})
+                    or {}
+                ).get("value")
+                == clr_id
+                for je in g_jes.get("QueryResponse", {}).get("JournalEntry", [])
+                for l in je.get("Line", [])
+            )
+            gap_months.append(g_label)
+            if had_activity:
+                break
+        gap_months = [g for g in gap_months if g != period]
+        if gap_months:
+            out.append(
+                f"\n⚠️ **Gap:** {', '.join(sorted(gap_months))} "
+                "not yet posted ([stripe:…] tag not found). The projected "
+                "balance above assumes they will be — post periods in order."
+            )
 
     out.append("\n### Account mapping")
     out.extend(map_notes)
@@ -5911,7 +6049,7 @@ _JURIS_RENDER = {
         "meals_eg": "meals §274(n)",
         "supports_mileage": True,
         "loss": "NOL",
-        "loss_note": "This {amt} loss can be carried forward.",
+        "loss_note": "This {amt} loss offsets your other income on Form 1040 this year (§461(l) limits apply); it is a carryforward only if total taxable income goes negative.",
     },
     "CA": {
         "sched": "T2125",
@@ -6350,6 +6488,49 @@ async def _account_subtype_map() -> dict:
 
 def _alloc_local_path():
     return _DATA_DIR / "allocation_profiles.json"
+
+
+def _loss_framing(entity_type: str, amount: float, revenue: float = 0.0) -> str:
+    """Entity-correct framing for a business loss. A Schedule C loss offsets
+    the owner's OTHER income (W-2 etc.) on Form 1040 in the CURRENT year,
+    subject to the §461(l) excess-business-loss limit — it becomes an NOL only
+    if total taxable income goes negative. Telling a sole proprietor the
+    benefit was deferred (the old blanket 'NOL carryforward' wording) misled a
+    real customer. C-corp losses ARE NOLs; pass-throughs are basis-limited;
+    unknown entity type asks instead of asserting either framing."""
+    amt = fmt(abs(amount))
+    if entity_type in ("sole_prop", "schedule_c"):
+        note = (
+            f"This {amt} loss offsets your other income (W-2, etc.) on Form "
+            "1040 THIS YEAR, subject to the §461(l) excess business loss "
+            "limit. It is not a carryforward unless your total taxable income "
+            "is negative."
+        )
+        if revenue >= 0 and abs(amount) > 0 and revenue < 0.1 * (revenue + abs(amount)):
+            note += (
+                " Note: revenue is small relative to the loss — be ready to "
+                "document profit motive (§183 hobby-loss rules; the "
+                "3-of-5-profitable-years presumption)."
+            )
+        return note
+    if entity_type in ("corporation", "c_corp"):
+        return (
+            f"NOL of {amt} can offset up to 80% of future taxable income. "
+            "Carries forward indefinitely (federal)."
+        )
+    if entity_type in ("s_corp", "partnership"):
+        return (
+            f"This {amt} loss passes through to the owners, limited to each "
+            "owner's basis (then at-risk and passive-activity rules). See "
+            "qb_form_1120s_summary / qb_form_1065_summary for the workpaper."
+        )
+    return (
+        f"The books show a {amt} loss. How it's treated depends on your entity "
+        "type (sole proprietor: offsets other income this year; C-corp: NOL "
+        "carryforward; S-corp/partnership: basis-limited pass-through). "
+        "Declare it with qb_allocation_profile (entity_type=...) and re-run "
+        "for the correct framing."
+    )
 
 
 async def _get_allocation_profile(tax_year) -> dict:
@@ -7990,9 +8171,30 @@ async def qb_update_transaction(
 # ===================================================================
 
 
+VOIDABLE_TYPES = {"Invoice", "Payment", "SalesReceipt", "BillPayment", "Check"}
+
+
 @mcp.tool(annotations={"destructiveHint": True})
 async def qb_void_transaction(entity_type: str, entity_id: str) -> str:
-    """Void a transaction (keeps it in records but zeroes the amount). entity_type: Purchase, Invoice, Payment, SalesReceipt, BillPayment, etc. entity_id: the transaction ID. Note: not all entity types support void."""
+    """Void a transaction (keeps it in records but zeroes the amount).
+    entity_type: Invoice, Payment, SalesReceipt, BillPayment, or Check — the
+    ONLY types QuickBooks can void. Purchases (card charges) and journal
+    entries cannot be voided via the API: use qb_delete_transaction, or reduce
+    the amount with qb_update_transaction if you need an audit trail."""
+    matched = next(
+        (t for t in VOIDABLE_TYPES if t.lower() == entity_type.strip().lower()), None
+    )
+    if matched is None:
+        # Refuse BEFORE calling QBO — the old path listed Purchase in its own
+        # docstring and let the customer discover the truth via a 500
+        # "Unsupported Operation" (user-reported).
+        return (
+            f"QuickBooks cannot void a {entity_type} — void is supported only "
+            f"for: {', '.join(sorted(VOIDABLE_TYPES))}. Use "
+            "qb_delete_transaction to remove it, or qb_update_transaction to "
+            "reduce the amount if you need an audit trail."
+        )
+    entity_type = matched
     entity_lower = entity_type.lower()
     current = await qb_read(entity_lower, entity_id)
     entity_data = current.get(entity_type, {})
@@ -9376,8 +9578,10 @@ async def qb_estimate_quarterly_tax(
         lines.append(f"  Q{q}: {due} — {fmt(quarterly)} ({status})")
 
     if net_income <= 0:
+        profile_q = await _get_allocation_profile(str(year))
         lines.append(
-            "\n📋 **Note:** With a net loss, no estimated payments are due. You may carry forward this NOL."
+            "\n📋 **Note:** With a net loss, no estimated payments are due. "
+            + _loss_framing(str(profile_q.get("entity_type", "") or ""), net_income)
         )
 
     return "\n".join(lines) + tax_data_footer(year)
@@ -9685,13 +9889,17 @@ async def qb_deduction_finder(tax_year: str = "") -> str:
             }
         )
 
-    # NOL carryforward
+    # Business loss — framing depends on ENTITY TYPE (declared via
+    # qb_allocation_profile, never guessed). The old blanket "NOL carryforward"
+    # wording told a Schedule C filer his current-year offset was deferred.
     if net_income < 0:
+        profile = await _get_allocation_profile(tax_year)
+        etype = str(profile.get("entity_type", "") or "")
         findings.append(
             {
-                "deduction": "Net Operating Loss (NOL) Carryforward",
-                "status": "📋 AVAILABLE",
-                "details": f"NOL of {fmt(abs(net_income))} can offset up to 80% of future taxable income. Carries forward indefinitely (federal) or 20 years (MA).",
+                "deduction": "Business Loss Treatment",
+                "status": "📋 REVIEW",
+                "details": _loss_framing(etype, net_income, revenue=gross_income),
                 "estimate": 0,
             }
         )
@@ -16643,6 +16851,65 @@ async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
         f"({len(purchases)} purchases, {len(deposits)} deposits, {len(journals)} journal entries)"
     )
 
+    # --- 1b. Volume vs trailing baseline — did the expected transactions
+    # ARRIVE? Every other check validates the transactions PRESENT; a month
+    # whose card feed sat unposted in For Review passed every check and got a
+    # false 🟢 READY (user-reported: 4 txns vs a ~20/month baseline, three
+    # months running). Baseline = trailing-6-month median count/dollars,
+    # skipping zero-activity months so a new company isn't penalized.
+    baseline_counts: list[int] = []
+    baseline_dollars: list[float] = []
+    for back in range(1, 7):
+        m = month - back
+        y = year
+        while m < 1:
+            m += 12
+            y -= 1
+        b_start = f"{y:04d}-{m:02d}-01"
+        b_end_day = monthrange(y, m)[1]
+        b_end = f"{y:04d}-{m:02d}-{b_end_day:02d}"
+        try:
+            b_purch = (
+                (
+                    await qb_query_all(
+                        f"SELECT * FROM Purchase WHERE TxnDate >= '{b_start}' "
+                        f"AND TxnDate <= '{b_end}' MAXRESULTS 1000"
+                    )
+                )
+                .get("QueryResponse", {})
+                .get("Purchase", [])
+            )
+        except Exception:
+            continue
+        if b_purch:  # zero-activity months don't drag the baseline down
+            baseline_counts.append(len(b_purch))
+            baseline_dollars.append(
+                sum(float(p.get("TotalAmt", 0) or 0) for p in b_purch)
+            )
+
+    if len(baseline_counts) >= 3:  # need a real history before judging
+        baseline_counts.sort()
+        med_count = baseline_counts[len(baseline_counts) // 2]
+        volume_ratio = len(purchases) / med_count if med_count else 1.0
+        if volume_ratio < 0.3:
+            blockers += 1
+            checklist.append(
+                f"🔴 **Volume far below baseline:** {len(purchases)} purchases vs a "
+                f"6-month median of {med_count} — {100 - round(volume_ratio * 100)}% "
+                f"below. Check the bank feed's For Review queue and whether "
+                f"statements were entered before closing."
+            )
+        elif volume_ratio < 0.6:
+            warnings_count += 1
+            checklist.append(
+                f"🟡 **Volume below baseline:** {len(purchases)} purchases vs a "
+                f"6-month median of {med_count}. Verify the bank feed is caught up."
+            )
+        else:
+            checklist.append(
+                f"✅ Transaction volume in line with the 6-month median ({med_count})"
+            )
+
     # --- 2. Unknown vendors ---
     unknown_vendors = [p for p in purchases if not p.get("EntityRef", {}).get("name")]
     if unknown_vendors:
@@ -16767,7 +17034,7 @@ async def qb_month_end_close(year: int = 2025, month: int = 12) -> str:
     if blockers == 0 and warnings_count == 0:
         status = "🟢 READY TO CLOSE"
     elif blockers == 0:
-        status = "🟡 CLOSE WITH CAUTION"
+        status = "🟡 READY — verify completeness (see warnings)"
     else:
         status = f"🔴 NOT READY — {blockers} blocking issue(s)"
 
@@ -16851,7 +17118,7 @@ async def qb_delete_transaction(
                 f"Consider using qb_void_transaction instead (keeps audit trail)."
             )
         except Exception as e:
-            return f"Error reading {normalized} #{entity_id}: {str(e)[:100]}"
+            return f"Error reading {normalized} #{entity_id}: {e}"
 
     _audit_log("DELETE_TXN_START", f"type={normalized} id={entity_id}")
 
@@ -16869,7 +17136,7 @@ async def qb_delete_transaction(
         _audit_log("DELETE_TXN_DONE", f"type={normalized} id={entity_id}")
         return f"✅ {normalized} #{entity_id} permanently deleted."
     except Exception as e:
-        return f"Error deleting {normalized} #{entity_id}: {str(e)[:100]}"
+        return f"Error deleting {normalized} #{entity_id}: {e}"
 
 
 # ===================================================================

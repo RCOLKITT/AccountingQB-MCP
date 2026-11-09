@@ -90,9 +90,9 @@ def _post_setup(monkeypatch, dup=False):
             "CurrentBalance": 0,
         },
         "Sales": {"Id": "5", "Name": "Sales"},
-        "Merchant Fees": {"Id": "60", "Name": "Merchant Fees"},
+        "Merchant account fees": {"Id": "60", "Name": "Merchant account fees"},
         "Software & Apps": {"Id": "8", "Name": "Software & Apps"},
-        "Refunds": {"Id": "70", "Name": "Refunds"},
+        "Refunds to customers": {"Id": "70", "Name": "Refunds to customers"},
     }
 
     async def fake_resolve(name, **kw):
@@ -212,9 +212,9 @@ def test_detects_manual_entry_in_period(monkeypatch):
     accts = {
         "Stripe Clearing": {"Id": "155", "Name": "Stripe Clearing"},
         "Sales": {"Id": "5", "Name": "Sales"},
-        "Merchant Fees": {"Id": "60", "Name": "Merchant Fees"},
+        "Merchant account fees": {"Id": "60", "Name": "Merchant account fees"},
         "Software & Apps": {"Id": "8", "Name": "Software & Apps"},
-        "Refunds": {"Id": "70", "Name": "Refunds"},
+        "Refunds to customers": {"Id": "70", "Name": "Refunds to customers"},
     }
 
     async def fake_resolve(name, **kw):
