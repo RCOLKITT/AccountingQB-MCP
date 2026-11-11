@@ -71,7 +71,7 @@ test.describe("download → trial funnel", () => {
     // signed-IN visitor (as the authed CI job is) has it auto-sent. Handle both:
     // wait for whichever appears, submit if it's the form.
     const submit = page.getByRole("button", {
-      name: /email me my license key/i,
+      name: /email me my free trial key/i,
     });
     const success = page.getByText(/on their way to your inbox/i);
     await expect(submit.or(success).first()).toBeVisible({ timeout: 15_000 });

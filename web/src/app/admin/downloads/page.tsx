@@ -1,5 +1,11 @@
 import { getSupabase } from "@/lib/supabase";
 import Link from "next/link";
+import {
+  summarizeDownloads,
+  summarizeConversion,
+  type DownloadRow,
+  type DownloadSummary,
+} from "@/lib/download-stats";
 
 // Live on every load — these are small Supabase reads; no cached snapshot.
 export const dynamic = "force-dynamic";
@@ -10,106 +16,73 @@ export const dynamic = "force-dynamic";
 const DOWNLOAD_GATE_DATE = "2026-10-06";
 const DOWNLOAD_ROW_CAP = 100000;
 
-interface DownloadStats {
-  total: number;
-  macos: number;
-  windows: number;
-  macosPercent: number;
-  trend: { date: string; macos: number; windows: number; total: number }[];
+// Unique devices is the headline metric: in Oct–Nov 2026 a single automated
+// client produced ~95% of raw clicks and the dashboard read it as demand.
+interface DownloadStats extends DownloadSummary {
   truncated: boolean; // true if the row cap was hit (numbers would undercount)
 }
 
-// Honest download→trial conversion, computed with exact COUNT queries (no row
-// cap, so always accurate). A "real" conversion is a GATED-era download that
-// carried a trial license key; keyless gated hits are bots / abandoned captures.
 interface Conversion {
-  total: number;
-  preGate: number;
-  gated: number;
-  gatedKeyed: number;
+  rawTotal: number;
+  preGateDevices: number;
+  gatedDevices: number;
   trialStarts: number;
+  truncated: boolean;
+}
+
+async function fetchRows(since?: string): Promise<{
+  rows: DownloadRow[];
+  truncated: boolean;
+}> {
+  let q = getSupabase()
+    .from("app_downloads")
+    .select("platform, downloaded_at, ip_hash, user_agent_hash, license_key")
+    .order("downloaded_at", { ascending: false })
+    .limit(DOWNLOAD_ROW_CAP);
+  if (since) q = q.gte("downloaded_at", since);
+  const { data, error } = await q;
+  if (error || !data) return { rows: [], truncated: false };
+  const rows = data as DownloadRow[];
+  return { rows, truncated: rows.length >= DOWNLOAD_ROW_CAP };
 }
 
 async function getConversion(): Promise<Conversion> {
+  const empty: Conversion = {
+    rawTotal: 0,
+    preGateDevices: 0,
+    gatedDevices: 0,
+    trialStarts: 0,
+    truncated: false,
+  };
   try {
-    const sb = getSupabase();
-    const dl = () =>
-      sb.from("app_downloads").select("*", { count: "exact", head: true });
-    const [t, pre, g, gk, ts] = await Promise.all([
-      dl(),
-      dl().lt("downloaded_at", DOWNLOAD_GATE_DATE),
-      dl().gte("downloaded_at", DOWNLOAD_GATE_DATE),
-      dl()
-        .gte("downloaded_at", DOWNLOAD_GATE_DATE)
-        .not("license_key", "is", null),
-      sb
+    const [{ rows, truncated }, ts] = await Promise.all([
+      fetchRows(),
+      getSupabase()
         .from("event_logs")
         .select("*", { count: "exact", head: true })
         .eq("event_type", "trial")
         .eq("action", "trial_start"),
     ]);
+    const c = summarizeConversion(rows, DOWNLOAD_GATE_DATE);
     return {
-      total: t.count || 0,
-      preGate: pre.count || 0,
-      gated: g.count || 0,
-      gatedKeyed: gk.count || 0,
+      rawTotal: c.rawTotal,
+      preGateDevices: c.preGateDevices,
+      gatedDevices: c.gatedDevices,
       trialStarts: ts.count || 0,
-    };
-  } catch {
-    return { total: 0, preGate: 0, gated: 0, gatedKeyed: 0, trialStarts: 0 };
-  }
-}
-
-async function getDownloads(days: number): Promise<DownloadStats> {
-  const empty: DownloadStats = {
-    total: 0,
-    macos: 0,
-    windows: 0,
-    macosPercent: 0,
-    trend: [],
-    truncated: false,
-  };
-  try {
-    const since = new Date(Date.now() - days * 86400000).toISOString();
-    const { data, error } = await getSupabase()
-      .from("app_downloads")
-      .select("platform, downloaded_at")
-      .gte("downloaded_at", since)
-      .order("downloaded_at", { ascending: false })
-      .limit(DOWNLOAD_ROW_CAP);
-    if (error || !data) return empty;
-
-    const rows = data as { platform: string; downloaded_at: string }[];
-    const truncated = rows.length >= DOWNLOAD_ROW_CAP;
-    const daily: Record<string, { macos: number; windows: number }> = {};
-    let macos = 0;
-    let windows = 0;
-    for (const r of rows) {
-      if (r.platform === "macos") macos++;
-      else if (r.platform === "windows") windows++;
-      const d = r.downloaded_at.slice(0, 10);
-      (daily[d] ||= { macos: 0, windows: 0 })[
-        r.platform as "macos" | "windows"
-      ]++;
-    }
-    const trend = Object.keys(daily)
-      .sort()
-      .map((date) => ({
-        date,
-        ...daily[date],
-        total: daily[date].macos + daily[date].windows,
-      }));
-    const total = macos + windows;
-    return {
-      total,
-      macos,
-      windows,
-      macosPercent: total ? Math.round((macos / total) * 100) : 0,
-      trend,
       truncated,
     };
   } catch {
     return empty;
+  }
+}
+
+async function getDownloads(days: number): Promise<DownloadStats> {
+  try {
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+    const { rows, truncated } = await fetchRows(since);
+    return { ...summarizeDownloads(rows), truncated };
+  } catch {
+    return { ...summarizeDownloads([]), truncated: false };
   }
 }
 
@@ -205,10 +178,11 @@ export default async function DownloadsPage({
   const maxTotal = Math.max(1, ...data.trend.map((t) => t.total));
   // Download-first model: the file downloads immediately and the trial is minted
   // when the visitor submits their email, so conversion = trials started per
-  // gated-era download (keyed download rows no longer apply).
-  const convRate = conv.gated
-    ? Math.round((conv.trialStarts / conv.gated) * 1000) / 10
+  // gated-era unique DEVICE (raw clicks overstate — see download-stats.ts).
+  const convRate = conv.gatedDevices
+    ? Math.round((conv.trialStarts / conv.gatedDevices) * 1000) / 10
     : 0;
+  const concentrated = data.rawClicks >= 10 && data.topDeviceSharePct >= 50;
 
   return (
     <div className="space-y-8">
@@ -241,19 +215,30 @@ export default async function DownloadsPage({
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Metric label={`Total · ${days}d`} value={data.total} accent />
         <Metric
-          label="macOS"
-          value={data.macos}
-          sub={`${data.macosPercent}%`}
+          label={`Unique devices · ${days}d`}
+          value={data.uniqueDevices}
+          sub="distinct IP + browser"
+          accent
         />
         <Metric
-          label="Windows"
-          value={data.windows}
-          sub={`${data.total ? 100 - data.macosPercent : 0}%`}
+          label="Raw clicks"
+          value={data.rawClicks}
+          sub="repeat hits included"
         />
-        <Metric label="Avg / day" value={Math.round(data.total / days)} />
+        <Metric label="macOS devices" value={data.uniqueMacos} />
+        <Metric label="Windows devices" value={data.uniqueWindows} />
       </div>
+
+      {concentrated && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-200/90">
+          ⚠️ <strong>Phantom-download warning:</strong> one device accounts for{" "}
+          {data.topDeviceClicks} of {data.rawClicks} raw clicks (
+          {data.topDeviceSharePct}%) in this window. Raw clicks are NOT demand —
+          trust the unique-device number. If you run an uptime monitor pointed
+          at a download URL, this is probably it.
+        </div>
+      )}
 
       {data.truncated && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-200/90">
@@ -276,19 +261,23 @@ export default async function DownloadsPage({
         <p className="mb-4 text-xs text-gray-500">
           Downloads before the gate were never asked for an email. Since the
           gate, the app downloads immediately and we offer to email a trial key
-          — so conversion = trials started per gated download. (Bot hits are
-          filtered out of these counts.)
+          — so conversion = trials started per gated unique device. (Bot hits
+          are filtered at write time; repeat clicks are collapsed here.)
         </p>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <Metric label="Total download clicks" value={conv.total} />
           <Metric
-            label="Pre-gate (ungated)"
-            value={conv.preGate}
+            label="Raw clicks · all time"
+            value={conv.rawTotal}
+            sub="incl. repeat hits"
+          />
+          <Metric
+            label="Pre-gate devices"
+            value={conv.preGateDevices}
             sub="never had a trial"
           />
           <Metric
-            label="Gated downloads"
-            value={conv.gated}
+            label="Gated devices"
+            value={conv.gatedDevices}
             sub="eligible for a trial"
           />
           <Metric
@@ -297,19 +286,21 @@ export default async function DownloadsPage({
             accent={conv.trialStarts > 0}
           />
         </div>
-        {conv.gated > 0 && conv.trialStarts === 0 && (
+        {conv.gatedDevices > 0 && conv.trialStarts === 0 && (
           <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-200/90">
-            ⚠️ {conv.gated} gated download{conv.gated === 1 ? "" : "s"}, but{" "}
+            ⚠️ {conv.gatedDevices} gated device
+            {conv.gatedDevices === 1 ? "" : "s"}, but{" "}
             <strong>0 trials started</strong>. The file downloads fine; nobody
-            is submitting their email for a key yet. Watch this rate climb now
-            that the download no longer waits on the email.
+            is submitting their email for a key — and the app won&rsquo;t run
+            without one. Check the /download page copy and the in-app activation
+            flow.
           </p>
         )}
       </div>
 
       <div className="rounded-xl border border-white/10 bg-[#131a2e] p-6">
         <h2 className="mb-4 text-sm font-semibold text-white">
-          Daily downloads · {days}d
+          Daily unique devices · {days}d
         </h2>
         {data.trend.length === 0 ? (
           <p className="text-sm text-gray-500">
