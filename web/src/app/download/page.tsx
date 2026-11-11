@@ -115,9 +115,10 @@ function DownloadContent() {
               }}
               className="mt-6 flex flex-col gap-3"
             >
-              <p className="text-sm text-gray-300">
-                Want your <strong>free 14-day trial key</strong> (no credit
-                card)? Enter your email and we&apos;ll send it with setup steps.
+              <p className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-sm text-amber-200">
+                <strong>One more step:</strong> the app needs a license key to
+                activate. Get your <strong>free 14-day trial key</strong> — no
+                credit card — and we&apos;ll email it with setup steps.
               </p>
               <input
                 type="email"
@@ -133,7 +134,7 @@ function DownloadContent() {
                 disabled={busy}
                 className="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:shadow-cyan-500/40 disabled:opacity-60"
               >
-                {busy ? "Sending…" : "Email me my license key"}
+                {busy ? "Sending…" : "Email me my free trial key"}
               </button>
               {error && <p className="text-xs text-red-400">{error}</p>}
               <p className="text-center text-xs text-gray-500">
