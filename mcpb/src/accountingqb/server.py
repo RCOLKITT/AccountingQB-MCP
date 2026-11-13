@@ -2836,26 +2836,26 @@ async def qb_list_transactions(
 async def qb_list_deposits(
     start_date: str = "", end_date: str = "", max_results: int = 100
 ) -> str:
-    """List deposits (income, owner investments, bank deposits) within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Use this to find income or money deposited into business accounts."""
+    """List deposits (income, owner investments, bank deposits) within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Use this to find income or money deposited into business accounts. ALL matching rows are fetched (paged, no silent cap); max_results caps only how many are DISPLAYED — the count and totals always cover every match."""
     start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM Deposit WHERE TxnDate >= '{start_date}' "
-        f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
+        f"AND TxnDate <= '{end_date}'"
     )
-    result = await qb_query(query)
+    result = await qb_query_all(query)
     deposits = result.get("QueryResponse", {}).get("Deposit", [])
 
     if not deposits:
         return f"No deposits found between {start_date} and {end_date}."
 
     lines = [f"## Deposits: {start_date} to {end_date}\n"]
-    total = 0.0
-    for d in deposits:
+    total = sum(float(d.get("TotalAmt", 0)) for d in deposits)
+    shown = deposits[:max_results] if max_results else deposits
+    for d in shown:
         amt = float(d.get("TotalAmt", 0))
         date = d.get("TxnDate", "N/A")
         acct = d.get("DepositToAccountRef", {}).get("name", "Unknown")
         memo = d.get("PrivateNote", "")
-        total += amt
 
         detail_lines = []
         for line in d.get("Line", []):
@@ -2875,7 +2875,12 @@ async def qb_list_deposits(
         lines.extend(detail_lines)
         lines.append("")
 
-    lines.append(f"\n**Total Deposits: {fmt(total)} ({len(deposits)} deposits)**")
+    cap = (
+        f" — showing the first {len(shown)}; narrow the dates to see the rest"
+        if len(shown) < len(deposits)
+        else ""
+    )
+    lines.append(f"\n**Total Deposits: {fmt(total)} ({len(deposits)} deposits{cap})**")
     return "\n".join(lines)
 
 
@@ -2888,27 +2893,27 @@ async def qb_list_deposits(
 async def qb_list_transfers(
     start_date: str = "", end_date: str = "", max_results: int = 100
 ) -> str:
-    """List transfers between accounts within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Use this to see money moved between business bank accounts or credit cards."""
+    """List transfers between accounts within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Use this to see money moved between business bank accounts or credit cards. ALL matching rows are fetched (paged, no silent cap); max_results caps only how many are DISPLAYED — the count and totals always cover every match."""
     start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM Transfer WHERE TxnDate >= '{start_date}' "
-        f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
+        f"AND TxnDate <= '{end_date}'"
     )
-    result = await qb_query(query)
+    result = await qb_query_all(query)
     transfers = result.get("QueryResponse", {}).get("Transfer", [])
 
     if not transfers:
         return f"No transfers found between {start_date} and {end_date}."
 
     lines = [f"## Transfers: {start_date} to {end_date}\n"]
-    total = 0.0
-    for t in transfers:
+    total = sum(float(t.get("Amount", 0)) for t in transfers)
+    shown = transfers[:max_results] if max_results else transfers
+    for t in shown:
         amt = float(t.get("Amount", 0))
         date = t.get("TxnDate", "N/A")
         from_acct = t.get("FromAccountRef", {}).get("name", "Unknown")
         to_acct = t.get("ToAccountRef", {}).get("name", "Unknown")
         memo = t.get("PrivateNote", "")
-        total += amt
 
         lines.append(
             f"**{date}** | {fmt(amt)} | {from_acct} → {to_acct} | ID: {t.get('Id', '')}"
@@ -2917,7 +2922,14 @@ async def qb_list_transfers(
             lines.append(f"  Memo: {memo}")
         lines.append("")
 
-    lines.append(f"\n**Total Transfers: {fmt(total)} ({len(transfers)} transfers)**")
+    cap = (
+        f" — showing the first {len(shown)}; narrow the dates to see the rest"
+        if len(shown) < len(transfers)
+        else ""
+    )
+    lines.append(
+        f"\n**Total Transfers: {fmt(total)} ({len(transfers)} transfers{cap})**"
+    )
     return "\n".join(lines)
 
 
@@ -2930,20 +2942,21 @@ async def qb_list_transfers(
 async def qb_list_journal_entries(
     start_date: str = "", end_date: str = "", max_results: int = 100
 ) -> str:
-    """List journal entries (adjustments, reclassifications) within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Useful for finding accounting adjustments, corrections, and manual entries."""
+    """List journal entries (adjustments, reclassifications) within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Useful for finding accounting adjustments, corrections, and manual entries. ALL matching rows are fetched (paged, no silent cap); max_results caps only how many are DISPLAYED — the count and totals always cover every match."""
     start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM JournalEntry WHERE TxnDate >= '{start_date}' "
-        f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
+        f"AND TxnDate <= '{end_date}'"
     )
-    result = await qb_query(query)
+    result = await qb_query_all(query)
     entries = result.get("QueryResponse", {}).get("JournalEntry", [])
 
     if not entries:
         return f"No journal entries found between {start_date} and {end_date}."
 
     lines = [f"## Journal Entries: {start_date} to {end_date}\n"]
-    for je in entries:
+    shown = entries[:max_results] if max_results else entries
+    for je in shown:
         date = je.get("TxnDate", "N/A")
         total = float(je.get("TotalAmt", 0))
         memo = je.get("PrivateNote", "")
@@ -2972,7 +2985,12 @@ async def qb_list_journal_entries(
             )
         lines.append("")
 
-    lines.append(f"**{len(entries)} journal entries found**")
+    cap = (
+        f" — showing the first {len(shown)}; narrow the dates to see the rest"
+        if len(shown) < len(entries)
+        else ""
+    )
+    lines.append(f"**{len(entries)} journal entries found{cap}**")
     return "\n".join(lines)
 
 
@@ -3060,26 +3078,30 @@ async def qb_list_bills(
 async def qb_list_bill_payments(
     start_date: str = "", end_date: str = "", max_results: int = 100
 ) -> str:
-    """List bill payments within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Shows payments made against bills (accounts payable)."""
+    """List bill payments within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Shows payments made against bills (accounts payable). ALL matching rows are fetched (paged, no silent cap); max_results caps only how many are DISPLAYED — the count and totals always cover every match."""
     start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM BillPayment WHERE TxnDate >= '{start_date}' "
-        f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
+        f"AND TxnDate <= '{end_date}'"
     )
-    result = await qb_query(query)
+    # User-reported incident: 500 payments returned for a 7-month range with a
+    # clean-looking total — but QBO sorts by Id, so the 500-row MAXRESULTS cut
+    # dropped OLDER payments while the dates still spanned the whole range.
+    # Nothing looked truncated. Page through everything instead.
+    result = await qb_query_all(query)
     payments = result.get("QueryResponse", {}).get("BillPayment", [])
 
     if not payments:
         return f"No bill payments found between {start_date} and {end_date}."
 
     lines = [f"## Bill Payments: {start_date} to {end_date}\n"]
-    total = 0.0
-    for bp in payments:
+    total = sum(float(bp.get("TotalAmt", 0)) for bp in payments)
+    shown = payments[:max_results] if max_results else payments
+    for bp in shown:
         amt = float(bp.get("TotalAmt", 0))
         vendor = bp.get("VendorRef", {}).get("name", "Unknown")
         date = bp.get("TxnDate", "N/A")
         pay_type = bp.get("PayType", "")
-        total += amt
 
         acct_name = ""
         if pay_type == "Check":
@@ -3096,7 +3118,12 @@ async def qb_list_bill_payments(
         )
         lines.append("")
 
-    lines.append(f"\n**Total Paid: {fmt(total)} ({len(payments)} payments)**")
+    cap = (
+        f" — showing the first {len(shown)}; narrow the dates to see the rest"
+        if len(shown) < len(payments)
+        else ""
+    )
+    lines.append(f"\n**Total Paid: {fmt(total)} ({len(payments)} payments{cap})**")
     return "\n".join(lines)
 
 
@@ -3109,26 +3136,26 @@ async def qb_list_bill_payments(
 async def qb_list_sales_receipts(
     start_date: str = "", end_date: str = "", max_results: int = 100
 ) -> str:
-    """List sales receipts (direct sales, not invoiced) within a date range. Dates in YYYY-MM-DD (default: current year-to-date)."""
+    """List sales receipts (direct sales, not invoiced) within a date range. Dates in YYYY-MM-DD (default: current year-to-date). ALL matching rows are fetched (paged, no silent cap); max_results caps only how many are DISPLAYED — the count and totals always cover every match."""
     start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM SalesReceipt WHERE TxnDate >= '{start_date}' "
-        f"AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
+        f"AND TxnDate <= '{end_date}'"
     )
-    result = await qb_query(query)
+    result = await qb_query_all(query)
     receipts = result.get("QueryResponse", {}).get("SalesReceipt", [])
 
     if not receipts:
         return f"No sales receipts found between {start_date} and {end_date}."
 
     lines = [f"## Sales Receipts: {start_date} to {end_date}\n"]
-    total = 0.0
-    for sr in receipts:
+    total = sum(float(sr.get("TotalAmt", 0)) for sr in receipts)
+    shown = receipts[:max_results] if max_results else receipts
+    for sr in shown:
         amt = float(sr.get("TotalAmt", 0))
         customer = sr.get("CustomerRef", {}).get("name", "Walk-in")
         date = sr.get("TxnDate", "N/A")
         doc = sr.get("DocNumber", "")
-        total += amt
 
         lines.append(
             f"**{date}** | {customer} | {fmt(amt)} | ID: {sr.get('Id', '')}"
@@ -3141,7 +3168,12 @@ async def qb_list_sales_receipts(
                 lines.append(f"  - {desc}: {fmt(line_amt)}")
         lines.append("")
 
-    lines.append(f"\n**Total Sales: {fmt(total)} ({len(receipts)} receipts)**")
+    cap = (
+        f" — showing the first {len(shown)}; narrow the dates to see the rest"
+        if len(shown) < len(receipts)
+        else ""
+    )
+    lines.append(f"\n**Total Sales: {fmt(total)} ({len(receipts)} receipts{cap})**")
     return "\n".join(lines)
 
 
@@ -7275,20 +7307,25 @@ async def qb_create_customer(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_items(name: str = "", max_results: int = 100) -> str:
-    """List products and services (items) in QuickBooks. Optionally filter by name. Items are used on invoices and sales receipts."""
+    """List products and services (items) in QuickBooks. Optionally filter by name. Items are used on invoices and sales receipts. ALL matching items are fetched (paged, no silent cap); max_results caps only how many are DISPLAYED — the count always covers every match."""
     query = "SELECT * FROM Item"
     if name:
         query += f" WHERE Name LIKE '%{_q_escape(name)}%'"
-    query += f" MAXRESULTS {max_results}"
 
-    result = await qb_query(query)
+    result = await qb_query_all(query)
     items = result.get("QueryResponse", {}).get("Item", [])
 
     if not items:
         return "No items found."
 
-    lines = [f"## Items/Products ({len(items)} found)\n"]
-    for item in items:
+    shown = items[:max_results] if max_results else items
+    cap = (
+        f" — showing the first {len(shown)}; filter by name to see the rest"
+        if len(shown) < len(items)
+        else ""
+    )
+    lines = [f"## Items/Products ({len(items)} found{cap})\n"]
+    for item in shown:
         iname = item.get("Name", "Unknown")
         itype = item.get("Type", "")
         price = fmt(item.get("UnitPrice", 0))
@@ -8593,10 +8630,10 @@ async def qb_auto_categorize_suggestions(
     for acct in acct_list:
         q = (
             f"SELECT * FROM Purchase WHERE AccountRef = '{acct['Id']}' "
-            f"AND TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS {max_results}"
+            f"AND TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
         )
         try:
-            result = await qb_query(q)
+            result = await qb_query_all(q)
             uncategorized.extend(result.get("QueryResponse", {}).get("Purchase", []))
         except Exception:
             continue
@@ -8606,7 +8643,7 @@ async def qb_auto_categorize_suggestions(
 
     # Build vendor → account history from categorized purchases
     all_purchases = await qb_query_all(
-        f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}' MAXRESULTS 500"
+        f"SELECT * FROM Purchase WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
     )
     categorized = all_purchases.get("QueryResponse", {}).get("Purchase", [])
 
@@ -8626,8 +8663,16 @@ async def qb_auto_categorize_suggestions(
                     vendor_history[vendor] = Counter()
                 vendor_history[vendor][acct_name] += 1
 
-    lines = [f"## Auto-Categorize Suggestions ({len(uncategorized)} transactions)\n"]
-    for p in uncategorized:
+    shown = uncategorized[:max_results] if max_results else uncategorized
+    cap = (
+        f" — showing the first {len(shown)}; narrow the dates to see the rest"
+        if len(shown) < len(uncategorized)
+        else ""
+    )
+    lines = [
+        f"## Auto-Categorize Suggestions ({len(uncategorized)} transactions{cap})\n"
+    ]
+    for p in shown:
         vendor = (p.get("EntityRef", {}).get("name", "") or "").lower().strip()
         date = p.get("TxnDate", "")
         amt = float(p.get("TotalAmt", 0))
@@ -10758,19 +10803,21 @@ async def qb_list_attachments(
     if entity_type and entity_id:
         query = (
             f"SELECT * FROM Attachable WHERE AttachableRef.EntityRef.Type = '{entity_type}' "
-            f"AND AttachableRef.EntityRef.Value = '{entity_id}' MAXRESULTS {max_results}"
+            f"AND AttachableRef.EntityRef.Value = '{entity_id}'"
         )
     else:
-        query = f"SELECT * FROM Attachable MAXRESULTS {max_results}"
+        query = "SELECT * FROM Attachable"
 
-    result = await qb_query(query)
+    result = await qb_query_all(query)
     attachments = result.get("QueryResponse", {}).get("Attachable", [])
 
     if not attachments:
         return "No attachments found."
 
-    lines = [f"## Attachments ({len(attachments)} found)\n"]
-    for a in attachments:
+    shown = attachments[:max_results] if max_results else attachments
+    cap = f" — showing the first {len(shown)}" if len(shown) < len(attachments) else ""
+    lines = [f"## Attachments ({len(attachments)} found{cap})\n"]
+    for a in shown:
         refs = a.get("AttachableRef", [])
         ref_str = ", ".join(
             f"{r.get('EntityRef', {}).get('type', '?')} #{r.get('EntityRef', {}).get('value', '?')}"
@@ -11064,9 +11111,10 @@ async def qb_list_recurring_transactions(max_results: int = 50) -> str:
     Shows recurring bills, invoices, and expenses with their schedules."""
     # QB API uses RecurringTransaction endpoint
     try:
-        result = await qb_query(
-            f"SELECT * FROM RecurringTransaction MAXRESULTS {max_results}"
-        )
+        # Fetch the QBO page max (1000), not the display cap — a silent
+        # MAXRESULTS cut hides templates. (STARTPOSITION paging is not reliable
+        # on RecurringTransaction across QBO plans, so stay single-page.)
+        result = await qb_query("SELECT * FROM RecurringTransaction MAXRESULTS 1000")
         recurrings = result.get("QueryResponse", {}).get("RecurringTransaction", [])
     except Exception:
         # Recurring transactions may not be queryable via SQL in all QBO versions
@@ -11075,8 +11123,12 @@ async def qb_list_recurring_transactions(max_results: int = 50) -> str:
     if not recurrings:
         return "No recurring transactions found."
 
-    lines = [f"## Recurring Transactions ({len(recurrings)} found)\n"]
-    for r in recurrings:
+    shown = recurrings[:max_results] if max_results else recurrings
+    cap = f" — showing the first {len(shown)}" if len(shown) < len(recurrings) else ""
+    if len(recurrings) >= 1000:
+        cap += " (1,000+ templates; list may be truncated)"
+    lines = [f"## Recurring Transactions ({len(recurrings)} found{cap})\n"]
+    for r in shown:
         rtype = r.get("RecurringInfo", {}).get("RecurType", "?")
         name = r.get("RecurringInfo", {}).get("Name", "?")
         schedule = r.get("RecurringInfo", {}).get("ScheduleInfo", {})
@@ -14594,17 +14646,17 @@ async def qb_list_credit_memos(
         if customers:
             cust_id = customers[0]["Id"]
             query += f" AND CustomerRef = '{cust_id}'"
-    query += f" MAXRESULTS {max_results}"
 
-    result = await qb_query(query)
+    result = await qb_query_all(query)
     memos = result.get("QueryResponse", {}).get("CreditMemo", [])
 
     if not memos:
         return "No credit memos found in the date range."
 
-    total = 0.0
+    total = sum(float(cm.get("TotalAmt", 0)) for cm in memos)
+    shown = memos[:max_results] if max_results else memos
     lines = [f"## Credit Memos ({start_date} to {end_date})\n"]
-    for cm in memos:
+    for cm in shown:
         cm_id = cm.get("Id", "?")
         date = cm.get("TxnDate", "?")
         cust = cm.get("CustomerRef", {}).get("name", "?")
@@ -14612,7 +14664,6 @@ async def qb_list_credit_memos(
         balance = float(cm.get("RemainingCredit", 0))
         memo = cm.get("PrivateNote", "")
         doc_num = cm.get("DocNumber", "")
-        total += amount
 
         lines.append(f"**#{doc_num or cm_id}** | {date} | {cust}")
         lines.append(f"  Amount: {fmt(amount)} | Remaining: {fmt(balance)}")
@@ -14620,7 +14671,12 @@ async def qb_list_credit_memos(
             lines.append(f"  Memo: {memo[:80]}")
         lines.append("")
 
-    lines.append(f"---\n**Total Credit Memos:** {fmt(total)} ({len(memos)} memos)")
+    cap = (
+        f" — showing the first {len(shown)}; narrow the dates to see the rest"
+        if len(shown) < len(memos)
+        else ""
+    )
+    lines.append(f"---\n**Total Credit Memos:** {fmt(total)} ({len(memos)} memos{cap})")
     return "\n".join(lines)
 
 
@@ -14746,23 +14802,22 @@ async def qb_list_vendor_credits(
         if vendors:
             vend_id = vendors[0]["Id"]
             query += f" AND VendorRef = '{vend_id}'"
-    query += f" MAXRESULTS {max_results}"
 
-    result = await qb_query(query)
+    result = await qb_query_all(query)
     credits = result.get("QueryResponse", {}).get("VendorCredit", [])
 
     if not credits:
         return "No vendor credits found in the date range."
 
-    total = 0.0
+    total = sum(float(vc.get("TotalAmt", 0)) for vc in credits)
+    shown = credits[:max_results] if max_results else credits
     lines = [f"## Vendor Credits ({start_date} to {end_date})\n"]
-    for vc in credits:
+    for vc in shown:
         vc_id = vc.get("Id", "?")
         date = vc.get("TxnDate", "?")
         vend = vc.get("VendorRef", {}).get("name", "?")
         amount = float(vc.get("TotalAmt", 0))
         memo = vc.get("PrivateNote", "")
-        total += amount
 
         lines.append(f"**#{vc_id}** | {date} | {vend} | {fmt(amount)}")
         if memo:
@@ -14778,8 +14833,13 @@ async def qb_list_vendor_credits(
                 lines.append(f"  - {acct}: {fmt(float(line.get('Amount', 0)))}")
         lines.append("")
 
+    cap = (
+        f" — showing the first {len(shown)}; narrow the dates to see the rest"
+        if len(shown) < len(credits)
+        else ""
+    )
     lines.append(
-        f"---\n**Total Vendor Credits:** {fmt(total)} ({len(credits)} credits)"
+        f"---\n**Total Vendor Credits:** {fmt(total)} ({len(credits)} credits{cap})"
     )
     return "\n".join(lines)
 
@@ -15763,9 +15823,8 @@ async def qb_list_estimates(
 
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
-    query += f" MAXRESULTS {max_results}"
 
-    result = await qb_query(query)
+    result = await qb_query_all(query)
     estimates = result.get("QueryResponse", {}).get("Estimate", [])
 
     if not estimates:
@@ -15785,9 +15844,15 @@ async def qb_list_estimates(
             e for e in estimates if e.get("TxnStatus", "").lower() == status.lower()
         ]
 
-    lines = [f"## Estimates ({len(estimates)} found)\n"]
-    total = 0.0
-    for est in estimates:
+    total = sum(float(e.get("TotalAmt", 0)) for e in estimates)
+    shown = estimates[:max_results] if max_results else estimates
+    cap = (
+        f" — showing the first {len(shown)}; narrow the filters to see the rest"
+        if len(shown) < len(estimates)
+        else ""
+    )
+    lines = [f"## Estimates ({len(estimates)} found{cap})\n"]
+    for est in shown:
         est_id = est.get("Id", "?")
         date = est.get("TxnDate", "?")
         cust = est.get("CustomerRef", {}).get("name", "?")
@@ -15795,7 +15860,6 @@ async def qb_list_estimates(
         est_status = est.get("TxnStatus", "?")
         doc_num = est.get("DocNumber", "")
         expiry = est.get("ExpirationDate", "")
-        total += amount
 
         lines.append(
             f"**#{doc_num or est_id}** | {date} | {cust} | {fmt(amount)} | {est_status}"
@@ -16480,7 +16544,10 @@ async def qb_unknown_vendor_report(
     Groups by memo/description pattern to help identify bulk fixes.
     Separates fixable (active account) from unfixable (deleted account) transactions.
     Returns transaction IDs for use with qb_bulk_update_vendor.
-    start_date/end_date in YYYY-MM-DD (defaults to all time)."""
+    start_date/end_date in YYYY-MM-DD (defaults to all time).
+    ALL matching purchases are analyzed (paged, no silent cap); the display is
+    grouped, so max_results is accepted for compatibility but no longer trims
+    the analysis."""
     query = "SELECT * FROM Purchase"
     conditions = []
     if start_date:
@@ -16491,9 +16558,8 @@ async def qb_unknown_vendor_report(
         conditions.append(f"TxnDate <= '{end_date}'")
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
-    query += f" MAXRESULTS {max_results}"
 
-    purchases = (await qb_query(query)).get("QueryResponse", {}).get("Purchase", [])
+    purchases = (await qb_query_all(query)).get("QueryResponse", {}).get("Purchase", [])
 
     # Build active account lookup
     all_accounts = (

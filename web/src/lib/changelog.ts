@@ -14,6 +14,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.30.0",
+    date: "2026-11-12",
+    title: "Complete totals: list tools now fetch every matching record",
+    tag: "Feature",
+    summary:
+      "A CPA caught a dangerous silent cap: a 7-month bill-payment query returned exactly 500 rows with a clean-looking total \u2014 but QuickBooks sorts by transaction ID, so older payments were dropped while the dates still spanned the whole range. Nothing said 'partial'. Thirteen list tools now page through every matching record: totals and counts always cover the full set, and a display limit always says so explicitly.",
+    highlights: [
+      "Bill payments, deposits, transfers, journal entries, sales receipts, credit memos, vendor credits, estimates, customer payments, items, and attachments all fetch every matching row (QuickBooks pages at 1,000 per response \u2014 we walk them all)",
+      "max_results now limits only what is displayed \u2014 never what is counted or totaled; a truncated list says 'showing the first N' instead of looking complete",
+      "Unknown-vendor and auto-categorize analyses cover every matching purchase, so a busy book can no longer hide problems past a row cap",
+      "146 tools total across US & Canada",
+    ],
+  },
+  {
     version: "3.29.0",
     date: "2026-11-09",
     title: "Trust the numbers: seven fixes from a live reconciliation session",
