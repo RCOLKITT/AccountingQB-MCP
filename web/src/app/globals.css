@@ -43,17 +43,34 @@ html {
 }
 
 /* stagger delays */
-.delay-100 { animation-delay: 0.1s; }
-.delay-200 { animation-delay: 0.2s; }
-.delay-300 { animation-delay: 0.3s; }
-.delay-400 { animation-delay: 0.4s; }
-.delay-500 { animation-delay: 0.5s; }
+.delay-100 {
+  animation-delay: 0.1s;
+}
+.delay-200 {
+  animation-delay: 0.2s;
+}
+.delay-300 {
+  animation-delay: 0.3s;
+}
+.delay-400 {
+  animation-delay: 0.4s;
+}
+.delay-500 {
+  animation-delay: 0.5s;
+}
 
 /* ===== Floating orb animation ===== */
 @keyframes float {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -30px) scale(1.05); }
-  66% { transform: translate(-20px, 20px) scale(0.95); }
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -30px) scale(1.05);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.95);
+  }
 }
 
 .animate-float {
@@ -66,8 +83,12 @@ html {
 
 /* ===== Gradient text shimmer ===== */
 @keyframes shimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
 }
 
 .animate-shimmer {
@@ -77,21 +98,37 @@ html {
 
 /* ===== Conversation typing dots ===== */
 @keyframes blink {
-  0%, 80%, 100% { opacity: 0.2; }
-  40% { opacity: 1; }
+  0%,
+  80%,
+  100% {
+    opacity: 0.2;
+  }
+  40% {
+    opacity: 1;
+  }
 }
 
-.typing-dot:nth-child(1) { animation: blink 1.4s infinite 0s; }
-.typing-dot:nth-child(2) { animation: blink 1.4s infinite 0.2s; }
-.typing-dot:nth-child(3) { animation: blink 1.4s infinite 0.4s; }
+.typing-dot:nth-child(1) {
+  animation: blink 1.4s infinite 0s;
+}
+.typing-dot:nth-child(2) {
+  animation: blink 1.4s infinite 0.2s;
+}
+.typing-dot:nth-child(3) {
+  animation: blink 1.4s infinite 0.4s;
+}
 
 /* ===== Glow effects ===== */
 .glow-blue {
-  box-shadow: 0 0 40px rgba(59, 130, 246, 0.15), 0 0 80px rgba(59, 130, 246, 0.05);
+  box-shadow:
+    0 0 40px rgba(59, 130, 246, 0.15),
+    0 0 80px rgba(59, 130, 246, 0.05);
 }
 
 .glow-cyan {
-  box-shadow: 0 0 40px rgba(34, 211, 238, 0.12), 0 0 80px rgba(34, 211, 238, 0.04);
+  box-shadow:
+    0 0 40px rgba(34, 211, 238, 0.12),
+    0 0 80px rgba(34, 211, 238, 0.04);
 }
 
 /* ===== Grid background pattern ===== */
@@ -133,8 +170,15 @@ html {
   inset: -1px;
   border-radius: 1rem;
   padding: 1px;
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(59, 130, 246, 0.1), rgba(99, 102, 241, 0.2));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  background: linear-gradient(
+    135deg,
+    rgba(34, 211, 238, 0.2),
+    rgba(59, 130, 246, 0.1),
+    rgba(99, 102, 241, 0.2)
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
@@ -142,8 +186,14 @@ html {
 
 /* ===== Pulse ring ===== */
 @keyframes pulse-ring {
-  0% { transform: scale(1); opacity: 0.5; }
-  100% { transform: scale(2.5); opacity: 0; }
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
 }
 
 .pulse-ring::before {

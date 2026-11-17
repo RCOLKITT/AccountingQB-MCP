@@ -14,6 +14,7 @@ You'll be redirected back to your dashboard showing the connected company.
 ## Multiple Companies
 
 You can connect multiple QuickBooks companies to a single license (up to the limit for your plan):
+
 - Solopreneur: 1 company
 - Business: 3 companies
 - Firm: Unlimited companies
@@ -33,24 +34,30 @@ However, if you don't use AccountingQB for 100+ days, your connection may expire
 ## Common OAuth Issues
 
 ### OAuth window closes without completing
+
 1. Check if a popup blocker is active - disable it for accountingqb.com
 2. Try in an incognito/private window
 3. Make sure you're using the correct QuickBooks account
 
 ### "401 Unauthorized" error in Claude
+
 Your token may have expired.
 **Fix:** First ask Claude to "refresh the QuickBooks connection" (`qb_refresh_connection`) — this resolves most expiries instantly. If that doesn't work, go to https://accountingqb.com/dashboard and click "Connect QuickBooks" to reauthorize.
 
 ### "Company not found" error
+
 The company ID in your connection doesn't match.
 **Fix:** Disconnect the company in your dashboard and reconnect.
 
 ### "Access denied" from QuickBooks
+
 Your QuickBooks account may not have permission to authorize third-party apps.
 **Fix:** Contact your QuickBooks admin to grant access, or use an admin account.
 
 ### Sandbox vs Production
+
 If you're seeing test data in Claude:
+
 - Your connection may be pointing to Intuit's sandbox environment
 - Reconnect your QuickBooks company to use production data
 
