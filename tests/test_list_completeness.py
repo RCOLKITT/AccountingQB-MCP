@@ -39,8 +39,8 @@ def test_list_payments_counts_all_not_just_page(monkeypatch):
 
     monkeypatch.setattr(s, "qb_query_all", fake_query_all)
     out = asyncio.run(s.qb_list_payments("2026-01-01", "2026-12-31", max_results=50))
-    assert "(150 payments)" in out  # true count, not 50
-    assert "showing the first 50" in out
+    assert "(150 payments" in out  # true count, not 50
+    assert "showing 1–50 of 150" in out
     assert "$1,500.00" in out  # total over ALL 150, not the displayed 50
 
 

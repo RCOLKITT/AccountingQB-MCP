@@ -14,6 +14,22 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.31.0",
+    date: "2026-11-17",
+    title:
+      "Built for the bulk cleanup: one-call batch recodes, honest rate limits, pageable lists",
+    tag: "Feature",
+    summary:
+      "A CPA recoding 130 transactions hit three walls at once: every call needed a separate approval, 1 in 10 came back with a misleading 'connection expired', and capped lists showed an arbitrary slice. All three are addressed: a new bulk-reclassify tool turns a 130-call cleanup into one call, parallel batches no longer trip rate limits (and when something is throttled we say so instead of telling you to reconnect), and capped lists are now date-ordered with an offset to page through the rest.",
+    highlights: [
+      "New qb_bulk_reclassify: move a comma-separated batch of transactions to one account in a single call \u2014 each row updated independently, per-ID failures reported without stopping the rest (200-ID cap keeps runs reviewable)",
+      "Parallel tool calls share one token fetch per minute instead of stampeding the auth broker \u2014 the intermittent 'QuickBooks connection expired' during bulk work is gone, and a genuine throttle now says 'rate-limited, retry in a few seconds' (your connection was never expired)",
+      "Capped list displays are now newest-first by transaction date (no more arbitrary ID-order slices), and every dated list tool takes an offset parameter: 'showing 1\u2013100 of 643; pass offset=100 for the next page'",
+      "Verified server-side: tool lists and annotations are byte-stable across sessions \u2014 if your client forgets an 'always allow' choice, that's a client-side issue (raise it with Anthropic); bulk tools shrink the approval count meanwhile",
+      "147 tools total across US & Canada",
+    ],
+  },
+  {
     version: "3.30.0",
     date: "2026-11-12",
     title: "Complete totals: list tools now fetch every matching record",
