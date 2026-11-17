@@ -47,6 +47,12 @@ jobs:
           security unlock-keychain -p ci "$KC"
           echo "$CERT_B64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
           security import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$CERT_PW" -T /usr/bin/codesign
+          # No auto-lock: the Rust build runs minutes between this step and
+          # codesign; the keychain's default ~300s auto-lock made codesign hang
+          # FOREVER on the headless runner waiting for an unlock prompt (4
+          # consecutive 6h-timeout builds, 2026-11-13..17 — surfaced when a
+          # runner-image update pushed signing past the lock window).
+          security set-keychain-settings -lut 21600 "$KC"
           security set-key-partition-list -S apple-tool:,apple: -s -k ci "$KC"
       - name: Build sidecar (PyInstaller)
         run: python3 scripts/build_sidecar.py
