@@ -95,6 +95,11 @@
     "write": false
   },
   {
+    "name": "qb_bulk_reclassify",
+    "description": "Reclassify MANY transactions to one account in a single call — built for",
+    "write": true
+  },
+  {
     "name": "qb_bulk_set_class",
     "description": "Bulk class reclassification: move every line currently in from_class to",
     "write": true

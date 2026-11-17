@@ -85,7 +85,7 @@ def test_list_bills_display_cap_notes_remainder(monkeypatch):
     monkeypatch.setattr(s, "_multicurrency_enabled", _no_multicurrency)
     out = asyncio.run(s.qb_list_bills("2026-07-01", "2026-08-31", max_results=50))
     # All 60 counted, only 50 displayed, with a clear note.
-    assert "(60 bills" in out and "showing the first 50" in out
+    assert "(60 bills" in out and "showing 1–50 of 60" in out
 
 
 # --- qb_account_transactions: vendor fix + class column --------------------

@@ -31,11 +31,17 @@ export function getCheckoutLimiter(): Ratelimit {
   });
 }
 
-// Rate limiter for token endpoint: 10 requests per minute per IP
+// Rate limiter for the broker token endpoint. Same lesson as the default-realm
+// limiter below: the "IP" is a Fly MACHINE's egress IP serving MANY licenses,
+// so a per-IP budget sized for one user starves everyone behind that machine.
+// 10/min caused a real incident — a CPA's parallel bulk-recode batch got 429s
+// that surfaced as "connection expired" (~1 in 10 calls). The connector now
+// also caches tokens per license for 60s, so steady-state traffic is ~1 call
+// per active license per minute per machine; 600/min is headroom, not a target.
 export function getTokenLimiter(): Ratelimit {
   return new Ratelimit({
     redis: getRedis(),
-    limiter: Ratelimit.slidingWindow(10, "1 m"),
+    limiter: Ratelimit.slidingWindow(600, "1 m"),
     prefix: "ratelimit:token",
     analytics: true,
   });

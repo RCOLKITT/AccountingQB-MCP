@@ -8,7 +8,7 @@ dates still spanned the whole range. Nothing indicated truncation.
 The contract now (matching qb_list_bills / qb_list_payments): every list tool
 fetches ALL matching rows via qb_query_all; max_results caps only the DISPLAYED
 rows; counts and dollar totals always cover the full set; truncated display
-carries an explicit "showing the first N" note. All fixtures are fictional.
+carries an explicit "showing X–Y of Z, newest first" note. All fixtures are fictional.
 """
 
 import asyncio
@@ -82,7 +82,8 @@ def test_bill_payments_total_covers_all_pages(monkeypatch):
     out = asyncio.run(s.qb_list_bill_payments("2026-04-15", "2026-11-12", 500))
     assert "(1250 payments" in out
     assert "$125,000.00" in out  # full-set total, not 500 × $100
-    assert "showing the first 500" in out  # truncated display says so
+    assert "showing 1–500 of 1250, newest first" in out  # truncated display says so
+    assert "pass offset=500 for the next page" in out
     # the display really is capped
     assert out.count("| Check via Operating |") == 500
 
@@ -100,7 +101,7 @@ def test_bill_payments_no_note_when_everything_fits(monkeypatch):
     monkeypatch.setattr(s, "qb_query", fake_query)
     out = asyncio.run(s.qb_list_bill_payments("2026-04-15", "2026-11-12", 500))
     assert "(1 payments" in out and "$250.00" in out
-    assert "showing the first" not in out
+    assert "showing 1" not in out  # no window note when everything fits
 
 
 def test_deposits_total_covers_all_while_display_caps(monkeypatch):
@@ -123,4 +124,4 @@ def test_deposits_total_covers_all_while_display_caps(monkeypatch):
     monkeypatch.setattr(s, "qb_query", fake_query)
     out = asyncio.run(s.qb_list_deposits("2026-01-01", "2026-12-31", 3))
     assert "$70.00" in out and "(7 deposits" in out  # totals = all 7
-    assert "showing the first 3" in out
+    assert "showing 1–3 of 7" in out

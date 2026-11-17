@@ -1724,6 +1724,57 @@ if _DEMO_MODE:
 # ---------------------------------------------------------------------------
 # Auth & HTTP helpers
 # ---------------------------------------------------------------------------
+# Hosted-token stampede guard (user incident: a parallel bulk-recode batch sent
+# one broker POST per tool call from the same Fly machine; the broker's per-IP
+# rate limit 429'd ~1 in 10 and the failure surfaced as "connection expired").
+# A short shared cache per license + a single-flight lock means a burst costs
+# ONE broker call per license per minute per machine. In-memory only — tokens
+# never touch disk here.
+_HOSTED_TOKEN_CACHE: dict = {}  # license_key -> (fetched_monotonic, companies)
+_HOSTED_TOKEN_LOCKS: dict = {}  # license_key -> asyncio.Lock
+_HOSTED_TOKEN_TTL = 60.0  # seconds; broker-side rotations propagate fast
+
+
+def _hosted_token_lock(license_key: str) -> "asyncio.Lock":
+    import asyncio as _asyncio
+
+    lock = _HOSTED_TOKEN_LOCKS.get(license_key)
+    if lock is None:
+        lock = _HOSTED_TOKEN_LOCKS[license_key] = _asyncio.Lock()
+    return lock
+
+
+def _hosted_cache_get(license_key: str):
+    import time as _time
+
+    hit = _HOSTED_TOKEN_CACHE.get(license_key)
+    if hit and (_time.monotonic() - hit[0]) < _HOSTED_TOKEN_TTL:
+        return hit[1]
+    return None
+
+
+def _hosted_cache_put(license_key: str, companies: list) -> None:
+    import time as _time
+
+    _HOSTED_TOKEN_CACHE[license_key] = (_time.monotonic(), companies)
+    if len(_HOSTED_TOKEN_CACHE) > 2048:  # runaway guard
+        _HOSTED_TOKEN_CACHE.pop(next(iter(_HOSTED_TOKEN_CACHE)))
+
+
+def _adopt_companies(ctx, companies: list) -> str | None:
+    """Point ctx at its realm's tokens from a companies payload; returns the
+    access token, or None if the active realm isn't in the payload."""
+    ctx.hosted_companies = companies
+    ctx.hosted_loaded = True
+    for company in companies:
+        if company["realmId"] == ctx.realm_id:
+            ctx.access_token = company["accessToken"]
+            ctx.refresh_token = company["refreshToken"]
+            ctx.token_expiry = _parse_token_expiry(company.get("expiresAt"))
+            return ctx.access_token
+    return None
+
+
 async def get_access_token() -> str:
     ctx = get_ctx()
 
@@ -1738,81 +1789,116 @@ async def get_access_token() -> str:
     # Hosted mode: fetch fresh tokens from AccountingQB API (lazily on first
     # use — nothing is fetched at import time)
     if ctx.hosted_mode:
+        import asyncio as _asyncio
+
         logger.debug("Refreshing access token via AccountingQB API...")
+        lic = ctx.license_key or LICENSE_KEY
+
+        # Shared cache first: a parallel batch on this machine reuses the
+        # minute-fresh companies payload instead of stampeding the broker.
+        cached = _hosted_cache_get(lic)
+        if cached and ctx.realm_id:
+            tok = _adopt_companies(ctx, cached)
+            if tok:
+                return tok
+
         no_companies_connected = False
-        # Two attempts: a single transient broker hiccup must not surface as
-        # "connection expired, please reconnect" (user-reported: long batches
-        # failed intermittently, then worked on plain retry).
-        for attempt in (1, 2):
-            try:
-                async with httpx.AsyncClient(timeout=15.0) as client:
-                    resp = await client.post(
-                        f"{QB_API_URL}/api/oauth/token",
-                        json={
-                            "licenseKey": ctx.license_key or LICENSE_KEY,
-                            "realmId": ctx.realm_id or None,
-                        },
-                    )
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        companies = data.get("companies", [])
-                        if companies:
-                            ctx.hosted_companies = companies
-                            ctx.hosted_loaded = True
-                            if not ctx.realm_id:
-                                if (
-                                    getattr(ctx, "realm_lookup_failed", False)
-                                    and len(companies) > 1
-                                ):
-                                    # The active-company lookup FAILED (vs. no
-                                    # default set). With several companies,
-                                    # silently using the first risks running
-                                    # against the wrong books — refuse instead.
-                                    raise RuntimeError(
-                                        "Temporary hiccup resolving your active "
-                                        "company — nothing was run against the "
-                                        "wrong company. Please retry in a few "
-                                        "seconds; your company selection is safe."
-                                    )
-                                # First use: default to the first connected company
-                                ctx.realm_id = companies[0]["realmId"]
-                            if ctx.persist_tokens:
-                                _save_hosted_tokens(companies)
-                            for company in companies:
-                                if company["realmId"] == ctx.realm_id:
-                                    ctx.access_token = company["accessToken"]
-                                    ctx.refresh_token = company["refreshToken"]
-                                    ctx.token_expiry = _parse_token_expiry(
-                                        company.get("expiresAt")
-                                    )
-                                    return ctx.access_token
-                        else:
-                            # Broker reachable, license valid, nothing connected
+        rate_limited = False
+        async with _hosted_token_lock(lic):
+            # Double-check under the lock — the winner of a stampede fills the
+            # cache for everyone queued behind it.
+            cached = _hosted_cache_get(lic)
+            if cached and ctx.realm_id:
+                tok = _adopt_companies(ctx, cached)
+                if tok:
+                    return tok
+            # Two attempts: a single transient broker hiccup must not surface as
+            # "connection expired, please reconnect" (user-reported: long batches
+            # failed intermittently, then worked on plain retry). A 429 waits out
+            # the broker's Retry-After (capped) before the second attempt.
+            for attempt in (1, 2):
+                try:
+                    async with httpx.AsyncClient(timeout=15.0) as client:
+                        resp = await client.post(
+                            f"{QB_API_URL}/api/oauth/token",
+                            json={
+                                "licenseKey": lic,
+                                "realmId": ctx.realm_id or None,
+                            },
+                        )
+                        if resp.status_code == 200:
+                            rate_limited = False
+                            data = resp.json()
+                            companies = data.get("companies", [])
+                            if companies:
+                                if not ctx.realm_id:
+                                    if (
+                                        getattr(ctx, "realm_lookup_failed", False)
+                                        and len(companies) > 1
+                                    ):
+                                        # The active-company lookup FAILED (vs. no
+                                        # default set). With several companies,
+                                        # silently using the first risks running
+                                        # against the wrong books — refuse instead.
+                                        raise RuntimeError(
+                                            "Temporary hiccup resolving your active "
+                                            "company — nothing was run against the "
+                                            "wrong company. Please retry in a few "
+                                            "seconds; your company selection is safe."
+                                        )
+                                    # First use: default to the first connected company
+                                    ctx.realm_id = companies[0]["realmId"]
+                                if ctx.persist_tokens:
+                                    _save_hosted_tokens(companies)
+                                _hosted_cache_put(lic, companies)
+                                tok = _adopt_companies(ctx, companies)
+                                if tok:
+                                    return tok
+                            else:
+                                # Broker reachable, license valid, nothing connected
+                                ctx.hosted_loaded = True
+                                no_companies_connected = True
+                        elif resp.status_code == 404:
                             ctx.hosted_loaded = True
                             no_companies_connected = True
-                    elif resp.status_code == 404:
-                        ctx.hosted_loaded = True
-                        no_companies_connected = True
-                    if not no_companies_connected:
-                        raise ValueError(
-                            "Could not refresh token from AccountingQB API"
-                        )
-                break
-            except RuntimeError:
-                raise  # the wrong-company refusal above — never retried away
-            except Exception as e:
-                logger.warning(
-                    f"Hosted token refresh failed (attempt {attempt}/2): {e}"
-                )
-                if attempt == 2:
-                    # Offline resilience: fall back to cached hosted tokens,
-                    # then to local refresh if we have credentials
-                    if not ctx.hosted_companies:
-                        _load_hosted_tokens(ctx)
-            else:
-                break
+                        elif resp.status_code == 429:
+                            # Not an auth problem — the broker is shedding load.
+                            # Honor Retry-After (capped) and try once more.
+                            rate_limited = True
+                            if attempt == 1:
+                                try:
+                                    wait = float(resp.headers.get("Retry-After", "1"))
+                                except ValueError:
+                                    wait = 1.0
+                                await _asyncio.sleep(min(max(wait, 0.5), 3.0))
+                        if not no_companies_connected:
+                            raise ValueError(
+                                "Could not refresh token from AccountingQB API"
+                            )
+                    break
+                except RuntimeError:
+                    raise  # the wrong-company refusal above — never retried away
+                except Exception as e:
+                    logger.warning(
+                        f"Hosted token refresh failed (attempt {attempt}/2): {e}"
+                    )
+                    if attempt == 2:
+                        # Offline resilience: fall back to cached hosted tokens,
+                        # then to local refresh if we have credentials
+                        if not ctx.hosted_companies:
+                            _load_hosted_tokens(ctx)
+                else:
+                    break
         if no_companies_connected:
             raise RuntimeError(_NO_COMPANY_CONNECTED_MSG)
+        if rate_limited and not ctx.refresh_token:
+            # Both attempts were 429s. Saying "connection expired" here sent
+            # users to reconnect a perfectly healthy connection — tell the truth.
+            raise RuntimeError(
+                "AccountingQB is briefly rate-limited (too many parallel "
+                "requests). Your QuickBooks connection is fine — retry this "
+                "call in a few seconds."
+            )
 
     # Local mode: refresh directly with Intuit
     if not QB_CLIENT_ID or not QB_CLIENT_SECRET or not ctx.refresh_token:
@@ -2834,7 +2920,10 @@ async def qb_list_transactions(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_deposits(
-    start_date: str = "", end_date: str = "", max_results: int = 100
+    start_date: str = "",
+    end_date: str = "",
+    max_results: int = 100,
+    offset: int = 0,
 ) -> str:
     """List deposits (income, owner investments, bank deposits) within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Use this to find income or money deposited into business accounts. ALL matching rows are fetched (paged, no silent cap); max_results caps only how many are DISPLAYED — the count and totals always cover every match."""
     start_date, end_date = _ytd_range(start_date, end_date)
@@ -2850,7 +2939,7 @@ async def qb_list_deposits(
 
     lines = [f"## Deposits: {start_date} to {end_date}\n"]
     total = sum(float(d.get("TotalAmt", 0)) for d in deposits)
-    shown = deposits[:max_results] if max_results else deposits
+    shown, cap = _page_window(deposits, max_results, offset)
     for d in shown:
         amt = float(d.get("TotalAmt", 0))
         date = d.get("TxnDate", "N/A")
@@ -2875,11 +2964,6 @@ async def qb_list_deposits(
         lines.extend(detail_lines)
         lines.append("")
 
-    cap = (
-        f" — showing the first {len(shown)}; narrow the dates to see the rest"
-        if len(shown) < len(deposits)
-        else ""
-    )
     lines.append(f"\n**Total Deposits: {fmt(total)} ({len(deposits)} deposits{cap})**")
     return "\n".join(lines)
 
@@ -2891,7 +2975,10 @@ async def qb_list_deposits(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_transfers(
-    start_date: str = "", end_date: str = "", max_results: int = 100
+    start_date: str = "",
+    end_date: str = "",
+    max_results: int = 100,
+    offset: int = 0,
 ) -> str:
     """List transfers between accounts within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Use this to see money moved between business bank accounts or credit cards. ALL matching rows are fetched (paged, no silent cap); max_results caps only how many are DISPLAYED — the count and totals always cover every match."""
     start_date, end_date = _ytd_range(start_date, end_date)
@@ -2907,7 +2994,7 @@ async def qb_list_transfers(
 
     lines = [f"## Transfers: {start_date} to {end_date}\n"]
     total = sum(float(t.get("Amount", 0)) for t in transfers)
-    shown = transfers[:max_results] if max_results else transfers
+    shown, cap = _page_window(transfers, max_results, offset)
     for t in shown:
         amt = float(t.get("Amount", 0))
         date = t.get("TxnDate", "N/A")
@@ -2922,11 +3009,6 @@ async def qb_list_transfers(
             lines.append(f"  Memo: {memo}")
         lines.append("")
 
-    cap = (
-        f" — showing the first {len(shown)}; narrow the dates to see the rest"
-        if len(shown) < len(transfers)
-        else ""
-    )
     lines.append(
         f"\n**Total Transfers: {fmt(total)} ({len(transfers)} transfers{cap})**"
     )
@@ -2940,7 +3022,10 @@ async def qb_list_transfers(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_journal_entries(
-    start_date: str = "", end_date: str = "", max_results: int = 100
+    start_date: str = "",
+    end_date: str = "",
+    max_results: int = 100,
+    offset: int = 0,
 ) -> str:
     """List journal entries (adjustments, reclassifications) within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Useful for finding accounting adjustments, corrections, and manual entries. ALL matching rows are fetched (paged, no silent cap); max_results caps only how many are DISPLAYED — the count and totals always cover every match."""
     start_date, end_date = _ytd_range(start_date, end_date)
@@ -2955,7 +3040,7 @@ async def qb_list_journal_entries(
         return f"No journal entries found between {start_date} and {end_date}."
 
     lines = [f"## Journal Entries: {start_date} to {end_date}\n"]
-    shown = entries[:max_results] if max_results else entries
+    shown, cap = _page_window(entries, max_results, offset)
     for je in shown:
         date = je.get("TxnDate", "N/A")
         total = float(je.get("TotalAmt", 0))
@@ -2985,13 +3070,37 @@ async def qb_list_journal_entries(
             )
         lines.append("")
 
-    cap = (
-        f" — showing the first {len(shown)}; narrow the dates to see the rest"
-        if len(shown) < len(entries)
-        else ""
-    )
     lines.append(f"**{len(entries)} journal entries found{cap}**")
     return "\n".join(lines)
+
+
+def _page_window(rows: list, max_results: int, offset: int = 0):
+    """Deterministic display window over a FULLY-fetched result set.
+
+    QBO returns query rows ordered by Id, so a capped display showed an
+    arbitrary-looking slice (user request: date order + a way to page without
+    narrowing the range). Sorts newest-first by (TxnDate, Id), applies
+    offset/max_results to the DISPLAY only, and returns (shown, note) where
+    note says exactly which window of how many rows is visible and how to get
+    the next page. Counts/totals must always be computed over ``rows``."""
+
+    def _key(r):
+        rid = str(r.get("Id") or "")
+        return (str(r.get("TxnDate") or ""), int(rid) if rid.isdigit() else 0)
+
+    ordered = sorted(rows, key=_key, reverse=True)
+    total = len(ordered)
+    off = max(0, int(offset or 0))
+    shown = ordered[off : off + max_results] if max_results else ordered[off:]
+    note = ""
+    if off or len(shown) < total:
+        end = off + len(shown)
+        note = f" — showing {off + 1}\u2013{end} of {total}, newest first"
+        if end < total:
+            note += f"; pass offset={end} for the next page"
+        elif off >= total:
+            note = f" — offset {off} is past the last row ({total} total)"
+    return shown, note
 
 
 # ===================================================================
@@ -3001,13 +3110,18 @@ async def qb_list_journal_entries(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_bills(
-    start_date: str, end_date: str, vendor_name: str = "", max_results: int = 500
+    start_date: str,
+    end_date: str,
+    vendor_name: str = "",
+    max_results: int = 500,
+    offset: int = 0,
 ) -> str:
     """List bills (accounts payable) within a date range. Dates in YYYY-MM-DD.
     Optionally filter by vendor_name. Shows what you owe to vendors, with the
     account AND class on each line. ALL bills in the range are fetched (paged, no
     silent 200/1000 cap); max_results caps only how many are DISPLAYED (default
-    500) — the count/totals always reflect every matching bill."""
+    500) — the count/totals always reflect every matching bill. offset skips that many rows of the (newest-first) display window — page through a capped list without narrowing the dates.
+    """
     query = f"SELECT * FROM Bill WHERE TxnDate >= '{start_date}' AND TxnDate <= '{end_date}'"
     if vendor_name:
         query += f" AND VendorRef LIKE '%{_q_escape(vendor_name)}%'"
@@ -3022,12 +3136,9 @@ async def qb_list_bills(
 
     show_currency = await _multicurrency_enabled()
     lines = [f"## Bills: {start_date} to {end_date}\n"]
-    total = 0.0
-    total_balance = 0.0
-    shown = bills[:max_results] if max_results else bills
-    for b in bills:
-        total += float(b.get("TotalAmt", 0))
-        total_balance += float(b.get("Balance", 0))
+    total = sum(float(b.get("TotalAmt", 0)) for b in bills)
+    total_balance = sum(float(b.get("Balance", 0)) for b in bills)
+    shown, cap_note = _page_window(bills, max_results, offset)
     for b in shown:
         amt = float(b.get("TotalAmt", 0))
         balance = float(b.get("Balance", 0))
@@ -3056,12 +3167,6 @@ async def qb_list_bills(
                 lines.append(f"  - {cat}: {fmt(line.get('Amount'))}{cls_tag}")
         lines.append("")
 
-    cap_note = (
-        f" — showing the first {len(shown)}; filter by vendor_name or narrow the "
-        "dates to see the rest"
-        if len(shown) < len(bills)
-        else ""
-    )
     lines.append(
         f"\n**Total Billed: {fmt(total)} | Outstanding: {fmt(total_balance)} "
         f"({len(bills)} bills{cap_note})**"
@@ -3076,9 +3181,12 @@ async def qb_list_bills(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_bill_payments(
-    start_date: str = "", end_date: str = "", max_results: int = 100
+    start_date: str = "",
+    end_date: str = "",
+    max_results: int = 100,
+    offset: int = 0,
 ) -> str:
-    """List bill payments within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Shows payments made against bills (accounts payable). ALL matching rows are fetched (paged, no silent cap); max_results caps only how many are DISPLAYED — the count and totals always cover every match."""
+    """List bill payments within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Shows payments made against bills (accounts payable). ALL matching rows are fetched (paged, no silent cap); max_results caps only how many are DISPLAYED — the count and totals always cover every match. offset skips that many rows of the (newest-first) display window — page through a capped list without narrowing the dates."""
     start_date, end_date = _ytd_range(start_date, end_date)
     query = (
         f"SELECT * FROM BillPayment WHERE TxnDate >= '{start_date}' "
@@ -3096,7 +3204,7 @@ async def qb_list_bill_payments(
 
     lines = [f"## Bill Payments: {start_date} to {end_date}\n"]
     total = sum(float(bp.get("TotalAmt", 0)) for bp in payments)
-    shown = payments[:max_results] if max_results else payments
+    shown, cap = _page_window(payments, max_results, offset)
     for bp in shown:
         amt = float(bp.get("TotalAmt", 0))
         vendor = bp.get("VendorRef", {}).get("name", "Unknown")
@@ -3118,11 +3226,6 @@ async def qb_list_bill_payments(
         )
         lines.append("")
 
-    cap = (
-        f" — showing the first {len(shown)}; narrow the dates to see the rest"
-        if len(shown) < len(payments)
-        else ""
-    )
     lines.append(f"\n**Total Paid: {fmt(total)} ({len(payments)} payments{cap})**")
     return "\n".join(lines)
 
@@ -3134,7 +3237,10 @@ async def qb_list_bill_payments(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_sales_receipts(
-    start_date: str = "", end_date: str = "", max_results: int = 100
+    start_date: str = "",
+    end_date: str = "",
+    max_results: int = 100,
+    offset: int = 0,
 ) -> str:
     """List sales receipts (direct sales, not invoiced) within a date range. Dates in YYYY-MM-DD (default: current year-to-date). ALL matching rows are fetched (paged, no silent cap); max_results caps only how many are DISPLAYED — the count and totals always cover every match."""
     start_date, end_date = _ytd_range(start_date, end_date)
@@ -3150,7 +3256,7 @@ async def qb_list_sales_receipts(
 
     lines = [f"## Sales Receipts: {start_date} to {end_date}\n"]
     total = sum(float(sr.get("TotalAmt", 0)) for sr in receipts)
-    shown = receipts[:max_results] if max_results else receipts
+    shown, cap = _page_window(receipts, max_results, offset)
     for sr in shown:
         amt = float(sr.get("TotalAmt", 0))
         customer = sr.get("CustomerRef", {}).get("name", "Walk-in")
@@ -3168,11 +3274,6 @@ async def qb_list_sales_receipts(
                 lines.append(f"  - {desc}: {fmt(line_amt)}")
         lines.append("")
 
-    cap = (
-        f" — showing the first {len(shown)}; narrow the dates to see the rest"
-        if len(shown) < len(receipts)
-        else ""
-    )
     lines.append(f"\n**Total Sales: {fmt(total)} ({len(receipts)} receipts{cap})**")
     return "\n".join(lines)
 
@@ -3184,7 +3285,10 @@ async def qb_list_sales_receipts(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_payments(
-    start_date: str = "", end_date: str = "", max_results: int = 100
+    start_date: str = "",
+    end_date: str = "",
+    max_results: int = 100,
+    offset: int = 0,
 ) -> str:
     """List customer payments received within a date range. Dates in YYYY-MM-DD (default: current year-to-date). Shows payments applied against invoices."""
     start_date, end_date = _ytd_range(start_date, end_date)
@@ -3202,8 +3306,7 @@ async def qb_list_payments(
         return f"No customer payments found between {start_date} and {end_date}."
 
     total = sum(float(p.get("TotalAmt", 0)) for p in payments)
-    shown = payments[:max_results] if max_results else payments
-    cap = f" — showing the first {len(shown)}" if len(shown) < len(payments) else ""
+    shown, cap = _page_window(payments, max_results, offset)
     lines = [f"## Customer Payments: {start_date} to {end_date}\n"]
     for p in shown:
         amt = float(p.get("TotalAmt", 0))
@@ -11271,6 +11374,21 @@ async def qb_reclassify_transaction(
         return f"Multiple accounts match '{new_account_name}': {names}. Please be more specific."
     target_acct = accounts[0]
 
+    return await _reclassify_core(
+        entity_type, entity_id, target_acct, memo, line_number
+    )
+
+
+async def _reclassify_core(
+    entity_type: str,
+    entity_id: str,
+    target_acct: dict,
+    memo: str = "",
+    line_number: int = 0,
+) -> str:
+    """Recode one transaction's account-based line(s) to an ALREADY-RESOLVED
+    account. Shared by qb_reclassify_transaction (resolves per call) and
+    qb_bulk_reclassify (resolves once for the whole batch)."""
     # Read the existing transaction
     txn = await qb_read(entity_type.lower(), entity_id)
     entity_data = txn.get(entity_type, {})
@@ -11334,6 +11452,88 @@ async def qb_reclassify_transaction(
         f"  To: {target_acct['Name']}\n"
         f"  SyncToken: {updated.get('SyncToken', '?')}"
     )
+
+
+@mcp.tool(annotations={"destructiveHint": True})
+async def qb_bulk_reclassify(
+    transaction_ids: str,
+    new_account_name: str,
+    entity_type: str = "Purchase",
+    memo: str = "",
+) -> str:
+    """Reclassify MANY transactions to one account in a single call — built for
+    bulk cleanups (a 130-transaction recode becomes one approval instead of 130).
+    transaction_ids: comma-separated IDs (e.g. '101,205,318').
+    new_account_name: the account every listed transaction moves to.
+    entity_type: Purchase, Bill, Deposit, etc. (all IDs must share it).
+    Each transaction is updated independently: failures are reported per ID and
+    never stop the rest. Use qb_reclassify_transaction for per-line recodes."""
+    ids = [
+        i.strip()
+        for i in _sanitize_input(transaction_ids, "transaction_ids").split(",")
+        if i.strip()
+    ]
+    if not ids:
+        return "Error: No transaction IDs provided."
+    if len(ids) > 200:
+        return (
+            f"Error: {len(ids)} IDs is past the per-call limit of 200 — "
+            "split the batch (keeps each run reviewable and retryable)."
+        )
+    entity_type = _sanitize_input(entity_type, "entity_type")
+    new_account_name = _sanitize_input(new_account_name, "new_account_name")
+
+    # Resolve the target account ONCE for the whole batch.
+    acct_result = await qb_query(
+        f"SELECT * FROM Account WHERE Name LIKE '%{_q_escape(new_account_name)}%' MAXRESULTS 5"
+    )
+    accounts = acct_result.get("QueryResponse", {}).get("Account", [])
+    if not accounts:
+        return f"Account '{new_account_name}' not found. Use qb_list_accounts to see available accounts."
+    if len(accounts) > 1:
+        names = ", ".join(a["Name"] for a in accounts)
+        return f"Multiple accounts match '{new_account_name}': {names}. Please be more specific."
+    target_acct = accounts[0]
+
+    _audit_log(
+        "BULK_RECLASSIFY_START",
+        f"type={entity_type} count={len(ids)} new_acct={target_acct['Name']}",
+    )
+
+    ok, failed = [], []
+    lines = [
+        f"## Bulk Reclassify → {target_acct['Name']} ({len(ids)} {entity_type}s)\n"
+    ]
+    for tid in ids:
+        try:
+            result = await _reclassify_core(entity_type, tid, target_acct, memo)
+            if result.startswith("\u2705"):
+                ok.append(tid)
+            else:
+                failed.append(tid)
+                lines.append(f"\u274c #{tid}: {result.splitlines()[0]}")
+        except Exception as e:
+            failed.append(tid)
+            lines.append(f"\u274c #{tid}: {str(e)[:120]}")
+
+    _audit_log(
+        "BULK_RECLASSIFY_DONE",
+        f"type={entity_type} ok={len(ok)} failed={len(failed)} new_acct={target_acct['Name']}",
+    )
+    lines.append(
+        f"\n**\u2705 {len(ok)} reclassified to {target_acct['Name']}"
+        + (
+            f" | \u274c {len(failed)} failed (listed above — fix and re-run just those IDs)**"
+            if failed
+            else "**"
+        )
+    )
+    if ok:
+        lines.append(
+            f"Done: {', '.join(ok[:50])}"
+            + (f" \u2026+{len(ok)-50} more" if len(ok) > 50 else "")
+        )
+    return "\n".join(lines)
 
 
 async def _resolve_class(class_name: str = "", class_id: str = ""):
@@ -14627,7 +14827,11 @@ async def qb_anomaly_detection(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_credit_memos(
-    start_date: str, end_date: str, customer_name: str = "", max_results: int = 100
+    start_date: str,
+    end_date: str,
+    customer_name: str = "",
+    max_results: int = 100,
+    offset: int = 0,
 ) -> str:
     """List credit memos (customer credits/refunds) within a date range.
     Credit memos reduce what a customer owes. Optionally filter by customer_name.
@@ -14654,7 +14858,7 @@ async def qb_list_credit_memos(
         return "No credit memos found in the date range."
 
     total = sum(float(cm.get("TotalAmt", 0)) for cm in memos)
-    shown = memos[:max_results] if max_results else memos
+    shown, cap = _page_window(memos, max_results, offset)
     lines = [f"## Credit Memos ({start_date} to {end_date})\n"]
     for cm in shown:
         cm_id = cm.get("Id", "?")
@@ -14671,11 +14875,6 @@ async def qb_list_credit_memos(
             lines.append(f"  Memo: {memo[:80]}")
         lines.append("")
 
-    cap = (
-        f" — showing the first {len(shown)}; narrow the dates to see the rest"
-        if len(shown) < len(memos)
-        else ""
-    )
     lines.append(f"---\n**Total Credit Memos:** {fmt(total)} ({len(memos)} memos{cap})")
     return "\n".join(lines)
 
@@ -14785,7 +14984,11 @@ async def qb_create_credit_memo(
 
 @mcp.tool(annotations={"readOnlyHint": True})
 async def qb_list_vendor_credits(
-    start_date: str, end_date: str, vendor_name: str = "", max_results: int = 100
+    start_date: str,
+    end_date: str,
+    vendor_name: str = "",
+    max_results: int = 100,
+    offset: int = 0,
 ) -> str:
     """List vendor credits within a date range. Vendor credits reduce what you owe a vendor.
     Optionally filter by vendor_name. start_date/end_date in YYYY-MM-DD format."""
@@ -14810,7 +15013,7 @@ async def qb_list_vendor_credits(
         return "No vendor credits found in the date range."
 
     total = sum(float(vc.get("TotalAmt", 0)) for vc in credits)
-    shown = credits[:max_results] if max_results else credits
+    shown, cap = _page_window(credits, max_results, offset)
     lines = [f"## Vendor Credits ({start_date} to {end_date})\n"]
     for vc in shown:
         vc_id = vc.get("Id", "?")
@@ -14833,11 +15036,6 @@ async def qb_list_vendor_credits(
                 lines.append(f"  - {acct}: {fmt(float(line.get('Amount', 0)))}")
         lines.append("")
 
-    cap = (
-        f" — showing the first {len(shown)}; narrow the dates to see the rest"
-        if len(shown) < len(credits)
-        else ""
-    )
     lines.append(
         f"---\n**Total Vendor Credits:** {fmt(total)} ({len(credits)} credits{cap})"
     )
@@ -15807,6 +16005,7 @@ async def qb_list_estimates(
     customer_name: str = "",
     status: str = "",
     max_results: int = 50,
+    offset: int = 0,
 ) -> str:
     """List estimates/quotes. Optionally filter by date range, customer, or status.
     status: Pending, Accepted, Closed, Rejected (leave empty for all).
@@ -15845,12 +16044,7 @@ async def qb_list_estimates(
         ]
 
     total = sum(float(e.get("TotalAmt", 0)) for e in estimates)
-    shown = estimates[:max_results] if max_results else estimates
-    cap = (
-        f" — showing the first {len(shown)}; narrow the filters to see the rest"
-        if len(shown) < len(estimates)
-        else ""
-    )
+    shown, cap = _page_window(estimates, max_results, offset)
     lines = [f"## Estimates ({len(estimates)} found{cap})\n"]
     for est in shown:
         est_id = est.get("Id", "?")

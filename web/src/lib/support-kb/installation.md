@@ -7,6 +7,7 @@
 3. **Manual uvx/pip install:** The self-hosted setup, documented below.
 
 ## Prerequisites
+
 - Claude Desktop installed (download from https://claude.ai/download)
 - QuickBooks Online account (any plan)
 - AccountingQB license key (get one at accountingqb.com)
@@ -15,11 +16,13 @@
 ## Step 1: Install uv Package Manager
 
 **macOS/Linux:**
+
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 **Windows:**
+
 ```bash
 winget install astral-sh.uv
 ```
@@ -29,6 +32,7 @@ After installing, restart your terminal.
 ## Step 2: Add to Claude Desktop Config
 
 Find your config file:
+
 - **macOS:** ~/Library/Application Support/Claude/claude_desktop_config.json
 - **Windows:** %APPDATA%\Claude\claude_desktop_config.json
 - **Linux:** ~/.config/Claude/claude_desktop_config.json
@@ -64,20 +68,25 @@ Visit https://accountingqb.com/dashboard and click "Connect QuickBooks" to autho
 ## Common Installation Issues
 
 ### "uvx not found" error
+
 The uv package manager isn't installed or not in your PATH.
 **Fix:** Run the install command above, then restart your terminal AND Claude Desktop.
 
 ### Config file doesn't exist
+
 Create it manually at the path shown above. Copy and paste the full JSON config.
 
 ### Claude doesn't show AccountingQB tools
+
 1. Verify your config file is valid JSON (check at jsonlint.com)
 2. Make sure you saved the file
 3. Completely quit and restart Claude Desktop (not just close the window)
 4. Check that your license key is correct
 
 ### JSON syntax error
+
 Common issues:
+
 - Missing commas between entries
 - Extra comma after the last entry
 - Using single quotes instead of double quotes
@@ -85,6 +94,7 @@ Common issues:
 Use jsonlint.com to validate your JSON.
 
 ### Adding to existing config
+
 If you already have other MCP servers, add the accountingqb entry inside the existing "mcpServers" object:
 
 ```json
