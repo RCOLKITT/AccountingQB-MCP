@@ -257,6 +257,45 @@ function DashboardContent() {
     }
   };
 
+  // Expired/canceled licenses: one click re-subscribes off the saved card.
+  // (User incident: adding a card in the portal does NOT revive a canceled
+  // subscription — this endpoint creates and links a new one.)
+  const reactivate = async () => {
+    if (!selectedLicense?.key) return;
+    setPortalLoading(true);
+    try {
+      const res = await fetch("/api/user/subscription/reactivate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ licenseKey: selectedLicense.key }),
+      });
+      const data = await res.json();
+      if (data.state === "needs_payment_method") {
+        alert(data.message);
+        await openBillingPortal();
+        return;
+      }
+      if (data.state === "needs_checkout") {
+        window.location.href = "/pricing";
+        return;
+      }
+      if (data.url) {
+        window.location.href = data.url; // bank confirmation (SCA)
+        return;
+      }
+      if (res.ok && data.ok) {
+        alert(data.message);
+        window.location.reload();
+      } else {
+        alert(data.error || "Failed to reactivate subscription");
+      }
+    } catch {
+      alert("Failed to reactivate subscription");
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
   const openBillingPortal = async () => {
     if (!selectedLicense?.key) return;
 
@@ -549,6 +588,40 @@ function DashboardContent() {
                       {lic.tier} ({lic.status})
                     </button>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Expired / canceled: the trial banner disappears at exactly the
+                moment the user most needs a path forward (user incident: added
+                a card in the portal, nothing changed). One-click reactivate. */}
+            {(selectedLicense.status === "expired" ||
+              selectedLicense.status === "canceled") && (
+              <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">⚠️</span>
+                    <div>
+                      <p className="font-medium text-white">
+                        Your{" "}
+                        {selectedLicense.status === "canceled"
+                          ? "subscription has ended"
+                          : "trial has expired"}
+                      </p>
+                      <p className="text-sm text-amber-300">
+                        Reactivate to pick up right where you left off — if you
+                        have a saved card we&apos;ll use it; otherwise
+                        we&apos;ll ask for one first.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={reactivate}
+                    disabled={portalLoading}
+                    className="shrink-0 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition disabled:opacity-50"
+                  >
+                    {portalLoading ? "..." : "Reactivate subscription"}
+                  </button>
                 </div>
               </div>
             )}
