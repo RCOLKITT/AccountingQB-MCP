@@ -56,8 +56,9 @@ All plans include a 14-day free trial with full access to all 147 tools.
 ### After Trial Ends
 
 - You keep access to 25 essential read-only tools free forever
-- To continue using all tools, choose a paid plan
+- To continue using all tools, click **"Reactivate subscription"** on your dashboard (one click with a saved card, same plan and pricing) — or choose a paid plan if you never added a card
 - No automatic charges if you don't upgrade
+- Note: adding a card in the billing portal by itself does not restart an expired subscription — the Reactivate button is the step that does
 
 ### Trial Length
 

@@ -82,7 +82,13 @@ Go to https://accountingqb.com/dashboard and enter the email you used to purchas
 
 ### Trial expired
 
-After 14 days, you keep access to 25 essential read-only tools for free. To unlock all 147 tools, choose a paid plan.
+After 14 days, you keep access to 25 essential read-only tools for free. To unlock all 147 tools again:
+
+1. Go to https://accountingqb.com/dashboard
+2. Click **"Reactivate subscription"** on the expired banner
+3. If you have a card saved, it reactivates in one click on your original plan and pricing; if not, you'll be asked to add one first
+
+Important: adding a payment method in the billing portal alone does NOT restart an expired subscription — use the Reactivate button, which does both steps.
 
 ### How to cancel subscription
 
