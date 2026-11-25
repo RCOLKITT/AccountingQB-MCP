@@ -465,3 +465,57 @@ def test_quarterly_tax_autodetects_state_from_company_addr(qb_ctx):
 
     assert "**State:** MA" in result
     assert "MA flat 5% income tax" in result
+
+
+# ---------------------------------------------------------------------------
+# 2027 annual update (TAX_DATA v2026.12) — verified against primary sources:
+# Rev. Proc. 2026-35 (brackets/std deduction), Notice 2026-66 (retirement),
+# CRA T4127 124th ed. + CPP contribution-rates page (CPP, incl. base-rate cut).
+# ---------------------------------------------------------------------------
+import accountingqb.tax_tables as _tt
+
+
+def test_2027_federal_brackets_and_standard_deduction():
+    b = _tt._FED_BRACKETS[2027]
+    # Rev. Proc. 2026-35 thresholds (where 12/22/24/32/35/37% begin).
+    assert b["single"] == [12_800, 52_025, 109_125, 208_325, 264_550, 661_375]
+    assert b["married_joint"] == [
+        25_600,
+        104_050,
+        218_250,
+        416_650,
+        529_100,
+        793_650,
+    ]
+    assert b["std_single"] == 16_600
+    assert b["std_married"] == 33_200
+
+
+def test_2027_retirement_limits():
+    r = _tt._RETIREMENT_LIMITS[2027]  # Notice 2026-66
+    assert r["sep_max"] == 75_000  # §415(c)
+    assert r["solo_401k_deferral"] == 25_500  # §402(g)
+
+
+def test_2027_cpp_ceilings_and_base_rate_cut():
+    p = _tt._CPP_PARAMS[2027]
+    assert p["ympe"] == 76_700.0
+    assert p["yampe"] == 87_400.0
+    # CRA cut the base rate 4.95%→4.75% for 2027, so self-employed 11.9%→11.5%.
+    assert p["rate_self"] == 0.115
+    assert _tt._CPP_PARAMS[2026]["rate_self"] == 0.119  # unchanged earlier years
+
+
+def test_2027_cpp_self_employed_max_matches_cra():
+    # CRA published 2027 maximum self-employed contribution: base $8,418.00
+    # ( (76,700 - 3,500) × 11.5% ) + CPP2 ( (87,400 - 76,700) × 8% ) = $9,274.00.
+    p = _tt._CPP_PARAMS[2027]
+    base = (p["ympe"] - _tt._CPP_BASIC_EXEMPTION) * p["rate_self"]
+    cpp2 = (p["yampe"] - p["ympe"]) * _tt._CPP2_RATE_SELF
+    assert round(base, 2) == 8_418.00
+    assert round(base + cpp2, 2) == 9_274.00
+
+
+def test_version_bumped_to_2026_12():
+    assert _tt.TAX_DATA_VERSION == "2026.12"
+    assert _tt.TAX_DATA_VERIFIED == "2026-11-25"

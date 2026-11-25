@@ -9966,8 +9966,11 @@ async def qb_deduction_finder(tax_year: str = "") -> str:
         for k in expense_dict
     )
     if not has_retirement:
-        ret_year = max(_RETIREMENT_LIMITS)
-        ret = _RETIREMENT_LIMITS[ret_year]
+        # Use the finder's tax year (not max()) so 2026 books show 2026 limits
+        # even after 2027 values are tabulated — future year falls back to the
+        # latest with a mandatory note (Constitution: never silently restate).
+        ret_year = int(tax_year)
+        ret, _ret_note = tax_value_or_latest("RETIREMENT_LIMITS", ret_year)
         sep_room = round(min(0.25 * income_cap, ret["sep_max"]), 2)
         findings.append(
             {
@@ -19046,9 +19049,12 @@ async def qb_estimate_instalments(year: int = 0, province: str = "") -> str:
         params = _CPP_PARAMS[max(_CPP_PARAMS)]
         cpp_year_note = f" (using {max(_CPP_PARAMS)} ceilings — {year} not tabulated)"
     ympe, yampe = params["ympe"], params["yampe"]
+    # Per-year self-employed first-tier rate (CRA cut the base rate for 2027,
+    # so 2027 is 11.5% vs 11.9% earlier); fall back to the flat default.
+    rate_self = params.get("rate_self", _CPP_RATE_SELF)
 
     pensionable = max(0.0, net_income)
-    base_cpp = max(0.0, min(pensionable, ympe) - _CPP_BASIC_EXEMPTION) * _CPP_RATE_SELF
+    base_cpp = max(0.0, min(pensionable, ympe) - _CPP_BASIC_EXEMPTION) * rate_self
     cpp2 = max(0.0, min(pensionable, yampe) - ympe) * _CPP2_RATE_SELF
     cpp_total = base_cpp + cpp2
 

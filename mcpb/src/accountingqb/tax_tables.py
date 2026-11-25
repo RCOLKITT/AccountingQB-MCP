@@ -15,8 +15,8 @@ import json
 import pathlib
 import re
 
-TAX_DATA_VERSION = "2026.11"  # bumped by every approved rates PR
-TAX_DATA_VERIFIED = "2026-10-29"  # newest per-table verification date (L3-enforced)
+TAX_DATA_VERSION = "2026.12"  # bumped by every approved rates PR
+TAX_DATA_VERIFIED = "2026-11-25"  # newest per-table verification date (L3-enforced)
 
 
 class TaxDataError(ValueError):
@@ -32,8 +32,9 @@ class TaxDataError(ValueError):
 # 2027: SSA announcement 2026-10-14 (3.6% COLA).
 _SS_WAGE_BASE = {2025: 176_100, 2026: 184_500, 2027: 192_300}
 
-# Federal bracket thresholds per Rev. Proc. 2024-40 (2025) and
-# Rev. Proc. 2025-32 (2026, post-OBBBA). Review annually.
+# Federal bracket thresholds per Rev. Proc. 2024-40 (2025),
+# Rev. Proc. 2025-32 (2026, post-OBBBA), and Rev. Proc. 2026-35 (2027).
+# Review annually.
 _FED_BRACKETS = {
     2025: {
         "single": [11_925, 48_475, 103_350, 197_300, 250_525, 626_350],
@@ -46,6 +47,12 @@ _FED_BRACKETS = {
         "married_joint": [24_800, 100_800, 211_400, 403_550, 512_450, 768_700],
         "std_single": 16_100,
         "std_married": 32_200,
+    },
+    2027: {  # Rev. Proc. 2026-35
+        "single": [12_800, 52_025, 109_125, 208_325, 264_550, 661_375],
+        "married_joint": [25_600, 104_050, 218_250, 416_650, 529_100, 793_650],
+        "std_single": 16_600,
+        "std_married": 33_200,
     },
 }
 _RATES = [0.10, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37]
@@ -95,10 +102,13 @@ _HOME_OFFICE_SIMPLIFIED = {"rate_per_sqft": 5.0, "max_sqft": 300}
 # should note the H1 rate when computing full-year mileage costs.
 _STD_MILEAGE_CENTS = {2025: 70.0, 2026: 76.0}
 
-# Retirement plan limits (IRS COLA announcements)
+# Retirement plan limits (IRS COLA announcements). sep_max is the §415(c)(1)(A)
+# defined-contribution annual-additions limit; solo_401k_deferral is the §402(g)
+# elective deferral. 2027 per Notice 2026-66.
 _RETIREMENT_LIMITS = {
     2025: {"sep_max": 70_000, "solo_401k_deferral": 23_500},
     2026: {"sep_max": 72_000, "solo_401k_deferral": 24_500},
+    2027: {"sep_max": 75_000, "solo_401k_deferral": 25_500},
 }
 
 # 1099-NEC/MISC reporting threshold per payee (OBBBA: $2,000 for payments
@@ -1147,12 +1157,17 @@ _AII_FIRST_YEAR_FACTOR = 1.5  # 1.5x first-year rate, half-year rule suspended
 _T4A_ADMIN_THRESHOLD = 500.0
 
 # CPP self-employed parameters by year (CRA payroll tables)
+# YMPE/YAMPE by year, plus the self-employed first-tier rate (both halves).
+# 2027: CRA cut the CPP BASE rate from 4.95% to 4.75% (T4127 124th ed., eff.
+# Jan 1 2027), so the first-tier employee rate falls 5.95%→5.75% and the
+# self-employed rate 11.9%→11.5%. The CPP2 rate (4%/4%) is unchanged.
 _CPP_PARAMS = {
-    2025: {"ympe": 71_300.0, "yampe": 81_200.0},
-    2026: {"ympe": 74_600.0, "yampe": 85_000.0},
+    2025: {"ympe": 71_300.0, "yampe": 81_200.0, "rate_self": 0.119},
+    2026: {"ympe": 74_600.0, "yampe": 85_000.0, "rate_self": 0.119},
+    2027: {"ympe": 76_700.0, "yampe": 87_400.0, "rate_self": 0.115},
 }
 _CPP_BASIC_EXEMPTION = 3_500.0
-_CPP_RATE_SELF = 0.119  # 5.95% employee + 5.95% employer
+_CPP_RATE_SELF = 0.119  # default/pre-2027 (5.95%×2); per-year rate in _CPP_PARAMS
 _CPP2_RATE_SELF = 0.08  # 4% employee + 4% employer
 
 # APPROXIMATE federal brackets (2025 threshold values; Bill C-4 lowered the
@@ -1223,9 +1238,9 @@ TABLES: dict = {
         jurisdiction="US-federal",
         kind="exact",
         description="Federal income tax bracket thresholds + standard deduction",
-        source="Rev. Proc. 2024-40 (2025); Rev. Proc. 2025-32 (2026, post-OBBBA)",
-        source_url="https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
-        verified="2026-07-12",
+        source="Rev. Proc. 2024-40 (2025); 2025-32 (2026, post-OBBBA); 2026-35 (2027)",
+        source_url="https://www.irs.gov/pub/irs-drop/rp-26-35.pdf",
+        verified="2026-11-25",
         review="annual-december",
         sanity={},
     ),
@@ -1384,9 +1399,9 @@ TABLES: dict = {
         jurisdiction="US-federal",
         kind="exact",
         description="SEP-IRA max and Solo 401(k) employee deferral",
-        source="IRS COLA notice (2026: SEP $72,000, deferral $24,500)",
-        source_url="https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-contributions",
-        verified="2026-07-12",
+        source="IRS COLA notice (2026: SEP $72k/deferral $24.5k; 2027: SEP $75k/deferral $25.5k, Notice 2026-66)",
+        source_url="https://www.irs.gov/pub/irs-drop/n-26-66.pdf",
+        verified="2026-11-25",
         review="annual-december",
         sanity={"min": 10_000, "max": 200_000, "max_yoy_pct": 0.15},
     ),
@@ -1611,10 +1626,10 @@ TABLES: dict = {
         year_keyed=True,
         jurisdiction="CA-federal",
         kind="exact",
-        description="CPP/CPP2 self-employed parameters (YMPE/YAMPE by year)",
-        source="CRA payroll deductions tables (2026: YMPE $74,600 / YAMPE $85,000)",
-        source_url="https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/payroll/payroll-deductions-contributions/canada-pension-plan-cpp.html",
-        verified="2026-07-12",
+        description="CPP/CPP2 self-employed parameters (YMPE/YAMPE + first-tier rate by year)",
+        source="CRA (2026: YMPE $74,600/YAMPE $85,000; 2027: YMPE $76,700/YAMPE $87,400, base rate cut 4.95%→4.75% → self 11.9%→11.5%, T4127 124th ed.)",
+        source_url="https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/payroll/payroll-deductions-contributions/canada-pension-plan-cpp/cpp-contribution-rates-maximums-exemptions.html",
+        verified="2026-11-25",
         review="annual-december",
         sanity={"max_yoy_pct": 0.10},
     ),  # values mix rates and dollar ceilings
