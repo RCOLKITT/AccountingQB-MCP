@@ -14,6 +14,22 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.32.0",
+    date: "2026-11-25",
+    title:
+      "2027 tax figures are in — US brackets, retirement limits, and the CPP base-rate cut",
+    tag: "Tax",
+    summary:
+      "The IRS and CRA released their 2027 numbers in November, and they're now encoded and verified against the primary sources. Year-end planning for 2027 uses the real figures, not estimates — including a notable Canadian change: CRA is cutting the CPP base contribution rate for the first time, which lowers what self-employed Canadians owe.",
+    highlights: [
+      "US 2027 federal tax brackets and standard deduction (Rev. Proc. 2026-35): standard deduction rises to $16,600 single / $33,200 married filing jointly",
+      "US 2027 retirement limits (Notice 2026-66): SEP-IRA / solo-401(k) employer cap $75,000, 401(k) elective deferral $25,500",
+      "Canada 2027 CPP (CRA T4127): YMPE $76,700, YAMPE $87,400 — and the base rate drops 4.95%→4.75%, cutting the first-tier rate 5.95%→5.75% (self-employed max first-tier contribution $8,418)",
+      "Current-year planning is unaffected: 2026 books still show 2026 figures; 2027 values apply only when you run a 2027 projection",
+      "Every figure carries its source document and verification date in the hash-chained tax ledger (qb_tax_data_info)",
+    ],
+  },
+  {
     version: "3.31.0",
     date: "2026-11-17",
     title:
