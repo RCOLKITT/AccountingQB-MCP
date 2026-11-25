@@ -5,11 +5,19 @@ import { unstable_cache } from "next/cache";
 
 // Revenue cockpit — MRR/ARR, paying customers, trial→paid conversion, paid
 // churn, and a 6-month trend. Real subscriptions only (has a Stripe sub, not
-// test/comp). Monthly USD prices per tier.
+// test/comp).
+//
+// DOLLARS COME FROM STRIPE, PER CURRENCY. The "Live from Stripe" panel is the
+// source of truth for MRR and is reported one line per billing currency (we
+// bill some customers in CAD) — never blended into a single USD figure. The
+// list-price table below is a COUNT view only + a fallback when Stripe isn't
+// configured; it is explicitly labeled as a USD list-price estimate.
 
 export const dynamic = "force-dynamic";
 
-const TIER_MRR: Record<string, number> = {
+// USD monthly list prices per tier — used only for the Stripe-not-configured
+// fallback estimate and as a reference column. Not summed across currencies.
+const TIER_LIST_USD: Record<string, number> = {
   solopreneur: 39,
   business: 99,
   firm: 299,
@@ -20,7 +28,7 @@ const TIER_MRR: Record<string, number> = {
 // is accurate at any scale, with no row cap to undercount past.
 async function getData() {
   const supabase = getSupabase();
-  const tiers = Object.keys(TIER_MRR);
+  const tiers = Object.keys(TIER_LIST_USD);
 
   const lic = () =>
     supabase
@@ -90,13 +98,16 @@ async function getData() {
     ),
   ]);
 
+  // Customer COUNT per tier (accurate). The estimate column multiplies by the
+  // USD list price and is a fallback reference only — real MRR comes from the
+  // per-currency Stripe panel, since a tier can hold both USD and CAD subs.
   const byTier = tiers.map((tier, i) => ({
     tier,
     count: tierCounts[i],
-    mrr: tierCounts[i] * (TIER_MRR[tier] || 0),
+    estMrrUsd: tierCounts[i] * (TIER_LIST_USD[tier] || 0),
   }));
   const payingCount = tierCounts.reduce((a, b) => a + b, 0);
-  const mrr = byTier.reduce((s, t) => s + t.mrr, 0);
+  const estMrrUsd = byTier.reduce((s, t) => s + t.estMrrUsd, 0);
   const conversion = pastTrialCount ? (payingCount / pastTrialCount) * 100 : 0;
   const churnRate =
     payingCount + paidChurnCount
@@ -109,10 +120,8 @@ async function getData() {
   }));
 
   return {
-    mrr,
-    arr: mrr * 12,
+    estMrrUsd, // USD list-price estimate — fallback / reference only
     payingCount,
-    arpu: payingCount ? mrr / payingCount : 0,
     conversion,
     churnRate,
     paidChurnCount,
@@ -124,6 +133,13 @@ async function getData() {
 }
 
 const usd = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
+// Format a per-currency amount, e.g. "US$138", "CA$138".
+const money = (currency: string, n: number) => {
+  const sym: Record<string, string> = { USD: "US$", CAD: "CA$" };
+  return (
+    (sym[currency] || currency + " ") + Math.round(n).toLocaleString("en-US")
+  );
+};
 
 // Cache the three heavy reads (Supabase aggregate + Stripe API + NRR) for 60s —
 // the Revenue page is the slowest (live Stripe calls) and doesn't need
@@ -152,7 +168,7 @@ export default async function RevenuePage() {
         </p>
       </div>
 
-      {/* Live from Stripe — actual billed revenue + dunning + refunds */}
+      {/* Live from Stripe — actual billed revenue, PER CURRENCY (never blended) */}
       {stripe ? (
         <div className="bg-[#131a2e] rounded-xl border border-white/10 p-6">
           <div className="mb-4 flex items-center justify-between">
@@ -160,34 +176,68 @@ export default async function RevenuePage() {
               Live from Stripe
             </h2>
             <span className="text-xs text-emerald-400">
-              actual billed amounts
+              actual billed amounts · per currency
             </span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <Metric label="MRR (real)" value={usd(stripe.mrr)} accent />
+            {/* One MRR metric per billing currency — USD and CAD are not added
+                together (doing so overstated MRR by ~18%). */}
+            {stripe.mrrByCurrency.length > 0 ? (
+              stripe.mrrByCurrency.map((m, i) => (
+                <Metric
+                  key={m.currency}
+                  label={`MRR · ${m.currency}`}
+                  value={money(m.currency, m.amount)}
+                  sub={`${money(m.currency, m.amount * 12)} ARR`}
+                  accent={i === 0}
+                />
+              ))
+            ) : (
+              <Metric label="MRR" value="$0" accent />
+            )}
             <Metric label="Active subs" value={String(stripe.activeSubs)} />
             <Metric
               label="Past-due (dunning)"
               value={String(stripe.dunningSubs)}
-              sub={`${usd(stripe.dunningMrr)}/mo at risk`}
+              sub={
+                stripe.dunningMrrByCurrency
+                  .map((m) => `${money(m.currency, m.amount)}/mo`)
+                  .join(" + ") || "none at risk"
+              }
             />
             <Metric
-              label="Refunds (30d)"
+              label="Refunds 30d (USD)"
               value={usd(stripe.refunds30d)}
-              sub={`${stripe.refundCount30d} refunds`}
+              sub={`${stripe.refundCount30d} refunds (all cur.)`}
             />
-            <Metric
-              label="Stripe balance"
-              value={usd(stripe.balanceAvailable)}
-              sub={`${usd(stripe.balancePending)} pending`}
-            />
+          </div>
+          <div className="mt-4 border-t border-white/5 pt-4">
+            <p className="mb-2 text-xs text-gray-400">Stripe balance</p>
+            <div className="flex flex-wrap gap-4 text-sm">
+              {stripe.balanceByCurrency.length > 0 ? (
+                stripe.balanceByCurrency.map((b) => (
+                  <span key={b.currency} className="text-gray-300">
+                    <span className="font-semibold text-white">
+                      {money(b.currency, b.available)}
+                    </span>{" "}
+                    available
+                    <span className="text-gray-500">
+                      {" "}
+                      · {money(b.currency, b.pending)} pending
+                    </span>
+                  </span>
+                ))
+              ) : (
+                <span className="text-gray-500">—</span>
+              )}
+            </div>
           </div>
         </div>
       ) : (
         <div className="rounded-xl border border-white/10 bg-[#131a2e] p-6 text-sm text-gray-400">
-          Stripe not configured — the numbers below are list-price estimates.
-          Set STRIPE_SECRET_KEY to see real billed MRR, dunning (failed
-          payments), and refunds.
+          Stripe not configured — the numbers below are USD list-price
+          estimates. Set STRIPE_SECRET_KEY to see real billed MRR per currency,
+          dunning (failed payments), and refunds.
         </div>
       )}
 
@@ -260,12 +310,16 @@ export default async function RevenuePage() {
         )}
       </div>
 
-      {/* Headline metrics (estimated from list prices — see Stripe panel for real) */}
+      {/* Operational metrics — COUNTS and rates (currency-agnostic). Dollar MRR
+          lives in the per-currency Stripe panel above. The est. MRR appears
+          only as a reference here and as the fallback when Stripe is off. */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Metric label="MRR (est.)" value={usd(d.mrr)} accent />
-        <Metric label="ARR (est.)" value={usd(d.arr)} />
-        <Metric label="Paying customers" value={String(d.payingCount)} />
-        <Metric label="ARPU" value={usd(d.arpu) + "/mo"} />
+        <Metric label="Paying customers" value={String(d.payingCount)} accent />
+        <Metric
+          label="In trial now"
+          value={String(d.trialingCount)}
+          sub="pipeline"
+        />
         <Metric
           label="Trial → paid"
           value={`${Math.round(d.conversion * 10) / 10}%`}
@@ -277,29 +331,33 @@ export default async function RevenuePage() {
           sub={`${d.paidChurnCount} paid cancels`}
         />
         <Metric
-          label="In trial now"
-          value={String(d.trialingCount)}
-          sub="pipeline"
-        />
-        <Metric
           label="Trials expired"
           value={String(d.expiredTrials)}
           sub="never converted"
         />
+        {!stripe && (
+          <>
+            <Metric label="MRR (USD est.)" value={usd(d.estMrrUsd)} />
+            <Metric label="ARR (USD est.)" value={usd(d.estMrrUsd * 12)} />
+          </>
+        )}
       </div>
 
-      {/* MRR by tier */}
+      {/* Customers by tier — COUNT view. Dollar MRR is per-currency in the
+          Stripe panel; a tier can hold both USD and CAD subs, so a single
+          blended MRR-per-tier column would be wrong. */}
       <div className="bg-[#131a2e] rounded-xl border border-white/10 overflow-hidden">
         <div className="px-6 py-3 border-b border-white/5">
-          <h2 className="text-sm font-semibold text-white">MRR by tier</h2>
+          <h2 className="text-sm font-semibold text-white">
+            Customers by tier
+          </h2>
         </div>
         <table className="w-full">
           <thead>
             <tr className="text-left text-xs text-gray-400 border-b border-white/5">
               <th className="px-6 py-2 font-medium">Tier</th>
-              <th className="px-6 py-2 font-medium">Customers</th>
-              <th className="px-6 py-2 font-medium">Price</th>
-              <th className="px-6 py-2 font-medium">MRR</th>
+              <th className="px-6 py-2 font-medium">Paying customers</th>
+              <th className="px-6 py-2 font-medium">List price (USD)</th>
             </tr>
           </thead>
           <tbody>
@@ -308,12 +366,9 @@ export default async function RevenuePage() {
                 <td className="px-6 py-3 text-sm text-white capitalize">
                   {t.tier}
                 </td>
-                <td className="px-6 py-3 text-sm text-gray-300">{t.count}</td>
+                <td className="px-6 py-3 text-sm text-cyan-400">{t.count}</td>
                 <td className="px-6 py-3 text-sm text-gray-500">
-                  {usd(TIER_MRR[t.tier])}/mo
-                </td>
-                <td className="px-6 py-3 text-sm text-cyan-400">
-                  {usd(t.mrr)}
+                  {usd(TIER_LIST_USD[t.tier])}/mo
                 </td>
               </tr>
             ))}
@@ -348,11 +403,12 @@ export default async function RevenuePage() {
       </div>
 
       <p className="text-xs text-gray-600">
-        MRR uses list prices ({usd(TIER_MRR.solopreneur)}/
-        {usd(TIER_MRR.business)}/{usd(TIER_MRR.firm)} per tier). Paid churn
-        excludes expired trials (those are trial non-conversions, tracked
-        separately). CAD subscribers are counted at the USD-tier price as an
-        approximation.
+        Dollar MRR comes from Stripe, reported per billing currency — USD and
+        CAD are never added together. The list-price estimate (
+        {usd(TIER_LIST_USD.solopreneur)}/{usd(TIER_LIST_USD.business)}/
+        {usd(TIER_LIST_USD.firm)} per tier, USD) is a reference/fallback only.
+        Paid churn excludes expired trials (those are trial non-conversions,
+        tracked separately).
       </p>
     </div>
   );

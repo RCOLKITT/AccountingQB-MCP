@@ -126,9 +126,15 @@ export async function POST(req: NextRequest) {
         ).toISOString();
       }
 
-      // Capture billing amount
+      // Capture billing amount + the currency it's billed in. The amount is in
+      // the SUBSCRIPTION's currency (sub.currency), which can be CAD even when
+      // the price is USD-based — so we must store the currency or MRR math
+      // blends CAD into USD. See lib/stripe-revenue.ts.
       if (sub.items?.data?.[0]?.price?.unit_amount) {
         updateData.billing_amount_cents = sub.items.data[0].price.unit_amount;
+      }
+      if (sub.currency) {
+        updateData.currency = sub.currency;
       }
 
       // Get card info from default payment method

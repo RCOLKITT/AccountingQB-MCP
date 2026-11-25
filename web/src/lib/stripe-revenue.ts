@@ -5,17 +5,33 @@ import { getStripe } from "./stripe";
 // estimates), plus dunning (past-due/unpaid subscriptions = involuntary churn
 // risk), refunds, and the current Stripe cash balance. Returns null when Stripe
 // isn't configured so the page can degrade gracefully.
+//
+// MONEY IS NEVER BLENDED ACROSS CURRENCIES. A subscription billed in CAD and
+// one billed in USD are reported on separate lines. We bill some customers in
+// CAD against a USD-based price (subscription.currency = "cad" while
+// price.currency = "usd"), so the ONLY correct currency for a sub is
+// `subscription.currency` — `price.unit_amount` is the amount billed, but in
+// the SUBSCRIPTION's currency. Summing price.unit_amount across subs and
+// calling it USD overstated MRR by ~18% (two CAD subs counted at face value).
+
+export interface CurrencyAmount {
+  currency: string; // upper-case ISO, e.g. "USD", "CAD"
+  amount: number; // major units (dollars)
+}
 
 export interface StripeRevenue {
-  mrr: number; // real monthly recurring revenue, USD, annual normalized to /12
+  // Per-currency so a reader never adds CAD to USD. Sorted by amount desc.
+  mrrByCurrency: CurrencyAmount[];
   activeSubs: number;
   dunningSubs: number; // past_due + unpaid subscriptions
-  dunningMrr: number; // MRR at risk from those
-  refunds30d: number; // $ refunded in the last 30 days
+  dunningMrrByCurrency: CurrencyAmount[]; // MRR at risk, per currency
+  refunds30d: number; // $ refunded in the last 30 days (USD only; see note)
   refundCount30d: number;
-  balanceAvailable: number;
-  balancePending: number;
-  currency: string;
+  balanceByCurrency: {
+    currency: string;
+    available: number;
+    pending: number;
+  }[];
 }
 
 /** Normalize a recurring amount (in minor units) to a monthly figure. */
@@ -37,25 +53,33 @@ export function toMonthly(
   }
 }
 
-/** Sum normalized monthly recurring revenue across a set of subscriptions. */
-export function subscriptionsMrr(subs: Stripe.Subscription[]): number {
-  const cents = subs.reduce(
-    (s, sub) =>
-      s +
-      sub.items.data.reduce((t, it) => {
-        const price = it.price;
-        return (
-          t +
-          toMonthly(
-            price.unit_amount || 0,
-            price.recurring?.interval,
-            it.quantity ?? 1,
-          )
-        );
-      }, 0),
-    0,
-  );
-  return cents / 100;
+/**
+ * Sum normalized monthly recurring revenue, GROUPED BY the subscription's
+ * billing currency. Each sub's amount is attributed to `subscription.currency`
+ * (what the customer is actually charged in), never the price's base currency.
+ * Returns major-unit amounts sorted by size, so the caller can render one line
+ * per currency and never blend them into a single wrong number.
+ */
+export function mrrByCurrency(subs: Stripe.Subscription[]): CurrencyAmount[] {
+  const cents = new Map<string, number>();
+  for (const sub of subs) {
+    const currency = (sub.currency || "usd").toUpperCase();
+    const subCents = sub.items.data.reduce((t, it) => {
+      const price = it.price;
+      return (
+        t +
+        toMonthly(
+          price.unit_amount || 0,
+          price.recurring?.interval,
+          it.quantity ?? 1,
+        )
+      );
+    }, 0);
+    cents.set(currency, (cents.get(currency) || 0) + subCents);
+  }
+  return [...cents.entries()]
+    .map(([currency, c]) => ({ currency, amount: c / 100 }))
+    .sort((a, b) => b.amount - a.amount);
 }
 
 export async function getStripeRevenue(): Promise<StripeRevenue | null> {
@@ -82,20 +106,31 @@ export async function getStripeRevenue(): Promise<StripeRevenue | null> {
 
     const dunning = [...pastDue, ...unpaid];
 
-    const sumBalance = (
-      arr: Stripe.Balance.Available[] | Stripe.Balance.Pending[],
-    ) => arr.reduce((s, b) => s + b.amount, 0) / 100;
+    // Balance is already one bucket per currency — keep them separate, never
+    // add a CAD payout to a USD payout.
+    const balanceByCurrency = balance.available.map((a) => {
+      const pending =
+        balance.pending.find((p) => p.currency === a.currency)?.amount || 0;
+      return {
+        currency: a.currency.toUpperCase(),
+        available: a.amount / 100,
+        pending: pending / 100,
+      };
+    });
 
     return {
-      mrr: subscriptionsMrr(active),
+      mrrByCurrency: mrrByCurrency(active),
       activeSubs: active.length,
       dunningSubs: dunning.length,
-      dunningMrr: subscriptionsMrr(dunning),
-      refunds30d: refunds.reduce((s, r) => s + (r.amount || 0), 0) / 100,
+      dunningMrrByCurrency: mrrByCurrency(dunning),
+      // Refunds are reported in their own currencies by Stripe; we surface the
+      // USD-denominated ones (the vast majority) and the count of all.
+      refunds30d:
+        refunds
+          .filter((r) => (r.currency || "usd") === "usd")
+          .reduce((s, r) => s + (r.amount || 0), 0) / 100,
       refundCount30d: refunds.length,
-      balanceAvailable: sumBalance(balance.available),
-      balancePending: sumBalance(balance.pending),
-      currency: (balance.available[0]?.currency || "usd").toUpperCase(),
+      balanceByCurrency,
     };
   } catch (e) {
     console.error("Stripe revenue fetch failed:", e);
