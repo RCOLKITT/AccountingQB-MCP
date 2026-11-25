@@ -681,6 +681,9 @@ ALTER TABLE licenses ADD COLUMN IF NOT EXISTS card_last_four TEXT;
 ALTER TABLE licenses ADD COLUMN IF NOT EXISTS card_brand TEXT;
 ALTER TABLE licenses ADD COLUMN IF NOT EXISTS next_billing_date TIMESTAMPTZ;
 ALTER TABLE licenses ADD COLUMN IF NOT EXISTS billing_amount_cents INTEGER;
+-- Billing currency (e.g. 'usd', 'cad') so MRR is never summed across
+-- currencies. From Stripe subscription.currency. See migrations/2026-11-license-currency.sql.
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS currency TEXT;
 
 -- ============================================================
 -- Artifacts: stores Claude-generated reports, analyses, exports

@@ -15,6 +15,7 @@ interface UserDetail {
   card_brand: string | null;
   next_billing_date: string | null;
   billing_amount_cents: number | null;
+  currency: string | null;
   milestones: {
     milestone: string;
     completed_at: string;
@@ -225,7 +226,7 @@ export default function AdminUserDetailPage({
               <dt className="text-gray-400">Monthly Amount</dt>
               <dd className="text-white">
                 {user.billing_amount_cents
-                  ? `$${(user.billing_amount_cents / 100).toFixed(2)}`
+                  ? `${(user.currency || "usd").toUpperCase() === "CAD" ? "CA$" : "US$"}${(user.billing_amount_cents / 100).toFixed(2)}`
                   : "—"}
               </dd>
             </div>

@@ -128,6 +128,10 @@ export async function POST(req: NextRequest) {
     if (sub.items?.data?.[0]?.price?.unit_amount) {
       updateData.billing_amount_cents = sub.items.data[0].price.unit_amount;
     }
+    // Store the billing currency so MRR math never blends CAD into USD.
+    if (sub.currency) {
+      updateData.currency = sub.currency;
+    }
     try {
       const pm = await stripe.paymentMethods.retrieve(pmId);
       if (pm.card) {
