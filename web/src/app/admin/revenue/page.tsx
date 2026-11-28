@@ -1,6 +1,7 @@
 import { getSupabase } from "@/lib/supabase";
 import { getStripeRevenue } from "@/lib/stripe-revenue";
 import { getNrr } from "@/lib/nrr";
+import { getUsdRates, blendToUsd } from "@/lib/fx";
 import { unstable_cache } from "next/cache";
 
 // Revenue cockpit — MRR/ARR, paying customers, trial→paid conversion, paid
@@ -158,6 +159,37 @@ export default async function RevenuePage() {
   );
   const maxSnap = Math.max(1, ...nrr.trend.map((t) => t.mrr));
 
+  // Estimated ARR (active subs), blended to USD. Authoritative per-currency MRR
+  // is never blended — this is an explicitly-labeled estimate that always shows
+  // the FX rate + as-of date it used. ARR = current active MRR × 12 per
+  // currency, then converted to USD.
+  let arrEstimate: {
+    usd: number;
+    rateNote: string;
+    missing: string[];
+  } | null = null;
+  if (stripe && stripe.mrrByCurrency.length > 0) {
+    const fx = await getUsdRates(stripe.mrrByCurrency.map((m) => m.currency));
+    const annual = stripe.mrrByCurrency.map((m) => ({
+      currency: m.currency,
+      amount: m.amount * 12,
+    }));
+    const { usd, missing } = blendToUsd(annual, fx.rates);
+    const nonUsd = stripe.mrrByCurrency
+      .map((m) => m.currency)
+      .filter((c) => c.toUpperCase() !== "USD");
+    const rateBits = nonUsd
+      .map((c) => `${c}@${(fx.rates[c.toUpperCase()] ?? 1).toFixed(3)}`)
+      .join(", ");
+    arrEstimate = {
+      usd,
+      rateNote: nonUsd.length
+        ? `est · ${rateBits} ${fx.live ? "as of" : "fallback"} ${fx.asOf}`
+        : "exact (USD only)",
+      missing,
+    };
+  }
+
   return (
     <div className="space-y-8">
       <div>
@@ -179,6 +211,26 @@ export default async function RevenuePage() {
               actual billed amounts · per currency
             </span>
           </div>
+          {/* Estimated ARR (active subs), blended to USD — the single headline
+              number. Per-currency MRR/ARR below stays authoritative (no blend). */}
+          {arrEstimate && (
+            <div className="mb-4 rounded-lg border border-cyan-500/40 bg-cyan-500/5 px-5 py-4">
+              <p className="text-xs text-gray-400">
+                Estimated ARR · active subscriptions
+              </p>
+              <p className="mt-1 text-3xl font-bold text-cyan-300">
+                {usd(arrEstimate.usd)}
+                <span className="ml-1 text-base font-normal text-gray-400">
+                  /yr
+                </span>
+              </p>
+              <p className="mt-0.5 text-xs text-gray-500">
+                {arrEstimate.rateNote}
+                {arrEstimate.missing.length > 0 &&
+                  ` · ⚠️ no FX rate for ${arrEstimate.missing.join(", ")} (counted 1:1)`}
+              </p>
+            </div>
+          )}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {/* One MRR metric per billing currency — USD and CAD are not added
                 together (doing so overstated MRR by ~18%). */}
